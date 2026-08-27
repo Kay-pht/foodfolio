@@ -4,9 +4,23 @@
 
 `docs/poc-validation-plan.md` に基づくPoCの実施結果を記録する。
 
-本書では、2026-08-27時点でChatGPTのチャット環境内から実施できた範囲のみを完了扱いにする。
+本書では、**本番または本番相当の実行経路で再現できた結果だけをPoC完了の根拠として扱う。**
 
-実APIキー、ブラウザ実行環境、実機等が必要な項目は未完了のまま残す。
+以下はPoC成功の証拠として扱わない。
+
+- ChatGPTのWeb検索・ブラウジング機能を介して取得したページ内容
+- ChatGPT会話内で生成したAI抽出結果
+- 検索インデックスや独自のページ解析経路を介した取得結果
+- 本番Backendと異なるネットワーク経路だけで確認した結果
+
+これらは検証対象や実装候補を考えるための参考情報としてのみ利用する。
+
+PoC完了判定には、例えば以下のような再現可能な証拠を要求する。
+
+- Node.js / `fetch` 等、本番Backendで採用予定のHTTPクライアントからの直接取得結果
+- 採用候補の公式APIを実APIキーで呼び出した結果
+- 実際のProvider APIから返されたレスポンス
+- 同一fixture・同一評価器を用いた再実行可能な比較結果
 
 ---
 
@@ -14,23 +28,27 @@
 
 ### PoC 1 — 外部URL情報取得
 
-- [x] 一般Webの実レシピページで本文・材料・人数・調理時間・手順を取得できることを確認
-- [x] クラシルの実レシピページで本文・材料・人数・調理時間・手順を取得できることを確認
-- [x] クックパッドの実レシピについて、レシピ本文・材料・人数・手順が取得可能なケースを確認
-- [x] YouTubeの実動画について、説明欄に材料・人数・所要時間・手順が含まれ、構造化可能なケースを確認
-- [ ] クックパッドの本番Backend相当の直接HTTP取得方式を確定
-- [ ] YouTubeの本番取得方式を確定
-- [ ] Instagramの実投稿URLで取得方式を検証
-- [ ] TikTokの実投稿URLで取得方式を検証
+現時点で、PoC完了として認められる取得検証はまだない。
+
+- [ ] 本番Backend相当のHTTP実行環境で一般Webを取得検証
+- [ ] 本番Backend相当のHTTP実行環境でクラシルを取得検証
+- [ ] 本番Backend相当のHTTP実行環境でクックパッドを取得検証
+- [ ] YouTubeの本番取得方式を実検証
+- [ ] Instagramの実投稿URLで取得方式を実検証
+- [ ] TikTokの実投稿URLで取得方式を実検証
 - [ ] 各対象サービスを「MVP利用可能 / 条件付き / 非対応」に最終分類
 
 ### PoC 2 — AIレシピ構造化
 
+PoC実施のための準備物として以下は作成済み。
+
 - [x] foodfolio用の暫定 `ExtractedRecipe` JSON Schemaを作成
-- [x] 基準データ4件を作成
-- [x] Schema形状・材料precision / recall・分量一致率を測る評価スクリプトを作成
-- [x] ChatGPT内で4件を構造化し、評価スクリプトを実行するスモークテストを完了
+- [x] AI評価スクリプトを作成
 - [x] AI候補の公式料金を再確認し、比較用の料金ベースラインを作成
+
+以下は未完了。
+
+- [ ] 本番相当のURL取得結果を元に比較用fixtureを確定
 - [ ] Gemini実APIで同一fixtureを実行
 - [ ] OpenAI実APIで同一fixtureを実行
 - [ ] Qwen実APIで同一fixtureを実行
@@ -41,8 +59,8 @@
 
 ### PoC 3 — URL取得からAI解析までの統合確認
 
-- [x] 取得済みの実レシピ情報4件を `ExtractedRecipe` へ変換するチャット内E2Eスモークテストを完了
-- [x] Schema validation相当の構造チェックを通過することを確認
+現時点では未完了。
+
 - [ ] PoC 1で確定した本番候補のURL取得方式からAI入力テキストを生成
 - [ ] 採用AI Provider / Modelの実APIへ入力
 - [ ] 実API出力をSchema validation
@@ -50,39 +68,35 @@
 
 ---
 
-## 3. PoC 1 実測結果
+## 3. ChatGPT内で行った確認の扱い
 
-### 3.1 使用したサンプル
+ChatGPTのWeb取得機能を用いて、一般Web、クラシル、クックパッド、YouTube等のページ上にレシピ情報が存在することは参考として確認した。
 
-| Source | URL | チャット環境で確認できた情報 |
-| --- | --- | --- |
-| 一般Web | https://www.kikkoman.co.jp/homecook/search/recipe/00050326/ | 料理名、2人分、15分、材料、分量、手順 |
-| クラシル | https://www.kurashiru.com/recipes/a3b1f093-1f5e-4114-8cc8-8869e8e6871d | 料理名、2人前、20分、材料、分量、手順 |
-| クックパッド | https://cookpad.com/jp/recipes/21712598 | 料理名、1〜2人分、材料、分量、手順 |
-| YouTube | https://www.youtube.com/watch?v=0to72EbNg8A | 動画説明欄から料理名相当、4人前、20分、材料、分量、手順 |
+ただし、この取得経路は本番Backendで予定している次の経路とは異なる。
 
-### 3.2 現時点の判定
+```text
+Cloud Run / Node.js
+↓
+HTTP client (`fetch` 等)
+↓
+対象URLまたは公式API
+↓
+実レスポンス
+```
 
-| Source | レシピ情報取得 | 本番取得方式 | 暫定判定 | 備考 |
-| --- | --- | --- | --- | --- |
-| 一般Web | 成功 | 未確定 | 有望 | HTMLからレシピセクションを抽出できるページを確認 |
-| クラシル | 成功 | 未確定 | 有望 | ページ本文に構造化しやすい材料・手順が存在 |
-| クックパッド | 成功例あり | 未確定 | 有望だが要追加検証 | チャットの検索取得では本文を確認できたが、直接ページopenは安定確認できていない |
-| YouTube | 成功例あり | 未確定 | 条件付き候補 | 説明欄にレシピが書かれている動画では十分な情報が得られた。通常ページopenでは説明欄を取得できないケースを確認 |
-| Instagram | 未実施 | 未確定 | 未確定 | チャット環境では実投稿の取得検証を完了できず |
-| TikTok | 一部公開情報のみ | 未確定 | 未確定 | 個別投稿URLの直接取得検証を完了できず |
+そのため、これらの確認結果から以下を断定しない。
 
-### 3.3 SNS系で確認した事項
+- Cloud Runから同じHTML / データを取得できる
+- CookieやJavaScript実行なしで取得できる
+- Bot対策やアクセス制限に阻まれない
+- 同じ方法で継続的に取得できる
+- MVP正式対応可能である
 
-YouTubeは、サンプル動画の説明欄自体にはレシピ情報が十分含まれていたが、通常の動画ページ取得では説明欄が得られないケースがあった。
-
-YouTube Data APIのVideo `snippet` には `description` が定義されているため、本番候補方式としてData API利用を検討できる。ただしAPIキーを利用した実取得はこのPoCでは未実施である。
-
-TikTok公式Display APIのVideo Objectには `video_description` / `title` 等が存在する一方、Display APIは認可を伴う利用フローを前提とする。任意のユーザーが貼り付けた第三者投稿URLをfoodfolioから取得する方式として利用可能かは、この結果だけでは確定しない。
+以前の文書で「取得成功」「E2E成功」と表現していたチャット内確認は、**参考観察へ訂正し、PoC完了判定から除外する。**
 
 ---
 
-## 4. Recipe Schema PoC
+## 4. Recipe Schema
 
 作成ファイル：
 
@@ -99,28 +113,13 @@ TikTok公式Display APIのVideo Objectには `video_description` / `title` 等�
 - `ingredients[].amount`
 - `steps[]`
 
-### 4.1 PoCで得たSchema上の発見
+Schemaの作成自体は完了している。
 
-人数は単純な整数だけでは表現できない。
+ただし、実データに対して十分かどうかは本番相当のURL取得PoCおよびAI実API比較を通して再評価する。
 
-クックパッドのサンプルでは `1〜2人分` のような範囲表記を確認した。
+`servings.raw` は、人数が単一数値に正規化できないケースを保持できるようにするための暫定設計である。
 
-MVPの人数変更は単一の基準人数から比例計算するため、暫定Schemaでは以下のように扱う。
-
-```json
-{
-  "servings": {
-    "value": null,
-    "raw": "1〜2人分"
-  }
-}
-```
-
-単一数値へ安全に正規化できない場合は `value = null` とし、原文を `raw` に保持する。
-
-これにより、原典に人数表記が存在していても基準人数を一意に決められない場合は、人数変更UIの対象外にできる。
-
-このデータモデルはPoC段階の暫定案であり、正式なDBモデルは実装設計で確定する。
+正式なDBモデルは実装設計で確定する。
 
 ---
 
@@ -128,11 +127,9 @@ MVPの人数変更は単一の基準人数から比例計算するため、暫�
 
 作成ファイル：
 
-- `poc/ai-extraction/results/expected.json`
-- `poc/ai-extraction/results/chatgpt-baseline.json`
 - `poc/ai-extraction/evaluate.mjs`
 
-評価スクリプトでは現時点で以下を確認する。
+評価スクリプトでは現時点で以下を確認できる。
 
 - 必須フィールドの構造チェック
 - title一致
@@ -143,80 +140,73 @@ MVPの人数変更は単一の基準人数から比例計算するため、暫�
 - ingredient amount完全一致率
 - step件数
 
-実行例：
+評価スクリプトの作成自体は完了している。
 
-```bash
-node poc/ai-extraction/evaluate.mjs
-```
+### 5.1 既存のChatGPT baselineについて
 
-### 5.1 チャット内スモークテスト結果
+`chatgpt-baseline.json` を使った実行は、**評価スクリプトが動作することを確認するための自己テスト**としてのみ扱う。
 
-4ケースについて評価スクリプトを実行し、以下を確認した。
+これは以下の理由からAIモデル精度のPoC結果には含めない。
 
-```text
-cases: 4
-schemaSuccessRate: 1.0
-ingredientPrecision: 1.0
-ingredientRecall: 1.0
-ingredientAmountExactRate: 1.0
-```
+- 入力取得が本番相当経路ではない
+- ChatGPT会話内で内容を確認しながらbaselineを作成している
+- 実Provider APIを独立に呼び出した結果ではない
 
-この値は **ChatGPT内で取得内容を確認しながら作成したbaselineが評価基盤を正常に通過することを確認するスモークテスト** である。
-
-独立したAI Provider間の性能比較結果ではないため、この100%という値をAIモデルの精度評価には使用しない。
-
-実API比較では、Providerへ同一の入力を独立して与えた出力を保存し、同じ評価器で比較する。
+したがって、過去に得られた100%等の値はProvider選定には使用しない。
 
 ---
 
 ## 6. AI料金ベースライン
 
-2026-08-27時点の各社公式料金から、低コスト候補を比較するための基準値を記録する。
+AI候補の公式料金を比較するための基準値は、各Providerの公式料金情報を元に作成した。
 
-| Candidate | Input / 1M tokens | Output / 1M tokens | 10k input + 1k outputの概算 |
-| --- | ---: | ---: | ---: |
-| Qwen3.5 Flash | $0.029 | $0.287 | 約$0.000577 |
-| Gemini 2.5 Flash-Lite | $0.10 | $0.40 | 約$0.0014 |
-| OpenAI GPT-5.4 nano | $0.10 | $0.625 | 約$0.001625 |
-| DeepSeek V4 Flash | $0.14 | $0.28 | 約$0.00168 |
-| Claude Haiku 4.5 | $1.00 | $5.00 | 約$0.015 |
+これは技術性能PoCではなく、**価格調査結果**として有効とする。
 
-注意：
+実際の1レシピあたりコストは、実API PoCで入力Token / 出力Tokenを計測して確定する。
 
-- これは精度を考慮しない単純な料金比較である
-- 実際の1レシピあたりToken数は実API PoCで計測する
-- Qwenはdeployment scope / context長等で料金が変わる
-- DeepSeekはcache hit / miss等で料金が変わる
-- 各社価格は変更される可能性があるため、採用決定時に再確認する
-
-参考公式ページ：
-
-- https://ai.google.dev/gemini-api/docs/pricing
-- https://platform.openai.com/pricing
-- https://api-docs.deepseek.com/quick_start/pricing/
-- https://www.alibabacloud.com/help/en/model-studio/model-pricing
-- https://www.anthropic.com/claude/haiku
+採用決定時には各社公式料金を再確認する。
 
 ---
 
-## 7. 現時点で確定してよいこと
+## 7. 現時点で完了と認めるもの
 
-- Webレシピページからレシピ構造化までの基本フロー自体は成立する
-- Recipe Schemaと評価基盤を使ってAI Providerを同条件比較できる状態になった
-- `servings` は数値だけでなく原文保持が必要
-- SNS系URLを一般Webと同じ単純HTML取得方式で一括処理する前提にはしない
-- AI Provider / Modelはまだ確定しない
+以下のみ完了扱いとする。
+
+- PoC検証計画書の作成
+- Recipe Schemaの作成
+- AI評価スクリプトの作成
+- 公式情報に基づくAI料金ベースライン調査
+
+これらはPoCを実施するための準備成果物であり、**URL取得・AI精度・E2E成立を証明したものではない。**
 
 ---
 
-## 8. 次に外部環境で実施する項目
+## 8. 現時点で未確定の事項
 
-- [ ] YouTube Data API等を使い、実動画URLからdescriptionを本番Backend相当の方法で取得する
-- [ ] Instagram実投稿URLの取得方式を検証する
-- [ ] TikTok実投稿URLの取得方式を検証する
-- [ ] Gemini / OpenAI / Qwen / DeepSeekへ同一fixtureを投入する
+- 一般Webの本番相当取得方式と成功率
+- クラシルの本番相当取得方式と成功率
+- クックパッドの本番相当取得方式と成功率
+- YouTubeの本番取得方式
+- Instagramの取得方式
+- TikTokの取得方式
+- MVP正式対応URLソース
+- AI Provider
+- AI Model
+- AI実APIでの抽出精度
+- hallucination水準
+- 実際の1レシピあたりAIコスト
+- URL取得 → AI解析 → Schema validationの最終E2E成立
+
+---
+
+## 9. 次に実施する項目
+
+- [ ] 本番Backend相当のNode.js HTTP実行環境から対象URLを直接取得する
+- [ ] 必要なサービスは公式API等の本番候補方式を実際に呼び出す
+- [ ] その取得結果を保存し、AI比較fixtureを確定する
+- [ ] Gemini / OpenAI / Qwen / DeepSeekへ同一fixtureを実API投入する
 - [ ] 結果を `evaluate.mjs` で比較する
 - [ ] 採用AI Provider / Modelを決定する
 - [ ] 採用取得方式 + 採用AIで最終E2Eを通す
 
-上記が完了するまでは `todo.md` の「技術選定・技術検証」全体は未完了とする。
+上記が完了するまでは `todo.md` の `poc` は未完了とする。
