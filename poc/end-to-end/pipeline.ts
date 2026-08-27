@@ -5,7 +5,7 @@ import type {
   ProviderName,
   ProviderResponse,
 } from "../ai-extraction/types.js";
-import recipeSchema from "../shared/recipe-schema.json" with { type: "json" };
+import recipeSchema from "../../schemas/extracted-recipe.schema.json" with { type: "json" };
 import { extractUrl } from "../url-extraction/extract.js";
 import type { UrlCase } from "../url-extraction/types.js";
 
