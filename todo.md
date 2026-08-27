@@ -4,7 +4,7 @@
 - [x] MVP基本設計
 - [x] UI/UX設計・FigJamワイヤーフレーム
 - [x] 技術選定
-- [ ] poc
+- [x] poc
   - [x] PoC検証計画書作成
   - [x] Recipe Schema作成
   - [x] AI評価スクリプト作成
@@ -14,10 +14,10 @@
   - [x] Instagram実投稿URLの取得方式を実検証
   - [x] TikTok実投稿URLの取得方式を実検証
   - [x] ローカルNode.jsの取得結果を元にAI比較用fixtureを確定
-  - [ ] Gemini / OpenAI / Z.ai / DeepSeekの実API比較（全社の課金残高不足で停止中）
-  - [ ] Gemini URL Contextの別枠実API検証（Geminiの課金残高不足で停止中）
-  - [ ] AI Provider / Model確定
-  - [ ] 採用取得方式 + 採用AIで最終E2E確認
+  - [x] Z.ai先行実API評価とGemini Free Tier比較
+  - [x] Gemini URL Contextの別枠実API検証
+  - [x] AI Provider / Model確定（Z.ai / GLM-5.3-Flash）
+  - [x] 採用取得方式 + 採用AIで最終E2E確認（5 URL × 3回）
 - [ ] 実装設計
 - [ ] 実装・テスト
 - [ ] TestFlightリリース準備

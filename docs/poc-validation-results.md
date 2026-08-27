@@ -1,32 +1,20 @@
 # foodfolio MVP PoC検証結果
 
-## 1. 判定サマリー
+## 1. 最終判定
 
-実施日時は2026-08-27、実行環境はローカルNode.js v24.18.0である。Cloud Runでの確認結果ではない。
+2026-08-27、ローカルNode.js v24.18.0でPoCを実施した。Cloud Runでの確認結果ではない。
 
-| PoC | 現在の判定 | 根拠 |
+| PoC | 判定 | 根拠 |
 | --- | --- | --- |
-| 外部URL情報取得 | 完了 | 6ソース各3件と負例2件、合計20件をNode.js `fetch`で直接取得 |
-| AIレシピ構造化 | 未完了 | 4社すべてが課金残高不足を返し、モデル出力を取得できなかった |
-| 実URL E2E | 未完了 | 採用Provider / Modelを選定できていないため未実行 |
+| 外部URL情報取得 | 完了 | 6ソース各3件と負例2件、合計20件を直接取得 |
+| AIレシピ構造化 | 完了 | Z.ai `glm-5.3-flash`が固定5 fixtureですべての基準を達成 |
+| 実URL E2E | 完了 | 5実URL×3回、計15回すべて合格 |
 
-PoC全体は未完了である。APIキーは4社とも設定済みで、各ProviderのAPI endpointへ到達したが、利用残高の補充が必要である。
+MVPの標準AI Provider / ModelはZ.ai / `glm-5.3-flash`とする。URL取得はローカルNode.jsで実証したサービス別抽出を採用し、Gemini URL ContextはMVPの共通経路には採用しない。
 
 ## 2. PoC 1 — 外部URL情報取得
 
-### 2.1 実行方法
-
-`npm run poc:url`で、`poc/url-extraction/cases.json`の20件を同じローカルNode.js処理から取得した。
-
-- 一般Web、クラシル、クックパッド、YouTube、Instagram、TikTokを各3件
-- 非レシピ負例を2件
-- HTML全文と本文全文は`poc/artifacts/`配下へ保存しない
-- AI入力を含むローカル証拠はgitignore対象の`poc/artifacts/`へ保存
-- Git対象にはURL、取得日時、HTTP結果、抽出済み情報、ハッシュ、判定だけを保存
-
-### 2.2 サービス判定
-
-最新の機械可読結果は`poc/results/url-source-classification.json`に保存した。
+`npm run poc:url`で、`poc/url-extraction/cases.json`の20件を同じNode.js `fetch`実装から取得した。
 
 | ソース | AI入力可能 | 画像URL | JS依存シグナル | 判定 |
 | --- | ---: | ---: | ---: | --- |
@@ -37,96 +25,128 @@ PoC全体は未完了である。APIキーは4社とも設定済みで、各Prov
 | Instagram | 3/3 | 3/3 | 1/3 | MVP利用可能（公開メタデータ範囲） |
 | TikTok | 1/3 | 3/3 | 3/3 | 条件付き |
 
-TikTokは再実行間でも0/3から1/3へ変動した。公開oEmbedまたはHTMLメタデータに十分なレシピ本文が含まれる投稿だけを扱い、本文不足時は解析不能として返す必要がある。
+TikTokは実行間でも0/3から1/3へ変動した。公開oEmbedまたはHTMLメタデータに十分なレシピ本文がある投稿だけを扱い、本文不足時は解析不能として返す。
 
-YouTubeはoEmbedだけでは説明文が短いため、ページ内の`ytInitialPlayerResponse.videoDetails.shortDescription`を抽出する。Instagramは公開OGメタデータに投稿本文が含まれるケースを使用する。認証回避、非公開投稿取得、動画・画像本体の無断ダウンロードは実装していない。
+YouTubeはoEmbedに加えて、ページ内の`ytInitialPlayerResponse.videoDetails.shortDescription`を抽出する。Instagramは公開OGメタデータを使用する。認証回避、非公開投稿取得、動画・画像本体の無断ダウンロードは行わない。
 
-負例2件はいずれもAI入力不可と判定できた。画像取得失敗だけでは本文取得を失敗扱いにしない。
+負例2件はいずれもAI入力不可と判定した。画像失敗だけでは本文取得を失敗扱いにしない。
+
+証拠：
+
+- `poc/results/url-extraction-summary.json`
+- `poc/results/url-source-classification.json`
 
 ## 3. PoC 2 — AIレシピ構造化
 
-### 3.1 固定比較条件
+### 3.1 評価条件
 
-以下の5 fixtureを全Providerへ同一テキスト・同一Schemaで1回ずつ渡す構成を実装した。
+一般Web、クラシル、クックパッド、YouTube、Instagramの固定5 fixtureを使用した。全モデルへ同じ抽出テキストとRecipe Schemaを渡した。
 
-- 一般Web
-- クラシル
-- クックパッド
-- YouTube
-- Instagram由来の短文・ノイズを含む投稿
+合格基準：
 
-比較対象は次の4モデルで固定した。
-
-| Provider | Model ID | Structured Output方式 |
-| --- | --- | --- |
-| Gemini | `gemini-3.5-flash-lite` | JSON Schema |
-| OpenAI | `gpt-5.6-luna` | Responses API JSON Schema |
-| Z.ai | `glm-5.3-flash` | Chat Completions JSON mode + Schema prompt |
-| DeepSeek | `deepseek-v4-flash` | Responses API JSON Schema |
-
-公式仕様：
-
-- [Gemini 3.5 Flash-Lite](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite)
-- [OpenAI GPT-5.6 Luna](https://developers.openai.com/api/docs/models/gpt-5.6-luna)
-- [Z.ai GLM-5.3-Flash](https://docs.z.ai/guides/vlm/glm-5.3-flash)
-- [DeepSeek API](https://api-docs.deepseek.com/)
-
-Gemini URL Contextは同一抽出テキストのモデル比較とは分け、システム構成比較として扱う。
-
-### 3.2 合格基準
-
-- JSON parse成功率: 100%
-- Schema成功率: 100%
+- JSON parse / Schema成功率: 100%
 - Hallucination: 0件
 - 材料precision / recall: 各90%以上
 - 分量完全一致率: 85%以上
-- 料理名、人数、調理時間、ジャンル: 原典に存在する対象の各90%以上
-- 手順の重要操作precision / recall: 各90%以上
-- 第1段階は各fixture 1回、最終候補は各fixture 3回
-- 有料API総額上限: 5米ドル
+- 料理名、人数、調理時間、ジャンル: 各90%以上
+- 手順precision / recall: 各90%以上
+- 最終候補は各fixture 3回
+- API費用上限: 5米ドル
 
-### 3.3 実API実行結果
+期待値はAIへ実際に渡す抽出テキストと照合した。材料グループ記号や、要約された重要操作と詳細手順の一対多関係を誤ってHallucinationにしない評価を使用する。
 
-保守的な事前費用見積りは0.1368米ドルで、上限5米ドル未満だった。実際の呼び出し結果は次の通り。
+### 3.2 Z.ai先行評価
 
-| Provider | HTTP | Provider応答 | モデル出力 | 課金見積り |
-| --- | ---: | --- | --- | ---: |
-| Gemini | 429 | prepayment credits depleted | なし | $0 |
-| OpenAI | 429 | no credits remaining | なし | $0 |
-| Z.ai | 429 | insufficient balance / no resource package | なし | $0 |
-| DeepSeek | 402 | insufficient balance | なし | $0 |
+ユーザーの費用方針に従い、最初にZ.aiだけを評価した。
 
-同じ残高エラーを繰り返さないよう、Providerごとの最初の残高エラー後は残りfixtureを自動skipする。結果は`poc/results/ai-comparison-results.json`へ保存した。
+| 指標 | `glm-5.3-flash` | 基準 | 判定 |
+| --- | ---: | ---: | --- |
+| JSON parse | 100% | 100% | 合格 |
+| Schema | 100% | 100% | 合格 |
+| 料理名 | 100% | 90%以上 | 合格 |
+| 人数 | 100% | 90%以上 | 合格 |
+| 調理時間 | 100% | 90%以上 | 合格 |
+| ジャンル | 100% | 90%以上 | 合格 |
+| 材料precision | 100% | 90%以上 | 合格 |
+| 材料recall | 97.73% | 90%以上 | 合格 |
+| 分量完全一致 | 95.35% | 85%以上 | 合格 |
+| 手順precision | 100% | 90%以上 | 合格 |
+| 手順recall | 96.88% | 90%以上 | 合格 |
+| Hallucination | 0件 | 0件 | 合格 |
 
-残高不足はモデル精度の不合格ではなく、検証未実施である。そのためProvider / Modelは未選定のままとする。
+報告token数を公式単価で換算した5件合計は0.001887米ドル、平均応答時間は18.6秒だった。
 
-### 3.4 Gemini URL Context別枠検証
+証拠：`poc/results/ai-comparison-zai-results.json`
 
-Gemini Generate Content APIのURL Contextを利用し、Backend側で抽出した同一テキストを渡すモデル比較とは別のシステム構成として実装した。対象は一般Web、クラシル、クックパッド、Instagramの4件である。
+### 3.3 Gemini 3.5 Flash-Lite Free Tier比較
 
-保守的な事前費用見積りは、各URLがモデルの最大contextを消費する前提でも合計1.2983米ドルであり、上限5米ドル未満だった。実APIは最初の1件でHTTP 429 `prepayment credits depleted`となり、残り3件を自動skipした。モデル出力は0/4件、費用は0米ドルである。
+ユーザー指示によりGemini Free Tierを同じ5 fixtureで実行した。5件すべて応答し、Quota制限には達しなかった。
 
-YouTubeは[Gemini URL Context公式仕様](https://ai.google.dev/gemini-api/docs/generate-content/url-context)で非対応contentとして明記されているため、この経路から除外した。YouTubeはPoC 1で実装したoEmbed + player response抽出を使う。
+JSON / Schemaは100%だったが、クックパッドの「1〜2人分」を根拠なく`1.5`へ平均化した。このため人数一致率80%、Hallucination 1件となり、合格基準を満たさなかった。
 
-結果は`poc/results/gemini-url-context-results.json`へ保存した。
+API usageを有料標準単価へ換算した参考値は5件合計0.006840米ドル、平均応答時間は1.85秒である。APIレスポンスからFree Tierの実請求額は確認できないため、この値を実費とは扱わない。
+
+証拠：`poc/results/ai-comparison-gemini-results.json`
+
+### 3.4 他Providerの要否
+
+OpenAIとDeepSeekは追加検証しない。
+
+理由：
+
+- Z.aiが精度・Schema・Hallucination・費用の全基準を満たした
+- Gemini Free Tierとの比較でもZ.aiだけがHallucination 0件だった
+- 追加Providerの有料評価をしてもMVP成立性の未確定事項は解消されない
+- Provider adapterを維持しているため、将来Z.aiが基準を満たさなくなった場合に追加比較できる
+
+### 3.5 Gemini URL Context別枠検証
+
+Gemini 3.5 Flash-LiteのURL Contextを、Backend抽出を省略する別システム構成として4 URLで実行した。
+
+| URL種別 | 取得結果 |
+| --- | --- |
+| 一般Web（キッコーマン） | 成功 |
+| クラシル | 成功 |
+| クックパッド | `URL_RETRIEVAL_STATUS_ERROR` |
+| Instagram | `URL_RETRIEVAL_STATUS_ERROR` |
+
+取得成功率は2/4であり、共通取得経路にはできない。YouTubeは[Gemini公式仕様](https://ai.google.dev/gemini-api/docs/generate-content/url-context)でURL Context非対応である。
+
+有料標準単価換算の参考値は0.005077米ドル。Free Tierの実請求額はAPIレスポンスから確認できない。
+
+証拠：`poc/results/gemini-url-context-results.json`
 
 ## 4. PoC 3 — 実URL E2E
 
-実URL取得、同一Provider adapter、JSON parse、Schema validation、評価までのpipelineとローカルE2Eテストは実装済みである。
+採用構成で次の処理を、5 fixtureそれぞれ3回実行した。
 
-実Provider E2Eは、PoC 2で全基準を満たした最安候補を選定してから、5 fixtureを各3回実行する。現在は候補未選定のため`npm run poc:e2e`が明示的に停止する。
-
-これはローカルpipelineテストの成功であり、実Provider E2E成功とは扱わない。
-
-## 5. 再開条件とコマンド
-
-4社の課金残高を補充後、次の順で再開する。
-
-```bash
-npm run poc:ai
-npm run poc:gemini-url
-npm run poc:e2e
-npm run verify
+```text
+実URL
+→ Node.js fetch / サービス別抽出
+→ Z.ai glm-5.3-flash
+→ JSON parse
+→ Recipe Schema validation
+→ 精度・Hallucination評価
 ```
 
-AI比較で1社以上が全合格基準を満たし、選定候補の3回反復E2Eも同じ基準を満たした後にだけ、`todo.md`のPoCを完了へ更新する。
+計15回すべてでSchema成功・Hallucination 0件となり、集計値もPoC 2の全合格基準を満たした。
+
+- 成功: 15/15
+- 報告token数の単価換算合計: 0.005190米ドル
+- 1件平均の単価換算: 0.000346米ドル
+- 平均応答時間: 20.0秒
+- 安定性判定: 合格
+
+証拠：`poc/results/e2e-results.json`
+
+## 5. 採用結論
+
+- AI Provider: Z.ai
+- Model: `glm-5.3-flash`
+- URL取得: Node.js `fetch` + JSON-LD / OGP / oEmbed / YouTube player response
+- TikTok: 条件付き対応
+- Gemini URL Context: 補助検証結果として保持し、MVP共通経路には不採用
+- Validation: BackendでRecipe Schema validationを必須化
+- Provider adapter: 将来の再比較用に維持
+
+今回の結果はローカルNode.jsで確認済みであり、Cloud Runで確認済みとは表現しない。

@@ -79,7 +79,7 @@
 | 非同期Queue | Google Cloud Tasks | 採用 |
 | Worker | Google Cloud Run | 採用 |
 | Push Notification | Firebase Cloud Messaging + APNs | 採用 |
-| AI Provider | Gemini / OpenAI / Z.ai / DeepSeekをPoC比較 | 未確定 |
+| AI Provider | Z.ai / `glm-5.3-flash` | PoC合格・MVP採用 |
 | AI出力検証 | JSON Schema相当 + アプリ側Schema validation | 採用 |
 | IaC | Terraform | 採用 |
 | Secrets | Google Cloud Secret Manager | 採用 |
@@ -335,18 +335,16 @@ Worker endpointは一般公開APIとして利用せず、Cloud Tasksから認証
 
 ## 9. AI解析
 
-### 9.1 Providerは現時点で固定しない
+### 9.1 採用Provider / Model
 
-AI Providerは技術選定段階では確定しない。
+PoCの固定5 fixtureと5実URL×3回のE2E結果に基づき、MVPの標準AIを以下に確定する。
 
-候補：
+- Provider: Z.ai
+- Model: `glm-5.3-flash`
+- API: Chat Completions JSON mode
+- Backend側でRecipe Schema validationを必須とする
 
-- Google Gemini
-- OpenAI
-- DeepSeek
-- Z.ai
-
-中国系モデルも比較対象から除外しない。
+Gemini 3.5 Flash-Lite Free Tierも同じ5 fixtureで比較したが、人数範囲を根拠なく平均化した1件があり、Hallucination 0件の基準を満たさなかった。OpenAIとDeepSeekはZ.aiが全基準を満たしたため、追加課金を避けて未実施とした。
 
 ### 9.2 選定原則
 
@@ -661,7 +659,7 @@ MVPはiOS専用であり、クロスプラットフォーム対応予定をMVP�
 
 ## 19. 技術検証項目
 
-技術選定後、実装設計へ進む前に以下をPoCする。
+PoC 1とPoC 2、および実URLからAI解析までの統合確認は完了した。以下のPoC 3〜6は、今回のローカル解析PoCとは分け、後続の実装・リリース工程で確認する。
 
 ### PoC 1: URL情報取得
 
@@ -673,7 +671,7 @@ MVPはiOS専用であり、クロスプラットフォーム対応予定をMVP�
 
 ### PoC 2: AI構造化抽出
 
-複数AI Provider / Modelを同じテストデータ・同じ期待Schemaで比較する。
+固定した同一テストデータ・同一期待Schemaで比較した。Z.aiを先行評価し、合格後にGemini Free Tierを比較した。OpenAIとDeepSeekは追加課金を避けるため省略した。
 
 取得対象：
 
@@ -730,15 +728,19 @@ Cloud Run SingaporeからNeon SingaporeへPrismaで接続し、以下を確認�
 
 ---
 
-## 20. 技術選定の完了条件
+## 20. 技術選定と後続検証の完了条件
 
-本書作成だけでは「技術選定・技術検証」工程を完了扱いにしない。
+技術選定の完了には、本書の作成だけでなく、コア解析部分のPoCを必要とする。
 
-以下が完了した時点で工程完了とする。
+技術選定の完了条件は次のとおりで、すべて完了した。
 
-- 本書の主要技術が確定している
-- URL取得PoCが成立する
-- AI Provider / ModelをPoC結果から決定する
+- 本書の主要技術が確定している（完了）
+- URL取得PoCが成立する（完了）
+- AI Provider / ModelをPoC結果から決定する（Z.ai / `glm-5.3-flash`に確定）
+- 実URL → URL抽出 → AI解析 → Schema validationが成立する（完了）
+
+次の実環境検証は後続工程の完了条件として扱う。
+
 - Cloud Tasks → Cloud Run Workerの非同期処理が成立する
 - Cloud Run → Neon接続が実用上問題ない
 - Firebase Authenticationが3方式で利用できる
@@ -776,7 +778,7 @@ Async
 
 AI
   Provider abstraction
-  Gemini / OpenAI / Z.ai / DeepSeekをPoC比較後に決定
+  Z.ai / glm-5.3-flash
 
 Notification
   Firebase Cloud Messaging
