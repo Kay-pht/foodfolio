@@ -18,7 +18,7 @@
   - [x] Gemini URL Contextの別枠実API検証
   - [x] AI Provider / Model確定（Z.ai / GLM-5.3-Flash）
   - [x] 採用取得方式 + 採用AIで最終E2E確認（5 URL × 3回）
-- [ ] 実装設計
+- [x] 実装設計
 - [ ] 実装・テスト
 - [ ] TestFlightリリース準備
 - [ ] MVPリリース・ユーザー検証
