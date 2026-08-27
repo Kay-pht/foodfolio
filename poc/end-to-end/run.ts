@@ -36,6 +36,15 @@ const selectedCases = fixtures.map((fixture) => {
   if (!testCase) throw new Error(`URL case not found: ${fixture.id}`);
   return { fixture, testCase };
 });
+if (
+  selectedCases.some(({ testCase }) => testCase.source === "youtube") &&
+  !process.env.YOUTUBE_API_KEY?.trim()
+) {
+  throw new Error(
+    "YOUTUBE_API_KEY is required before running the E2E PoC with YouTube fixtures",
+  );
+}
+
 const conservativeCostUsd = selectedCases.reduce(
   (total) => total + conservativePlannedCostUsd(provider, 18_000) * REPETITIONS,
   0,
