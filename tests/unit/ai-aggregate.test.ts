@@ -4,6 +4,7 @@ import {
   selectProvider,
 } from "../../poc/ai-extraction/aggregate.js";
 import type { Evaluation } from "../../poc/ai-extraction/types.js";
+import { resolveProviders } from "../../poc/ai-extraction/providers.js";
 
 const perfect: Evaluation = {
   jsonParseSuccess: true,
@@ -19,6 +20,8 @@ const perfect: Evaluation = {
   ingredientAmountExact: 9,
   ingredientAmountCompared: 9,
   stepTruePositive: 9,
+  stepActualMatched: 9,
+  stepExpectedMatched: 9,
   stepFalsePositive: 0,
   stepFalseNegative: 0,
   hallucinationCount: 0,
@@ -63,5 +66,17 @@ describe("aggregateByProvider", () => {
     ]);
     expect(metrics[0]?.passesAcceptance).toBe(false);
     expect(selectProvider(metrics)).toBeNull();
+  });
+});
+
+describe("resolveProviders", () => {
+  it("limits paid evaluation to the explicitly requested provider", () => {
+    expect(resolveProviders("zai")).toEqual(["zai"]);
+  });
+
+  it("rejects an unknown provider instead of silently calling others", () => {
+    expect(() => resolveProviders("zai,unknown")).toThrow(
+      "unknown providers: unknown",
+    );
   });
 });

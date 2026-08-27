@@ -78,6 +78,7 @@ for (const { fixture, testCase } of selectedCases) {
   }
 }
 const metrics = aggregateByProvider(results);
+const stable = metrics[0]?.passesAcceptance === true;
 await fs.writeFile(
   path.join(root, "poc/results/e2e-results.json"),
   `${JSON.stringify(
@@ -88,8 +89,10 @@ await fs.writeFile(
       repetitions: REPETITIONS,
       conservativeCostUsd,
       totalCostUsd,
+      costInterpretation:
+        "estimated from official list price and reported token usage",
       metrics,
-      stable: metrics[0]?.passesAcceptance === true,
+      stable,
       results,
     },
     null,
@@ -99,3 +102,4 @@ await fs.writeFile(
 console.log(
   `completed: ${results.length} real URL E2E calls, $${totalCostUsd.toFixed(6)}`,
 );
+if (!stable) process.exitCode = 1;

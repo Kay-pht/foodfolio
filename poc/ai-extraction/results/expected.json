@@ -33,7 +33,7 @@
     "sourceUrl": "https://www.kurashiru.com/recipes/a3b1f093-1f5e-4114-8cc8-8869e8e6871d",
     "recipe": {
       "title": "豚バラ肉と白菜のとろとろ煮",
-      "servings": { "value": 2, "raw": "2人前" },
+      "servings": { "value": 2, "raw": "2 servings" },
       "cookingTimeMinutes": 20,
       "genre": "主菜",
       "ingredients": [
@@ -115,7 +115,7 @@
     "sourceUrl": "https://www.instagram.com/reel/CyUydFXyBUh/",
     "recipe": {
       "title": "ボンボローニ",
-      "servings": { "value": null, "raw": "6個分" },
+      "servings": { "value": 6, "raw": "6個分" },
       "cookingTimeMinutes": null,
       "genre": "デザート",
       "ingredients": [

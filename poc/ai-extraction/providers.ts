@@ -44,9 +44,27 @@ export const PROVIDERS: Record<
   },
 };
 
+export function resolveProviders(value: string | undefined): ProviderName[] {
+  if (!value?.trim()) return Object.keys(PROVIDERS) as ProviderName[];
+  const requested = [
+    ...new Set(
+      value
+        .split(",")
+        .map((item) => item.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  ];
+  const invalid = requested.filter((item) => !(item in PROVIDERS));
+  if (invalid.length > 0) {
+    throw new Error(`unknown providers: ${invalid.join(", ")}`);
+  }
+  return requested as ProviderName[];
+}
+
 const SYSTEM_PROMPT = `You extract recipe facts only from supplied source text.
 Return JSON matching the schema exactly.
-Do not infer missing facts. Use null or an empty array when the source omits a fact.
+Return one recipe data instance. Never return, copy, modify, or annotate the JSON Schema itself.
+Do not infer missing facts, except that genre must be classified from the supplied recipe content. Use null or an empty array when the source omits any other fact.
 Preserve ingredient names, amounts, yield wording, and important cooking operations faithfully.
 Genre must be one allowed Japanese enum value.`;
 

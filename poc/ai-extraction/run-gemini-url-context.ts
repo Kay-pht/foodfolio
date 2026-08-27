@@ -63,6 +63,9 @@ for (const fixture of fixtures) {
       recipeSchema as Record<string, unknown>,
     );
     const evaluated = parseAndEvaluate(response.outputText, fixture.recipe);
+    const retrievalSucceeded =
+      response.retrievals.length > 0 &&
+      response.retrievals.every(({ status }) => status.endsWith("_SUCCESS"));
     const costUsd = geminiUrlContextCostUsd(response.usage);
     actualCostUsd += costUsd;
     if (actualCostUsd > COST_CAP_USD) {
@@ -84,7 +87,11 @@ for (const fixture of fixtures) {
       costUsd,
       recipe: evaluated.recipe,
       evaluation: evaluated.evaluation,
-      error: null,
+      error: retrievalSucceeded
+        ? null
+        : `URL Context retrieval failed: ${response.retrievals
+            .map(({ status }) => status)
+            .join(",")}`,
     });
     console.log(
       `retrieved=${response.retrievals.map(({ status }) => status).join(",")} schema=${evaluated.evaluation.schemaSuccess}`,
@@ -117,6 +124,7 @@ for (const fixture of fixtures) {
 const completed = results.filter(
   ({ evaluation }) => evaluation !== null,
 ).length;
+const retrievalSuccesses = results.filter(({ error }) => error === null).length;
 await fs.writeFile(
   resultsPath,
   `${JSON.stringify(
@@ -131,7 +139,10 @@ await fs.writeFile(
       costCapUsd: COST_CAP_USD,
       conservativeCostUsd,
       actualCostUsd,
+      costInterpretation:
+        "estimated from standard paid-tier list price and reported token usage; not proof of Free Tier billing",
       completed,
+      retrievalSuccesses,
       results,
     },
     null,

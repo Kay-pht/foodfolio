@@ -54,6 +54,8 @@ export interface Evaluation {
   ingredientAmountExact: number;
   ingredientAmountCompared: number;
   stepTruePositive: number;
+  stepActualMatched: number;
+  stepExpectedMatched: number;
   stepFalsePositive: number;
   stepFalseNegative: number;
   hallucinationCount: number;
