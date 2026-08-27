@@ -32,11 +32,28 @@ export class RecipeAnalysisService {
       recipe.analysisStatus === "failed"
     )
       return { retry: false };
+    const reclaimInterruptedProcessing = attempt > 1;
     const claimed = await this.deps.prisma.recipe.updateMany({
-      where: { id: recipeId, analysisStatus: "pending" },
+      where: {
+        id: recipeId,
+        analysisStatus: reclaimInterruptedProcessing
+          ? { in: ["pending", "processing"] }
+          : "pending",
+      },
       data: { analysisStatus: "processing", updatedAt: new Date() },
     });
-    if (claimed.count === 0) return { retry: false };
+    if (claimed.count === 0) {
+      log(
+        { recipeId, analysisAttempt: attempt },
+        "recipe analysis is already processing",
+      );
+      return { retry: true };
+    }
+    if (recipe.analysisStatus === "processing")
+      log(
+        { recipeId, analysisAttempt: attempt },
+        "reclaiming interrupted recipe analysis",
+      );
     try {
       const source = await this.deps.sourceExtractor.extract(
         new URL(recipe.originalUrl),
