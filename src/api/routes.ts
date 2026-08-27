@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { Prisma, type Genre } from "@prisma/client";
+import { Prisma, type Genre } from "../generated/prisma/client.js";
 import type { ApiDependencies } from "./build-api.js";
 import { AppError } from "./errors/app-error.js";
 import { recipeDto, recipeInclude } from "./recipe-dto.js";

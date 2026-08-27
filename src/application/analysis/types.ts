@@ -1,4 +1,4 @@
-import type { SourceType } from "@prisma/client";
+import type { SourceType } from "../../generated/prisma/client.js";
 
 export interface SourceContent {
   sourceType: SourceType;

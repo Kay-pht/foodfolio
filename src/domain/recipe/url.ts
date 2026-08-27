@@ -1,4 +1,4 @@
-import type { SourceType } from "@prisma/client";
+import type { SourceType } from "../../generated/prisma/client.js";
 import { AppError } from "../../api/errors/app-error.js";
 
 const TRACKING_PARAMS = new Set([
