@@ -15,6 +15,19 @@ enum APIError: Error, Equatable {
   case duplicateRecipe(String?)
   case analysisInProgress, notFound, validation, offline, server, decoding
 
+  static func from(status: Int, data: Data) -> APIError {
+    let payload = try? JSONDecoder().decode(APIErrorEnvelope.self, from: data).error
+    switch payload?.code {
+    case "UNAUTHENTICATED": return .unauthenticated
+    case "INVALID_URL": return .invalidURL
+    case "DUPLICATE_RECIPE": return .duplicateRecipe(payload?.details?["recipeId"])
+    case "RECIPE_ANALYSIS_IN_PROGRESS": return .analysisInProgress
+    case "NOT_FOUND": return .notFound
+    case "VALIDATION_ERROR", "INVALID_REQUEST": return .validation
+    default: return status == 401 ? .unauthenticated : .server
+    }
+  }
+
   var userMessage: String {
     switch self {
     case .unauthenticated: "再度ログインしてください。"

@@ -46,24 +46,12 @@ actor APIClient {
     do { (data, response) = try await session.data(for: request) } catch { throw APIError.offline }
     guard let http = response as? HTTPURLResponse else { throw APIError.server }
     guard (200..<300).contains(http.statusCode) else {
-      throw mapError(status: http.statusCode, data: data)
+      throw APIError.from(status: http.statusCode, data: data)
     }
     if Response.self == EmptyResponse.self { return EmptyResponse() as! Response }
     do { return try decoder.decode(Response.self, from: data) } catch { throw APIError.decoding }
   }
 
-  private func mapError(status: Int, data: Data) -> APIError {
-    let payload = try? decoder.decode(APIErrorEnvelope.self, from: data).error
-    switch payload?.code {
-    case "UNAUTHENTICATED": return .unauthenticated
-    case "INVALID_URL": return .invalidURL
-    case "DUPLICATE_RECIPE": return .duplicateRecipe(payload?.details?["recipeId"])
-    case "RECIPE_ANALYSIS_IN_PROGRESS": return .analysisInProgress
-    case "NOT_FOUND": return .notFound
-    case "VALIDATION_ERROR", "INVALID_REQUEST": return .validation
-    default: return status == 401 ? .unauthenticated : .server
-    }
-  }
 }
 
 private struct EmptyResponse: Codable, Sendable {}

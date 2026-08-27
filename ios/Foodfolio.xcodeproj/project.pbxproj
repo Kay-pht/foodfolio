@@ -40,6 +40,7 @@
 		AFBC2450A9901304BCEF0FF3 /* FoodfolioApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8CC27A1E7A83EDF3D5DCA5D /* FoodfolioApp.swift */; };
 		D5EEEAA3CA86F0AA3824CC98 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D3965347199E92FB3A7B3DC /* HomeView.swift */; };
 		DDC062F93A445AC294F9A984 /* MajorFlowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44051BF0E339B00667317CE8 /* MajorFlowUITests.swift */; };
+		E309C40D30ED28AB2FFB9013 /* AddRecipeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECFCFC4094A6F7C43D207BD9 /* AddRecipeViewModel.swift */; };
 		FA991B498E6D0AC09B7037E8 /* RecipeImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37A045F49C93644AD456EB75 /* RecipeImageView.swift */; };
 /* End PBXBuildFile section */
 
@@ -96,6 +97,7 @@
 		D8CC27A1E7A83EDF3D5DCA5D /* FoodfolioApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodfolioApp.swift; sourceTree = "<group>"; };
 		E352341FFD61254415ED32C9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		EB46171A22DCA9D26767C67F /* Foodfolio.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Foodfolio.entitlements; sourceTree = "<group>"; };
+		ECFCFC4094A6F7C43D207BD9 /* AddRecipeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddRecipeViewModel.swift; sourceTree = "<group>"; };
 		EF65AD2BEC373F708760CE27 /* RecipeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecipeModels.swift; sourceTree = "<group>"; };
 		F865B5617E8AE629AFB16F21 /* AccountDeletionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionService.swift; sourceTree = "<group>"; };
 		F887C254F5EECBEBA303261E /* RecipeDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecipeDetailView.swift; sourceTree = "<group>"; };
@@ -207,6 +209,7 @@
 			isa = PBXGroup;
 			children = (
 				171FEC0B382ED552031AD5BE /* AddRecipeView.swift */,
+				ECFCFC4094A6F7C43D207BD9 /* AddRecipeViewModel.swift */,
 			);
 			path = AddRecipe;
 			sourceTree = "<group>";
@@ -504,6 +507,7 @@
 				A5A754571B5BF660059A0DB8 /* AccountDeletionService.swift in Sources */,
 				1C773B8600A4BD62D26E22FB /* AccountView.swift in Sources */,
 				3F75B788496BFFB2F63AE3FA /* AddRecipeView.swift in Sources */,
+				E309C40D30ED28AB2FFB9013 /* AddRecipeViewModel.swift in Sources */,
 				1528B3FDDB6D8384BB8266A8 /* AmountScaler.swift in Sources */,
 				95D1E9856E9845337DB0EF2F /* AppSession.swift in Sources */,
 				217C99BB75354F1370EFAE19 /* AuthService.swift in Sources */,
