@@ -542,6 +542,8 @@ User.firebaseUid lookup
 └─ missing -> User + UserSetting(default ON)を作成
 ```
 
+ただし `DELETE /v1/me` はアカウント削除の部分失敗後も安全に再試行できる必要があるため、この自動作成を行わない。DBのUserが既に削除済みでもFirebase UIDを保持したままアカウント削除処理を続行する。
+
 ### 9.3 認可
 
 Recipe / Tag / DeviceToken等のユーザーデータは、必ず認証済みUser IDをquery条件へ含める。
@@ -893,6 +895,10 @@ Request：
 #### DELETE `/v1/me`
 
 アカウントを完全削除する。
+
+Firebase Userに `apple.com` providerが含まれる場合、iOSはこのAPIを呼ぶ前にSign in with Appleのauthorization codeを再取得し、Firebase Auth SDKでApple token revokeを完了させる。
+
+Appleのauthorization codeはBackendへ送信しない。
 
 詳細は「アカウント削除」で定義する。
 
@@ -1630,6 +1636,7 @@ analysisResult = completed | failed
 
 以下を完全削除する。
 
+- Sign in with Apple利用Userの場合のApple関連token / authorization
 - Firebase Authentication User
 - User
 - UserSetting
@@ -1643,32 +1650,88 @@ analysisResult = completed | failed
 
 検索履歴等のiOS local dataも削除する。
 
-### 23.2 Backend処理
+Apple token revokeの要否はDBへprovider情報を追加せず、現在のFirebase Userの `providerData` に `providerID == "apple.com"` が含まれるかで判定する。
+
+### 23.2 Sign in with Apple利用Userの事前処理
+
+Firebase公式では、Firebase AuthenticationはSign in with AppleでUser作成時のApple tokenを保持しないため、token revokeとアカウント削除の前にユーザーへ再度Sign in with Appleを要求し、authorization codeを取得する必要がある。
+
+Firebase Userの `providerData` に `apple.com` が含まれる場合、iOSはBackendのアカウント削除APIを呼ぶ前に次を実行する。
+
+```text
+アカウント削除確認
+↓
+Sign in with Apple authorizationを再実行
+↓
+ASAuthorizationAppleIDCredential.authorizationCode取得
+↓
+authorization codeをUTF-8 Stringへ変換
+↓
+Auth.auth().revokeToken(withAuthorizationCode:)
+↓
+revoke成功
+↓
+DELETE /v1/me
+```
+
+実装上のルール：
+
+- Appleのauthorization codeは一時的にメモリ上で扱うだけとし、DB・SwiftData・UserDefaults・ファイルへ保存しない。
+- authorization codeをBackendへ送信しない。
+- authorization codeやApple credentialをlog / Crashlytics / Analyticsへ出力しない。
+- Apple providerを含まないUserはこの処理を通さず `DELETE /v1/me` を呼ぶ。
+- Firebase ConsoleのSign in with Apple provider設定は、Firebase公式のtoken revocation手順に必要なOAuth code flow設定を満たすこと。
+
+以下の場合はBackend削除を開始しない。
+
+- ユーザーがSign in with Appleをキャンセルした
+- `authorizationCode` を取得できない
+- authorization codeをStringへ変換できない
+- `revokeToken(withAuthorizationCode:)` が失敗した
+
+この場合、Firebase local session・Backendデータ・SwiftData・RecipeImages等は削除せず、ユーザーが再試行可能な状態を維持する。
+
+MVPではApple revoke完了状態を別途永続管理しない。Apple revoke後にBackend削除が失敗した場合もlocal sessionとlocal dataを保持し、ユーザーの再試行時は同じ削除フローを先頭から実行する。
+
+公式根拠：
+
+- Firebase Authentication — Authenticate Using Apple: https://firebase.google.com/docs/auth/ios/apple
+- Apple Human Interface Guidelines — Managing accounts: https://developer.apple.com/design/human-interface-guidelines/managing-accounts
+
+### 23.3 Backend処理
+
+Apple token revokeはiOS / Firebase Auth SDKの責務とし、BackendはApple authorization codeやApple tokenを受け取らない。
 
 外部認証基盤とPostgreSQLを単一transactionにはできないため、MVPではprivacy上の残存を最小化するため次の順序とする。
 
 ```text
-認証済みUser確認
+Firebase ID Token検証
 ↓
-DB内User配下データをtransactionで完全削除
+Firebase UID取得
+↓
+DB内Userが存在する場合はUser配下データをtransactionで完全削除
 ↓
 Firebase AdminでFirebase User削除
 ↓
 両方成功した場合のみ204
 ```
 
+`DELETE /v1/me` では通常のUser自動作成処理を適用しない。
+
 DB削除後にFirebase削除が失敗した場合：
 
 - APIは成功扱いにしない
 - DBデータは復元しない
 - retry可能なエラーとしてClientへ返す
-- 再試行時にFirebase UIDを基準にFirebase User削除を再実行できるようにする
+- local sessionを残したまま再試行可能にする
+- 再試行時にFirebase UIDを基準にFirebase User削除を再実行する
+- DB User recordが既に存在しなくてもUser / UserSettingを再作成しない
 
 アカウント削除endpointではUser DB recordが既にないケースでもFirebase User削除を試行できるようにする。
 
-### 23.3 iOS側
+### 23.4 iOS側の成功処理
 
-204成功後：
+`DELETE /v1/me` が204成功した場合のみ次を実行する。
 
 - Firebase local sessionをsign out
 - SwiftDataのユーザーデータを全削除
@@ -1677,6 +1740,8 @@ DB削除後にFirebase削除が失敗した場合：
 - 検索履歴削除
 - navigation state初期化
 - 認証画面へ戻る
+
+Backend削除が失敗した場合はlocal dataを削除せず、Firebase local sessionもsign outしない。
 
 ---
 
@@ -1954,7 +2019,12 @@ Tag追加・削除、Recipe削除等のmutationはオンライン必須とする
 - provider表示
 - logout
 - account delete
+- Firebase Userに `apple.com` が含まれる場合のSign in with Apple再authorization
+- Apple authorization code取得 / token revoke
+- revoke成功後の `DELETE /v1/me`
 - logout / account delete成功時のLocal Data cleanup
+
+Apple revoke失敗・キャンセル・Backend削除失敗ではLocal Data cleanupを実行しない。
 
 ---
 
@@ -2124,6 +2194,7 @@ outputTokens
 禁止：
 
 - Firebase ID Token
+- Apple authorization code / Apple credential
 - Z.ai API Key
 - DB password
 - source本文全文
@@ -2209,6 +2280,8 @@ foodfolio-worker
 - RecipeTag ownership validation
 - Recipe delete cascade
 - account DB cascade delete
+- account delete再試行時にDB Userを再作成しないこと
+- DB Userが既に削除済みでもFirebase User削除を再試行できること
 - 差分同期Query
 - Ingredient / RecipeTag / AI更新時のRecipe.updatedAt更新
 - Recipe ID全件照合API
@@ -2249,6 +2322,10 @@ poc:e2e
 - servings amount scaling
 - API error → UI message mapping
 - notification setting表示判定
+- `apple.com` providerを含む場合にApple revoke成功後だけ `DELETE /v1/me` を呼ぶこと
+- Apple authorizationキャンセル / code取得失敗 / revoke失敗時にBackend削除とLocal Data cleanupを実行しないこと
+- Apple providerを含まない場合はApple revokeを行わず `DELETE /v1/me` を呼ぶこと
+- `DELETE /v1/me` 失敗時にFirebase local sessionとLocal Dataを保持すること
 
 UI automationはMVPの主要flowに限定する。
 
@@ -2344,8 +2421,11 @@ PostgreSQL integration tests
 
 1. account画面
 2. logout時Token削除
-3. account完全削除
-4. SwiftData / RecipeImages / sync metadata cleanup
+3. Apple provider判定
+4. Sign in with Apple再authorization / authorization code取得
+5. `Auth.auth().revokeToken(withAuthorizationCode:)`
+6. `DELETE /v1/me` と部分失敗時の再試行
+7. SwiftData / RecipeImages / sync metadata cleanup
 
 ### Phase 8: 実環境検証
 
@@ -2355,6 +2435,7 @@ PostgreSQL integration tests
 - Cloud Run → Neon pooled connection
 - Prisma migration
 - Apple / Google / Email Firebase Authentication
+- Sign in with Appleアカウント削除時のauthorization code取得 / token revoke
 - Password reset
 - FCM → APNs実機通知
 - Singapore構成の実機体感latency
