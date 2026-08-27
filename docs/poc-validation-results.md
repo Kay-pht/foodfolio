@@ -100,6 +100,16 @@ Gemini URL Contextは同一抽出テキストのモデル比較とは分け、�
 
 残高不足はモデル精度の不合格ではなく、検証未実施である。そのためProvider / Modelは未選定のままとする。
 
+### 3.4 Gemini URL Context別枠検証
+
+Gemini Generate Content APIのURL Contextを利用し、Backend側で抽出した同一テキストを渡すモデル比較とは別のシステム構成として実装した。対象は一般Web、クラシル、クックパッド、Instagramの4件である。
+
+保守的な事前費用見積りは、各URLがモデルの最大contextを消費する前提でも合計1.2983米ドルであり、上限5米ドル未満だった。実APIは最初の1件でHTTP 429 `prepayment credits depleted`となり、残り3件を自動skipした。モデル出力は0/4件、費用は0米ドルである。
+
+YouTubeは[Gemini URL Context公式仕様](https://ai.google.dev/gemini-api/docs/generate-content/url-context)で非対応contentとして明記されているため、この経路から除外した。YouTubeはPoC 1で実装したoEmbed + player response抽出を使う。
+
+結果は`poc/results/gemini-url-context-results.json`へ保存した。
+
 ## 4. PoC 3 — 実URL E2E
 
 実URL取得、同一Provider adapter、JSON parse、Schema validation、評価までのpipelineとローカルE2Eテストは実装済みである。
@@ -114,6 +124,7 @@ Gemini URL Contextは同一抽出テキストのモデル比較とは分け、�
 
 ```bash
 npm run poc:ai
+npm run poc:gemini-url
 npm run poc:e2e
 npm run verify
 ```
