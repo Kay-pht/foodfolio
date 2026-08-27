@@ -238,12 +238,13 @@ APIでは外部URL本文取得やAI解析を実行しない。
 
 - Cloud Tasksからの認証済みTask受信
 - Recipe解析状態更新
+- Recipe解析のlease取得 / stale lease再取得
 - 外部URL取得
 - source / image metadata取得
 - AI入力テキスト生成
 - Z.ai呼び出し
 - JSON parse / Schema validation
-- AI結果のDB反映
+- 現在のprocessing run所有権を検証した上でのAI結果DB反映
 - 解析成功 / 失敗通知
 - retry可能 / 不可能エラー判定
 
@@ -353,9 +354,21 @@ Recipe
 - cookingTimeMinutes: integer NULL
 - genre: enum NULL
 - analysisStatus: enum NOT NULL DEFAULT pending
+- processingRunId: UUID NULL
+- processingLeaseExpiresAt: datetime NULL
 - createdAt: datetime NOT NULL
 - updatedAt: datetime NOT NULL
 ```
+
+`processingRunId` と `processingLeaseExpiresAt` はWorkerの内部的な処理権管理にのみ使用する。
+
+iOS DTO / SwiftDataへは同期しない。
+
+- `pending`: 原則として両方NULL
+- `processing`: 現在のrun IDとlease期限を保持
+- `completed / failed`: 両方NULL
+
+MVPでは固定leaseを採用し、heartbeat用カラムやAnalysisJobテーブルは追加しない。
 
 制約：
 
@@ -371,6 +384,8 @@ INDEX(userId, genre)
 INDEX(userId, analysisStatus)
 INDEX(userId, updatedAt)
 ```
+
+`processingLeaseExpiresAt` はTask payloadの `recipeId` で対象Recipeを特定した後に参照するため、MVPでは専用indexを追加しない。
 
 `updatedAt` は差分同期の変更検知に使用する。Recipe本体だけでなく、Ingredient変更、RecipeTag付与・解除、AI解析結果反映時にも親Recipeの `updatedAt` を必ず更新する。
 
@@ -676,6 +691,8 @@ Responseに含める主な項目：
 - tags
 - createdAt
 - updatedAt
+
+`processingRunId` / `processingLeaseExpiresAt` はWorker内部専用であり、Clientへ返さない。
 
 元サービス / ドメインの表示文字列はiOS側で `sourceType` と `originalUrl` から生成する。
 
@@ -1251,6 +1268,8 @@ AIはTagを作成・付与しない。
 
 AI解析結果をRecipeへ反映した場合は、Recipe本体・Ingredient・RecipeStepの変更を含めて親Recipeの `updatedAt` を更新する。
 
+AI結果反映は、現在の `processingRunId` とWorker自身のrun IDが一致することを確認する処理を含め、同じDB transaction内で実行する。
+
 ---
 
 ## 17. 非同期解析フロー
@@ -1291,8 +1310,8 @@ POST /internal/tasks/recipe-analysis
 
 ```text
 pending
-  ↓
-processing
+  ↓ claim
+processing(runId / lease)
   ├─ success ----------------> completed
   ├─ permanent error --------> failed
   └─ retryable error
@@ -1300,49 +1319,165 @@ processing
        └─ final attempt ------> failed
 ```
 
-### 17.4 最大試行回数
+`processing` のままWorkerが異常終了した場合は、lease期限切れ後のdeliveryが新しいrun IDで再claimして処理を継続する。
 
-Cloud Tasks Queueの `maxAttempts` を **3回** とする。
+### 17.4 Cloud Tasks retry設定
+
+Cloud Tasks Queueのretry設定はMVPで以下に固定する。
+
+```text
+maxAttempts = 3
+minBackoff = 210秒
+```
 
 Recipeには試行回数カラムを持たない。
 
 WorkerはCloud Tasksが付与するretry / execution情報とQueue設定を利用し、現在のdeliveryが再試行可能か判定する。試行回数はCloud Loggingへ記録する。
 
-retryable errorかつ再試行回数が残っている場合：
+retryable errorかつ再試行回数が残っている場合、現在のrun所有者であることを確認して次へ遷移する。
 
 ```text
 analysisStatus = pending
+processingRunId = null
+processingLeaseExpiresAt = null
 ↓
 non-2xx response
 ↓
 Cloud Tasks retry
 ```
 
-最終試行でも失敗した場合：
+最終試行でも失敗した場合も、現在のrun所有者だけが次へ遷移できる。
 
 ```text
 analysisStatus = failed
+processingRunId = null
+processingLeaseExpiresAt = null
 ↓
 失敗通知条件を評価
 ↓
 2xx responseでTask終了
 ```
 
-### 17.5 冪等性
+### 17.5 processing lease / 冪等性
 
-Cloud Tasksは同一処理を複数回配送し得る前提でWorkerを冪等にする。
+Cloud Tasksは同一Taskを複数回実行し得る前提でWorkerを冪等にする。
 
-Worker受信時：
+Workerはdeliveryごとに新しいUUIDを `runId` として生成する。
+
+claim判定はApplication時刻ではなくDB基準時刻を利用し、compare-and-setまたは短いDB transactionでatomicに実行する。
+
+MVPの固定lease：
 
 ```text
-completed -> 何もせず成功応答
-failed -> 何もせず成功応答
-pending / processing -> 処理対象
+processing lease = 210秒
+heartbeat = なし
 ```
 
-同一Recipeに対して複数Taskが同時実行されないよう、statusのcompare-and-setまたはDB transactionによって処理権を取得する。
+#### pendingのclaim
 
-### 17.6 retryable error
+```text
+pending
+↓
+Worker AがrunId=Aを生成
+↓ atomic claim
+analysisStatus = processing
+processingRunId = A
+processingLeaseExpiresAt = DB現在時刻 + 210秒
+```
+
+同じ `pending` を複数Workerが同時にclaimしようとしても、成功するのは1つだけとする。
+
+#### processingかつlease有効
+
+別Workerが以下を確認した場合：
+
+```text
+analysisStatus = processing
+processingRunId = A
+processingLeaseExpiresAt > DB現在時刻
+```
+
+現在の処理権はAが持っているため、別WorkerはURL取得やAI呼び出しを開始しない。
+
+このdeliveryはTaskを完了扱いにしてはならない。Cloud Tasksは2xxを受けるとTaskを削除するため、MVPでは **409 Conflict等のnon-2xx** を返してretryを残す。
+
+`minBackoff = 210秒` とすることで、通常のretryはlease期限より前に再度処理権取得を試みない。
+
+#### processingかつlease期限切れ
+
+```text
+analysisStatus = processing
+processingRunId = A
+processingLeaseExpiresAt <= DB現在時刻
+↓
+Worker BがrunId=Bを生成
+↓ atomic reclaim
+processingRunId = B
+processingLeaseExpiresAt = DB現在時刻 + 210秒
+```
+
+Aの処理が後から復帰しても、Aは結果をcommitできない。
+
+#### 結果commit
+
+AI結果のRecipe / Ingredient / RecipeStep反映と `completed` への遷移は同一DB transactionで行う。
+
+transaction内で必ず以下を条件に現在の処理権を確認する。
+
+```text
+recipe.id = :recipeId
+analysisStatus = processing
+processingRunId = :myRunId
+```
+
+一致する場合のみ：
+
+```text
+Recipe / Ingredient / RecipeStep更新
+↓
+analysisStatus = completed
+processingRunId = null
+processingLeaseExpiresAt = null
+```
+
+一致しない場合はtransactionをcommitせず、解析結果を破棄する。
+
+処理権を失ったdeliveryはDB状態を再確認し、既に `completed / failed` なら2xxで終了する。それ以外は現在の正当なWorkerの失敗時にretryできるTaskを残すためnon-2xxで終了する。
+
+permanent error / retryable errorによるstatus更新についても同様に、`processingRunId = :myRunId` を条件とし、古いWorkerは現在の状態を変更できない。
+
+### 17.6 timeout / deadline
+
+MVPではheartbeatを導入せず、各時間上限を次の順序で固定する。
+
+```text
+URL取得 timeout                  = 30秒
+Z.ai request timeout             = 120秒
+Worker全体の処理時間上限         = 180秒
+processing lease                 = 210秒
+Cloud Tasks dispatchDeadline     = 210秒
+Cloud Run request timeout        = 240秒
+```
+
+関係：
+
+```text
+Worker内部処理 180秒
+        <
+lease / Cloud Tasks 210秒
+        <
+Cloud Run 240秒
+```
+
+Workerは180秒以内に正常終了またはretryable errorとして終了することを基本とする。
+
+Worker process死亡、request切断等により通常の後処理が実行できない場合でも、210秒経過後にleaseがstaleとなり、Cloud Tasks retryから別Workerが再claimできる。
+
+Cloud TasksのdeadlineやCloud Run timeout到達後も古い処理が一時的に残る可能性を前提とし、最終DB更新時の `processingRunId` 照合を省略してはならない。
+
+これらはMVP固定値とし、heartbeat・動的lease延長・専用AnalysisJob schedulerは導入しない。
+
+### 17.7 retryable error
 
 例：
 
@@ -1355,8 +1490,9 @@ pending / processing -> 処理対象
 - JSON parse失敗
 - Schema validation失敗
 - 一時的DB / network障害
+- Worker全体の180秒処理時間上限到達
 
-### 17.7 permanent error
+### 17.8 permanent error
 
 例：
 
@@ -1761,6 +1897,8 @@ WorkerがTaskを受信してRecipeが存在しない場合：
 
 これにより削除済みRecipeを復活させない。
 
+解析中にRecipeが削除された場合も、結果commit時のRecipe / `processingRunId` 条件が成立しないため結果を復元しない。
+
 ---
 
 ## 25. iOSアーキテクチャ
@@ -1884,7 +2022,7 @@ LocalRecipe
 - tags
 ```
 
-Server側の認可用 `userId` や重複判定専用 `normalizedUrl` はLocalRecipeへ保存しない。
+Server側の認可用 `userId` や重複判定専用 `normalizedUrl`、Worker内部用 `processingRunId` / `processingLeaseExpiresAt` はLocalRecipeへ保存しない。
 
 Ingredient / RecipeStep / TagはServerのUUIDをそのままLocal側識別子として利用する。
 
@@ -2168,6 +2306,18 @@ pending / processing中のRecipe編集を禁止するため、MVPではAI更新�
 
 これにより差分同期が関連データの変更を取りこぼさないようにする。
 
+### 29.5 Worker processing所有権
+
+`processing` は単なる状態値ではなく、`processingRunId` と固定leaseを伴う処理権として扱う。
+
+- claim / reclaimはatomicに行う
+- lease有効中は別Workerが処理を開始しない
+- lease期限切れ後のみ別run IDでreclaim可能
+- 古いrun IDはRecipe / Ingredient / RecipeStep / statusを変更できない
+- 結果commit時のownership確認と結果反映は同一DB transactionで行う
+
+PostgreSQL transactionを外部HTTP / AI呼び出し中ずっと保持してロックする方式は採用しない。
+
 ---
 
 ## 30. Logging / Observability
@@ -2182,6 +2332,7 @@ userId
 recipeId
 analysisStatus
 analysisAttempt
+processingRunId
 errorCode
 provider
 model
@@ -2192,6 +2343,8 @@ outputTokens
 ```
 
 `analysisAttempt` と `errorCode` は診断用ログ項目であり、Recipe DBへ永続保存しない。
+
+`processingRunId` は重複実行・stale reclaimの診断用に構造化logへ記録してよい。
 
 禁止：
 
@@ -2228,6 +2381,8 @@ MAX_ANALYSIS_ATTEMPTS=3
 
 `MAX_ANALYSIS_ATTEMPTS` はCloud Tasks Queueのretry設定とWorkerの最終試行判定で同じ値を使用する。
 
+Worker処理上限180秒、processing lease 210秒、Cloud Tasks `minBackoff` / `dispatchDeadline` 210秒、Cloud Run timeout 240秒はMVP固定値として `src/config` とTerraformに明示し、ユーザー設定やDB設定として動的化しない。
+
 `ZAI_API_KEY` / `YOUTUBE_API_KEY` / DB接続情報はSecret ManagerからCloud Runへ渡す。
 
 Firebase Admin / Cloud Tasks等のGCP認証にはCloud Run Service AccountのApplication Default Credentialsを基本とし、Service Account JSON key fileを配布しない。
@@ -2250,6 +2405,16 @@ foodfolio-worker
 
 同一commitから同一imageをdeployすることで、Domain / Schema差分を防ぐ。
 
+Worker Cloud Run Serviceはrequest timeoutを240秒とする。
+
+Cloud Tasks Queue / TaskはTerraformおよびenqueue実装で以下を一致させる。
+
+```text
+maxAttempts = 3
+minBackoff = 210秒
+dispatchDeadline = 210秒
+```
+
 ---
 
 ## 33. テスト方針
@@ -2266,6 +2431,8 @@ foodfolio-worker
 - range servings判定
 - analysis state transition
 - retry判定
+- processing lease有効 / 期限切れ判定
+- run ID ownership判定
 - AI Schema validation
 - AI result → DB mapping
 - API error mapping
@@ -2291,6 +2458,12 @@ foodfolio-worker
 - Recipe ID全件照合API
 - API route + fake auth adapter
 - Worker + fake URL extractor + fake AI adapter + test DB
+- 同一pending Recipeへの同時claimで1 Workerだけが取得できること
+- lease有効中の別WorkerがAI処理を開始しないこと
+- lease期限切れ後に新しいrun IDでreclaimできること
+- reclaim後に古いrun IDがAI結果 / failed / pendingをcommitできないこと
+- 現在run IDのAI結果反映とcompleted遷移が同一transactionで完了すること
+- retryable error時に現在run IDだけがpendingへ戻しlease情報をclearできること
 
 PostgreSQL固有挙動を確認するため、DB integration testはSQLiteへ置き換えずPostgreSQLで行う。
 
@@ -2385,15 +2558,16 @@ PostgreSQL integration tests
 
 ### Phase 3: Worker / AI
 
-1. Cloud Tasks enqueue
-2. Worker OIDC endpoint
-3. PoC URL extractor移植
-4. SafeHttpClient / SSRF対策
-5. Schema共通化
-6. Z.ai adapter移植
-7. analysis state transition
-8. DB更新
-9. SwiftDataへの解析結果同期
+1. Cloud Tasks enqueue / retry・deadline設定
+2. Worker OIDC endpoint / Cloud Run timeout設定
+3. processingRunId / fixed leaseのclaim・reclaim
+4. PoC URL extractor移植
+5. SafeHttpClient / SSRF対策
+6. Schema共通化
+7. Z.ai adapter移植
+8. analysis state transition / retry判定
+9. run ID fencing付きDB transaction更新
+10. SwiftDataへの解析結果同期
 
 ### Phase 4: 詳細・編集・Tag
 
@@ -2436,6 +2610,8 @@ PostgreSQL integration tests
 技術選定書で後続検証として残っている以下を実環境で確認する。
 
 - Cloud Tasks → Cloud Run Worker
+- Cloud Tasks retry / dispatchDeadlineとprocessing leaseの連携
+- Worker異常終了後のstale reclaim
 - Cloud Run → Neon pooled connection
 - Prisma migration
 - Apple / Google / Email Firebase Authentication
@@ -2508,6 +2684,8 @@ PostgreSQL integration tests
 - AI Tag生成
 - AI手動再解析
 - AI Provider自動fallback
+- Worker lease heartbeat / 動的lease延長
+- AnalysisJob / AnalysisAttempt専用テーブル
 - 画像専用Cloud Storage
 - 画像の再インストール / 新端末復元保証
 - 調理時間検索
@@ -2544,6 +2722,8 @@ PostgreSQL integration tests
 - Z.ai初期parameter
 - AI結果のDB反映
 - AnalysisStatus / retry / idempotency
+- processing run ownership / fixed lease / stale reclaim
+- Worker / Cloud Tasks / Cloud Run timeout・deadline関係
 - Notification permission / setting
 - Account deletion
 - iOS Feature構造
