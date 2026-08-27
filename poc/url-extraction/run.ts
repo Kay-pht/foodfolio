@@ -10,12 +10,22 @@ import type { UrlCase } from "./types.js";
 const root = process.cwd();
 const rawDirectory = path.join(root, "poc/artifacts/url-extraction");
 const summaryDirectory = path.join(root, "poc/results");
+const urlCases = cases as UrlCase[];
+
+if (
+  urlCases.some(({ source }) => source === "youtube") &&
+  !process.env.YOUTUBE_API_KEY?.trim()
+) {
+  throw new Error(
+    "YOUTUBE_API_KEY is required before running the URL extraction PoC",
+  );
+}
 
 await fs.mkdir(rawDirectory, { recursive: true });
 await fs.mkdir(summaryDirectory, { recursive: true });
 
 const results = [];
-for (const testCase of cases as UrlCase[]) {
+for (const testCase of urlCases) {
   process.stdout.write(`fetch ${testCase.id} ... `);
   const result = await extractUrl(testCase);
   results.push(result);
