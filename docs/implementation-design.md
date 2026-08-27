@@ -2,7 +2,7 @@
 
 ## 1. 本書の目的
 
-本書は、foodfolio MVPの実装時にデータ構造・API・iOS構成・Backend構成・非同期処理・検索・通知・エラー処理について大きく迷わない状態を作ることを目的とする。
+本書は、foodfolio MVPの実装時にデータ構造・API・iOS構成・iOSローカル永続化・同期・Backend構成・非同期処理・検索・通知・エラー処理について大きく迷わない状態を作ることを目的とする。
 
 本書は以下を前提とする。
 
@@ -32,6 +32,15 @@
 | 通知許可要求 | 初回ログイン完了直後に要求 |
 | OS通知拒否時 | アプリ内通知設定はONを維持し、OS設定が無効であることを表示 |
 | アカウント削除 | 関連ユーザーデータを即時完全削除 |
+| オフライン利用 | 保存済みレシピの閲覧・検索のみ可能 |
+| iOSローカルDB | SwiftDataへRecipe等のローカルコピーを永続保存 |
+| 画像保存 | Application Supportへ保存し、同一端末でアプリが存在する間は原則保持 |
+| 画像URL失効 | ローカル画像もない場合はプレースホルダー |
+| AI解析中編集 | pending / processing中は不可 |
+| 解析失敗表示 | 原因別表示をせず共通メッセージ |
+| レシピ検索 | SwiftData上でローカル検索 |
+| 同期 | Backend発行cursorによる差分同期 |
+| 複数端末 | リアルタイム整合は保証せず、定期的な全Recipe ID照合で削除を検出 |
 
 ### 2.2 MVPの実装原則
 
@@ -40,8 +49,15 @@
 - APIとWorkerのためにマイクロサービスを細分化しない。
 - Firebase AuthenticationのFirebase UIDを認証上の外部ユーザー識別子とする。
 - アプリケーションDBでは独自のUUIDを主キーとして使用する。
+- Neon PostgreSQLをユーザーデータの正本（Source of Truth）とする。
+- SwiftDataは一覧・詳細・検索・オフライン閲覧用のローカルコピーとする。
+- URL追加・編集・タグ変更・削除はオンライン必須とし、オフラインmutation queueは作らない。
+- API mutation成功後はレスポンスをSwiftDataへ即時反映する。
+- 通常同期はBackend発行cursorによる差分同期とし、Client端末時刻を同期基準にしない。
+- hard delete検出のため、定期的にServerとLocalのRecipe IDを全件照合する。
 - AI解析はURL保存APIと分離し、Cloud Tasks経由で非同期実行する。
-- AI解析中でもRecipeは利用可能とする。
+- AI解析中でもRecipeの閲覧は可能とするが、pending / processing中の編集は不可とする。
+- 画像バイナリはDBへ保存せず、iOSのApplication Supportへ保存する。
 - 外部URLから取得した本文そのものやAIのraw responseはDBへ永続保存しない。
 - PoCコードをそのまま本番entrypointとして使用せず、検証済みロジックを本番モジュールへ移植する。
 - MVPでは不要な抽象化・汎用化を増やさない。ただしAI Provider、URL取得、通知、認証、DBは外部依存境界としてAdapter化する。
@@ -54,8 +70,12 @@
 ┌─────────────────────────────┐
 │ iOS App                     │
 │ Swift / SwiftUI / iOS 26+   │
+│                             │
+│ SwiftData                   │
+│ Application Support         │
 └──────────────┬──────────────┘
                │ Firebase ID Token
+               │ sync / mutation
                ▼
 ┌─────────────────────────────┐
 │ Cloud Run: foodfolio-api    │
@@ -67,9 +87,9 @@
         ▼             ▼
 ┌───────────────┐  ┌─────────────────┐
 │ Neon Postgres │  │ Cloud Tasks     │
-└───────────────┘  └────────┬────────┘
-                            │ OIDC authenticated HTTP
-                            ▼
+│ Source of     │  └────────┬────────┘
+│ Truth         │           │ OIDC authenticated HTTP
+└───────────────┘           ▼
                    ┌──────────────────────┐
                    │ Cloud Run Worker     │
                    │ foodfolio-worker     │
@@ -201,11 +221,14 @@ schemas/extracted-recipe.schema.json
 - URL validation / URL正規化 / 重複判定
 - Tag CRUDのMVP範囲
 - RecipeTag付与 / 解除
-- 検索
+- 差分同期
+- Recipe ID全件照合
 - UserSetting取得 / 更新
 - FCM Token登録 / 削除
 - アカウント削除
 - Cloud Tasks enqueue
+
+MVPではRecipe検索APIを実装せず、検索はiOSのSwiftDataで行う。
 
 APIでは外部URL本文取得やAI解析を実行しない。
 
@@ -323,7 +346,6 @@ Recipe
 - originalUrl: text NOT NULL
 - normalizedUrl: text NOT NULL
 - sourceType: enum NOT NULL
-- sourceLabel: string NOT NULL
 - title: string NOT NULL DEFAULT "解析中のレシピ"
 - imageUrl: text NULL
 - servingsValue: float NULL
@@ -331,13 +353,6 @@ Recipe
 - cookingTimeMinutes: integer NULL
 - genre: enum NULL
 - analysisStatus: enum NOT NULL DEFAULT pending
-- analysisAttemptCount: integer NOT NULL DEFAULT 0
-- analysisErrorCode: string NULL
-- titleUserEdited: boolean NOT NULL DEFAULT false
-- genreUserEdited: boolean NOT NULL DEFAULT false
-- ingredientsUserEdited: boolean NOT NULL DEFAULT false
-- analysisStartedAt: datetime NULL
-- analysisCompletedAt: datetime NULL
 - createdAt: datetime NOT NULL
 - updatedAt: datetime NOT NULL
 ```
@@ -354,7 +369,10 @@ UNIQUE(userId, normalizedUrl)
 INDEX(userId, createdAt DESC)
 INDEX(userId, genre)
 INDEX(userId, analysisStatus)
+INDEX(userId, updatedAt)
 ```
+
+`updatedAt` は差分同期の変更検知に使用する。Recipe本体だけでなく、Ingredient変更、RecipeTag付与・解除、AI解析結果反映時にも親Recipeの `updatedAt` を必ず更新する。
 
 ### 7.4 SourceType
 
@@ -367,14 +385,14 @@ cookpad
 web
 ```
 
-`sourceLabel` はUI表示用文字列とする。
+UI表示用の元サービス / ドメイン文字列はDBへ `sourceLabel` として重複保存せず、`sourceType` と `originalUrl` から生成する。
 
 例：
 
 ```text
 youtube  -> YouTube
 instagram -> Instagram
-web -> example.com
+web -> originalUrlのdomain
 ```
 
 ### 7.5 AnalysisStatus
@@ -401,13 +419,13 @@ Ingredient
 - name: string NOT NULL
 - amount: string NULL
 - sortOrder: integer NOT NULL
-- createdAt: datetime NOT NULL
-- updatedAt: datetime NOT NULL
 ```
 
 MVPでは分量を数値・単位へ完全分解してDB保存しない。
 
 原典表現を保持するため `amount` は文字列とする。
+
+Ingredient更新時は親Recipeの `updatedAt` も更新する。
 
 ### 7.7 RecipeStep
 
@@ -444,12 +462,13 @@ UNIQUE(userId, normalizedName)
 RecipeTag
 - recipeId: UUID FK -> Recipe.id ON DELETE CASCADE
 - tagId: UUID FK -> Tag.id ON DELETE CASCADE
-- createdAt: datetime NOT NULL
 
 PRIMARY KEY(recipeId, tagId)
 ```
 
 RecipeとTagが同一Userに属することはApplication層で必ず検証する。
+
+RecipeTag付与・解除時は親Recipeの `updatedAt` も更新する。
 
 ### 7.10 DeviceToken
 
@@ -592,14 +611,15 @@ Cloud Tasks enqueueに失敗した場合もRecipe自体は削除しない。
 
 ```text
 analysisStatus = failed
-analysisErrorCode = TASK_ENQUEUE_FAILED
 ```
 
-としてRecipeを返す。
+としてRecipeを返し、内部原因 `TASK_ENQUEUE_FAILED` はCloud Loggingへ記録する。
+
+201成功レスポンスはiOS側でSwiftDataへ即時反映する。
 
 #### GET `/v1/recipes`
 
-ホーム一覧用。
+Recipe一覧の全件照合・デバッグ・必要時の通常取得に利用する。
 
 Query：
 
@@ -631,6 +651,8 @@ ResponseはRecipe summaryのみ返す。
 }
 ```
 
+iOSの通常画面表示はこのAPIの応答待ちにせず、SwiftDataを先に表示する。
+
 #### GET `/v1/recipes/:recipeId`
 
 Recipe詳細取得。
@@ -640,7 +662,6 @@ Responseに含める主な項目：
 - id
 - originalUrl
 - sourceType
-- sourceLabel
 - title
 - imageUrl
 - servingsValue
@@ -648,12 +669,13 @@ Responseに含める主な項目：
 - cookingTimeMinutes
 - genre
 - analysisStatus
-- analysisErrorCode
 - ingredients
 - steps
 - tags
 - createdAt
 - updatedAt
+
+元サービス / ドメインの表示文字列はiOS側で `sourceType` と `originalUrl` から生成する。
 
 #### PATCH `/v1/recipes/:recipeId`
 
@@ -674,15 +696,11 @@ Request例：
 
 すべてoptionalとし、送信された項目だけ変更する。
 
-変更時のflag：
-
-```text
-title変更 -> titleUserEdited = true
-genre変更 -> genreUserEdited = true
-ingredients変更 -> ingredientsUserEdited = true
-```
+`analysisStatus` が `pending` または `processing` のRecipeは編集不可とし、Backendでも `RECIPE_ANALYSIS_IN_PROGRESS` として拒否する。
 
 画像、人数、調理時間、手順、URL、解析状態はこのAPIから変更不可とする。
+
+更新成功時はRecipeの `updatedAt` を更新し、更新後のRecipe DTOを返す。iOSはレスポンスをSwiftDataへ即時反映する。
 
 #### DELETE `/v1/recipes/:recipeId`
 
@@ -696,59 +714,89 @@ Ingredient、RecipeStep、RecipeTagはcascade deleteする。
 204 No Content
 ```
 
-### 10.2 Search API
+iOSは成功後、該当LocalRecipeとローカル画像を削除する。
 
-#### GET `/v1/recipes/search`
+### 10.2 Sync API
+
+#### GET `/v1/sync`
+
+SwiftDataのローカルコピーをBackend DBへ追従させるための差分同期API。
 
 Query：
 
 ```text
-q: optional
- genre: optional
- tagId: optional
- cursor: optional
- limit: optional, default 30, max 50
+cursor: optional
 ```
 
-`q / genre / tagId` の最低1つを指定する。
+初回同期では `cursor` を送らず、現在のRecipe詳細データとTagを返す。
 
-タグは1タグのみ選択可能とする。
-
-条件の結合：
+2回目以降は前回Backendが返したopaque cursorを送る。
 
 ```text
-q AND genre AND tag
+GET /v1/sync?cursor=<opaque-cursor>
 ```
 
-指定されていない条件は無視する。
+Backendはrequest開始時にDB基準のhigh-water markを確定し、前回cursorより後かつ今回high-water mark以下に変更されたRecipeを返す。Client端末時刻は同期判定に使用しない。
 
-テキスト検索：
+Recipeの差分判定には `Recipe.updatedAt` を使用する。Ingredient変更、RecipeTag付与・解除、AI解析結果反映でも親Recipeの `updatedAt` を更新するため、関連データ変更をRecipe単位で取得できる。
+
+Response概念：
+
+```json
+{
+  "recipes": [
+    {
+      "id": "uuid",
+      "originalUrl": "https://...",
+      "sourceType": "web",
+      "title": "親子丼",
+      "imageUrl": "https://...",
+      "servingsValue": 2,
+      "servingsRaw": "2人分",
+      "cookingTimeMinutes": 20,
+      "genre": "主菜",
+      "analysisStatus": "completed",
+      "ingredients": [],
+      "steps": [],
+      "tags": [],
+      "createdAt": "...",
+      "updatedAt": "..."
+    }
+  ],
+  "tags": [],
+  "nextCursor": "opaque-cursor"
+}
+```
+
+同期処理が成功してSwiftDataへの反映まで完了した後にのみ、iOS側で `nextCursor` を保存する。
+
+MVPではRecipe hard deleteを差分レスポンスへtombstoneとして含めない。
+
+#### GET `/v1/sync/recipe-ids`
+
+ログインUserが現在保持しているRecipe IDを全件返す。
+
+用途はhard deleteの定期reconciliationのみとする。
+
+```json
+{
+  "recipeIds": ["uuid-1", "uuid-2"]
+}
+```
+
+iOSは最終全件照合から24時間以上経過し、オンライン状態で同期可能な場合にこのAPIを利用する。
 
 ```text
-Recipe.title OR Ingredient.name
+Server Recipe IDs
+        ↕
+Local Recipe IDs
+↓
+Serverに存在しないLocalRecipeを削除
+↓
+該当ローカル画像も削除
 ```
 
-`q` は前後空白を除去し、空白区切りの複数tokenがある場合は **AND** とする。
-
-各tokenについて、料理名または材料名のいずれかに部分一致すればよい。
-
-例：
-
-```text
-q = "鶏肉 玉ねぎ"
-```
-
-は概念上以下とする。
-
-```text
-(title contains 鶏肉 OR ingredient contains 鶏肉)
-AND
-(title contains 玉ねぎ OR ingredient contains 玉ねぎ)
-```
-
-英字についてはcase-insensitive検索とする。
-
-検索結果は保存日時の新しい順とする。
+複数端末間のリアルタイム整合性はMVPでは保証しない。
 
 ### 10.3 Tag API
 
@@ -786,11 +834,15 @@ RecipeへTagを付与する。
 
 既に付与済みの場合もエラーにせず成功扱いにする。
 
+付与時は親Recipeの `updatedAt` を更新し、成功レスポンスをiOS側のSwiftDataへ反映する。
+
 #### DELETE `/v1/recipes/:recipeId/tags/:tagId`
 
 RecipeからTagを解除する。
 
 Tag master自体は削除しない。
+
+解除時は親Recipeの `updatedAt` を更新する。
 
 MVPではTag master削除・名称変更APIを実装しない。
 
@@ -876,6 +928,7 @@ iOS側は `code` をユーザー向け日本語メッセージへmappingする�
 | 401 | UNAUTHENTICATED | Firebase Token不正 / 期限切れ |
 | 404 | NOT_FOUND | 対象resourceなし / 他User所有 |
 | 409 | DUPLICATE_RECIPE | 正規化URL重複 |
+| 409 | RECIPE_ANALYSIS_IN_PROGRESS | pending / processing中のRecipe編集 |
 | 422 | VALIDATION_ERROR | 編集値等の業務validation不正 |
 | 500 | INTERNAL_ERROR | 想定外エラー |
 | 503 | TEMPORARILY_UNAVAILABLE | 一時的なBackend障害 |
@@ -1035,7 +1088,6 @@ Worker内部では概念上以下へ変換する。
 ```ts
 interface SourceContent {
   sourceType: SourceType;
-  sourceLabel: string;
   resolvedUrl: string;
   imageUrl: string | null;
   textForAi: string | null;
@@ -1147,6 +1199,8 @@ servings.value = null
 
 ## 16. AI解析結果のDB反映
 
+pending / processing中はユーザー編集を許可しないため、MVPではAI結果とユーザー編集の競合回避用flagを持たない。
+
 ### 16.1 title
 
 pending / processing中の初期値：
@@ -1155,11 +1209,7 @@ pending / processing中の初期値：
 解析中のレシピ
 ```
 
-AI title取得成功時：
-
-```text
-titleUserEdited = false の場合のみAI値で更新
-```
+AI title取得成功時はAI値で更新する。
 
 AI処理がcompletedだがtitleを取得できなかった場合：
 
@@ -1167,7 +1217,7 @@ AI処理がcompletedだがtitleを取得できなかった場合：
 タイトル未取得のレシピ
 ```
 
-AI解析がfailedで、ユーザー編集済みtitleもAI titleもない場合：
+AI解析がfailedでAI titleもない場合：
 
 ```text
 解析に失敗したレシピ
@@ -1175,13 +1225,11 @@ AI解析がfailedで、ユーザー編集済みtitleもAI titleもない場合�
 
 ### 16.2 genre
 
-`genreUserEdited = false` の場合のみAI結果で更新する。
+AI結果をそのまま反映する。
 
 ### 16.3 ingredients
 
-`ingredientsUserEdited = false` の場合のみAI結果で全置換する。
-
-MVPではAI再解析機能を持たないが、解析中にユーザー編集が発生した場合にも上書きしないためflagを持つ。
+AI結果で全置換する。
 
 ### 16.4 servings / cookingTime / steps
 
@@ -1190,6 +1238,10 @@ MVPではユーザー編集不可のため、AI成功時に更新する。
 ### 16.5 Tag
 
 AIはTagを作成・付与しない。
+
+### 16.6 updatedAt
+
+AI解析結果をRecipeへ反映した場合は、Recipe本体・Ingredient・RecipeStepの変更を含めて親Recipeの `updatedAt` を更新する。
 
 ---
 
@@ -1237,20 +1289,36 @@ processing
   ├─ permanent error --------> failed
   └─ retryable error
        ├─ attempts remaining -> pending -> Cloud Tasks retry
-       └─ attempts exhausted -> failed
+       └─ final attempt ------> failed
 ```
 
 ### 17.4 最大試行回数
 
-Application側の最大解析試行回数：
+Cloud Tasks Queueの `maxAttempts` を **3回** とする。
+
+Recipeには試行回数カラムを持たない。
+
+WorkerはCloud Tasksが付与するretry / execution情報とQueue設定を利用し、現在のdeliveryが再試行可能か判定する。試行回数はCloud Loggingへ記録する。
+
+retryable errorかつ再試行回数が残っている場合：
 
 ```text
-3回
+analysisStatus = pending
+↓
+non-2xx response
+↓
+Cloud Tasks retry
 ```
 
-`analysisAttemptCount` をDBで管理する。
+最終試行でも失敗した場合：
 
-Worker開始時に原子的にincrementする。
+```text
+analysisStatus = failed
+↓
+失敗通知条件を評価
+↓
+2xx responseでTask終了
+```
 
 ### 17.5 冪等性
 
@@ -1263,8 +1331,6 @@ completed -> 何もせず成功応答
 failed -> 何もせず成功応答
 pending / processing -> 処理対象
 ```
-
-結果反映はtransaction内で現在statusと編集flagを再確認する。
 
 同一Recipeに対して複数Taskが同時実行されないよう、statusのcompare-and-setまたはDB transactionによって処理権を取得する。
 
@@ -1294,9 +1360,13 @@ pending / processing -> 処理対象
 
 ---
 
-## 18. Analysis Error Code
+## 18. Analysis Error Classification
 
-Recipeに保存する内部error codeを以下とする。
+解析失敗の詳細原因はRecipe DBへ保存しない。
+
+ユーザー向けUIは原因別表示を行わず、`analysisStatus = failed` に対して共通メッセージを表示する。
+
+診断用には以下の分類をCloud Loggingへ構造化出力する。
 
 ```text
 TASK_ENQUEUE_FAILED
@@ -1313,7 +1383,7 @@ AI_SCHEMA_INVALID
 INTERNAL_ANALYSIS_ERROR
 ```
 
-Providerのraw error responseやsource本文はRecipeへ保存しない。
+Providerのraw error responseやsource本文は保存・出力しない。
 
 Cloud Loggingには `recipeId / requestId / providerRequestId / errorCode / latency / attempt` 等の診断情報だけを構造化loggingし、取得本文・API key・Firebase tokenを出力しない。
 
@@ -1321,14 +1391,40 @@ Cloud Loggingには `recipeId / requestId / providerRequestId / errorCode / late
 
 ## 19. 検索仕様
 
+レシピ検索はBackend APIではなく、iOSのSwiftDataに同期済みのローカルデータを対象に実行する。
+
 ### 19.1 対象
 
-- Recipe.title
-- Ingredient.name
+- LocalRecipe.title
+- LocalIngredient.name
 - Genre
 - Tag 1件
 
-### 19.2 対象外
+### 19.2 条件
+
+テキスト検索は、空白区切りの複数tokenを **AND** とする。
+
+各tokenについて料理名または材料名のいずれかに部分一致すればよい。
+
+```text
+q = "鶏肉 玉ねぎ"
+```
+
+概念：
+
+```text
+(title contains 鶏肉 OR ingredient contains 鶏肉)
+AND
+(title contains 玉ねぎ OR ingredient contains 玉ねぎ)
+```
+
+英字についてはcase-insensitiveとする。
+
+`q / genre / tag` の指定条件はANDで結合し、検索結果は保存日時の新しい順とする。
+
+検索はオフラインでも利用可能とする。
+
+### 19.3 対象外
 
 - cooking time
 - servings
@@ -1337,7 +1433,7 @@ Cloud Loggingには `recipeId / requestId / providerRequestId / errorCode / late
 - saved date filter
 - natural language semantic search
 
-### 19.3 検索履歴
+### 19.4 検索履歴
 
 検索ワード履歴はBackendへ保存しない。
 
@@ -1575,8 +1671,10 @@ DB削除後にFirebase削除が失敗した場合：
 204成功後：
 
 - Firebase local sessionをsign out
+- SwiftDataのユーザーデータを全削除
+- Application SupportのRecipe画像を全削除
+- sync cursor / 最終全件照合日時を削除
 - 検索履歴削除
-- local cache削除
 - navigation state初期化
 - 認証画面へ戻る
 
@@ -1613,8 +1711,10 @@ Feature ViewModel
 ↓
 Repository / Service
 ↓
-APIClient / Firebase SDK / Local Store
+SwiftData / APIClient / Firebase SDK / ImageStore
 ```
+
+Recipeのreadは原則SwiftDataを利用し、Backendとの同期・mutationをRepository / SyncService経由で行う。
 
 ### 25.2 iOSディレクトリ
 
@@ -1635,7 +1735,17 @@ ios/Foodfolio/
 │  ├─ Notifications/
 │  │  └─ NotificationService.swift
 │  ├─ Persistence/
+│  │  ├─ ModelContainerFactory.swift
+│  │  ├─ LocalRecipe.swift
+│  │  ├─ LocalIngredient.swift
+│  │  ├─ LocalRecipeStep.swift
+│  │  ├─ LocalTag.swift
+│  │  ├─ LocalRecipeTag.swift
 │  │  └─ SearchHistoryStore.swift
+│  ├─ Sync/
+│  │  └─ RecipeSyncService.swift
+│  ├─ Images/
+│  │  └─ RecipeImageStore.swift
 │  ├─ Models/
 │  └─ UI/
 │
@@ -1680,7 +1790,78 @@ Feature Viewから直接URLSessionを呼ばない。
 
 Backend DTOをSwiftUI Viewへ直接渡さず、必要に応じてDomain/UI modelへ変換する。
 
-ただしMVPでは不要なRepository層の増殖を避け、単純FeatureではAPI serviceからViewModelへ直接DTOを返してよい。
+SwiftDataのLocal modelもViewからnetwork DTOとして扱わず、Repository境界で変換・更新する。
+
+### 25.6 SwiftDataモデル
+
+Server DB schemaをそのまま複製せず、画面表示・検索・オフライン閲覧に必要な情報だけを保持する。
+
+概念例：
+
+```text
+LocalRecipe
+- id
+- originalUrl
+- sourceType
+- title
+- imageUrl
+- servingsValue
+- servingsRaw
+- cookingTimeMinutes
+- genre
+- analysisStatus
+- createdAt
+- updatedAt
+- ingredients
+- steps
+- tags
+```
+
+Server側の認可用 `userId` や重複判定専用 `normalizedUrl` はLocalRecipeへ保存しない。
+
+Ingredient / RecipeStep / TagはServerのUUIDをそのままLocal側識別子として利用する。
+
+### 25.7 画像保存
+
+保存先：
+
+```text
+Library/Application Support/Foodfolio/RecipeImages/{recipeId}
+```
+
+画像ファイル名はRecipe IDから一意に決定し、LocalRecipeへローカルpathを重複保存しない。
+
+表示フロー：
+
+```text
+ローカル画像あり
+→ 即表示
+
+ローカル画像なし
+→ onlineかつimageUrlあり
+→ download
+→ Application Supportへ保存
+→ 表示
+
+取得不可
+→ placeholder
+```
+
+画像ファイルはバックアップ対象から除外する。
+
+同期により `imageUrl` が別URLへ変更された場合は既存ローカル画像を削除し、新しいURLからの再取得対象とする。
+
+### 25.8 ログアウト時のLocal Data
+
+ログアウト成功時はアカウント切り替えによる誤表示を避けるため、以下を削除する。
+
+- SwiftData全ユーザーデータ
+- RecipeImages
+- sync cursor
+- 最終全件照合日時
+- 検索履歴
+
+再ログイン時はBackendから再同期する。
 
 ---
 
@@ -1693,32 +1874,38 @@ Backend DTOをSwiftUI Viewへ直接渡さず、必要に応じてDomain/UI model
 - login / signup / password reset
 - 認証完了後AppSession更新
 - 初回通知許可要求
+- ローカルデータがなければ初回同期
 
 ### SCR-02 レシピ一覧
 
-- `GET /v1/recipes`
+- SwiftDataのLocalRecipeを保存日時の新しい順で表示
 - 2列grid
-- pagination
-- pull-to-refresh
+- pull-to-refreshで差分同期
 - placeholder image
+- local image優先表示
 - pending / processing title表示
 - FAB
 - Drawer
 
+画面表示時はnetwork responseを待たず、SwiftDataに存在するデータを即表示する。
+
 解析完了のリアルタイムpush更新専用socket等は導入しない。
 
-画面再表示、pull-to-refresh、通知tap等で再取得する。
+画面再表示、pull-to-refresh、通知tap、foreground復帰等を契機に差分同期する。
 
-アプリforeground復帰時、一覧表示中であれば先頭pageを再取得してよい。
+同期失敗時も既存のLocalRecipeは維持する。
 
 ### SCR-03 URL追加Sheet
 
 - URL入力
 - local format check
+- online必須
 - `POST /v1/recipes`
-- 201でSheet close
+- 201でレスポンスをSwiftDataへ反映してSheet close
 - 409で既存Recipeへの導線
 - AI完了は待たない
+
+オフライン時は未同期Recipeを作らず、通信が必要であることを表示する。
 
 ### SCR-04 レシピ検索
 
@@ -1726,19 +1913,22 @@ Backend DTOをSwiftUI Viewへ直接渡さず、必要に応じてDomain/UI model
 - genre 1件
 - tag 1件
 - local検索履歴
-- debounceしてsearch API実行
+- SwiftDataに対してローカル検索
 - queryなし + filterありを許可
+- オフライン利用可能
 
 ### SCR-05 レシピ詳細
 
-- Recipe detail取得
+- LocalRecipe detail表示
 - servings表示
 - 分量比例計算
 - Tag追加Bottom Sheet
 - 元URL open
 - edit navigation
 - delete
-- analysis error表示
+- analysis error共通表示
+
+Tag追加・削除、Recipe削除等のmutationはオンライン必須とする。
 
 ### SCR-06 レシピ編集
 
@@ -1747,6 +1937,10 @@ Backend DTOをSwiftUI Viewへ直接渡さず、必要に応じてDomain/UI model
 - genre
 - tags
 - save時PATCH
+
+`pending / processing` 中は編集画面へ遷移させない。Backendでも同状態のPATCHを拒否する。
+
+編集はオンライン必須とし、成功レスポンスをSwiftDataへ即時反映する。
 
 ### SCR-07 設定
 
@@ -1760,6 +1954,7 @@ Backend DTOをSwiftUI Viewへ直接渡さず、必要に応じてDomain/UI model
 - provider表示
 - logout
 - account delete
+- logout / account delete成功時のLocal Data cleanup
 
 ---
 
@@ -1777,6 +1972,8 @@ pendingDeepLinkRecipeId
 
 Recipe一覧や検索結果をglobal storeとして共有しない。
 
+永続Recipe stateはSwiftDataを正とし、各Featureから必要なqueryを行う。
+
 ### 27.2 Loading / Error
 
 各Feature ViewModelは概念上以下を持つ。
@@ -1790,24 +1987,74 @@ error
 
 保存・編集等のmutationは画面全体の状態と分離して `isSubmitting` 等で管理してよい。
 
+ローカルデータが存在する場合、同期中であることを理由に画面全体をloadingへ戻さない。
+
 ---
 
-## 28. 一覧・検索のページネーション
+## 28. 同期設計
 
-cursor based paginationを採用する。
-
-cursorには概念上以下を含める。
+### 28.1 Source of Truth
 
 ```text
-createdAt
-id
+Neon PostgreSQL = 正本
+SwiftData = ローカルコピー
 ```
 
-Clientからcursor内部構造へ依存させず、opaque stringとして返す。
+ローカル変更を後からServerへmergeする双方向同期は行わない。
 
-初期page：30件。
+### 28.2 初回同期
 
-最大：50件。
+```text
+認証完了
+↓
+GET /v1/sync
+↓
+Recipe / Ingredient / Step / Tag関係をSwiftDataへupsert
+↓
+nextCursor保存
+↓
+必要な画像を遅延取得
+```
+
+### 28.3 差分同期
+
+```text
+GET /v1/sync?cursor=<lastCursor>
+↓
+変更RecipeをSwiftDataへupsert
+↓
+成功した場合のみnextCursorへ更新
+```
+
+同期cursorはBackend発行のopaque stringとし、Clientは内部構造へ依存しない。
+
+端末時刻を `lastSyncAt` としてServer query条件へ送らない。
+
+### 28.4 hard delete照合
+
+RecipeはServerでhard deleteするため、差分同期だけでは他端末で削除されたRecipeを検出できない。
+
+最終全件照合から24時間以上経過し、オンラインで同期できる場合：
+
+```text
+GET /v1/sync/recipe-ids
+↓
+Server IDsとLocal IDsを比較
+↓
+Serverに存在しないLocalRecipeを削除
+↓
+該当Recipe画像も削除
+↓
+lastFullReconciliationAt更新
+```
+
+MVPではtombstone / change logを追加しない。
+
+### 28.5 mutation成功時
+
+POST / PATCH / Tag付与・解除等のAPI成功時は、次回同期を待たずレスポンスをSwiftDataへ反映する。
+
+DELETE成功時はLocalRecipeと画像を即時削除する。
 
 ---
 
@@ -1833,9 +2080,21 @@ UNIQUE(userId, normalizedName)
 
 ### 29.3 AI更新とユーザー編集
 
-Worker最終更新transactionで `titleUserEdited / genreUserEdited / ingredientsUserEdited` を再取得してからAI値を反映する。
+pending / processing中のRecipe編集を禁止するため、MVPではAI更新とユーザー編集が同時発生する競合を許容しない。
 
-Worker開始時に読み込んだ古いflagだけで判断しない。
+`titleUserEdited / genreUserEdited / ingredientsUserEdited` のような競合回避flagは持たない。
+
+### 29.4 同期用updatedAt
+
+以下の変更では必ず親Recipeの `updatedAt` を更新する。
+
+- Recipe本体の編集
+- Ingredient変更
+- RecipeTag付与・解除
+- AI解析結果反映
+- analysisStatus変更
+
+これにより差分同期が関連データの変更を取りこぼさないようにする。
 
 ---
 
@@ -1859,6 +2118,8 @@ latencyMs
 inputTokens
 outputTokens
 ```
+
+`analysisAttempt` と `errorCode` は診断用ログ項目であり、Recipe DBへ永続保存しない。
 
 禁止：
 
@@ -1889,6 +2150,8 @@ ZAI_API_KEY
 AI_MODEL=glm-5.3-flash
 MAX_ANALYSIS_ATTEMPTS=3
 ```
+
+`MAX_ANALYSIS_ATTEMPTS` はCloud Tasks Queueのretry設定とWorkerの最終試行判定で同じ値を使用する。
 
 API Key / DB接続情報はSecret ManagerからCloud Runへ渡す。
 
@@ -1924,8 +2187,6 @@ foodfolio-worker
 - URL normalization
 - source classification
 - Tag normalization
-- search query組み立て
-- cursor encode / decode
 - amount比例計算
 - range servings判定
 - analysis state transition
@@ -1933,7 +2194,10 @@ foodfolio-worker
 - AI Schema validation
 - AI result → DB mapping
 - API error mapping
+- sync cursor処理
+- Local Recipe検索条件
 - SearchHistoryStore
+- RecipeImageStore path / cleanup
 
 ### 33.2 Integration Test
 
@@ -1943,12 +2207,13 @@ foodfolio-worker
 - URL unique constraint
 - Tag unique constraint
 - RecipeTag ownership validation
-- Recipe search query
 - Recipe delete cascade
 - account DB cascade delete
+- 差分同期Query
+- Ingredient / RecipeTag / AI更新時のRecipe.updatedAt更新
+- Recipe ID全件照合API
 - API route + fake auth adapter
 - Worker + fake URL extractor + fake AI adapter + test DB
-- AI結果とユーザー編集競合
 
 PostgreSQL固有挙動を確認するため、DB integration testはSQLiteへ置き換えずPostgreSQLで行う。
 
@@ -1975,8 +2240,12 @@ poc:e2e
 最低限：
 
 - URL追加ViewModel
+- SwiftData upsert / delete
+- Local Recipe検索
+- 差分同期cursor更新
+- hard delete reconciliation
+- RecipeImageStore
 - SearchHistoryStore
-- Search query state
 - servings amount scaling
 - API error → UI message mapping
 - notification setting表示判定
@@ -2019,16 +2288,19 @@ PostgreSQL integration tests
 6. User / UserSetting同期
 7. error / logging基盤
 
-### Phase 2: Recipe保存・一覧
+### Phase 2: Recipe保存・ローカル永続化
 
 1. URL validation / normalization
 2. POST `/recipes`
 3. GET `/recipes`
 4. GET `/recipes/:id`
-5. iOS Recipe一覧
-6. URL追加Sheet
+5. Sync API
+6. SwiftData model / Repository
+7. RecipeImageStore
+8. iOS Recipe一覧
+9. URL追加Sheet
 
-この時点ではAIなしでも保存・一覧・詳細が成立する状態にする。
+この時点ではAIなしでも保存・同期・一覧・詳細が成立する状態にする。
 
 ### Phase 3: Worker / AI
 
@@ -2040,6 +2312,7 @@ PostgreSQL integration tests
 6. Z.ai adapter移植
 7. analysis state transition
 8. DB更新
+9. SwiftDataへの解析結果同期
 
 ### Phase 4: 詳細・編集・Tag
 
@@ -2049,13 +2322,14 @@ PostgreSQL integration tests
 4. Tag作成
 5. Tag付与 / 解除
 6. servings比例表示
+7. mutation成功時のSwiftData即時反映
 
 ### Phase 5: Search
 
-1. PostgreSQL検索query
-2. search API
-3. iOS検索画面
-4. UserDefaults検索履歴
+1. SwiftDataローカル検索
+2. iOS検索画面
+3. UserDefaults検索履歴
+4. オフライン検索確認
 
 ### Phase 6: Notification
 
@@ -2071,7 +2345,7 @@ PostgreSQL integration tests
 1. account画面
 2. logout時Token削除
 3. account完全削除
-4. local data cleanup
+4. SwiftData / RecipeImages / sync metadata cleanup
 
 ### Phase 8: 実環境検証
 
@@ -2084,6 +2358,8 @@ PostgreSQL integration tests
 - Password reset
 - FCM → APNs実機通知
 - Singapore構成の実機体感latency
+- 差分同期 / 全件照合
+- オフライン閲覧・検索
 - 実運用コスト
 
 ---
@@ -2147,10 +2423,15 @@ PostgreSQL integration tests
 - AI Tag生成
 - AI手動再解析
 - AI Provider自動fallback
-- 画像専用Storage
+- 画像専用Cloud Storage
+- 画像の再インストール / 新端末復元保証
 - 調理時間検索
 - semantic / vector search
+- オフラインmutation queue
+- オフライン編集
 - WebSocket / realtime DB同期
+- 複数端末のリアルタイム整合保証
+- sync tombstone / change log
 - sort変更UI
 - soft delete / trash
 - 課金
@@ -2166,10 +2447,13 @@ PostgreSQL integration tests
 - DB entity / relation
 - Prisma migration方針
 - Firebase認証境界
-- Recipe / Tag / Setting / DeviceToken API
+- Recipe / Tag / Setting / DeviceToken / Sync API
 - URL重複判定
 - SSRF対策
-- Recipe検索条件
+- SwiftData model / local persistence
+- 差分同期 / hard delete reconciliation
+- Recipe画像の端末保存
+- Local Recipe検索条件
 - 検索履歴保存場所
 - AI Schema
 - Z.ai初期parameter

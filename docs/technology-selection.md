@@ -7,6 +7,7 @@
 対象は以下とする。
 
 - iOSアプリ
+- iOSローカル永続化
 - Backend API
 - Database
 - Authentication
@@ -37,6 +38,8 @@
 - Apple / Google / メール認証を提供する
 - 解析成功 / 失敗をPush通知できるようにする
 - 料理名、材料、ジャンル、タグによる検索・絞り込みを行う
+- 保存済みレシピはオフラインで閲覧・検索可能とする
+- URL追加・編集・タグ変更・削除はオンライン必須とする
 - レシピ、材料、タグ等はリレーショナルなデータとして扱う
 
 ### 2.2 コスト条件
@@ -71,6 +74,8 @@
 | --- | --- | --- |
 | iOS | Swift + SwiftUI | 採用 |
 | Minimum iOS | iOS 26.0 | 採用 |
+| iOSローカルDB | SwiftData | 採用 |
+| iOS画像保存 | FileManager / Application Support | 採用 |
 | Backend Runtime | Node.js + TypeScript | 採用 |
 | Backend Hosting | Google Cloud Run | 採用 |
 | Database | Neon PostgreSQL | 採用 |
@@ -85,7 +90,7 @@
 | Secrets | Google Cloud Secret Manager | 採用 |
 | Crash Reporting | Firebase Crashlytics | 採用 |
 | Analytics | Firebase Analytics | 採用 |
-| 画像Storage | MVP初期は専用Storageを持たない | 条件付き |
+| 画像Cloud Storage | MVP初期は専用Storageを持たない | 採用 |
 
 ---
 
@@ -95,10 +100,13 @@
 ┌──────────────────────────────┐
 │ iOS App                      │
 │ Swift / SwiftUI / iOS 26+    │
+│                              │
+│ SwiftData                    │
+│ Application Support          │
 └──────────────┬───────────────┘
                │
                │ Firebase Authentication
-               │ ID Token
+               │ ID Token / sync / mutation
                ▼
 ┌──────────────────────────────┐
 │ Cloud Run API                │
@@ -110,32 +118,32 @@
 ┌──────────────┐  ┌───────────────┐
 │ Neon         │  │ Cloud Tasks   │
 │ PostgreSQL   │  └───────┬───────┘
-└──────────────┘          │ authenticated HTTP
+│ Source of    │          │ authenticated HTTP
+│ Truth        │          ▼
+└──────────────┘  ┌─────────────────┐
+                  │ Cloud Run Worker│
+                  │ Node.js / TS    │
+                  └───────┬─────────┘
+                          │
+             ┌────────────┼────────────┐
+             │            │            │
+             ▼            ▼            ▼
+        URL情報取得    AI Provider   Neon PostgreSQL
+                          │
                           ▼
-                 ┌─────────────────┐
-                 │ Cloud Run Worker│
-                 │ Node.js / TS    │
-                 └───────┬─────────┘
-                         │
-            ┌────────────┼────────────┐
-            │            │            │
-            ▼            ▼            ▼
-       URL情報取得    AI Provider   Neon PostgreSQL
-                         │
-                         ▼
-                  構造化レシピJSON
-                         │
-                         ▼
-                  Schema validation
-                         │
-                         ▼
-                    DBへ反映
-                         │
-                         ▼
-                   FCM → APNs
-                         │
-                         ▼
-                      iPhone
+                   構造化レシピJSON
+                          │
+                          ▼
+                   Schema validation
+                          │
+                          ▼
+                     DBへ反映
+                          │
+                          ▼
+                    FCM → APNs
+                          │
+                          ▼
+                       iPhone
 ```
 
 ### 4.1 Backend構成方針
@@ -192,10 +200,25 @@ MVPでは依存ライブラリを増やしすぎない。
 
 - UI: SwiftUI
 - HTTP: URLSession
+- Local persistence: SwiftData
+- Local image storage: FileManager
 - Auth: Firebase Authentication SDK
 - Push: Firebase Messaging SDK
 - Crash: Firebase Crashlytics
 - Analytics: Firebase Analytics
+
+### 5.4 ローカル永続化
+
+Neon PostgreSQLをユーザーデータの正本（Source of Truth）とし、iOS側はSwiftDataにRecipe、Ingredient、RecipeStep、Tag、RecipeTag等のローカルコピーを保持する。
+
+ローカルコピーは以下に利用する。
+
+- アプリ起動直後の表示
+- レシピ一覧・詳細
+- ローカル検索
+- オフライン閲覧・検索
+
+MVPではオフラインmutation queueや競合解決を実装せず、追加・編集・タグ変更・削除はオンライン必須とする。
 
 ---
 
@@ -272,9 +295,9 @@ DB migrationについてはPrisma Migrateを利用する。
 
 ### 7.4 Search
 
-MVPでは外部検索サービスを導入しない。
+MVPのレシピ検索は、iOSに同期済みのSwiftDataを対象にローカル実行する。
 
-PostgreSQL上で以下を実現する。
+検索対象：
 
 - 料理名の部分一致
 - 材料名の部分一致
@@ -282,9 +305,11 @@ PostgreSQL上で以下を実現する。
 - タグ絞り込み
 - 上記条件の組み合わせ
 
+これにより検索時のBackend round tripを不要とし、オフライン検索を可能にする。
+
 MVP規模ではAlgolia、Elasticsearch、OpenSearch等は導入しない。
 
-検索性能または日本語検索品質に問題が出た場合のみ、PostgreSQL拡張や専用検索基盤を再検討する。
+レシピ件数の増加等により端末内検索が実用上問題になった場合のみ、Backend検索や専用検索基盤を再検討する。
 
 ---
 
@@ -492,16 +517,28 @@ YouTube、Instagram、TikTok等は一般Webページと取得条件が異なる�
 
 MVP初期では、画像保存専用のCloud Storageを必須構成にしない。
 
-まずは元ページから取得できた代表画像URLをRecipeデータとして保持し、iOSから表示する方式でPoCする。
+元ページから取得できた代表画像URLはRecipeデータの `imageUrl` としてBackend DBへ保持する。これは端末側に画像が存在しない場合の再取得元として利用する。
 
-以下の問題が確認された場合にのみGoogle Cloud Storage等へのキャッシュを追加する。
+iOSは画像を初回取得した際、Application Support配下のアプリ管理領域へ保存し、以後はローカル画像を優先して表示する。
 
-- source側URLの有効期限が短い
-- hotlinkが禁止・不安定
-- 表示速度が著しく悪い
-- 認証付きURLでiOSから直接取得できない
+```text
+ローカル画像あり
+→ ローカル画像を表示
 
-これにより、MVP初期の構成と費用を抑える。
+ローカル画像なし + オンライン + imageUrl有効
+→ imageUrlから取得
+→ Application Supportへ保存
+→ 表示
+
+ローカル画像なし + imageUrlから取得不可
+→ プレースホルダー
+```
+
+画像は同一端末でアプリがインストールされている間は原則保持する。アプリ削除・再インストール・新端末への移行後の復元はMVPでは保証しない。
+
+外部から再取得可能な画像であるため、Application Supportへ保存する画像ファイルはバックアップ対象から除外する。
+
+Google Cloud Storage等のfoodfolio管理画像StorageはMVPでは追加しない。画像URL失効時のBackend再解析・再取得もMVP対象外とする。
 
 ---
 
@@ -643,7 +680,7 @@ AI料金はインフラ予算とは分離して観測する。
 
 ### 18.2 Firestore中心構成
 
-Auth / PushをFirebaseへ統一できる利点はあるが、Recipe / Ingredient / Tag / RecipeTag等の関係データと複合検索はPostgreSQLの方が自然である。
+Auth / PushをFirebaseへ統一できる利点はあるが、Recipe / Ingredient / Tag / RecipeTag等の関係データはPostgreSQLの方が自然である。
 
 PostgreSQL / Prismaの既存経験もあるため採用しない。
 
@@ -709,7 +746,7 @@ Cloud Run SingaporeからNeon SingaporeへPrismaで接続し、以下を確認�
 - pooled connection
 - migration
 - 通常CRUD
-- 検索Query
+- 差分同期Query
 - 日本からのiOS操作を含む体感Latency
 
 ### PoC 5: Authentication
@@ -758,6 +795,8 @@ iOS
   Swift
   SwiftUI
   iOS 26+
+  SwiftData
+  FileManager / Application Support
 
 Authentication
   Firebase Authentication
@@ -805,6 +844,12 @@ Infrastructure
   https://developer.apple.com/xcode/system-requirements/
 - Apple App Store submission requirements  
   https://developer.apple.com/news/upcoming-requirements/
+- Apple SwiftData  
+  https://developer.apple.com/documentation/swiftdata
+- Apple Maintaining a local copy of server data  
+  https://developer.apple.com/documentation/swiftdata/maintaining-a-local-copy-of-server-data
+- Apple Application Support directory  
+  https://developer.apple.com/documentation/foundation/url/applicationsupportdirectory
 - Google Cloud Run pricing  
   https://cloud.google.com/run/pricing
 - Google Cloud Tasks pricing  
