@@ -1,5 +1,5 @@
 import { Ajv2020, type ErrorObject } from "ajv/dist/2020.js";
-import schema from "../shared/recipe-schema.json" with { type: "json" };
+import schema from "../../schemas/extracted-recipe.schema.json" with { type: "json" };
 import type { Evaluation, Recipe } from "./types.js";
 
 const ajv = new Ajv2020({ allErrors: true, strict: false });
