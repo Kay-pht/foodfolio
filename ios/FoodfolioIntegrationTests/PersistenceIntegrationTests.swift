@@ -52,6 +52,57 @@ import XCTest
     let removedData = await store.data(for: "recipe")
     XCTAssertNil(removedData)
   }
+
+  func testDifferentialSyncPersistsCursorGlobalTagsAndReconcilesIDs() async throws {
+    let container = try ModelContainerFactory.make(inMemory: true)
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    let repository = RecipeRepository(
+      context: container.mainContext,
+      api: APIClient(
+        baseURL: URL(string: "https://example.invalid")!, tokenProvider: TestTokenProvider()),
+      images: try RecipeImageStore(root: root))
+    let defaults = UserDefaults(suiteName: UUID().uuidString)!
+    let date = Date()
+    try repository.upsert(makeRecipe(id: "local-only", date: date))
+    var requestedPaths: [String] = []
+    var responses = [
+      SyncResponse(
+        recipes: [makeRecipe(id: "server", date: date)],
+        tags: [TagDTO(id: "unused-tag", name: "作り置き", createdAt: date)],
+        nextCursor: "cursor-1"),
+      SyncResponse(recipes: [], tags: [], nextCursor: "cursor-2"),
+    ]
+    var reconciliationCount = 0
+    let service = RecipeSyncService(
+      repository: repository, defaults: defaults,
+      fetchSync: { path in
+        requestedPaths.append(path)
+        return responses.removeFirst()
+      },
+      fetchRecipeIDs: {
+        reconciliationCount += 1
+        return RecipeIDsResponse(recipeIds: ["server"])
+      })
+
+    try await service.sync(now: date)
+    XCTAssertEqual(requestedPaths, ["/v1/sync"])
+    XCTAssertEqual(defaults.string(forKey: "recipeSyncCursor"), "cursor-1")
+    XCTAssertEqual(try repository.allRecipes().map(\.id), ["server"])
+    XCTAssertEqual(try repository.allTags().map(\.id).sorted(), ["unused-tag"])
+
+    try await service.sync(now: date.addingTimeInterval(60))
+    XCTAssertEqual(requestedPaths, ["/v1/sync", "/v1/sync?cursor=cursor-1"])
+    XCTAssertEqual(defaults.string(forKey: "recipeSyncCursor"), "cursor-2")
+    XCTAssertEqual(reconciliationCount, 1)
+  }
+}
+
+private func makeRecipe(id: String, date: Date) -> RecipeDTO {
+  RecipeDTO(
+    id: id, originalUrl: "https://example.com/\(id)", sourceType: "web", title: id,
+    imageUrl: nil, servingsValue: nil, servingsRaw: nil, cookingTimeMinutes: nil, genre: nil,
+    analysisStatus: .completed, ingredients: [], steps: [], tags: [], createdAt: date,
+    updatedAt: date)
 }
 
 private struct TestTokenProvider: IDTokenProvider {

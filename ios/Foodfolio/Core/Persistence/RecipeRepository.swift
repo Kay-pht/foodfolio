@@ -132,6 +132,11 @@ final class RecipeRepository {
     try context.save()
   }
 
+  func upsert(tags: [TagDTO]) throws {
+    for tag in tags { _ = try upsertTag(tag) }
+    try context.save()
+  }
+
   func clearLocalData() async throws {
     try context.delete(model: LocalRecipe.self)
     try context.delete(model: LocalTag.self)

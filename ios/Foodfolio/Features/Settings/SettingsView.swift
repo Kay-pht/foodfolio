@@ -12,7 +12,9 @@ struct SettingsView: View {
       Section("通知") {
         Toggle("レシピ解析通知", isOn: $enabled).onChange(of: enabled) { _, value in update(value) }
           .accessibilityIdentifier("settings.analysisNotification")
-        if enabled && osStatus == .denied {
+        if NotificationService.shouldShowOpenSettings(
+          appNotificationEnabled: enabled, status: osStatus)
+        {
           Text("通知はiOS設定で無効になっています").foregroundStyle(.orange)
           Button("設定を開く") {
             UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!)

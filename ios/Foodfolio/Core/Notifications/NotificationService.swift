@@ -15,6 +15,10 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate, Mes
   }
   func requestAfterFirstLogin() async {
     let settings = await UNUserNotificationCenter.current().notificationSettings()
+    if Self.shouldRegisterForRemoteNotifications(status: settings.authorizationStatus) {
+      UIApplication.shared.registerForRemoteNotifications()
+      return
+    }
     guard settings.authorizationStatus == .notDetermined else { return }
     if (try? await UNUserNotificationCenter.current().requestAuthorization(options: [
       .alert, .badge, .sound,
@@ -22,6 +26,14 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate, Mes
       UIApplication.shared.registerForRemoteNotifications()
     }
   }
+  nonisolated static func shouldRegisterForRemoteNotifications(status: UNAuthorizationStatus)
+    -> Bool
+  {
+    status == .authorized || status == .provisional || status == .ephemeral
+  }
+  nonisolated static func shouldShowOpenSettings(
+    appNotificationEnabled: Bool, status: UNAuthorizationStatus
+  ) -> Bool { appNotificationEnabled && status == .denied }
   func authorizationStatus() async -> UNAuthorizationStatus {
     await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
   }
