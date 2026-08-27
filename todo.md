@@ -9,12 +9,12 @@
   - [x] Recipe Schema作成
   - [x] AI評価スクリプト作成
   - [x] AI候補の公式料金ベースライン確認
-  - [ ] 本番Backend相当のHTTP実行環境で一般Web / クラシル / クックパッドを取得検証
-  - [ ] YouTubeの本番Backend相当の取得方式を実検証
-  - [ ] Instagram実投稿URLの取得方式を実検証
-  - [ ] TikTok実投稿URLの取得方式を実検証
-  - [ ] 本番相当の取得結果を元にAI比較用fixtureを確定
-  - [ ] Gemini / OpenAI / Qwen / DeepSeekの実API比較
+  - [x] ローカルNode.js HTTP実行環境で一般Web / クラシル / クックパッドを取得検証
+  - [x] YouTubeのローカルNode.js取得方式を実検証
+  - [x] Instagram実投稿URLの取得方式を実検証
+  - [x] TikTok実投稿URLの取得方式を実検証
+  - [x] ローカルNode.jsの取得結果を元にAI比較用fixtureを確定
+  - [ ] Gemini / OpenAI / Z.ai / DeepSeekの実API比較（全社の課金残高不足で停止中）
   - [ ] AI Provider / Model確定
   - [ ] 採用取得方式 + 採用AIで最終E2E確認
 - [ ] 実装設計
