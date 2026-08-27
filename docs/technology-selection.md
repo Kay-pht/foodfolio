@@ -86,6 +86,7 @@
 | Push Notification | Firebase Cloud Messaging + APNs | 採用 |
 | AI Provider | Z.ai / `glm-5.3-flash` | PoC合格・MVP採用 |
 | AI出力検証 | JSON Schema相当 + アプリ側Schema validation | 採用 |
+| YouTube metadata | YouTube Data API v3 `videos.list(part=snippet)` | 採用 |
 | IaC | Terraform | 採用 |
 | Secrets | Google Cloud Secret Manager | 採用 |
 | Crash Reporting | Firebase Crashlytics | 採用 |
@@ -486,21 +487,64 @@ TypeScript側のSchema validation libraryは実装設計時に決定する。
 
 ## 11. URL / Webコンテンツ取得
 
-URL取得方式はPoCで確定する。
-
-最初からHeadless Browserのみへ依存しない。
+URL取得はサービス判定後に取得経路を分岐する。
 
 基本方針：
 
-1. 通常HTTP取得
-2. HTML metadata / OGP / JSON-LD等の機械取得可能情報を利用
-3. AI入力に必要な本文情報を抽出
-4. 通常取得で不足するサービスのみ個別対応を検討
-5. JavaScript実行が不可欠な場合のみHeadless Browserを検討
-
-YouTube、Instagram、TikTok等は一般Webページと取得条件が異なるため、サービスごとの実現可能性をPoCで確認する。
+1. URL文字列からsourceを判定する
+2. YouTubeは通常HTTPでページHTMLを取得せず、URLからvideoIdを抽出してYouTube Data API v3を使用する
+3. YouTube以外は通常HTTP取得を基本とする
+4. HTML metadata / OGP / JSON-LD等の機械取得可能情報を利用する
+5. 通常取得で不足するサービスのみ、公開仕様・利用規約に沿った個別対応を検討する
+6. JavaScript実行が不可欠で、かつ利用条件上問題がない場合のみHeadless Browserを検討する
 
 利用規約・API仕様・アクセス制限を無視した実装は採用しない。
+
+### 11.1 YouTube
+
+YouTubeは一般Webページとしてscrapeしない。
+
+現行の取得フローを以下に固定する。
+
+```text
+YouTube URL
+↓
+URL文字列からvideoIdを抽出
+↓
+YouTube Data API v3
+GET https://www.googleapis.com/youtube/v3/videos
+  ?part=snippet
+  &id=<videoId>
+  &key=<YOUTUBE_API_KEY>
+↓
+snippet.title
+snippet.description
+snippet.thumbnails
+snippet.channelTitle
+↓
+AI入力 / imageUrlへ変換
+```
+
+`videos.list(part=snippet)`の公式レスポンスには、`channelId`、`title`、`description`、`thumbnails`、`channelTitle`、`tags`、`categoryId`等が含まれる。foodfolioのMVPで必要な主要情報は`title`、`description`、`thumbnails`で満たす。
+
+公開動画メタデータの取得ではユーザーOAuthを要求せず、Backendが保持するAPI keyを使用する。`YOUTUBE_API_KEY`はGoogle Cloud Secret Managerで管理し、iOSアプリやリポジトリへ埋め込まない。
+
+`videos.list`のquota costは公式仕様上1 requestあたり1 unitである。
+
+旧PoCで使用した以下は本番実装および現行PoCから除外する。
+
+- YouTube動画ページHTMLの自動取得
+- `ytInitialPlayerResponse.videoDetails.shortDescription`の解析
+- YouTubeページ内部JSON構造への依存
+- YouTube oEmbedを説明文取得の主経路として利用すること
+
+Data APIへ変更後も、AIへ渡す中心情報は動画タイトルと動画説明欄であり、代表画像は`snippet.thumbnails`から取得する。
+
+取得時間についてGoogleによる応答時間保証は確認できないため、旧方式と同等以上であるとは事前に断定しない。`YOUTUBE_API_KEY`を設定した実URL再PoCでData API requestのelapsed timeを記録する。
+
+### 11.2 その他のサービス
+
+Instagram、TikTok等は一般Webページと取得条件が異なるため、公開仕様と実測結果に基づいてサービス別Extractorを使用する。
 
 ### PoCで確認すること
 
@@ -510,6 +554,7 @@ YouTube、Instagram、TikTok等は一般Webページと取得条件が異なる�
 - JavaScript実行が必要か
 - ログイン必須ページをどう扱うか
 - rate limit / bot対策等により安定取得できないケースが何か
+- YouTube Data API経路の実URL取得時間とE2E結果
 
 ---
 
@@ -696,7 +741,9 @@ MVPはiOS専用であり、クロスプラットフォーム対応予定をMVP�
 
 ## 19. 技術検証項目
 
-PoC 1とPoC 2、および実URLからAI解析までの統合確認は完了した。以下のPoC 3〜6は、今回のローカル解析PoCとは分け、後続の実装・リリース工程で確認する。
+PoC 1とPoC 2、および実URLからAI解析までの統合確認は当初構成で完了した。その後YouTube取得方式をData API v3へ変更したため、**YouTube実URL経路のみ回帰PoCを再実行する**。AI Provider選定やYouTube以外の当初PoC結果は維持する。
+
+以下のPoC 3〜6は、今回のローカル解析PoCとは分け、後続の実装・リリース工程で確認する。
 
 ### PoC 1: URL情報取得
 
@@ -705,6 +752,22 @@ PoC 1とPoC 2、および実URLからAI解析までの統合確認は完了し�
 - thumbnail
 - source / domain
 - AI入力用コンテンツ
+
+YouTubeについては現行コードで次を再確認する。
+
+```text
+YouTube URL
+→ videoId抽出
+→ YouTube Data API v3 videos.list(part=snippet)
+→ title / description / thumbnails取得
+```
+
+確認項目：
+
+- 対象YouTube fixtureで必要情報を取得できる
+- AI入力可能判定を維持できる
+- Data API requestの取得時間
+- YouTubeを含むE2EでSchema / Hallucination基準を維持できる
 
 ### PoC 2: AI構造化抽出
 
@@ -769,12 +832,21 @@ Cloud Run SingaporeからNeon SingaporeへPrismaで接続し、以下を確認�
 
 技術選定の完了には、本書の作成だけでなく、コア解析部分のPoCを必要とする。
 
-技術選定の完了条件は次のとおりで、すべて完了した。
+MVPの技術選定自体は完了とする。YouTubeは公式Data APIを採用することまで確定しており、未確認なのは取得可否そのものではなく、**現行Data API経路での実URL回帰結果と取得時間の実測**である。
 
-- 本書の主要技術が確定している（完了）
-- URL取得PoCが成立する（完了）
+完了済み：
+
+- 本書の主要技術が確定している
+- YouTube以外のURL取得PoCが成立する
 - AI Provider / ModelをPoC結果から決定する（Z.ai / `glm-5.3-flash`に確定）
-- 実URL → URL抽出 → AI解析 → Schema validationが成立する（完了）
+- 当初構成で実URL → URL抽出 → AI解析 → Schema validationが成立する
+- YouTubeの取得方式をYouTube Data API v3 `videos.list(part=snippet)`に確定する
+
+後続の回帰確認：
+
+- `YOUTUBE_API_KEY`を設定し、YouTube Data API経路の実URL取得を再実行する
+- YouTube Data API経路を含むE2Eを再実行する
+- Data API取得時間を記録し、実用上問題ないことを確認する
 
 次の実環境検証は後続工程の完了条件として扱う。
 
@@ -806,6 +878,10 @@ Backend
   Node.js
   TypeScript
   Google Cloud Run
+
+Content acquisition
+  General Web: HTTP / JSON-LD / OGP / service-specific public metadata
+  YouTube: YouTube Data API v3 videos.list(part=snippet)
 
 Database
   Neon PostgreSQL
@@ -864,6 +940,14 @@ Infrastructure
   https://firebase.google.com/docs/auth/ios/apple
 - Firebase Cloud Messaging for Apple platforms  
   https://firebase.google.com/docs/cloud-messaging/ios/get-started
+- YouTube Terms of Service  
+  https://www.youtube.com/static?template=terms
+- YouTube Data API — Videos: list  
+  https://developers.google.com/youtube/v3/docs/videos/list
+- YouTube Data API — Video resource / snippet  
+  https://developers.google.com/youtube/v3/docs/videos
+- YouTube Data API — API request authentication  
+  https://developers.google.com/youtube/v3/docs
 - Neon regions  
   https://neon.com/docs/introduction/regions
 - Neon connection pooling  
