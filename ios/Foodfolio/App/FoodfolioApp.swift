@@ -1,5 +1,6 @@
 import FirebaseCore
 import FirebaseMessaging
+import GoogleSignIn
 import SwiftData
 import SwiftUI
 import UIKit
@@ -31,5 +32,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         initialValue: try AppSession(context: container.mainContext, uiTesting: mockMode))
     } catch { fatalError("Unable to initialize Foodfolio: \(error.localizedDescription)") }
   }
-  var body: some Scene { WindowGroup { RootView().environment(session) }.modelContainer(container) }
+  var body: some Scene {
+    WindowGroup {
+      RootView()
+        .environment(session)
+        .onOpenURL { url in _ = GIDSignIn.sharedInstance.handle(url) }
+    }.modelContainer(container)
+  }
 }
