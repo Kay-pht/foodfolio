@@ -12,3 +12,8 @@ coverage/
 poc/artifacts/
 tmp.*
 .neon
+gha-creds-*.json
+infra/terraform/.terraform/
+infra/terraform/*.tfplan
+ios/TestResults/
+ios/.derived-data/

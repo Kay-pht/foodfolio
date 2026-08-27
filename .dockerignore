@@ -1,0 +1,13 @@
+.git
+.env
+.env.*
+!.env.example
+.neon
+node_modules
+dist
+coverage
+ios
+poc
+tests
+docs
+infra
