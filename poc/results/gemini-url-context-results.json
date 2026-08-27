@@ -1,0 +1,296 @@
+{
+  "generatedAt": "2026-08-27T06:23:18.294Z",
+  "architecture": "Gemini Generate Content API with URL Context",
+  "model": "gemini-3.5-flash-lite",
+  "excluded": {
+    "youtube": "Gemini URL Context official limitations list YouTube videos as unsupported"
+  },
+  "costCapUsd": 5,
+  "conservativeCostUsd": 1.2982912,
+  "actualCostUsd": 0.005077099999999999,
+  "costInterpretation": "estimated from standard paid-tier list price and reported token usage; not proof of Free Tier billing",
+  "completed": 4,
+  "retrievalSuccesses": 2,
+  "results": [
+    {
+      "id": "kikkoman-00050326",
+      "sourceUrl": "https://www.kikkoman.co.jp/homecook/search/recipe/00050326/",
+      "model": "gemini-3.5-flash-lite",
+      "capturedAt": "2026-08-27T06:23:11.655Z",
+      "elapsedMs": 2415,
+      "requestId": null,
+      "retrievals": [
+        {
+          "url": "https://www.kikkoman.co.jp/homecook/search/recipe/00050326/",
+          "status": "URL_RETRIEVAL_STATUS_SUCCESS"
+        }
+      ],
+      "usage": {
+        "inputTokens": 3279,
+        "outputTokens": 484,
+        "cachedInputTokens": 0
+      },
+      "costUsd": 0.0021937,
+      "recipe": {
+        "title": "白菜と豚バラ肉のうま煮",
+        "servings": {
+          "value": 2,
+          "raw": "2人分"
+        },
+        "cookingTimeMinutes": 15,
+        "genre": "主菜",
+        "ingredients": [
+          {
+            "name": "豚バラ肉（薄切り）",
+            "amount": "150g"
+          },
+          {
+            "name": "白菜",
+            "amount": "300g"
+          },
+          {
+            "name": "生しいたけ",
+            "amount": "3個"
+          },
+          {
+            "name": "かつおだし",
+            "amount": "1/2カップ"
+          },
+          {
+            "name": "キッコーマン特選丸大豆しょうゆ",
+            "amount": "大さじ1"
+          },
+          {
+            "name": "マンジョウ米麹こだわり仕込み本みりん",
+            "amount": "大さじ1"
+          },
+          {
+            "name": "マンジョウ国産米こだわり仕込み料理の清酒",
+            "amount": "大さじ1"
+          },
+          {
+            "name": "片栗粉",
+            "amount": "小さじ2"
+          },
+          {
+            "name": "水",
+            "amount": "大さじ2"
+          }
+        ],
+        "steps": [
+          "豚バラ肉は4cm幅くらいに切り、白菜は大きめのそぎ切り、しいたけは石づきを取って4等分に切る。",
+          "フライパンに（A）を入れて煮立て、（1）を入れてふたをし、沸騰後弱火で10分くらい煮る。",
+          "（B）を混ぜながら加え、ひと煮立ちさせてとろみをつける。"
+        ]
+      },
+      "evaluation": {
+        "jsonParseSuccess": true,
+        "schemaSuccess": true,
+        "schemaErrors": [],
+        "titleMatch": true,
+        "servingsMatch": true,
+        "cookingTimeMatch": true,
+        "genreMatch": true,
+        "ingredientTruePositive": 9,
+        "ingredientFalsePositive": 0,
+        "ingredientFalseNegative": 0,
+        "ingredientAmountExact": 9,
+        "ingredientAmountCompared": 9,
+        "stepTruePositive": 3,
+        "stepActualMatched": 3,
+        "stepExpectedMatched": 3,
+        "stepFalsePositive": 0,
+        "stepFalseNegative": 0,
+        "hallucinationCount": 0
+      },
+      "error": "URL Context retrieval failed: URL_RETRIEVAL_STATUS_ERROR"
+    },
+    {
+      "id": "kurashiru-a3b1f093",
+      "sourceUrl": "https://www.kurashiru.com/recipes/a3b1f093-1f5e-4114-8cc8-8869e8e6871d",
+      "model": "gemini-3.5-flash-lite",
+      "capturedAt": "2026-08-27T06:23:13.981Z",
+      "elapsedMs": 2323,
+      "requestId": null,
+      "retrievals": [
+        {
+          "url": "https://www.kurashiru.com/recipes/a3b1f093-1f5e-4114-8cc8-8869e8e6871d",
+          "status": "URL_RETRIEVAL_STATUS_SUCCESS"
+        }
+      ],
+      "usage": {
+        "inputTokens": 3065,
+        "outputTokens": 488,
+        "cachedInputTokens": 0
+      },
+      "costUsd": 0.0021395,
+      "recipe": {
+        "title": "豚バラ肉と白菜のとろとろ煮",
+        "servings": {
+          "value": 2,
+          "raw": "2人前"
+        },
+        "cookingTimeMinutes": 20,
+        "genre": "主菜",
+        "ingredients": [
+          {
+            "name": "豚バラ肉 (スライス)",
+            "amount": "200g"
+          },
+          {
+            "name": "白菜",
+            "amount": "300g"
+          },
+          {
+            "name": "めんつゆ",
+            "amount": "大さじ4"
+          },
+          {
+            "name": "すりおろしニンニク",
+            "amount": "小さじ1"
+          },
+          {
+            "name": "白こしょう",
+            "amount": "少々"
+          },
+          {
+            "name": "水溶き片栗粉",
+            "amount": "大さじ1"
+          },
+          {
+            "name": "ごま油",
+            "amount": "大さじ1"
+          }
+        ],
+        "steps": [
+          "白菜は1cm幅に切ります。",
+          "豚バラ肉は1cm幅に切ります。",
+          "フライパンにごま油をひいて中火で熱し、2を入れて炒めます。",
+          "豚バラ肉の色が変わったら1を入れて中火で炒めます。",
+          "豚バラ肉に火が通り、白菜がしんなりしたら(A)を入れて中火で炒め合わせます。",
+          "全体に味がなじんだら水溶き片栗粉を回し入れます。中火で熱しながら炒め合わせ、とろみがついたら火から下ろします。",
+          "器に盛り付けて完成です。"
+        ]
+      },
+      "evaluation": {
+        "jsonParseSuccess": true,
+        "schemaSuccess": true,
+        "schemaErrors": [],
+        "titleMatch": true,
+        "servingsMatch": false,
+        "cookingTimeMatch": true,
+        "genreMatch": true,
+        "ingredientTruePositive": 7,
+        "ingredientFalsePositive": 0,
+        "ingredientFalseNegative": 0,
+        "ingredientAmountExact": 7,
+        "ingredientAmountCompared": 7,
+        "stepTruePositive": 6,
+        "stepActualMatched": 7,
+        "stepExpectedMatched": 6,
+        "stepFalsePositive": 0,
+        "stepFalseNegative": 1,
+        "hallucinationCount": 0
+      },
+      "error": "URL Context retrieval failed: URL_RETRIEVAL_STATUS_ERROR"
+    },
+    {
+      "id": "cookpad-21712598",
+      "sourceUrl": "https://cookpad.com/jp/recipes/21712598",
+      "model": "gemini-3.5-flash-lite",
+      "capturedAt": "2026-08-27T06:23:16.674Z",
+      "elapsedMs": 2691,
+      "requestId": null,
+      "retrievals": [
+        {
+          "url": "https://cookpad.com/jp/recipes/21712598",
+          "status": "URL_RETRIEVAL_STATUS_ERROR"
+        }
+      ],
+      "usage": {
+        "inputTokens": 610,
+        "outputTokens": 77,
+        "cachedInputTokens": 0
+      },
+      "costUsd": 0.0003755,
+      "recipe": {
+        "title": null,
+        "servings": null,
+        "cookingTimeMinutes": null,
+        "genre": "その他",
+        "ingredients": [],
+        "steps": []
+      },
+      "evaluation": {
+        "jsonParseSuccess": true,
+        "schemaSuccess": true,
+        "schemaErrors": [],
+        "titleMatch": false,
+        "servingsMatch": false,
+        "cookingTimeMatch": null,
+        "genreMatch": false,
+        "ingredientTruePositive": 0,
+        "ingredientFalsePositive": 0,
+        "ingredientFalseNegative": 4,
+        "ingredientAmountExact": 0,
+        "ingredientAmountCompared": 0,
+        "stepTruePositive": 0,
+        "stepActualMatched": 0,
+        "stepExpectedMatched": 0,
+        "stepFalsePositive": 0,
+        "stepFalseNegative": 2,
+        "hallucinationCount": 1
+      },
+      "error": null
+    },
+    {
+      "id": "instagram-CyUydFXyBUh",
+      "sourceUrl": "https://www.instagram.com/reel/CyUydFXyBUh/",
+      "model": "gemini-3.5-flash-lite",
+      "capturedAt": "2026-08-27T06:23:18.294Z",
+      "elapsedMs": 1618,
+      "requestId": null,
+      "retrievals": [
+        {
+          "url": "https://www.instagram.com/reel/CyUydFXyBUh/",
+          "status": "URL_RETRIEVAL_STATUS_ERROR"
+        }
+      ],
+      "usage": {
+        "inputTokens": 603,
+        "outputTokens": 75,
+        "cachedInputTokens": 0
+      },
+      "costUsd": 0.00036839999999999996,
+      "recipe": {
+        "title": null,
+        "servings": null,
+        "cookingTimeMinutes": null,
+        "genre": null,
+        "ingredients": [],
+        "steps": []
+      },
+      "evaluation": {
+        "jsonParseSuccess": true,
+        "schemaSuccess": true,
+        "schemaErrors": [],
+        "titleMatch": false,
+        "servingsMatch": false,
+        "cookingTimeMatch": null,
+        "genreMatch": false,
+        "ingredientTruePositive": 0,
+        "ingredientFalsePositive": 0,
+        "ingredientFalseNegative": 13,
+        "ingredientAmountExact": 0,
+        "ingredientAmountCompared": 0,
+        "stepTruePositive": 0,
+        "stepActualMatched": 0,
+        "stepExpectedMatched": 0,
+        "stepFalsePositive": 0,
+        "stepFalseNegative": 11,
+        "hallucinationCount": 0
+      },
+      "error": null
+    }
+  ]
+}

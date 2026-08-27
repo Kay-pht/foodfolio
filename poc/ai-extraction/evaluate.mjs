@@ -1,20 +1,20 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const expected = JSON.parse(
-  fs.readFileSync(path.join(dir, 'results/expected.json'), 'utf8'),
+  fs.readFileSync(path.join(dir, "results/expected.json"), "utf8"),
 );
 const actual = JSON.parse(
-  fs.readFileSync(path.join(dir, 'results/chatgpt-baseline.json'), 'utf8'),
+  fs.readFileSync(path.join(dir, "results/chatgpt-baseline.json"), "utf8"),
 );
 
 const normalize = (value) =>
-  String(value ?? '')
-    .normalize('NFKC')
+  String(value ?? "")
+    .normalize("NFKC")
     .toLowerCase()
-    .replace(/[\s　()（）・,、]/g, '');
+    .replace(/[\s\u3000()（）・,、]/g, "");
 
 const equalsNormalized = (a, b) => normalize(a) === normalize(b);
 
@@ -22,35 +22,35 @@ function validateShape(recipe) {
   const errors = [];
 
   for (const key of [
-    'title',
-    'servings',
-    'cookingTimeMinutes',
-    'genre',
-    'ingredients',
-    'steps',
+    "title",
+    "servings",
+    "cookingTimeMinutes",
+    "genre",
+    "ingredients",
+    "steps",
   ]) {
     if (!(key in recipe)) errors.push(`missing:${key}`);
   }
 
-  if (recipe.title !== null && typeof recipe.title !== 'string') {
-    errors.push('title:type');
+  if (recipe.title !== null && typeof recipe.title !== "string") {
+    errors.push("title:type");
   }
 
   if (
     recipe.cookingTimeMinutes !== null &&
     !Number.isInteger(recipe.cookingTimeMinutes)
   ) {
-    errors.push('cookingTimeMinutes:type');
+    errors.push("cookingTimeMinutes:type");
   }
 
-  if (!Array.isArray(recipe.ingredients)) errors.push('ingredients:type');
-  if (!Array.isArray(recipe.steps)) errors.push('steps:type');
+  if (!Array.isArray(recipe.ingredients)) errors.push("ingredients:type");
+  if (!Array.isArray(recipe.steps)) errors.push("steps:type");
 
   if (recipe.servings !== null) {
-    if (typeof recipe.servings !== 'object') {
-      errors.push('servings:type');
-    } else if (!('value' in recipe.servings) || !('raw' in recipe.servings)) {
-      errors.push('servings:shape');
+    if (typeof recipe.servings !== "object") {
+      errors.push("servings:type");
+    } else if (!("value" in recipe.servings) || !("raw" in recipe.servings)) {
+      errors.push("servings:shape");
     }
   }
 
@@ -72,7 +72,7 @@ for (const item of expected) {
   const actualRecipe = actualById.get(item.id);
 
   if (!actualRecipe) {
-    rows.push({ id: item.id, error: 'missing result' });
+    rows.push({ id: item.id, error: "missing result" });
     continue;
   }
 
@@ -97,10 +97,7 @@ for (const item of expected) {
       truePositive += 1;
       amountCompared += 1;
       if (
-        equalsNormalized(
-          ingredient.amount,
-          expectedIngredients.get(key).amount,
-        )
+        equalsNormalized(ingredient.amount, expectedIngredients.get(key).amount)
       ) {
         amountExact += 1;
       }
@@ -115,7 +112,7 @@ for (const item of expected) {
 
   rows.push({
     id: item.id,
-    schema: errors.length === 0 ? 'OK' : errors.join(','),
+    schema: errors.length === 0 ? "OK" : errors.join(","),
     title: equalsNormalized(actualRecipe.title, expectedRecipe.title),
     servingsValue:
       actualRecipe.servings?.value === expectedRecipe.servings?.value,
@@ -128,8 +125,7 @@ for (const item of expected) {
   });
 }
 
-const ingredientPrecision =
-  truePositive / (truePositive + falsePositive || 1);
+const ingredientPrecision = truePositive / (truePositive + falsePositive || 1);
 const ingredientRecall = truePositive / (truePositive + falseNegative || 1);
 
 console.table(rows);
@@ -148,5 +144,5 @@ console.log(
 );
 
 console.log(
-  '\nNOTE: chatgpt-baseline.json is an in-chat smoke-test baseline, not a cross-provider benchmark.',
+  "\nNOTE: chatgpt-baseline.json is an in-chat smoke-test baseline, not a cross-provider benchmark.",
 );

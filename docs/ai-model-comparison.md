@@ -18,6 +18,12 @@ foodfolio のレシピ解析に利用するAIモデルについて、APIキー�
 
 > 注意: 一般ベンチマークの順位だけでは採用を決定しない。最終判断は、foodfolio の実レシピデータを使ったPoC結果を優先する。
 
+### PoC結論（2026-08-27）
+
+MVPはZ.ai / `glm-5.3-flash`を採用する。固定5 fixtureでJSON / Schema 100%、Hallucination 0件、その他の全基準を達成し、5件の単価換算費用は0.001887米ドルだった。最終E2Eも5実URLを各3回、計15回すべて合格した。
+
+Gemini / `gemini-3.5-flash-lite`はFree Tierで同じ5 fixtureを完走したが、人数範囲を根拠なく平均化したため不合格とした。OpenAI / `gpt-5.6-luna`とDeepSeek / `deepseek-v4-flash`は、Z.ai合格後の追加課金を避けるため実API評価を省略した。詳細は `docs/poc-validation-results.md` を参照する。
+
 ## 2. 比較対象
 
 2026-08-27時点の比較候補。
@@ -62,38 +68,14 @@ Tencent、MiniMax、Alibaba Qwen、Mistral、Anthropic等にも有力モデル�
 
 現時点では、上記4社で「低価格」「高性能」「Structured Output」「URL Context」という主要な比較軸を十分にカバーできるため、追加Providerは必要になった場合のみ検討する。
 
-## 4. PoC優先順位
+## 4. PoC実施順序
 
-6モデルすべてを最初から検証しない。
+費用を抑えるため6モデルすべては検証せず、Z.aiを先行評価し、Gemini Free Tierを比較した。
 
-### 第1段階
-
-以下の3モデルから開始する。
-
-1. **DeepSeek V4 Flash 0731**
-   - 純粋なAPIコストの基準
-   - 十分な一般性能と高速性を持つ低価格候補
-
-2. **GLM-5.3-Flash**
-   - 性能対価格比の基準
-   - DeepSeekより高い一般性能指標がレシピ抽出精度に寄与するか確認する
-
-3. **Gemini 3.5 Flash-Lite**
-   - URL Contextを含むシステム全体コストの基準
-   - レシピURLから直接構造化抽出する構成を検証する
-
-### 第2段階
-
-第1段階で要求精度を満たすモデルがない場合のみ追加する。
-
-4. **GPT-5.6 Luna**
-   - Structured Outputs / Schema遵守率の比較
-
-5. **Gemini 3.7 Flash**
-   - Gemini 3.5 Flash-Liteで精度不足の場合の上位候補
-
-6. **DeepSeek V4 Pro**
-   - DeepSeek V4 Flashで精度不足の場合の上位候補
+1. **Z.ai / GLM-5.3-Flash**を有料候補として先行評価し、全基準への合格を確認した。
+2. **Gemini 3.5 Flash-Lite**をFree Tierで同一fixture比較し、URL Contextは別枠の構成として検証した。
+3. Z.aiが合格したため、**OpenAI / GPT-5.6 Luna**と**DeepSeek / DeepSeek V4 Flash**への有料リクエストは実行しなかった。
+4. 将来、採用モデルが基準を満たさなくなった場合は、同じfixtureと評価器で未実施Providerを比較する。
 
 ## 5. PoCで計測する項目
 

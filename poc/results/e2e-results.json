@@ -1,0 +1,1432 @@
+{
+  "generatedAt": "2026-08-27T06:22:52.716Z",
+  "provider": "zai",
+  "model": "glm-5.3-flash",
+  "repetitions": 3,
+  "conservativeCostUsd": 0.0268125,
+  "totalCostUsd": 0.0051896749999999995,
+  "costInterpretation": "estimated from official list price and reported token usage",
+  "metrics": [
+    {
+      "provider": "zai",
+      "model": "glm-5.3-flash",
+      "calls": 15,
+      "successfulCalls": 15,
+      "errorCount": 0,
+      "jsonParseSuccessRate": 1,
+      "schemaSuccessRate": 1,
+      "titleMatchRate": 1,
+      "servingsMatchRate": 1,
+      "cookingTimeMatchRate": 1,
+      "genreMatchRate": 1,
+      "ingredientPrecision": 1,
+      "ingredientRecall": 0.9772727272727273,
+      "ingredientAmountExactRate": 0.9534883720930233,
+      "stepPrecision": 1,
+      "stepRecall": 0.96875,
+      "hallucinationCount": 0,
+      "totalCostUsd": 0.0051896749999999995,
+      "averageCostUsd": 0.0003459783333333333,
+      "averageElapsedMs": 20007.466666666667,
+      "passesAcceptance": true
+    }
+  ],
+  "stable": true,
+  "results": [
+    {
+      "id": "kikkoman-00050326",
+      "sourceUrl": "https://www.kikkoman.co.jp/homecook/search/recipe/00050326/",
+      "repetition": 1,
+      "provider": "zai",
+      "model": "glm-5.3-flash",
+      "capturedAt": "2026-08-27T06:17:58.416Z",
+      "elapsedMs": 12048,
+      "costUsd": 0.00020825,
+      "extraction": {
+        "httpStatus": 200,
+        "methods": [
+          "http-html",
+          "json-ld"
+        ],
+        "textSha256": "141bd02bf572c05b774c539161cd3da1d95dfdee54d64e8c4d26a3846f664be6"
+      },
+      "recipe": {
+        "title": "白菜と豚バラ肉のうま煮",
+        "servings": {
+          "value": 2,
+          "raw": "2人分"
+        },
+        "cookingTimeMinutes": 15,
+        "genre": "主菜",
+        "ingredients": [
+          {
+            "name": "豚バラ肉",
+            "amount": "150g"
+          },
+          {
+            "name": "白菜",
+            "amount": "300g"
+          },
+          {
+            "name": "生しいたけ",
+            "amount": "3個"
+          },
+          {
+            "name": "かつおだし",
+            "amount": "1/2カップ"
+          },
+          {
+            "name": "キッコーマン特選丸大豆しょうゆ",
+            "amount": "大さじ1"
+          },
+          {
+            "name": "マンジョウ米麹こだわり仕込み本みりん",
+            "amount": "大さじ1"
+          },
+          {
+            "name": "マンジョウ国産米こだわり仕込み料理の清酒",
+            "amount": "大さじ1"
+          },
+          {
+            "name": "片栗粉",
+            "amount": "小さじ2"
+          },
+          {
+            "name": "水",
+            "amount": "大さじ2"
+          }
+        ],
+        "steps": [
+          "豚バラ肉は4cm幅くらいに切り、白菜は大きめのそぎ切り、しいたけは石づきを取って4等分に切る。",
+          "フライパンに（A）を入れて煮立て、（1）を入れてふたをし、沸騰後弱火で10分くらい煮る。",
+          "（B）を混ぜながら加え、ひと煮立ちさせてとろみをつける。"
+        ]
+      },
+      "evaluation": {
+        "jsonParseSuccess": true,
+        "schemaSuccess": true,
+        "schemaErrors": [],
+        "titleMatch": true,
+        "servingsMatch": true,
+        "cookingTimeMatch": true,
+        "genreMatch": true,
+        "ingredientTruePositive": 9,
+        "ingredientFalsePositive": 0,
+        "ingredientFalseNegative": 0,
+        "ingredientAmountExact": 9,
+        "ingredientAmountCompared": 9,
+        "stepTruePositive": 3,
+        "stepActualMatched": 3,
+        "stepExpectedMatched": 3,
+        "stepFalsePositive": 0,
+        "stepFalseNegative": 0,
+        "hallucinationCount": 0
+      },
+      "error": null
+    },
+    {
+      "id": "kikkoman-00050326",
+      "sourceUrl": "https://www.kikkoman.co.jp/homecook/search/recipe/00050326/",
+      "repetition": 2,
+      "provider": "zai",
+      "model": "glm-5.3-flash",
+      "capturedAt": "2026-08-27T06:18:07.111Z",
+      "elapsedMs": 8594,
+      "costUsd": 0.0002566,
+      "extraction": {
+        "httpStatus": 200,
+        "methods": [
+          "http-html",
+          "json-ld"
+        ],
+        "textSha256": "141bd02bf572c05b774c539161cd3da1d95dfdee54d64e8c4d26a3846f664be6"
+      },
+      "recipe": {
+        "title": "白菜と豚バラ肉のうま煮",
+        "servings": {
+          "value": 2,
+          "raw": "2人分"
+        },
+        "cookingTimeMinutes": 15,
+        "genre": "主菜",
+        "ingredients": [
+          {
+            "name": "豚バラ肉",
+            "amount": "150g"
+          },
+          {
+            "name": "白菜",
+            "amount": "300g"
+          },
+          {
+            "name": "生しいたけ",
+            "amount": "3個"
+          },
+          {
+            "name": "かつおだし",
+            "amount": "1/2カップ"
+          },
+          {
+            "name": "キッコーマン特選丸大豆しょうゆ",
+            "amount": "大さじ1"
+          },
+          {
+            "name": "マンジョウ米麹こだわり仕込み本みりん",
+            "amount": "大さじ1"
+          },
+          {
+            "name": "マンジョウ国産米こだわり仕込み料理の清酒",
+            "amount": "大さじ1"
+          },
+          {
+            "name": "片栗粉",
+            "amount": "小さじ2"
+          },
+          {
+            "name": "水",
+            "amount": "大さじ2"
+          }
+        ],
+        "steps": [
+          "豚バラ肉は4cm幅くらいに切り、白菜は大きめのそぎ切り、しいたけは石づきを取って4等分に切る。",
+          "フライパンに（A）を入れて煮立て、（1）を入れてふたをし、沸騰後弱火で10分くらい煮る。",
+          "（B）を混ぜながら加え、ひと煮立ちさせてとろみをつける。"
+        ]
+      },
+      "evaluation": {
+        "jsonParseSuccess": true,
+        "schemaSuccess": true,
+        "schemaErrors": [],
+        "titleMatch": true,
+        "servingsMatch": true,
+        "cookingTimeMatch": true,
+        "genreMatch": true,
+        "ingredientTruePositive": 9,
+        "ingredientFalsePositive": 0,
+        "ingredientFalseNegative": 0,
+        "ingredientAmountExact": 9,
+        "ingredientAmountCompared": 9,
+        "stepTruePositive": 3,
+        "stepActualMatched": 3,
+        "stepExpectedMatched": 3,
+        "stepFalsePositive": 0,
+        "stepFalseNegative": 0,
+        "hallucinationCount": 0
+      },
+      "error": null
+    },
+    {
+      "id": "kikkoman-00050326",
+      "sourceUrl": "https://www.kikkoman.co.jp/homecook/search/recipe/00050326/",
+      "repetition": 3,
+      "provider": "zai",
+      "model": "glm-5.3-flash",
+      "capturedAt": "2026-08-27T06:18:15.721Z",
+      "elapsedMs": 8513,
+      "costUsd": 0.00023930000000000002,
+      "extraction": {
+        "httpStatus": 200,
+        "methods": [
+          "http-html",
+          "json-ld"
+        ],
+        "textSha256": "141bd02bf572c05b774c539161cd3da1d95dfdee54d64e8c4d26a3846f664be6"
+      },
+      "recipe": {
+        "title": "白菜と豚バラ肉のうま煮",
+        "servings": {
+          "value": 2,
+          "raw": "2人分"
+        },
+        "cookingTimeMinutes": 15,
+        "genre": "主菜",
+        "ingredients": [
+          {
+            "name": "豚バラ肉",
+            "amount": "150g"
+          },
+          {
+            "name": "白菜",
+            "amount": "300g"
+          },
+          {
+            "name": "生しいたけ",
+            "amount": "3個"
+          },
+          {
+            "name": "かつおだし",
+            "amount": "1/2カップ"
+          },
+          {
+            "name": "キッコーマン特選丸大豆しょうゆ",
+            "amount": "大さじ1"
+          },
+          {
+            "name": "マンジョウ米麹こだわり仕込み本みりん",
+            "amount": "大さじ1"
+          },
+          {
+            "name": "マンジョウ国産米こだわり仕込み料理の清酒",
+            "amount": "大さじ1"
+          },
+          {
+            "name": "片栗粉",
+            "amount": "小さじ2"
+          },
+          {
+            "name": "水",
+            "amount": "大さじ2"
+          }
+        ],
+        "steps": [
+          "豚バラ肉は4cm幅くらいに切り、白菜は大きめのそぎ切り、しいたけは石づきを取って4等分に切る。",
+          "フライパンに（A）を入れて煮立て、（1）を入れてふたをし、沸騰後弱火で10分くらい煮る。",
+          "（B）を混ぜながら加え、ひと煮立ちさせてとろみをつける。"
+        ]
+      },
+      "evaluation": {
+        "jsonParseSuccess": true,
+        "schemaSuccess": true,
+        "schemaErrors": [],
+        "titleMatch": true,
+        "servingsMatch": true,
+        "cookingTimeMatch": true,
+        "genreMatch": true,
+        "ingredientTruePositive": 9,
+        "ingredientFalsePositive": 0,
+        "ingredientFalseNegative": 0,
+        "ingredientAmountExact": 9,
+        "ingredientAmountCompared": 9,
+        "stepTruePositive": 3,
+        "stepActualMatched": 3,
+        "stepExpectedMatched": 3,
+        "stepFalsePositive": 0,
+        "stepFalseNegative": 0,
+        "hallucinationCount": 0
+      },
+      "error": null
+    },
+    {
+      "id": "kurashiru-a3b1f093",
+      "sourceUrl": "https://www.kurashiru.com/recipes/a3b1f093-1f5e-4114-8cc8-8869e8e6871d",
+      "repetition": 1,
+      "provider": "zai",
+      "model": "glm-5.3-flash",
+      "capturedAt": "2026-08-27T06:18:26.278Z",
+      "elapsedMs": 10244,
+      "costUsd": 0.000205925,
+      "extraction": {
+        "httpStatus": 200,
+        "methods": [
+          "http-html",
+          "json-ld"
+        ],
+        "textSha256": "295e3ae75f0b4d681a1a4ab4e1b1c22046f7c82811ae2273d4101b53f3a175f5"
+      },
+      "recipe": {
+        "title": "豚バラ肉と白菜のとろとろ煮",
+        "servings": {
+          "value": 2,
+          "raw": "2 servings"
+        },
+        "cookingTimeMinutes": 20,
+        "genre": "主菜",
+        "ingredients": [
+          {
+            "name": "豚バラ肉",
+            "amount": "200g"
+          },
+          {
+            "name": "白菜",
+            "amount": "300g"
+          },
+          {
+            "name": "めんつゆ",
+            "amount": "大さじ4"
+          },
+          {
+            "name": "すりおろしニンニク",
+            "amount": "小さじ1"
+          },
+          {
+            "name": "白こしょう",
+            "amount": "少々"
+          },
+          {
+            "name": "水溶き片栗粉",
+            "amount": "大さじ1"
+          },
+          {
+            "name": "ごま油",
+            "amount": "大さじ1"
+          }
+        ],
+        "steps": [
+          "白菜は1cm幅に切ります。",
+          "豚バラ肉は1cm幅に切ります。",
+          "フライパンにごま油をひいて中火で熱し、2を入れて炒めます。",
+          "豚バラ肉の色が変わったら1を入れて中火で炒めます。",
+          "豚バラ肉に火が通り、白菜がしんなりしたら(A)を入れて中火で炒め合わせます。",
+          "全体に味がなじんだら水溶き片栗粉を回し入れます。中火で熱しながら炒め合わせ、とろみがついたら火から下ろします。",
+          "器に盛り付けて完成です。"
+        ]
+      },
+      "evaluation": {
+        "jsonParseSuccess": true,
+        "schemaSuccess": true,
+        "schemaErrors": [],
+        "titleMatch": true,
+        "servingsMatch": true,
+        "cookingTimeMatch": true,
+        "genreMatch": true,
+        "ingredientTruePositive": 7,
+        "ingredientFalsePositive": 0,
+        "ingredientFalseNegative": 0,
+        "ingredientAmountExact": 7,
+        "ingredientAmountCompared": 7,
+        "stepTruePositive": 6,
+        "stepActualMatched": 7,
+        "stepExpectedMatched": 6,
+        "stepFalsePositive": 0,
+        "stepFalseNegative": 1,
+        "hallucinationCount": 0
+      },
+      "error": null
+    },
+    {
+      "id": "kurashiru-a3b1f093",
+      "sourceUrl": "https://www.kurashiru.com/recipes/a3b1f093-1f5e-4114-8cc8-8869e8e6871d",
+      "repetition": 2,
+      "provider": "zai",
+      "model": "glm-5.3-flash",
+      "capturedAt": "2026-08-27T06:18:35.174Z",
+      "elapsedMs": 8696,
+      "costUsd": 0.000232325,
+      "extraction": {
+        "httpStatus": 200,
+        "methods": [
+          "http-html",
+          "json-ld"
+        ],
+        "textSha256": "295e3ae75f0b4d681a1a4ab4e1b1c22046f7c82811ae2273d4101b53f3a175f5"
+      },
+      "recipe": {
+        "title": "豚バラ肉と白菜のとろとろ煮",
+        "servings": {
+          "value": 2,
+          "raw": "2 servings"
+        },
+        "cookingTimeMinutes": 20,
+        "genre": "主菜",
+        "ingredients": [
+          {
+            "name": "豚バラ肉",
+            "amount": "200g"
+          },
+          {
+            "name": "白菜",
+            "amount": "300g"
+          },
+          {
+            "name": "めんつゆ",
+            "amount": "大さじ4"
+          },
+          {
+            "name": "すりおろしニンニク",
+            "amount": "小さじ1"
+          },
+          {
+            "name": "白こしょう",
+            "amount": "少々"
+          },
+          {
+            "name": "水溶き片栗粉",
+            "amount": "大さじ1"
+          },
+          {
+            "name": "ごま油",
+            "amount": "大さじ1"
+          }
+        ],
+        "steps": [
+          "白菜は1cm幅に切ります。",
+          "豚バラ肉は1cm幅に切ります。",
+          "フライパンにごま油をひいて中火で熱し、2を入れて炒めます。",
+          "豚バラ肉の色が変わったら1を入れて中火で炒めます。",
+          "豚バラ肉に火が通り、白菜がしんなりしたら(A)を入れて中火で炒め合わせます。",
+          "全体に味がなじんだら水溶き片栗粉を回し入れます。中火で熱しながら炒め合わせ、とろみがついたら火から下ろします。",
+          "器に盛り付けて完成です。"
+        ]
+      },
+      "evaluation": {
+        "jsonParseSuccess": true,
+        "schemaSuccess": true,
+        "schemaErrors": [],
+        "titleMatch": true,
+        "servingsMatch": true,
+        "cookingTimeMatch": true,
+        "genreMatch": true,
+        "ingredientTruePositive": 7,
+        "ingredientFalsePositive": 0,
+        "ingredientFalseNegative": 0,
+        "ingredientAmountExact": 7,
+        "ingredientAmountCompared": 7,
+        "stepTruePositive": 6,
+        "stepActualMatched": 7,
+        "stepExpectedMatched": 6,
+        "stepFalsePositive": 0,
+        "stepFalseNegative": 1,
+        "hallucinationCount": 0
+      },
+      "error": null
+    },
+    {
+      "id": "kurashiru-a3b1f093",
+      "sourceUrl": "https://www.kurashiru.com/recipes/a3b1f093-1f5e-4114-8cc8-8869e8e6871d",
+      "repetition": 3,
+      "provider": "zai",
+      "model": "glm-5.3-flash",
+      "capturedAt": "2026-08-27T06:18:49.201Z",
+      "elapsedMs": 13918,
+      "costUsd": 0.00025167500000000003,
+      "extraction": {
+        "httpStatus": 200,
+        "methods": [
+          "http-html",
+          "json-ld"
+        ],
+        "textSha256": "295e3ae75f0b4d681a1a4ab4e1b1c22046f7c82811ae2273d4101b53f3a175f5"
+      },
+      "recipe": {
+        "title": "豚バラ肉と白菜のとろとろ煮",
+        "servings": {
+          "value": 2,
+          "raw": "2 servings"
+        },
+        "cookingTimeMinutes": 20,
+        "genre": "主菜",
+        "ingredients": [
+          {
+            "name": "豚バラ肉",
+            "amount": "200g"
+          },
+          {
+            "name": "白菜",
+            "amount": "300g"
+          },
+          {
+            "name": "めんつゆ",
+            "amount": "大さじ4"
+          },
+          {
+            "name": "すりおろしニンニク",
+            "amount": "小さじ1"
+          },
+          {
+            "name": "白こしょう",
+            "amount": "少々"
+          },
+          {
+            "name": "水溶き片栗粉",
+            "amount": "大さじ1"
+          },
+          {
+            "name": "ごま油",
+            "amount": "大さじ1"
+          }
+        ],
+        "steps": [
+          "白菜は1cm幅に切ります。",
+          "豚バラ肉は1cm幅に切ります。",
+          "フライパンにごま油をひいて中火で熱し、2を入れて炒めます。",
+          "豚バラ肉の色が変わったら1を入れて中火で炒めます。",
+          "豚バラ肉に火が通り、白菜がしんなりしたら(A)を入れて中火で炒め合わせます。",
+          "全体に味がなじんだら水溶き片栗粉を回し入れます。中火で熱しながら炒め合わせ、とろみがついたら火から下ろします。",
+          "器に盛り付けて完成です。"
+        ]
+      },
+      "evaluation": {
+        "jsonParseSuccess": true,
+        "schemaSuccess": true,
+        "schemaErrors": [],
+        "titleMatch": true,
+        "servingsMatch": true,
+        "cookingTimeMatch": true,
+        "genreMatch": true,
+        "ingredientTruePositive": 7,
+        "ingredientFalsePositive": 0,
+        "ingredientFalseNegative": 0,
+        "ingredientAmountExact": 7,
+        "ingredientAmountCompared": 7,
+        "stepTruePositive": 6,
+        "stepActualMatched": 7,
+        "stepExpectedMatched": 6,
+        "stepFalsePositive": 0,
+        "stepFalseNegative": 1,
+        "hallucinationCount": 0
+      },
+      "error": null
+    },
+    {
+      "id": "cookpad-21712598",
+      "sourceUrl": "https://cookpad.com/jp/recipes/21712598",
+      "repetition": 1,
+      "provider": "zai",
+      "model": "glm-5.3-flash",
+      "capturedAt": "2026-08-27T06:19:10.815Z",
+      "elapsedMs": 21047,
+      "costUsd": 0.00023490000000000002,
+      "extraction": {
+        "httpStatus": 200,
+        "methods": [
+          "http-html",
+          "json-ld"
+        ],
+        "textSha256": "1c828e458765d8d29ed77438f5ff8c890c38a608daa50c7d5031f289b56ccedc"
+      },
+      "recipe": {
+        "title": "簡単♪豚バラと白菜のレンジ蒸し",
+        "servings": {
+          "value": null,
+          "raw": "1〜2人分"
+        },
+        "cookingTimeMinutes": null,
+        "genre": "主菜",
+        "ingredients": [
+          {
+            "name": "白菜",
+            "amount": "3枚〜4枚"
+          },
+          {
+            "name": "豚バラ",
+            "amount": "100〜150gぐらい"
+          },
+          {
+            "name": "酒",
+            "amount": "大さじ1"
+          },
+          {
+            "name": "ポン酢",
+            "amount": "大さじ1"
+          }
+        ],
+        "steps": [
+          "耐熱容器に白菜→豚バラ→白菜の順にのせる。 酒大さじ1をまわしかける。",
+          "レンジ600W9分チン。 お肉に火が通ったらポン酢をまわしかけ混ぜ合わせて完成♪"
+        ]
+      },
+      "evaluation": {
+        "jsonParseSuccess": true,
+        "schemaSuccess": true,
+        "schemaErrors": [],
+        "titleMatch": true,
+        "servingsMatch": true,
+        "cookingTimeMatch": null,
+        "genreMatch": true,
+        "ingredientTruePositive": 4,
+        "ingredientFalsePositive": 0,
+        "ingredientFalseNegative": 0,
+        "ingredientAmountExact": 4,
+        "ingredientAmountCompared": 4,
+        "stepTruePositive": 2,
+        "stepActualMatched": 2,
+        "stepExpectedMatched": 2,
+        "stepFalsePositive": 0,
+        "stepFalseNegative": 0,
+        "hallucinationCount": 0
+      },
+      "error": null
+    },
+    {
+      "id": "cookpad-21712598",
+      "sourceUrl": "https://cookpad.com/jp/recipes/21712598",
+      "repetition": 2,
+      "provider": "zai",
+      "model": "glm-5.3-flash",
+      "capturedAt": "2026-08-27T06:19:44.160Z",
+      "elapsedMs": 32812,
+      "costUsd": 0.0003519,
+      "extraction": {
+        "httpStatus": 200,
+        "methods": [
+          "http-html",
+          "json-ld"
+        ],
+        "textSha256": "1c828e458765d8d29ed77438f5ff8c890c38a608daa50c7d5031f289b56ccedc"
+      },
+      "recipe": {
+        "title": "簡単♪豚バラと白菜のレンジ蒸し",
+        "servings": {
+          "value": null,
+          "raw": "1〜2人分"
+        },
+        "cookingTimeMinutes": null,
+        "genre": "主菜",
+        "ingredients": [
+          {
+            "name": "白菜",
+            "amount": "3枚〜4枚"
+          },
+          {
+            "name": "豚バラ",
+            "amount": "100〜150gぐらい"
+          },
+          {
+            "name": "酒",
+            "amount": "大さじ1"
+          },
+          {
+            "name": "ポン酢",
+            "amount": "大さじ1"
+          }
+        ],
+        "steps": [
+          "耐熱容器に白菜→豚バラ→白菜の順にのせる。 酒大さじ1をまわしかける。",
+          "レンジ600W9分チン。 お肉に火が通ったらポン酢をまわしかけ混ぜ合わせて完成♪"
+        ]
+      },
+      "evaluation": {
+        "jsonParseSuccess": true,
+        "schemaSuccess": true,
+        "schemaErrors": [],
+        "titleMatch": true,
+        "servingsMatch": true,
+        "cookingTimeMatch": null,
+        "genreMatch": true,
+        "ingredientTruePositive": 4,
+        "ingredientFalsePositive": 0,
+        "ingredientFalseNegative": 0,
+        "ingredientAmountExact": 4,
+        "ingredientAmountCompared": 4,
+        "stepTruePositive": 2,
+        "stepActualMatched": 2,
+        "stepExpectedMatched": 2,
+        "stepFalsePositive": 0,
+        "stepFalseNegative": 0,
+        "hallucinationCount": 0
+      },
+      "error": null
+    },
+    {
+      "id": "cookpad-21712598",
+      "sourceUrl": "https://cookpad.com/jp/recipes/21712598",
+      "repetition": 3,
+      "provider": "zai",
+      "model": "glm-5.3-flash",
+      "capturedAt": "2026-08-27T06:20:12.790Z",
+      "elapsedMs": 28255,
+      "costUsd": 0.00031289999999999996,
+      "extraction": {
+        "httpStatus": 200,
+        "methods": [
+          "http-html",
+          "json-ld"
+        ],
+        "textSha256": "1c828e458765d8d29ed77438f5ff8c890c38a608daa50c7d5031f289b56ccedc"
+      },
+      "recipe": {
+        "title": "簡単♪豚バラと白菜のレンジ蒸し",
+        "servings": {
+          "value": null,
+          "raw": "1〜2人分"
+        },
+        "cookingTimeMinutes": null,
+        "genre": "主菜",
+        "ingredients": [
+          {
+            "name": "白菜",
+            "amount": "3枚〜4枚"
+          },
+          {
+            "name": "豚バラ",
+            "amount": "100〜150gぐらい"
+          },
+          {
+            "name": "酒",
+            "amount": "大さじ1"
+          },
+          {
+            "name": "ポン酢",
+            "amount": "大さじ1"
+          }
+        ],
+        "steps": [
+          "耐熱容器に白菜→豚バラ→白菜の順にのせる。酒大さじ1をまわしかける。",
+          "レンジ600W9分チン。お肉に火が通ったらポン酢をまわしかけ混ぜ合わせて完成♪"
+        ]
+      },
+      "evaluation": {
+        "jsonParseSuccess": true,
+        "schemaSuccess": true,
+        "schemaErrors": [],
+        "titleMatch": true,
+        "servingsMatch": true,
+        "cookingTimeMatch": null,
+        "genreMatch": true,
+        "ingredientTruePositive": 4,
+        "ingredientFalsePositive": 0,
+        "ingredientFalseNegative": 0,
+        "ingredientAmountExact": 4,
+        "ingredientAmountCompared": 4,
+        "stepTruePositive": 2,
+        "stepActualMatched": 2,
+        "stepExpectedMatched": 2,
+        "stepFalsePositive": 0,
+        "stepFalseNegative": 0,
+        "hallucinationCount": 0
+      },
+      "error": null
+    },
+    {
+      "id": "youtube-0to72EbNg8A",
+      "sourceUrl": "https://www.youtube.com/watch?v=0to72EbNg8A",
+      "repetition": 1,
+      "provider": "zai",
+      "model": "glm-5.3-flash",
+      "capturedAt": "2026-08-27T06:20:36.351Z",
+      "elapsedMs": 22869,
+      "costUsd": 0.00041694999999999997,
+      "extraction": {
+        "httpStatus": 200,
+        "methods": [
+          "http-html",
+          "oembed",
+          "youtube-player-response"
+        ],
+        "textSha256": "913529ee83fdda37fd77eb981d96203445083eb467e1c456612d335d560b04c7"
+      },
+      "recipe": {
+        "title": "『給料日前の救世主！』豚バラ白菜の作り方。旨すぎ節約レシピ♪",
+        "servings": {
+          "value": 4,
+          "raw": "4人前"
+        },
+        "cookingTimeMinutes": 20,
+        "genre": "主菜",
+        "ingredients": [
+          {
+            "name": "白菜",
+            "amount": "1/4株（500g）"
+          },
+          {
+            "name": "生姜",
+            "amount": "1/2かけ"
+          },
+          {
+            "name": "豚バラ肉",
+            "amount": "200g"
+          },
+          {
+            "name": "塩、こしょう（下ごしらえ用）",
+            "amount": null
+          },
+          {
+            "name": "水溶き片栗粉",
+            "amount": "片栗粉 大さじ1、水 大さじ2"
+          },
+          {
+            "name": "ごま油",
+            "amount": "小さじ2"
+          },
+          {
+            "name": "(A)料理酒",
+            "amount": "大さじ2"
+          },
+          {
+            "name": "(A)砂糖",
+            "amount": "大さじ1"
+          },
+          {
+            "name": "(A)醤油",
+            "amount": "大さじ1"
+          },
+          {
+            "name": "(A)鶏ガラ",
+            "amount": "小さじ1"
+          }
+        ],
+        "steps": [
+          "白菜はよく洗い、まず葉っぱと芯に2等分に切る。",
+          "芯は一枚ずつ剥がしてそぎ切りに。葉っぱは繊維に沿ってよこ切りにする（ポイント❶）",
+          "生姜は皮を剥き、スライスした後に細切りにする",
+          "豚バラ肉は3等分に切り、塩・こしょうで下味をつける（細かく切りすぎない方が食べやすいです）",
+          "合わせ調味料を作る。容器に調味料(A)を全て入れ混ぜ合わす",
+          "水溶き片栗粉を用意する　※使う直前で、もう一度かき混ぜてくださいね！",
+          "フライパンにごま油を引き、豚肉を炒める。火が通ったら生姜を加え、香りが出るまで炒める",
+          "白菜の芯を加え、豚肉の油を絡ませながら2分ほど炒める",
+          "葉っぱと合わせ調味料を加え混ぜ合わせ、蓋をして4分蒸し煮にする（ポイント❷）",
+          "水溶き片栗粉をまわし入れ、1分ほど炒めたら出来上がり！（ポイント❸）"
+        ]
+      },
+      "evaluation": {
+        "jsonParseSuccess": true,
+        "schemaSuccess": true,
+        "schemaErrors": [],
+        "titleMatch": true,
+        "servingsMatch": true,
+        "cookingTimeMatch": true,
+        "genreMatch": true,
+        "ingredientTruePositive": 10,
+        "ingredientFalsePositive": 0,
+        "ingredientFalseNegative": 1,
+        "ingredientAmountExact": 8,
+        "ingredientAmountCompared": 10,
+        "stepTruePositive": 9,
+        "stepActualMatched": 10,
+        "stepExpectedMatched": 9,
+        "stepFalsePositive": 0,
+        "stepFalseNegative": 0,
+        "hallucinationCount": 0
+      },
+      "error": null
+    },
+    {
+      "id": "youtube-0to72EbNg8A",
+      "sourceUrl": "https://www.youtube.com/watch?v=0to72EbNg8A",
+      "repetition": 2,
+      "provider": "zai",
+      "model": "glm-5.3-flash",
+      "capturedAt": "2026-08-27T06:21:01.290Z",
+      "elapsedMs": 24298,
+      "costUsd": 0.0004232,
+      "extraction": {
+        "httpStatus": 200,
+        "methods": [
+          "http-html",
+          "oembed",
+          "youtube-player-response"
+        ],
+        "textSha256": "913529ee83fdda37fd77eb981d96203445083eb467e1c456612d335d560b04c7"
+      },
+      "recipe": {
+        "title": "『給料日前の救世主！』豚バラ白菜の作り方。旨すぎ節約レシピ♪",
+        "servings": {
+          "value": 4,
+          "raw": "4人前"
+        },
+        "cookingTimeMinutes": 20,
+        "genre": "主菜",
+        "ingredients": [
+          {
+            "name": "白菜",
+            "amount": "1/4株（500g）"
+          },
+          {
+            "name": "生姜",
+            "amount": "1/2かけ"
+          },
+          {
+            "name": "豚バラ肉",
+            "amount": "200g"
+          },
+          {
+            "name": "塩、こしょう",
+            "amount": "下ごしらえ用"
+          },
+          {
+            "name": "水溶き片栗粉",
+            "amount": "片栗粉 大さじ1、水 大さじ2"
+          },
+          {
+            "name": "ごま油",
+            "amount": "小さじ2"
+          },
+          {
+            "name": "(A)料理酒",
+            "amount": "大さじ2"
+          },
+          {
+            "name": "(A)砂糖",
+            "amount": "大さじ1"
+          },
+          {
+            "name": "(A)醤油",
+            "amount": "大さじ1"
+          },
+          {
+            "name": "(A)鶏ガラ",
+            "amount": "小さじ1"
+          }
+        ],
+        "steps": [
+          "白菜はよく洗い、まず葉っぱと芯に2等分に切る。",
+          "芯は一枚ずつ剥がしてそぎ切りに。葉っぱは繊維に沿ってよこ切りにする（ポイント❶）",
+          "生姜は皮を剥き、スライスした後に細切りにする",
+          "豚バラ肉は3等分に切り、塩・こしょうで下味をつける（細かく切りすぎない方が食べやすいです）",
+          "合わせ調味料を作る。容器に調味料(A)を全て入れ混ぜ合わす",
+          "水溶き片栗粉を用意する ※使う直前で、もう一度かき混ぜてくださいね！",
+          "フライパンにごま油を引き、豚肉を炒める。火が通ったら生姜を加え、香りが出るまで炒める",
+          "白菜の芯を加え、豚肉の油を絡ませながら2分ほど炒める",
+          "葉っぱと合わせ調味料を加え混ぜ合わせ、蓋をして4分蒸し煮にする（ポイント❷）",
+          "水溶き片栗粉をまわし入れ、1分ほど炒めたら出来上がり！（ポイント❸）"
+        ]
+      },
+      "evaluation": {
+        "jsonParseSuccess": true,
+        "schemaSuccess": true,
+        "schemaErrors": [],
+        "titleMatch": true,
+        "servingsMatch": true,
+        "cookingTimeMatch": true,
+        "genreMatch": true,
+        "ingredientTruePositive": 10,
+        "ingredientFalsePositive": 0,
+        "ingredientFalseNegative": 1,
+        "ingredientAmountExact": 8,
+        "ingredientAmountCompared": 10,
+        "stepTruePositive": 9,
+        "stepActualMatched": 10,
+        "stepExpectedMatched": 9,
+        "stepFalsePositive": 0,
+        "stepFalseNegative": 0,
+        "hallucinationCount": 0
+      },
+      "error": null
+    },
+    {
+      "id": "youtube-0to72EbNg8A",
+      "sourceUrl": "https://www.youtube.com/watch?v=0to72EbNg8A",
+      "repetition": 3,
+      "provider": "zai",
+      "model": "glm-5.3-flash",
+      "capturedAt": "2026-08-27T06:21:19.515Z",
+      "elapsedMs": 17594,
+      "costUsd": 0.0003447,
+      "extraction": {
+        "httpStatus": 200,
+        "methods": [
+          "http-html",
+          "oembed",
+          "youtube-player-response"
+        ],
+        "textSha256": "913529ee83fdda37fd77eb981d96203445083eb467e1c456612d335d560b04c7"
+      },
+      "recipe": {
+        "title": "『給料日前の救世主！』豚バラ白菜の作り方。旨すぎ節約レシピ♪",
+        "servings": {
+          "value": 4,
+          "raw": "4人前"
+        },
+        "cookingTimeMinutes": 20,
+        "genre": "主菜",
+        "ingredients": [
+          {
+            "name": "白菜",
+            "amount": "1/4株（500g）"
+          },
+          {
+            "name": "生姜",
+            "amount": "1/2かけ"
+          },
+          {
+            "name": "豚バラ肉",
+            "amount": "200g"
+          },
+          {
+            "name": "塩、こしょう",
+            "amount": "下ごしらえ用"
+          },
+          {
+            "name": "水溶き片栗粉",
+            "amount": "片栗粉 大さじ1、水 大さじ2"
+          },
+          {
+            "name": "ごま油",
+            "amount": "小さじ2"
+          },
+          {
+            "name": "料理酒（A）",
+            "amount": "大さじ2"
+          },
+          {
+            "name": "砂糖（A）",
+            "amount": "大さじ1"
+          },
+          {
+            "name": "醤油（A）",
+            "amount": "大さじ1"
+          },
+          {
+            "name": "鶏ガラ（A）",
+            "amount": "小さじ1"
+          }
+        ],
+        "steps": [
+          "白菜はよく洗い、まず葉っぱと芯に2等分に切る。",
+          "芯は一枚ずつ剥がしてそぎ切りに。葉っぱは繊維に沿ってよこ切りにする（ポイント❶）",
+          "生姜は皮を剥き、スライスした後に細切りにする",
+          "豚バラ肉は3等分に切り、塩・こしょうで下味をつける（細かく切りすぎない方が食べやすいです）",
+          "合わせ調味料を作る。容器に調味料(A)を全て入れ混ぜ合わす",
+          "水溶き片栗粉を用意する ※使う直前で、もう一度かき混ぜてくださいね！",
+          "フライパンにごま油を引き、豚肉を炒める。火が通ったら生姜を加え、香りが出るまで炒める",
+          "白菜の芯を加え、豚肉の油を絡ませながら2分ほど炒める",
+          "葉っぱと合わせ調味料を加え混ぜ合わせ、蓋をして4分蒸し煮にする（ポイント❷）",
+          "水溶き片栗粉をまわし入れ、1分ほど炒めたら出来上がり！（ポイント❸）"
+        ]
+      },
+      "evaluation": {
+        "jsonParseSuccess": true,
+        "schemaSuccess": true,
+        "schemaErrors": [],
+        "titleMatch": true,
+        "servingsMatch": true,
+        "cookingTimeMatch": true,
+        "genreMatch": true,
+        "ingredientTruePositive": 10,
+        "ingredientFalsePositive": 0,
+        "ingredientFalseNegative": 1,
+        "ingredientAmountExact": 8,
+        "ingredientAmountCompared": 10,
+        "stepTruePositive": 9,
+        "stepActualMatched": 10,
+        "stepExpectedMatched": 9,
+        "stepFalsePositive": 0,
+        "stepFalseNegative": 0,
+        "hallucinationCount": 0
+      },
+      "error": null
+    },
+    {
+      "id": "instagram-CyUydFXyBUh",
+      "sourceUrl": "https://www.instagram.com/reel/CyUydFXyBUh/",
+      "repetition": 1,
+      "provider": "zai",
+      "model": "glm-5.3-flash",
+      "capturedAt": "2026-08-27T06:22:03.629Z",
+      "elapsedMs": 43481,
+      "costUsd": 0.0007368250000000001,
+      "extraction": {
+        "httpStatus": 200,
+        "methods": [
+          "http-html"
+        ],
+        "textSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "recipe": {
+        "title": "米粉ボンボローニ（生ドーナツ）",
+        "servings": {
+          "value": 6,
+          "raw": "６個分"
+        },
+        "cookingTimeMinutes": null,
+        "genre": "デザート",
+        "ingredients": [
+          {
+            "name": "A 米粉（製菓用）",
+            "amount": "150g"
+          },
+          {
+            "name": "A 片栗粉",
+            "amount": "10g"
+          },
+          {
+            "name": "A てんさい糖",
+            "amount": "15g"
+          },
+          {
+            "name": "A サイリウム",
+            "amount": "4g"
+          },
+          {
+            "name": "A ドライイースト",
+            "amount": "3g"
+          },
+          {
+            "name": "A 塩",
+            "amount": "1.5g"
+          },
+          {
+            "name": "ぬるま湯",
+            "amount": "150ml"
+          },
+          {
+            "name": "米油",
+            "amount": "10g"
+          },
+          {
+            "name": "揚げ油",
+            "amount": "適量"
+          },
+          {
+            "name": "◆カスタード 卵黄",
+            "amount": "2個分"
+          },
+          {
+            "name": "◆カスタード 米粉",
+            "amount": "15g"
+          },
+          {
+            "name": "◆カスタード てんさい糖",
+            "amount": "50g"
+          },
+          {
+            "name": "◆カスタード 牛乳",
+            "amount": "150ml"
+          }
+        ],
+        "steps": [
+          "◆生地：① ボウルにAを入れてよく混ぜる",
+          "② ①にぬるま湯と米油を加えてゴムベラでよく混ぜる",
+          "③ ６等分にして丸め、小さく切ったオーブンシートの上にのせる。乾燥しないよう、ラップをし１５分程度発酵させる",
+          "④ 揚げ油を中温で熱する。③のパン生地をオーブンシートごと揚げる。両面がきつね色になったら取り出し粗熱を取る",
+          "⑤ お好みでてんさい糖をまぶし、クリームを入れる穴を開ける",
+          "⑥ クリームを入れて完成",
+          "◆カスタード：① 上記工程にて③の発酵させている間にカスタードクリームをつくる。耐熱ボウルに卵黄とてんさい糖、米粉を入れてよく混ぜる",
+          "② 牛乳を少しづつ加えてダマにならないようしっかりと混ぜる",
+          "③ ラップをせずレンジ（600ｗ）で3分加熱する。一度取り出しよく混ぜ、1分加熱しよく混ぜるのを2回繰り返す",
+          "④ 空気が入らないようラップを被せて冷やす",
+          "⑤ ホイッパーでよく混ぜなめらかにする"
+        ]
+      },
+      "evaluation": {
+        "jsonParseSuccess": true,
+        "schemaSuccess": true,
+        "schemaErrors": [],
+        "titleMatch": true,
+        "servingsMatch": true,
+        "cookingTimeMatch": null,
+        "genreMatch": true,
+        "ingredientTruePositive": 13,
+        "ingredientFalsePositive": 0,
+        "ingredientFalseNegative": 0,
+        "ingredientAmountExact": 13,
+        "ingredientAmountCompared": 13,
+        "stepTruePositive": 11,
+        "stepActualMatched": 11,
+        "stepExpectedMatched": 11,
+        "stepFalsePositive": 0,
+        "stepFalseNegative": 0,
+        "hallucinationCount": 0
+      },
+      "error": null
+    },
+    {
+      "id": "instagram-CyUydFXyBUh",
+      "sourceUrl": "https://www.instagram.com/reel/CyUydFXyBUh/",
+      "repetition": 2,
+      "provider": "zai",
+      "model": "glm-5.3-flash",
+      "capturedAt": "2026-08-27T06:22:30.690Z",
+      "elapsedMs": 26345,
+      "costUsd": 0.00046939999999999997,
+      "extraction": {
+        "httpStatus": 200,
+        "methods": [
+          "http-html"
+        ],
+        "textSha256": "f38bc7fef674e9a46a1816cfbdab825be86ac6648e04626c9cffaa1657a4720b"
+      },
+      "recipe": {
+        "title": "ボンボローニ",
+        "servings": {
+          "value": 6,
+          "raw": "６個分"
+        },
+        "cookingTimeMinutes": null,
+        "genre": "デザート",
+        "ingredients": [
+          {
+            "name": "A 米粉（製菓用）",
+            "amount": "150g"
+          },
+          {
+            "name": "A 片栗粉",
+            "amount": "10g"
+          },
+          {
+            "name": "A てんさい糖",
+            "amount": "15g"
+          },
+          {
+            "name": "A サイリウム",
+            "amount": "4g"
+          },
+          {
+            "name": "A ドライイースト",
+            "amount": "3g"
+          },
+          {
+            "name": "A 塩",
+            "amount": "1.5g"
+          },
+          {
+            "name": "ぬるま湯",
+            "amount": "150ml"
+          },
+          {
+            "name": "米油",
+            "amount": "10g"
+          },
+          {
+            "name": "揚げ油",
+            "amount": "適量"
+          },
+          {
+            "name": "◆カスタード 卵黄",
+            "amount": "2個分"
+          },
+          {
+            "name": "◆カスタード 米粉",
+            "amount": "15g"
+          },
+          {
+            "name": "◆カスタード てんさい糖",
+            "amount": "50g"
+          },
+          {
+            "name": "◆カスタード 牛乳",
+            "amount": "150ml"
+          }
+        ],
+        "steps": [
+          "◆生地：ボウルにAを入れてよく混ぜる",
+          "①にぬるま湯と米油を加えてゴムベラでよく混ぜる",
+          "６等分にして丸め、小さく切ったオーブンシートの上にのせる。乾燥しないよう、ラップをし１５分程度発酵させる",
+          "揚げ油を中温で熱する。③のパン生地をオーブンシートごと揚げる。両面がきつね色になったら取り出し粗熱を取る",
+          "お好みでてんさい糖をまぶし、クリームを入れる穴を開ける",
+          "クリームを入れて完成",
+          "◆カスタード：上記工程にて③の発酵させている間にカスタードクリームをつくる。耐熱ボウルに卵黄とてんさい糖、米粉を入れてよく混ぜる",
+          "牛乳を少しづつ加えてダマにならないようしっかりと混ぜる",
+          "ラップをせずレンジ（600ｗ）で3分加熱する。一度取り出しよく混ぜ、1分加熱しよく混ぜるのを2回繰り返す",
+          "空気が入らないようラップを被せて冷やす",
+          "ホイッパーでよく混ぜなめらかにする"
+        ]
+      },
+      "evaluation": {
+        "jsonParseSuccess": true,
+        "schemaSuccess": true,
+        "schemaErrors": [],
+        "titleMatch": true,
+        "servingsMatch": true,
+        "cookingTimeMatch": null,
+        "genreMatch": true,
+        "ingredientTruePositive": 13,
+        "ingredientFalsePositive": 0,
+        "ingredientFalseNegative": 0,
+        "ingredientAmountExact": 13,
+        "ingredientAmountCompared": 13,
+        "stepTruePositive": 11,
+        "stepActualMatched": 11,
+        "stepExpectedMatched": 11,
+        "stepFalsePositive": 0,
+        "stepFalseNegative": 0,
+        "hallucinationCount": 0
+      },
+      "error": null
+    },
+    {
+      "id": "instagram-CyUydFXyBUh",
+      "sourceUrl": "https://www.instagram.com/reel/CyUydFXyBUh/",
+      "repetition": 3,
+      "provider": "zai",
+      "model": "glm-5.3-flash",
+      "capturedAt": "2026-08-27T06:22:52.715Z",
+      "elapsedMs": 21398,
+      "costUsd": 0.000504825,
+      "extraction": {
+        "httpStatus": 200,
+        "methods": [
+          "http-html"
+        ],
+        "textSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "recipe": {
+        "title": "ボンボローニ（米粉）",
+        "servings": {
+          "value": 6,
+          "raw": "6個分"
+        },
+        "cookingTimeMinutes": null,
+        "genre": "デザート",
+        "ingredients": [
+          {
+            "name": "A 米粉（製菓用）",
+            "amount": "150g"
+          },
+          {
+            "name": "A 片栗粉",
+            "amount": "10g"
+          },
+          {
+            "name": "A てんさい糖",
+            "amount": "15g"
+          },
+          {
+            "name": "A サイリウム",
+            "amount": "4g"
+          },
+          {
+            "name": "A ドライイースト",
+            "amount": "3g"
+          },
+          {
+            "name": "A 塩",
+            "amount": "1.5g"
+          },
+          {
+            "name": "ぬるま湯",
+            "amount": "150ml"
+          },
+          {
+            "name": "米油",
+            "amount": "10g"
+          },
+          {
+            "name": "揚げ油",
+            "amount": "適量"
+          },
+          {
+            "name": "◆カスタード 卵黄",
+            "amount": "2個分"
+          },
+          {
+            "name": "米粉",
+            "amount": "15g"
+          },
+          {
+            "name": "てんさい糖",
+            "amount": "50g"
+          },
+          {
+            "name": "牛乳",
+            "amount": "150ml"
+          }
+        ],
+        "steps": [
+          "ボウルにAを入れてよく混ぜる",
+          "①にぬるま湯と米油を加えてゴムベラでよく混ぜる",
+          "６等分にして丸め、小さく切ったオーブンシートの上にのせる。乾燥しないよう、ラップをし１５分程度発酵させる",
+          "揚げ油を中温で熱する。③のパン生地をオーブンシートごと揚げる。両面がきつね色になったら取り出し粗熱を取る",
+          "お好みでてんさい糖をまぶし、クリームを入れる穴を開ける",
+          "クリームを入れて完成",
+          "上記工程にて③の発酵させている間にカスタードクリームをつくる。耐熱ボウルに卵黄とてんさい糖、米粉を入れてよく混ぜる",
+          "牛乳を少しづつ加えてダマにならないようしっかりと混ぜる",
+          "ラップをせずレンジ（600ｗ）で3分加熱する。一度取り出しよく混ぜ、1分加熱しよく混ぜるのを2回繰り返す",
+          "空気が入らないようラップを被せて冷やす",
+          "ホイッパーでよく混ぜなめらかにする"
+        ]
+      },
+      "evaluation": {
+        "jsonParseSuccess": true,
+        "schemaSuccess": true,
+        "schemaErrors": [],
+        "titleMatch": true,
+        "servingsMatch": true,
+        "cookingTimeMatch": null,
+        "genreMatch": true,
+        "ingredientTruePositive": 13,
+        "ingredientFalsePositive": 0,
+        "ingredientFalseNegative": 0,
+        "ingredientAmountExact": 13,
+        "ingredientAmountCompared": 13,
+        "stepTruePositive": 11,
+        "stepActualMatched": 11,
+        "stepExpectedMatched": 11,
+        "stepFalsePositive": 0,
+        "stepFalseNegative": 0,
+        "hallucinationCount": 0
+      },
+      "error": null
+    }
+  ]
+}
