@@ -1,4 +1,4 @@
-import type { Genre } from "@prisma/client";
+import type { Genre } from "../../generated/prisma/client.js";
 
 export const GENRE_LABELS: Record<Genre, string> = {
   mainDish: "主菜",

@@ -4,7 +4,8 @@ import {
   PostgreSqlContainer,
   type StartedPostgreSqlContainer,
 } from "@testcontainers/postgresql";
-import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "../../src/generated/prisma/client.js";
 import { Pool } from "pg";
 
 export interface PostgresTestContext {
@@ -32,7 +33,9 @@ export async function startPostgres(): Promise<PostgresTestContext> {
   await pool.end();
   return {
     container,
-    prisma: new PrismaClient({ datasources: { db: { url: databaseUrl } } }),
+    prisma: new PrismaClient({
+      adapter: new PrismaPg({ connectionString: databaseUrl }),
+    }),
   };
 }
 

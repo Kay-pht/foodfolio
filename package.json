@@ -7,15 +7,19 @@
     "node": ">=24.0.0",
     "npm": ">=11.0.0"
   },
+  "overrides": {
+    "deepmerge-ts": "8.0.0",
+    "uuid": "11.1.1"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "dev:api": "tsx watch src/entrypoints/api.ts",
     "dev:worker": "tsx watch src/entrypoints/worker.ts",
     "start:api": "node dist/src/entrypoints/api.js",
     "start:worker": "node dist/src/entrypoints/worker.js",
-    "prisma:generate": "prisma generate",
-    "prisma:validate": "DATABASE_URL=postgresql://localhost:5432/validate DATABASE_DIRECT_URL=postgresql://localhost:5432/validate prisma validate",
-    "prisma:migrate:deploy": "DATABASE_URL=$DATABASE_DIRECT_URL prisma migrate deploy",
+    "prisma:generate": "DATABASE_DIRECT_URL=postgresql://localhost:5432/generate prisma generate",
+    "prisma:validate": "DATABASE_DIRECT_URL=postgresql://localhost:5432/validate prisma validate",
+    "prisma:migrate:deploy": "prisma migrate deploy",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
@@ -29,12 +33,14 @@
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
     "test:e2e": "vitest run tests/e2e",
+    "test:dev:e2e": "node scripts/verify-dev-e2e.mjs",
     "test": "npm run test:unit && npm run test:integration && npm run test:e2e",
-    "verify": "npm run prisma:validate && npm run test && npm run lint && npm run format:check && npm run build"
+    "verify": "npm run prisma:generate && npm run prisma:validate && npm run test && npm run lint && npm run format:check && npm run build"
   },
   "dependencies": {
     "@google-cloud/tasks": "^7.0.0",
-    "@prisma/client": "^6.19.3",
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
     "ajv": "^8.17.1",
     "cheerio": "^1.1.2",
     "dotenv": "^17.2.2",
@@ -51,7 +57,7 @@
     "eslint": "^9.35.0",
     "pg": "^8.16.3",
     "prettier": "^3.6.2",
-    "prisma": "^6.19.3",
+    "prisma": "^7.10.0",
     "testcontainers": "^12.1.0",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2",
