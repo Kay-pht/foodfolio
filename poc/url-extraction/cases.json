@@ -1,0 +1,122 @@
+[
+  {
+    "id": "kikkoman-00050326",
+    "source": "general-web",
+    "url": "https://www.kikkoman.co.jp/homecook/search/recipe/00050326/",
+    "kind": "recipe"
+  },
+  {
+    "id": "general-sirogohan-garibata",
+    "source": "general-web",
+    "url": "https://www.sirogohan.com/recipe/garibata/",
+    "kind": "recipe"
+  },
+  {
+    "id": "general-ajinomoto-802533",
+    "source": "general-web",
+    "url": "https://park.ajinomoto.co.jp/recipe/card/802533/",
+    "kind": "recipe"
+  },
+  {
+    "id": "kurashiru-a3b1f093",
+    "source": "kurashiru",
+    "url": "https://www.kurashiru.com/recipes/a3b1f093-1f5e-4114-8cc8-8869e8e6871d",
+    "kind": "recipe"
+  },
+  {
+    "id": "kurashiru-card-9831cf9c",
+    "source": "kurashiru",
+    "url": "https://www.kurashiru.com/recipe_cards/9831cf9c-ec7c-4e64-82f6-d294430b7d1e",
+    "kind": "recipe"
+  },
+  {
+    "id": "kurashiru-card-ca2c784e",
+    "source": "kurashiru",
+    "url": "https://www.kurashiru.com/recipe_cards/ca2c784e-458d-43db-ac7f-f0c90bff852b",
+    "kind": "recipe"
+  },
+  {
+    "id": "cookpad-21712598",
+    "source": "cookpad",
+    "url": "https://cookpad.com/jp/recipes/21712598",
+    "kind": "recipe"
+  },
+  {
+    "id": "cookpad-22614220",
+    "source": "cookpad",
+    "url": "https://cookpad.com/jp/recipes/22614220",
+    "kind": "recipe"
+  },
+  {
+    "id": "cookpad-26351192",
+    "source": "cookpad",
+    "url": "https://cookpad.com/jp/recipes/26351192",
+    "kind": "recipe"
+  },
+  {
+    "id": "youtube-0to72EbNg8A",
+    "source": "youtube",
+    "url": "https://www.youtube.com/watch?v=0to72EbNg8A",
+    "kind": "recipe"
+  },
+  {
+    "id": "youtube-iKAx33FFOjg",
+    "source": "youtube",
+    "url": "https://www.youtube.com/watch?v=iKAx33FFOjg",
+    "kind": "recipe"
+  },
+  {
+    "id": "youtube-SRwvUL-s-eo",
+    "source": "youtube",
+    "url": "https://www.youtube.com/watch?v=SRwvUL-s-eo",
+    "kind": "recipe"
+  },
+  {
+    "id": "instagram-CyUydFXyBUh",
+    "source": "instagram",
+    "url": "https://www.instagram.com/reel/CyUydFXyBUh/",
+    "kind": "recipe"
+  },
+  {
+    "id": "instagram-C0vLOrYN-S1",
+    "source": "instagram",
+    "url": "https://www.instagram.com/reel/C0vLOrYN-S1/",
+    "kind": "recipe"
+  },
+  {
+    "id": "instagram-DAPxqa3PKX0",
+    "source": "instagram",
+    "url": "https://www.instagram.com/reel/DAPxqa3PKX0/",
+    "kind": "recipe"
+  },
+  {
+    "id": "tiktok-6922339962100665601",
+    "source": "tiktok",
+    "url": "https://www.tiktok.com/@kyon_pei/video/6922339962100665601",
+    "kind": "recipe"
+  },
+  {
+    "id": "tiktok-6919749564979383554",
+    "source": "tiktok",
+    "url": "https://www.tiktok.com/@nasutonaru/video/6919749564979383554",
+    "kind": "recipe"
+  },
+  {
+    "id": "tiktok-6920502857028455681",
+    "source": "tiktok",
+    "url": "https://www.tiktok.com/@bayashi.tiktok/video/6920502857028455681",
+    "kind": "recipe"
+  },
+  {
+    "id": "edge-example-dot-com",
+    "source": "general-web",
+    "url": "https://example.com/",
+    "kind": "non-recipe"
+  },
+  {
+    "id": "edge-youtube-non-recipe",
+    "source": "youtube",
+    "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "kind": "non-recipe"
+  }
+]
