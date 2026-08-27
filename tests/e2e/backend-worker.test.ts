@@ -165,4 +165,56 @@ describe("API/Worker application E2E", () => {
     expect(notifications.failed).toEqual([]);
     await worker.close();
   });
+
+  it("reclaims a processing recipe on Cloud Tasks retry after an interrupted worker", async () => {
+    const user = await context.prisma.user.create({
+      data: {
+        firebaseUid: "interrupted-worker-user",
+        setting: { create: {} },
+      },
+    });
+    const recipe = await context.prisma.recipe.create({
+      data: {
+        userId: user.id,
+        originalUrl: "https://example.com/interrupted",
+        normalizedUrl: "https://example.com/interrupted",
+        sourceType: "web",
+        analysisStatus: "processing",
+      },
+    });
+    const worker = buildWorker(
+      new RecipeAnalysisService({
+        prisma: context.prisma,
+        sourceExtractor,
+        recipeExtractor,
+        notifications: new FakeNotifications(),
+        maxAttempts: 3,
+      }),
+    );
+
+    const duplicateInitialDelivery = await worker.inject({
+      method: "POST",
+      url: "/internal/tasks/recipe-analysis",
+      headers: { "x-cloudtasks-taskretrycount": "0" },
+      payload: { recipeId: recipe.id },
+    });
+    expect(duplicateInitialDelivery.statusCode).toBe(503);
+
+    const response = await worker.inject({
+      method: "POST",
+      url: "/internal/tasks/recipe-analysis",
+      headers: { "x-cloudtasks-taskretrycount": "1" },
+      payload: { recipeId: recipe.id },
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(
+      (
+        await context.prisma.recipe.findUniqueOrThrow({
+          where: { id: recipe.id },
+        })
+      ).analysisStatus,
+    ).toBe("completed");
+    await worker.close();
+  });
 });
