@@ -4,6 +4,7 @@ import { RecipeAnalysisService } from "../application/analysis/analysis-service.
 export function buildWorker(service: RecipeAnalysisService): FastifyInstance {
   const app = Fastify({ logger: true, requestIdHeader: "x-request-id" });
   app.get("/healthz", async () => ({ status: "ok" }));
+  app.get("/health", async () => ({ status: "ok" }));
   app.post("/internal/tasks/recipe-analysis", async (request, reply) => {
     const body = request.body as { recipeId?: unknown } | null;
     if (typeof body?.recipeId !== "string")

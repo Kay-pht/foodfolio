@@ -86,6 +86,11 @@ describe("API/Worker application E2E", () => {
         maxAttempts: 3,
       }),
     );
+    expect(
+      (await worker.inject({ method: "GET", url: "/health" })).json(),
+    ).toEqual({
+      status: "ok",
+    });
     const response = await worker.inject({
       method: "POST",
       url: "/internal/tasks/recipe-analysis",
@@ -216,5 +221,81 @@ describe("API/Worker application E2E", () => {
       ).analysisStatus,
     ).toBe("completed");
     await worker.close();
+  });
+
+  it("applies the same notification toggle to successful and failed analysis", async () => {
+    const user = await context.prisma.user.create({
+      data: {
+        firebaseUid: "notification-matrix-user",
+        setting: { create: { recipeAnalysisNotificationEnabled: false } },
+        deviceTokens: { create: { fcmToken: "notification-matrix-token" } },
+      },
+    });
+    const successRecipe = await context.prisma.recipe.create({
+      data: {
+        userId: user.id,
+        originalUrl: "https://example.com/notification-off-success",
+        normalizedUrl: "https://example.com/notification-off-success",
+        sourceType: "web",
+      },
+    });
+    const notifications = new FakeNotifications();
+    const successWorker = buildWorker(
+      new RecipeAnalysisService({
+        prisma: context.prisma,
+        sourceExtractor,
+        recipeExtractor,
+        notifications,
+        maxAttempts: 3,
+      }),
+    );
+    expect(
+      (
+        await successWorker.inject({
+          method: "POST",
+          url: "/internal/tasks/recipe-analysis",
+          payload: { recipeId: successRecipe.id },
+        })
+      ).statusCode,
+    ).toBe(204);
+    expect(notifications.completed).toEqual([]);
+    await successWorker.close();
+
+    await context.prisma.userSetting.update({
+      where: { userId: user.id },
+      data: { recipeAnalysisNotificationEnabled: true },
+    });
+    const failedRecipe = await context.prisma.recipe.create({
+      data: {
+        userId: user.id,
+        originalUrl: "https://example.com/notification-on-failure",
+        normalizedUrl: "https://example.com/notification-on-failure",
+        sourceType: "web",
+      },
+    });
+    const failedWorker = buildWorker(
+      new RecipeAnalysisService({
+        prisma: context.prisma,
+        sourceExtractor: {
+          extract: async () => {
+            throw new AnalysisError("SOURCE_NOT_FOUND", false, "not found");
+          },
+        },
+        recipeExtractor,
+        notifications,
+        maxAttempts: 3,
+      }),
+    );
+    expect(
+      (
+        await failedWorker.inject({
+          method: "POST",
+          url: "/internal/tasks/recipe-analysis",
+          payload: { recipeId: failedRecipe.id },
+        })
+      ).statusCode,
+    ).toBe(204);
+    expect(notifications.failed).toEqual([failedRecipe.id]);
+    await failedWorker.close();
   });
 });

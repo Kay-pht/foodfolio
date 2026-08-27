@@ -43,6 +43,11 @@ describe("Backend + PostgreSQL integration", () => {
       firebaseUsers,
       taskQueue,
     });
+    expect(
+      (await app.inject({ method: "GET", url: "/health" })).json(),
+    ).toEqual({
+      status: "ok",
+    });
     const headers = { authorization: "Bearer user-a" };
     const create = await app.inject({
       method: "POST",
