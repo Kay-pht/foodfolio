@@ -6,6 +6,17 @@ const USER_AGENT =
   "foodfolio-poc/1.0 (+https://github.com/Kay-pht/foodfolio; recipe metadata validation)";
 const TIMEOUT_MS = 20_000;
 const MAX_AI_INPUT_CHARS = 18_000;
+const YOUTUBE_DATA_API_URL = "https://www.googleapis.com/youtube/v3/videos";
+
+type FetchLike = (
+  input: string | URL,
+  init?: RequestInit,
+) => Promise<Response>;
+
+export interface ExtractUrlOptions {
+  youtubeApiKey?: string;
+  fetchImpl?: FetchLike;
+}
 
 function textOrNull(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -101,57 +112,49 @@ function visibleText(html: string): string {
   return $("body").text().replace(/\s+/g, " ").trim();
 }
 
-function jsonObjectAfterMarker(
-  text: string,
-  marker: string,
-): Record<string, unknown> | null {
-  const markerIndex = text.indexOf(marker);
-  if (markerIndex === -1) return null;
-  const start = text.indexOf("{", markerIndex + marker.length);
-  if (start === -1) return null;
-
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-  for (let index = start; index < text.length; index += 1) {
-    const character = text[index];
-    if (inString) {
-      if (escaped) escaped = false;
-      else if (character === "\\") escaped = true;
-      else if (character === '"') inString = false;
-      continue;
-    }
-    if (character === '"') inString = true;
-    else if (character === "{") depth += 1;
-    else if (character === "}") {
-      depth -= 1;
-      if (depth === 0) {
-        try {
-          const value: unknown = JSON.parse(text.slice(start, index + 1));
-          return value && typeof value === "object"
-            ? (value as Record<string, unknown>)
-            : null;
-        } catch {
-          return null;
-        }
-      }
-    }
-  }
-  return null;
+function normalizeYoutubeVideoId(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const normalized = value.trim();
+  if (!/^[A-Za-z0-9_-]+$/.test(normalized)) return null;
+  return normalized;
 }
 
-export function extractYoutubeDescription(html: string): string | null {
-  const response =
-    jsonObjectAfterMarker(html, "var ytInitialPlayerResponse =") ??
-    jsonObjectAfterMarker(html, "ytInitialPlayerResponse =");
-  const videoDetails = response?.videoDetails;
-  if (!videoDetails || typeof videoDetails !== "object") return null;
-  return textOrNull((videoDetails as Record<string, unknown>).shortDescription);
-}
-
-async function fetchJson(url: string): Promise<Record<string, unknown> | null> {
+export function extractYoutubeVideoId(url: string): string | null {
   try {
-    const response = await fetch(url, {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.toLowerCase().replace(/\.$/, "");
+
+    if (hostname === "youtu.be" || hostname.endsWith(".youtu.be")) {
+      return normalizeYoutubeVideoId(parsed.pathname.split("/").filter(Boolean)[0]);
+    }
+
+    const isYoutubeHost =
+      hostname === "youtube.com" ||
+      hostname.endsWith(".youtube.com") ||
+      hostname === "youtube-nocookie.com" ||
+      hostname.endsWith(".youtube-nocookie.com");
+    if (!isYoutubeHost) return null;
+
+    if (parsed.pathname === "/watch") {
+      return normalizeYoutubeVideoId(parsed.searchParams.get("v"));
+    }
+
+    const segments = parsed.pathname.split("/").filter(Boolean);
+    if (["shorts", "embed", "live"].includes(segments[0] ?? "")) {
+      return normalizeYoutubeVideoId(segments[1]);
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchJson(
+  url: string,
+  fetchImpl: FetchLike,
+): Promise<Record<string, unknown> | null> {
+  try {
+    const response = await fetchImpl(url, {
       headers: { "user-agent": USER_AGENT, accept: "application/json" },
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
@@ -165,16 +168,25 @@ async function fetchJson(url: string): Promise<Record<string, unknown> | null> {
   }
 }
 
-async function fetchOEmbed(testCase: UrlCase) {
-  if (testCase.source === "youtube") {
-    return fetchJson(
-      `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(testCase.url)}`,
-    );
-  }
+async function fetchOEmbed(testCase: UrlCase, fetchImpl: FetchLike) {
   if (testCase.source === "tiktok") {
     return fetchJson(
       `https://www.tiktok.com/oembed?url=${encodeURIComponent(testCase.url)}`,
+      fetchImpl,
     );
+  }
+  return null;
+}
+
+function youtubeThumbnailUrl(snippet: Record<string, unknown>): string | null {
+  const thumbnails = snippet.thumbnails;
+  if (!thumbnails || typeof thumbnails !== "object") return null;
+  const record = thumbnails as Record<string, unknown>;
+  for (const key of ["maxres", "standard", "high", "medium", "default"]) {
+    const candidate = record[key];
+    if (!candidate || typeof candidate !== "object") continue;
+    const url = textOrNull((candidate as Record<string, unknown>).url);
+    if (url) return url;
   }
   return null;
 }
@@ -195,12 +207,210 @@ function buildAiInput(
   return parts.join("\n\n").slice(0, MAX_AI_INPUT_CHARS);
 }
 
+function hasRecipeSignals(
+  metadata: UrlExtractionResult["metadata"],
+  recipes: RecipeJsonLd[],
+  pageText: string,
+): boolean {
+  if (recipes.length > 0) return true;
+  const signalText = `${metadata.title ?? ""} ${metadata.description ?? ""} ${pageText.slice(0, 12_000)}`;
+  return /(材料|作り方|手順|recipe|ingredients?|instructions?|調理)/i.test(
+    signalText,
+  );
+}
+
+function emptyResult(
+  testCase: UrlCase,
+  startedAt: number,
+  reason: string,
+): UrlExtractionResult {
+  return {
+    id: testCase.id,
+    source: testCase.source,
+    url: testCase.url,
+    finalUrl: testCase.url,
+    kind: testCase.kind,
+    capturedAt: new Date().toISOString(),
+    http: {
+      ok: false,
+      status: 0,
+      contentType: null,
+      bytes: 0,
+      elapsedMs: Date.now() - startedAt,
+    },
+    metadata: {
+      title: null,
+      description: null,
+      imageUrl: null,
+      authorName: null,
+    },
+    jsonLdRecipes: [],
+    evidence: {
+      textLength: 0,
+      textSha256: createHash("sha256").update("").digest("hex"),
+      hasRecipeSignals: false,
+      jsRequiredSignal: false,
+      authRequiredSignal: false,
+      extractionMethods: [],
+    },
+    aiInput: { usable: false, reason, text: "" },
+    error: reason,
+  };
+}
+
+async function extractYoutube(
+  testCase: UrlCase,
+  startedAt: number,
+  apiKey: string | undefined,
+  fetchImpl: FetchLike,
+): Promise<UrlExtractionResult> {
+  const videoId = extractYoutubeVideoId(testCase.url);
+  if (!videoId) {
+    return emptyResult(testCase, startedAt, "invalid YouTube video URL");
+  }
+  if (!apiKey?.trim()) {
+    return emptyResult(
+      testCase,
+      startedAt,
+      "YOUTUBE_API_KEY is required for YouTube Data API extraction",
+    );
+  }
+
+  const apiUrl = new URL(YOUTUBE_DATA_API_URL);
+  apiUrl.searchParams.set("part", "snippet");
+  apiUrl.searchParams.set("id", videoId);
+  apiUrl.searchParams.set("key", apiKey);
+  apiUrl.searchParams.set(
+    "fields",
+    "items(id,snippet(title,description,thumbnails,channelTitle))",
+  );
+
+  try {
+    const response = await fetchImpl(apiUrl, {
+      headers: { "user-agent": USER_AGENT, accept: "application/json" },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    const body = await response.text();
+    const elapsedMs = Date.now() - startedAt;
+    if (!response.ok) {
+      return {
+        ...emptyResult(
+          testCase,
+          startedAt,
+          `YouTube Data API HTTP ${response.status}`,
+        ),
+        http: {
+          ok: false,
+          status: response.status,
+          contentType: response.headers.get("content-type"),
+          bytes: Buffer.byteLength(body),
+          elapsedMs,
+        },
+      };
+    }
+
+    const parsed: unknown = JSON.parse(body);
+    const items =
+      parsed && typeof parsed === "object"
+        ? (parsed as Record<string, unknown>).items
+        : null;
+    const item = Array.isArray(items) ? items[0] : null;
+    const snippet =
+      item && typeof item === "object"
+        ? (item as Record<string, unknown>).snippet
+        : null;
+    if (!snippet || typeof snippet !== "object") {
+      return {
+        ...emptyResult(
+          testCase,
+          startedAt,
+          "YouTube Data API returned no public video metadata",
+        ),
+        http: {
+          ok: true,
+          status: response.status,
+          contentType: response.headers.get("content-type"),
+          bytes: Buffer.byteLength(body),
+          elapsedMs,
+        },
+      };
+    }
+
+    const snippetRecord = snippet as Record<string, unknown>;
+    const metadata: UrlExtractionResult["metadata"] = {
+      title: textOrNull(snippetRecord.title),
+      description: textOrNull(snippetRecord.description),
+      imageUrl: youtubeThumbnailUrl(snippetRecord),
+      authorName: textOrNull(snippetRecord.channelTitle),
+    };
+    const recipes: RecipeJsonLd[] = [];
+    const pageText = "";
+    const aiText = buildAiInput(metadata, recipes, pageText);
+    const recipeSignals = hasRecipeSignals(metadata, recipes, pageText);
+    const usable =
+      testCase.kind === "recipe" && recipeSignals && aiText.length >= 100;
+
+    return {
+      id: testCase.id,
+      source: testCase.source,
+      url: testCase.url,
+      finalUrl: testCase.url,
+      kind: testCase.kind,
+      capturedAt: new Date().toISOString(),
+      http: {
+        ok: true,
+        status: response.status,
+        contentType: response.headers.get("content-type"),
+        bytes: Buffer.byteLength(body),
+        elapsedMs,
+      },
+      metadata,
+      jsonLdRecipes: recipes,
+      evidence: {
+        textLength: aiText.length,
+        textSha256: createHash("sha256").update(aiText).digest("hex"),
+        hasRecipeSignals: recipeSignals,
+        jsRequiredSignal: false,
+        authRequiredSignal: false,
+        extractionMethods: ["youtube-data-api-v3"],
+      },
+      aiInput: {
+        usable,
+        reason: usable
+          ? "recipe signals and sufficient YouTube snippet metadata are available"
+          : !recipeSignals
+            ? "no recipe signals in YouTube snippet metadata"
+            : aiText.length < 100
+              ? "insufficient YouTube snippet metadata"
+              : "negative control",
+        text: aiText,
+      },
+      error: null,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return emptyResult(testCase, startedAt, message);
+  }
+}
+
 export async function extractUrl(
   testCase: UrlCase,
+  options: ExtractUrlOptions = {},
 ): Promise<UrlExtractionResult> {
   const startedAt = Date.now();
+  const fetchImpl = options.fetchImpl ?? fetch;
+
+  if (testCase.source === "youtube") {
+    return extractYoutube(
+      testCase,
+      startedAt,
+      options.youtubeApiKey ?? process.env.YOUTUBE_API_KEY,
+      fetchImpl,
+    );
+  }
+
   try {
-    const response = await fetch(testCase.url, {
+    const response = await fetchImpl(testCase.url, {
       redirect: "follow",
       headers: {
         "user-agent": USER_AGENT,
@@ -211,12 +421,10 @@ export async function extractUrl(
     });
     const html = await response.text();
     const pageMetadata = metadataFromHtml(html);
-    const oembed = await fetchOEmbed(testCase);
-    const fullYoutubeDescription =
-      testCase.source === "youtube" ? extractYoutubeDescription(html) : null;
+    const oembed = await fetchOEmbed(testCase, fetchImpl);
     const metadata = {
       title: pageMetadata.title ?? textOrNull(oembed?.title),
-      description: fullYoutubeDescription ?? pageMetadata.description,
+      description: pageMetadata.description,
       imageUrl:
         pageMetadata.imageUrl ??
         textOrNull(oembed?.thumbnail_url ?? oembed?.author_url),
@@ -225,12 +433,8 @@ export async function extractUrl(
     const recipes = extractJsonLdRecipes(html);
     const pageText = visibleText(html);
     const aiText = buildAiInput(metadata, recipes, pageText);
+    const recipeSignals = hasRecipeSignals(metadata, recipes, pageText);
     const signalText = `${metadata.title ?? ""} ${metadata.description ?? ""} ${pageText.slice(0, 12_000)}`;
-    const hasRecipeSignals =
-      recipes.length > 0 ||
-      /(材料|作り方|手順|recipe|ingredients?|instructions?|調理)/i.test(
-        signalText,
-      );
     const authRequiredSignal =
       /(ログインしてください|login required|sign in to continue)/i.test(
         signalText,
@@ -240,7 +444,7 @@ export async function extractUrl(
     const usable =
       testCase.kind === "recipe" &&
       response.ok &&
-      hasRecipeSignals &&
+      recipeSignals &&
       aiText.length >= 100;
 
     return {
@@ -262,14 +466,13 @@ export async function extractUrl(
       evidence: {
         textLength: pageText.length,
         textSha256: createHash("sha256").update(pageText).digest("hex"),
-        hasRecipeSignals,
+        hasRecipeSignals: recipeSignals,
         jsRequiredSignal,
         authRequiredSignal,
         extractionMethods: [
           "http-html",
           ...(recipes.length > 0 ? ["json-ld"] : []),
           ...(oembed ? ["oembed"] : []),
-          ...(fullYoutubeDescription ? ["youtube-player-response"] : []),
         ],
       },
       aiInput: {
@@ -278,7 +481,7 @@ export async function extractUrl(
           ? "recipe signals and sufficient text are available"
           : !response.ok
             ? `HTTP ${response.status}`
-            : !hasRecipeSignals
+            : !recipeSignals
               ? "no recipe signals in accessible text/metadata"
               : aiText.length < 100
                 ? "insufficient accessible text"
@@ -289,37 +492,6 @@ export async function extractUrl(
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return {
-      id: testCase.id,
-      source: testCase.source,
-      url: testCase.url,
-      finalUrl: testCase.url,
-      kind: testCase.kind,
-      capturedAt: new Date().toISOString(),
-      http: {
-        ok: false,
-        status: 0,
-        contentType: null,
-        bytes: 0,
-        elapsedMs: Date.now() - startedAt,
-      },
-      metadata: {
-        title: null,
-        description: null,
-        imageUrl: null,
-        authorName: null,
-      },
-      jsonLdRecipes: [],
-      evidence: {
-        textLength: 0,
-        textSha256: createHash("sha256").update("").digest("hex"),
-        hasRecipeSignals: false,
-        jsRequiredSignal: false,
-        authRequiredSignal: false,
-        extractionMethods: [],
-      },
-      aiInput: { usable: false, reason: message, text: "" },
-      error: message,
-    };
+    return emptyResult(testCase, startedAt, message);
   }
 }
