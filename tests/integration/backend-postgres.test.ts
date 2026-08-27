@@ -26,6 +26,7 @@ const taskQueue: AnalysisTaskQueue = {
     enqueued.push(id);
   },
 };
+const waitForClockTick = () => new Promise((resolve) => setTimeout(resolve, 5));
 
 describe("Backend + PostgreSQL integration", () => {
   let context: PostgresTestContext;
@@ -72,6 +73,12 @@ describe("Backend + PostgreSQL integration", () => {
       where: { id: recipeId },
       data: { analysisStatus: "completed" },
     });
+    const beforeIngredientUpdate =
+      await context.prisma.recipe.findUniqueOrThrow({
+        where: { id: recipeId },
+        select: { updatedAt: true },
+      });
+    await waitForClockTick();
     const update = await app.inject({
       method: "PATCH",
       url: `/v1/recipes/${recipeId}`,
@@ -84,6 +91,9 @@ describe("Backend + PostgreSQL integration", () => {
     });
     expect(update.statusCode).toBe(200);
     expect(update.json().ingredients).toHaveLength(1);
+    expect(new Date(update.json().updatedAt).getTime()).toBeGreaterThan(
+      beforeIngredientUpdate.updatedAt.getTime(),
+    );
 
     const tagA = await app.inject({
       method: "POST",
@@ -98,6 +108,7 @@ describe("Backend + PostgreSQL integration", () => {
       payload: { name: "quick" },
     });
     expect(tagA.json().id).toBe(tagB.json().id);
+    await waitForClockTick();
     const attach = await app.inject({
       method: "POST",
       url: `/v1/recipes/${recipeId}/tags`,
@@ -105,6 +116,9 @@ describe("Backend + PostgreSQL integration", () => {
       payload: { tagId: tagA.json().id },
     });
     expect(attach.json().tags).toHaveLength(1);
+    expect(new Date(attach.json().updatedAt).getTime()).toBeGreaterThan(
+      new Date(update.json().updatedAt).getTime(),
+    );
 
     const otherTag = await app.inject({
       method: "POST",
@@ -129,6 +143,28 @@ describe("Backend + PostgreSQL integration", () => {
       headers,
     });
     expect(secondSync.json().recipes).toEqual([]);
+
+    await waitForClockTick();
+    const detach = await app.inject({
+      method: "DELETE",
+      url: `/v1/recipes/${recipeId}/tags/${tagA.json().id}`,
+      headers,
+    });
+    expect(detach.statusCode).toBe(204);
+    const afterDetach = await context.prisma.recipe.findUniqueOrThrow({
+      where: { id: recipeId },
+      select: { updatedAt: true },
+    });
+    expect(afterDetach.updatedAt.getTime()).toBeGreaterThan(
+      new Date(attach.json().updatedAt).getTime(),
+    );
+    const recipeIds = await app.inject({
+      method: "GET",
+      url: "/v1/sync/recipe-ids",
+      headers,
+    });
+    expect(recipeIds.statusCode).toBe(200);
+    expect(recipeIds.json().recipeIds).toEqual([recipeId]);
 
     const remove = await app.inject({
       method: "DELETE",

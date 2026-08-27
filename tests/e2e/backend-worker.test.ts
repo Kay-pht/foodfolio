@@ -51,6 +51,8 @@ class FakeNotifications implements NotificationSender {
   }
 }
 
+const waitForClockTick = () => new Promise((resolve) => setTimeout(resolve, 5));
+
 describe("API/Worker application E2E", () => {
   let context: PostgresTestContext;
   beforeAll(async () => {
@@ -91,6 +93,7 @@ describe("API/Worker application E2E", () => {
     ).toEqual({
       status: "ok",
     });
+    await waitForClockTick();
     const response = await worker.inject({
       method: "POST",
       url: "/internal/tasks/recipe-analysis",
@@ -103,6 +106,9 @@ describe("API/Worker application E2E", () => {
       include: { ingredients: true, steps: true },
     });
     expect(updated.analysisStatus).toBe("completed");
+    expect(updated.updatedAt.getTime()).toBeGreaterThan(
+      recipe.updatedAt.getTime(),
+    );
     expect(updated.title).toBe("親子丼");
     expect(updated.ingredients[0]?.name).toBe("鶏肉");
     expect(notifications.completed).toEqual([recipe.id]);
