@@ -425,7 +425,7 @@ MVPでは分量を数値・単位へ完全分解してDB保存しない。
 
 原典表現を保持するため `amount` は文字列とする。
 
-Ingredient更新時は親Recipeの `updatedAt` も更新する。
+Ingredient更新時は親Recipeの `updatedAt`` も更新する。
 
 ### 7.7 RecipeStep
 
@@ -1067,7 +1067,7 @@ HTML/text response: 最大5MB
 
 ## 14. URL情報取得
 
-PoCで成立した方式を本番モジュールへ移植する。
+PoCで成立した方式を本番モジュールへ移植する。ただしYouTubeについては、技術選定で確定した公式API経路を使用し、旧PoCのHTML依存方式は本番へ移植しない。
 
 共通処理：
 
@@ -1078,12 +1078,14 @@ PoCで成立した方式を本番モジュールへ移植する。
 
 サービス別：
 
-- YouTube: oEmbed + page内player情報
+- YouTube: URLからvideoId抽出 → YouTube Data API v3 `videos.list(part=snippet)` → `title` / `description` / `thumbnails` 取得
 - Instagram: 公開OG metadata範囲
 - TikTok: 公開oEmbed / HTML metadata範囲
 - クラシル
 - クックパッド
 - 一般Web
+
+YouTubeではページHTML、`ytInitialPlayerResponse`、oEmbedを説明文取得の主経路として使用しない。YouTube Data API呼び出しに必要な `YOUTUBE_API_KEY` はBackendのSecretとしてGoogle Cloud Secret Managerで管理し、Cloud Run Workerへ環境変数として渡す。
 
 認証回避、非公開コンテンツ取得、動画・画像本体の無断downloadは行わない。
 
@@ -2196,6 +2198,7 @@ outputTokens
 - Firebase ID Token
 - Apple authorization code / Apple credential
 - Z.ai API Key
+- YouTube Data API Key
 - DB password
 - source本文全文
 - AI raw response全文
@@ -2218,13 +2221,14 @@ CLOUD_TASKS_LOCATION
 CLOUD_TASKS_QUEUE
 WORKER_URL
 ZAI_API_KEY
+YOUTUBE_API_KEY
 AI_MODEL=glm-5.3-flash
 MAX_ANALYSIS_ATTEMPTS=3
 ```
 
 `MAX_ANALYSIS_ATTEMPTS` はCloud Tasks Queueのretry設定とWorkerの最終試行判定で同じ値を使用する。
 
-API Key / DB接続情報はSecret ManagerからCloud Runへ渡す。
+`ZAI_API_KEY` / `YOUTUBE_API_KEY` / DB接続情報はSecret ManagerからCloud Runへ渡す。
 
 Firebase Admin / Cloud Tasks等のGCP認証にはCloud Run Service AccountのApplication Default Credentialsを基本とし、Service Account JSON key fileを配布しない。
 
