@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://foodfolio.local/schemas/extracted-recipe.json",
+  "title": "ExtractedRecipe",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "title",
+    "servings",
+    "cookingTimeMinutes",
+    "genre",
+    "ingredients",
+    "steps"
+  ],
+  "properties": {
+    "title": {
+      "type": ["string", "null"]
+    },
+    "servings": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["value", "raw"],
+      "properties": {
+        "value": {
+          "type": ["number", "null"],
+          "exclusiveMinimum": 0
+        },
+        "raw": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "cookingTimeMinutes": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "genre": {
+      "type": ["string", "null"],
+      "enum": [
+        "主菜",
+        "副菜",
+        "主食",
+        "麺",
+        "スープ・汁物",
+        "サラダ",
+        "デザート",
+        "その他",
+        null
+      ]
+    },
+    "ingredients": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "amount"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "amount": {
+            "type": ["string", "null"]
+          }
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}
