@@ -5,6 +5,18 @@
 - [x] UI/UX設計・FigJamワイヤーフレーム
 - [x] 技術選定
 - [ ] poc
+  - [x] PoC検証計画書作成
+  - [x] 一般Web / クラシル / クックパッド / YouTubeの取得スモークテスト
+  - [x] Recipe Schema作成
+  - [x] AI比較用fixture・評価基盤作成
+  - [x] ChatGPT内での構造化・E2Eスモークテスト
+  - [x] AI候補の公式料金ベースライン確認
+  - [ ] YouTubeの本番Backend相当の取得方式を実検証
+  - [ ] Instagram実投稿URLの取得方式を実検証
+  - [ ] TikTok実投稿URLの取得方式を実検証
+  - [ ] Gemini / OpenAI / Qwen / DeepSeekの実API比較
+  - [ ] AI Provider / Model確定
+  - [ ] 採用取得方式 + 採用AIで最終E2E確認
 - [ ] 実装設計
 - [ ] 実装・テスト
 - [ ] TestFlightリリース準備
