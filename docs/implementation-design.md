@@ -425,7 +425,7 @@ MVPでは分量を数値・単位へ完全分解してDB保存しない。
 
 原典表現を保持するため `amount` は文字列とする。
 
-Ingredient更新時は親Recipeの `updatedAt`` も更新する。
+Ingredient更新時は親Recipeの `updatedAt` も更新する。
 
 ### 7.7 RecipeStep
 
