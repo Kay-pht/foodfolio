@@ -3,19 +3,22 @@
     "id": "kikkoman-00050326",
     "recipe": {
       "title": "白菜と豚バラ肉のうま煮",
-      "servings": {"value": 2, "raw": "2人分"},
+      "servings": { "value": 2, "raw": "2人分" },
       "cookingTimeMinutes": 15,
       "genre": "主菜",
       "ingredients": [
-        {"name": "豚バラ肉（薄切り）", "amount": "150g"},
-        {"name": "白菜", "amount": "300g"},
-        {"name": "生しいたけ", "amount": "3個"},
-        {"name": "かつおだし", "amount": "1/2カップ"},
-        {"name": "キッコーマン特選丸大豆しょうゆ", "amount": "大さじ1"},
-        {"name": "マンジョウ米麹こだわり仕込み本みりん", "amount": "大さじ1"},
-        {"name": "マンジョウ国産米こだわり仕込み料理の清酒", "amount": "大さじ1"},
-        {"name": "片栗粉", "amount": "小さじ2"},
-        {"name": "水", "amount": "大さじ2"}
+        { "name": "豚バラ肉（薄切り）", "amount": "150g" },
+        { "name": "白菜", "amount": "300g" },
+        { "name": "生しいたけ", "amount": "3個" },
+        { "name": "かつおだし", "amount": "1/2カップ" },
+        { "name": "キッコーマン特選丸大豆しょうゆ", "amount": "大さじ1" },
+        { "name": "マンジョウ米麹こだわり仕込み本みりん", "amount": "大さじ1" },
+        {
+          "name": "マンジョウ国産米こだわり仕込み料理の清酒",
+          "amount": "大さじ1"
+        },
+        { "name": "片栗粉", "amount": "小さじ2" },
+        { "name": "水", "amount": "大さじ2" }
       ],
       "steps": [
         "豚バラ肉、白菜、しいたけを切る",
@@ -28,17 +31,17 @@
     "id": "kurashiru-a3b1f093",
     "recipe": {
       "title": "豚バラ肉と白菜のとろとろ煮",
-      "servings": {"value": 2, "raw": "2人前"},
+      "servings": { "value": 2, "raw": "2人前" },
       "cookingTimeMinutes": 20,
       "genre": "主菜",
       "ingredients": [
-        {"name": "豚バラ肉 (スライス)", "amount": "200g"},
-        {"name": "白菜", "amount": "300g"},
-        {"name": "めんつゆ", "amount": "大さじ4"},
-        {"name": "すりおろしニンニク", "amount": "小さじ1"},
-        {"name": "白こしょう", "amount": "少々"},
-        {"name": "水溶き片栗粉", "amount": "大さじ1"},
-        {"name": "ごま油", "amount": "大さじ1"}
+        { "name": "豚バラ肉 (スライス)", "amount": "200g" },
+        { "name": "白菜", "amount": "300g" },
+        { "name": "めんつゆ", "amount": "大さじ4" },
+        { "name": "すりおろしニンニク", "amount": "小さじ1" },
+        { "name": "白こしょう", "amount": "少々" },
+        { "name": "水溶き片栗粉", "amount": "大さじ1" },
+        { "name": "ごま油", "amount": "大さじ1" }
       ],
       "steps": [
         "白菜を切る",
@@ -55,14 +58,14 @@
     "id": "cookpad-21712598",
     "recipe": {
       "title": "簡単♪豚バラと白菜のレンジ蒸し",
-      "servings": {"value": null, "raw": "1〜2人分"},
+      "servings": { "value": null, "raw": "1〜2人分" },
       "cookingTimeMinutes": null,
       "genre": "主菜",
       "ingredients": [
-        {"name": "白菜", "amount": "3枚〜4枚"},
-        {"name": "豚バラ", "amount": "100〜150gぐらい"},
-        {"name": "酒", "amount": "大さじ1"},
-        {"name": "ポン酢", "amount": "大さじ1"}
+        { "name": "白菜", "amount": "3枚〜4枚" },
+        { "name": "豚バラ", "amount": "100〜150gぐらい" },
+        { "name": "酒", "amount": "大さじ1" },
+        { "name": "ポン酢", "amount": "大さじ1" }
       ],
       "steps": [
         "耐熱容器に白菜と豚バラを重ねて酒をかける",
@@ -74,21 +77,21 @@
     "id": "youtube-0to72EbNg8A",
     "recipe": {
       "title": "豚バラ白菜",
-      "servings": {"value": 4, "raw": "4人前"},
+      "servings": { "value": 4, "raw": "4人前" },
       "cookingTimeMinutes": 20,
       "genre": "主菜",
       "ingredients": [
-        {"name": "白菜", "amount": "1/4株（500g）"},
-        {"name": "生姜", "amount": "1/2かけ"},
-        {"name": "豚バラ肉", "amount": "200g"},
-        {"name": "塩、こしょう", "amount": "適量"},
-        {"name": "片栗粉", "amount": "大さじ1"},
-        {"name": "水", "amount": "大さじ2"},
-        {"name": "ごま油", "amount": "小さじ2"},
-        {"name": "料理酒", "amount": "大さじ2"},
-        {"name": "砂糖", "amount": "大さじ1"},
-        {"name": "醤油", "amount": "大さじ1"},
-        {"name": "鶏ガラ", "amount": "小さじ1"}
+        { "name": "白菜", "amount": "1/4株（500g）" },
+        { "name": "生姜", "amount": "1/2かけ" },
+        { "name": "豚バラ肉", "amount": "200g" },
+        { "name": "塩、こしょう", "amount": "適量" },
+        { "name": "片栗粉", "amount": "大さじ1" },
+        { "name": "水", "amount": "大さじ2" },
+        { "name": "ごま油", "amount": "小さじ2" },
+        { "name": "料理酒", "amount": "大さじ2" },
+        { "name": "砂糖", "amount": "大さじ1" },
+        { "name": "醤油", "amount": "大さじ1" },
+        { "name": "鶏ガラ", "amount": "小さじ1" }
       ],
       "steps": [
         "白菜を葉と芯に分けて切る",

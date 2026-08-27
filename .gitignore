@@ -1,0 +1,12 @@
+# Local environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies and build/test outputs
+node_modules/
+dist/
+coverage/
+
+# PoC raw evidence can contain full third-party page/API responses.
+poc/artifacts/
