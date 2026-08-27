@@ -1,5 +1,5 @@
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "../generated/prisma/client.js";
 import { AppError } from "./errors/app-error.js";
 import type {
   AuthVerifier,
@@ -65,6 +65,7 @@ export function buildApi(deps: ApiDependencies): FastifyInstance {
     });
   });
   app.get("/healthz", async () => ({ status: "ok" }));
+  app.get("/health", async () => ({ status: "ok" }));
   registerRoutes(app, deps);
   return app;
 }
