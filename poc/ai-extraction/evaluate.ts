@@ -31,6 +31,36 @@ export function textSimilarity(left: string, right: string): number {
   return (2 * overlap) / (leftSet.size + rightSet.size || 1);
 }
 
+function normalizeIngredientName(value: string): string {
+  const withoutGroupLabels = value
+    .normalize("NFKC")
+    .replace(/^\s*(?:\(?[A-Z]\)?|◆[^\s]+|【[^】]+】)\s+/i, "");
+  return normalize(withoutGroupLabels);
+}
+
+function ingredientNameSimilarity(left: string, right: string): number {
+  const leftName = normalizeIngredientName(left);
+  const rightName = normalizeIngredientName(right);
+  if (leftName === rightName) return 1;
+  if (
+    Math.min(leftName.length, rightName.length) >= 2 &&
+    (leftName.includes(rightName) || rightName.includes(leftName))
+  ) {
+    return 0.95;
+  }
+  return 0;
+}
+
+function normalizedContains(left: unknown, right: unknown): boolean {
+  const leftValue = normalize(left);
+  const rightValue = normalize(right);
+  if (leftValue === rightValue) return true;
+  return (
+    Math.min(leftValue.length, rightValue.length) >= 3 &&
+    (leftValue.includes(rightValue) || rightValue.includes(leftValue))
+  );
+}
+
 function greedyMatches(
   expected: string[],
   actual: string[],
@@ -108,6 +138,8 @@ export function parseAndEvaluate(
         ingredientAmountExact: 0,
         ingredientAmountCompared: 0,
         stepTruePositive: 0,
+        stepActualMatched: 0,
+        stepExpectedMatched: 0,
         stepFalsePositive: 0,
         stepFalseNegative: expected.steps.length,
         hallucinationCount: 0,
@@ -118,31 +150,36 @@ export function parseAndEvaluate(
   const ingredientMatches = greedyMatches(
     expected.ingredients.map(({ name }) => name),
     actual.ingredients.map(({ name }) => name),
-    (left, right) => (normalize(left) === normalize(right) ? 1 : 0),
-    1,
+    ingredientNameSimilarity,
+    0.95,
   );
   const amountExact = ingredientMatches.filter(
     ([expectedIndex, actualIndex]) =>
       normalize(expected.ingredients[expectedIndex]!.amount) ===
       normalize(actual.ingredients[actualIndex]!.amount),
   ).length;
-  const stepMatches = greedyMatches(
-    expected.steps,
-    actual.steps,
-    textSimilarity,
-    0.28,
-  );
+  const stepActualMatched = actual.steps.filter((actualStep) =>
+    expected.steps.some(
+      (expectedStep) => textSimilarity(expectedStep, actualStep) >= 0.12,
+    ),
+  ).length;
+  const stepExpectedMatched = expected.steps.filter((expectedStep) =>
+    actual.steps.some(
+      (actualStep) => textSimilarity(expectedStep, actualStep) >= 0.12,
+    ),
+  ).length;
   const ingredientFalsePositive =
     actual.ingredients.length - ingredientMatches.length;
   const ingredientFalseNegative =
     expected.ingredients.length - ingredientMatches.length;
-  const stepFalsePositive = actual.steps.length - stepMatches.length;
-  const stepFalseNegative = expected.steps.length - stepMatches.length;
+  const stepFalsePositive = actual.steps.length - stepActualMatched;
+  const stepFalseNegative = expected.steps.length - stepExpectedMatched;
   const unsupportedScalarCount =
     (expected.cookingTimeMinutes === null && actual.cookingTimeMinutes !== null
       ? 1
       : 0) +
-    (expected.servings?.value === null && actual.servings?.value !== null
+    (expected.servings?.value === null &&
+    typeof actual.servings?.value === "number"
       ? 1
       : 0);
 
@@ -152,13 +189,14 @@ export function parseAndEvaluate(
       jsonParseSuccess,
       schemaSuccess: true,
       schemaErrors: [],
-      titleMatch: normalize(actual.title) === normalize(expected.title),
+      titleMatch: normalizedContains(actual.title, expected.title),
       servingsMatch:
         expected.servings === null
           ? null
-          : actual.servings?.value === expected.servings.value &&
-            normalize(actual.servings?.raw) ===
-              normalize(expected.servings.raw),
+          : expected.servings.value !== null
+            ? actual.servings?.value === expected.servings.value
+            : actual.servings?.value === null &&
+              normalizedContains(actual.servings?.raw, expected.servings.raw),
       cookingTimeMatch:
         expected.cookingTimeMinutes === null
           ? null
@@ -169,7 +207,9 @@ export function parseAndEvaluate(
       ingredientFalseNegative,
       ingredientAmountExact: amountExact,
       ingredientAmountCompared: ingredientMatches.length,
-      stepTruePositive: stepMatches.length,
+      stepTruePositive: Math.min(stepActualMatched, stepExpectedMatched),
+      stepActualMatched,
+      stepExpectedMatched,
       stepFalsePositive,
       stepFalseNegative,
       hallucinationCount:

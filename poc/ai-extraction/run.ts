@@ -11,6 +11,7 @@ import {
   callProvider,
   conservativePlannedCostUsd,
   costUsd,
+  resolveProviders,
 } from "./providers.js";
 import type { ExpectedFixture, ProviderName } from "./types.js";
 import type { UrlExtractionResult } from "../url-extraction/types.js";
@@ -19,7 +20,7 @@ const COST_CAP_USD = 5;
 const root = process.cwd();
 const artifactsDirectory = path.join(root, "poc/artifacts/ai-extraction");
 const resultsDirectory = path.join(root, "poc/results");
-const providers = Object.keys(PROVIDERS) as ProviderName[];
+const providers = resolveProviders(process.env.POC_PROVIDERS);
 
 async function readSourceText(id: string): Promise<string> {
   const raw = await fs.readFile(
@@ -159,38 +160,58 @@ for (const { fixture, sourceText } of inputs) {
 const providerMetrics = aggregateByProvider(results);
 const selectedProvider = selectProvider(providerMetrics);
 
-await fs.writeFile(
-  path.join(resultsDirectory, "ai-comparison-results.json"),
-  `${JSON.stringify(
-    {
-      generatedAt: new Date().toISOString(),
-      costCapUsd: COST_CAP_USD,
-      conservativePlannedCostUsd: plannedCostUsd,
-      actualCostUsd,
-      providerConfiguration: PROVIDERS,
-      acceptanceCriteria: {
-        jsonParseSuccessRate: 1,
-        schemaSuccessRate: 1,
-        hallucinationCount: 0,
-        ingredientPrecision: 0.9,
-        ingredientRecall: 0.9,
-        ingredientAmountExactRate: 0.85,
-        titleMatchRate: 0.9,
-        servingsMatchRate: 0.9,
-        cookingTimeMatchRate: 0.9,
-        genreMatchRate: 0.9,
-        stepPrecision: 0.9,
-        stepRecall: 0.9,
-      },
-      providerMetrics,
-      selectedProvider,
-      results,
-    },
-    null,
-    2,
-  )}\n`,
+const resultPayload = {
+  generatedAt: new Date().toISOString(),
+  costCapUsd: COST_CAP_USD,
+  conservativePlannedCostUsd: plannedCostUsd,
+  actualCostUsd,
+  costInterpretation: providers.includes("gemini")
+    ? "Gemini cost is a paid-list-price equivalent; Free Tier billing is not proven by the API response"
+    : "estimated from official list price and reported token usage",
+  comparisonStrategy:
+    providers.length === 1
+      ? `single-provider acceptance gate: ${providers[0]}`
+      : "cross-provider comparison",
+  evaluatedProviders: providers,
+  providerConfiguration: Object.fromEntries(
+    providers.map((provider) => [provider, PROVIDERS[provider]]),
+  ),
+  acceptanceCriteria: {
+    jsonParseSuccessRate: 1,
+    schemaSuccessRate: 1,
+    hallucinationCount: 0,
+    ingredientPrecision: 0.9,
+    ingredientRecall: 0.9,
+    ingredientAmountExactRate: 0.85,
+    titleMatchRate: 0.9,
+    servingsMatchRate: 0.9,
+    cookingTimeMatchRate: 0.9,
+    genreMatchRate: 0.9,
+    stepPrecision: 0.9,
+    stepRecall: 0.9,
+  },
+  providerMetrics,
+  selectedProvider,
+  results,
+};
+const scopedResultPath = path.join(
+  resultsDirectory,
+  providers.length === 1
+    ? `ai-comparison-${providers[0]}-results.json`
+    : "ai-comparison-results.json",
 );
+await fs.writeFile(
+  scopedResultPath,
+  `${JSON.stringify(resultPayload, null, 2)}\n`,
+);
+if (selectedProvider) {
+  await fs.writeFile(
+    path.join(resultsDirectory, "ai-comparison-results.json"),
+    `${JSON.stringify(resultPayload, null, 2)}\n`,
+  );
+}
 console.log(
   `completed: ${results.length} calls, estimated actual cost $${actualCostUsd.toFixed(6)}`,
 );
+console.log(`results: ${path.relative(root, scopedResultPath)}`);
 if (!selectedProvider) process.exitCode = 1;

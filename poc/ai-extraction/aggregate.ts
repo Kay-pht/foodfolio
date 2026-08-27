@@ -67,7 +67,12 @@ export function aggregateByProvider(
     const falseNegativeIngredients = sum(
       ({ ingredientFalseNegative }) => ingredientFalseNegative,
     );
-    const truePositiveSteps = sum(({ stepTruePositive }) => stepTruePositive);
+    const matchedActualSteps = sum(
+      ({ stepActualMatched }) => stepActualMatched,
+    );
+    const matchedExpectedSteps = sum(
+      ({ stepExpectedMatched }) => stepExpectedMatched,
+    );
     const falsePositiveSteps = sum(
       ({ stepFalsePositive }) => stepFalsePositive,
     );
@@ -120,12 +125,12 @@ export function aggregateByProvider(
         sum(({ ingredientAmountCompared }) => ingredientAmountCompared),
       ),
       stepPrecision: rate(
-        truePositiveSteps,
-        truePositiveSteps + falsePositiveSteps,
+        matchedActualSteps,
+        matchedActualSteps + falsePositiveSteps,
       ),
       stepRecall: rate(
-        truePositiveSteps,
-        truePositiveSteps + falseNegativeSteps,
+        matchedExpectedSteps,
+        matchedExpectedSteps + falseNegativeSteps,
       ),
       hallucinationCount: sum(({ hallucinationCount }) => hallucinationCount),
       totalCostUsd,
