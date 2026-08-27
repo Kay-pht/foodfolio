@@ -1,212 +1,121 @@
 # foodfolio MVP PoC検証結果
 
-## 1. 本書の位置づけ
+## 1. 判定サマリー
 
-`docs/poc-validation-plan.md` に基づくPoCの実施結果を記録する。
+実施日時は2026-08-27、実行環境はローカルNode.js v24.18.0である。Cloud Runでの確認結果ではない。
 
-本書では、**本番または本番相当の実行経路で再現できた結果だけをPoC完了の根拠として扱う。**
+| PoC | 現在の判定 | 根拠 |
+| --- | --- | --- |
+| 外部URL情報取得 | 完了 | 6ソース各3件と負例2件、合計20件をNode.js `fetch`で直接取得 |
+| AIレシピ構造化 | 未完了 | 4社すべてが課金残高不足を返し、モデル出力を取得できなかった |
+| 実URL E2E | 未完了 | 採用Provider / Modelを選定できていないため未実行 |
 
-以下はPoC成功の証拠として扱わない。
+PoC全体は未完了である。APIキーは4社とも設定済みで、各ProviderのAPI endpointへ到達したが、利用残高の補充が必要である。
 
-- ChatGPTのWeb検索・ブラウジング機能を介して取得したページ内容
-- ChatGPT会話内で生成したAI抽出結果
-- 検索インデックスや独自のページ解析経路を介した取得結果
-- 本番Backendと異なるネットワーク経路だけで確認した結果
+## 2. PoC 1 — 外部URL情報取得
 
-これらは検証対象や実装候補を考えるための参考情報としてのみ利用する。
+### 2.1 実行方法
 
-PoC完了判定には、例えば以下のような再現可能な証拠を要求する。
+`npm run poc:url`で、`poc/url-extraction/cases.json`の20件を同じローカルNode.js処理から取得した。
 
-- Node.js / `fetch` 等、本番Backendで採用予定のHTTPクライアントからの直接取得結果
-- 採用候補の公式APIを実APIキーで呼び出した結果
-- 実際のProvider APIから返されたレスポンス
-- 同一fixture・同一評価器を用いた再実行可能な比較結果
+- 一般Web、クラシル、クックパッド、YouTube、Instagram、TikTokを各3件
+- 非レシピ負例を2件
+- HTML全文と本文全文は`poc/artifacts/`配下へ保存しない
+- AI入力を含むローカル証拠はgitignore対象の`poc/artifacts/`へ保存
+- Git対象にはURL、取得日時、HTTP結果、抽出済み情報、ハッシュ、判定だけを保存
 
----
+### 2.2 サービス判定
 
-## 2. 進捗サマリー
+最新の機械可読結果は`poc/results/url-source-classification.json`に保存した。
 
-### PoC 1 — 外部URL情報取得
+| ソース | AI入力可能 | 画像URL | JS依存シグナル | 判定 |
+| --- | ---: | ---: | ---: | --- |
+| 一般Web | 3/3 | 3/3 | 0/3 | MVP利用可能 |
+| クラシル | 3/3 | 3/3 | 0/3 | MVP利用可能 |
+| クックパッド | 3/3 | 3/3 | 0/3 | MVP利用可能 |
+| YouTube | 3/3 | 3/3 | 3/3 | MVP利用可能（サービス別抽出） |
+| Instagram | 3/3 | 3/3 | 1/3 | MVP利用可能（公開メタデータ範囲） |
+| TikTok | 1/3 | 3/3 | 3/3 | 条件付き |
 
-現時点で、PoC完了として認められる取得検証はまだない。
+TikTokは再実行間でも0/3から1/3へ変動した。公開oEmbedまたはHTMLメタデータに十分なレシピ本文が含まれる投稿だけを扱い、本文不足時は解析不能として返す必要がある。
 
-- [ ] 本番Backend相当のHTTP実行環境で一般Webを取得検証
-- [ ] 本番Backend相当のHTTP実行環境でクラシルを取得検証
-- [ ] 本番Backend相当のHTTP実行環境でクックパッドを取得検証
-- [ ] YouTubeの本番取得方式を実検証
-- [ ] Instagramの実投稿URLで取得方式を実検証
-- [ ] TikTokの実投稿URLで取得方式を実検証
-- [ ] 各対象サービスを「MVP利用可能 / 条件付き / 非対応」に最終分類
+YouTubeはoEmbedだけでは説明文が短いため、ページ内の`ytInitialPlayerResponse.videoDetails.shortDescription`を抽出する。Instagramは公開OGメタデータに投稿本文が含まれるケースを使用する。認証回避、非公開投稿取得、動画・画像本体の無断ダウンロードは実装していない。
 
-### PoC 2 — AIレシピ構造化
+負例2件はいずれもAI入力不可と判定できた。画像取得失敗だけでは本文取得を失敗扱いにしない。
 
-PoC実施のための準備物として以下は作成済み。
+## 3. PoC 2 — AIレシピ構造化
 
-- [x] foodfolio用の暫定 `ExtractedRecipe` JSON Schemaを作成
-- [x] AI評価スクリプトを作成
-- [x] AI候補の公式料金を再確認し、比較用の料金ベースラインを作成
+### 3.1 固定比較条件
 
-以下は未完了。
+以下の5 fixtureを全Providerへ同一テキスト・同一Schemaで1回ずつ渡す構成を実装した。
 
-- [ ] 本番相当のURL取得結果を元に比較用fixtureを確定
-- [ ] Gemini実APIで同一fixtureを実行
-- [ ] OpenAI実APIで同一fixtureを実行
-- [ ] Qwen実APIで同一fixtureを実行
-- [ ] DeepSeek実APIで同一fixtureを実行
-- [ ] 必要に応じてClaude実APIで同一fixtureを実行
-- [ ] Provider / Modelを精度・hallucination・Schema成功率・コストで比較
-- [ ] MVP採用Provider / Modelを確定
+- 一般Web
+- クラシル
+- クックパッド
+- YouTube
+- Instagram由来の短文・ノイズを含む投稿
 
-### PoC 3 — URL取得からAI解析までの統合確認
+比較対象は次の4モデルで固定した。
 
-現時点では未完了。
+| Provider | Model ID | Structured Output方式 |
+| --- | --- | --- |
+| Gemini | `gemini-3.5-flash-lite` | JSON Schema |
+| OpenAI | `gpt-5.6-luna` | Responses API JSON Schema |
+| Z.ai | `glm-5.3-flash` | Chat Completions JSON mode + Schema prompt |
+| DeepSeek | `deepseek-v4-flash` | Responses API JSON Schema |
 
-- [ ] PoC 1で確定した本番候補のURL取得方式からAI入力テキストを生成
-- [ ] 採用AI Provider / Modelの実APIへ入力
-- [ ] 実API出力をSchema validation
-- [ ] MVP主要ソースで最終E2E確認
+公式仕様：
 
----
+- [Gemini 3.5 Flash-Lite](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite)
+- [OpenAI GPT-5.6 Luna](https://developers.openai.com/api/docs/models/gpt-5.6-luna)
+- [Z.ai GLM-5.3-Flash](https://docs.z.ai/guides/vlm/glm-5.3-flash)
+- [DeepSeek API](https://api-docs.deepseek.com/)
 
-## 3. ChatGPT内で行った確認の扱い
+Gemini URL Contextは同一抽出テキストのモデル比較とは分け、システム構成比較として扱う。
 
-ChatGPTのWeb取得機能を用いて、一般Web、クラシル、クックパッド、YouTube等のページ上にレシピ情報が存在することは参考として確認した。
+### 3.2 合格基準
 
-ただし、この取得経路は本番Backendで予定している次の経路とは異なる。
+- JSON parse成功率: 100%
+- Schema成功率: 100%
+- Hallucination: 0件
+- 材料precision / recall: 各90%以上
+- 分量完全一致率: 85%以上
+- 料理名、人数、調理時間、ジャンル: 原典に存在する対象の各90%以上
+- 手順の重要操作precision / recall: 各90%以上
+- 第1段階は各fixture 1回、最終候補は各fixture 3回
+- 有料API総額上限: 5米ドル
 
-```text
-Cloud Run / Node.js
-↓
-HTTP client (`fetch` 等)
-↓
-対象URLまたは公式API
-↓
-実レスポンス
+### 3.3 実API実行結果
+
+保守的な事前費用見積りは0.1368米ドルで、上限5米ドル未満だった。実際の呼び出し結果は次の通り。
+
+| Provider | HTTP | Provider応答 | モデル出力 | 課金見積り |
+| --- | ---: | --- | --- | ---: |
+| Gemini | 429 | prepayment credits depleted | なし | $0 |
+| OpenAI | 429 | no credits remaining | なし | $0 |
+| Z.ai | 429 | insufficient balance / no resource package | なし | $0 |
+| DeepSeek | 402 | insufficient balance | なし | $0 |
+
+同じ残高エラーを繰り返さないよう、Providerごとの最初の残高エラー後は残りfixtureを自動skipする。結果は`poc/results/ai-comparison-results.json`へ保存した。
+
+残高不足はモデル精度の不合格ではなく、検証未実施である。そのためProvider / Modelは未選定のままとする。
+
+## 4. PoC 3 — 実URL E2E
+
+実URL取得、同一Provider adapter、JSON parse、Schema validation、評価までのpipelineとローカルE2Eテストは実装済みである。
+
+実Provider E2Eは、PoC 2で全基準を満たした最安候補を選定してから、5 fixtureを各3回実行する。現在は候補未選定のため`npm run poc:e2e`が明示的に停止する。
+
+これはローカルpipelineテストの成功であり、実Provider E2E成功とは扱わない。
+
+## 5. 再開条件とコマンド
+
+4社の課金残高を補充後、次の順で再開する。
+
+```bash
+npm run poc:ai
+npm run poc:e2e
+npm run verify
 ```
 
-そのため、これらの確認結果から以下を断定しない。
-
-- Cloud Runから同じHTML / データを取得できる
-- CookieやJavaScript実行なしで取得できる
-- Bot対策やアクセス制限に阻まれない
-- 同じ方法で継続的に取得できる
-- MVP正式対応可能である
-
-以前の文書で「取得成功」「E2E成功」と表現していたチャット内確認は、**参考観察へ訂正し、PoC完了判定から除外する。**
-
----
-
-## 4. Recipe Schema
-
-作成ファイル：
-
-- `poc/shared/recipe-schema.json`
-
-暫定Schemaでは以下を扱う。
-
-- `title`
-- `servings.value`
-- `servings.raw`
-- `cookingTimeMinutes`
-- `genre`
-- `ingredients[].name`
-- `ingredients[].amount`
-- `steps[]`
-
-Schemaの作成自体は完了している。
-
-ただし、実データに対して十分かどうかは本番相当のURL取得PoCおよびAI実API比較を通して再評価する。
-
-`servings.raw` は、人数が単一数値に正規化できないケースを保持できるようにするための暫定設計である。
-
-正式なDBモデルは実装設計で確定する。
-
----
-
-## 5. AI評価基盤
-
-作成ファイル：
-
-- `poc/ai-extraction/evaluate.mjs`
-
-評価スクリプトでは現時点で以下を確認できる。
-
-- 必須フィールドの構造チェック
-- title一致
-- servings数値一致
-- cooking time一致
-- ingredient precision
-- ingredient recall
-- ingredient amount完全一致率
-- step件数
-
-評価スクリプトの作成自体は完了している。
-
-### 5.1 既存のChatGPT baselineについて
-
-`chatgpt-baseline.json` を使った実行は、**評価スクリプトが動作することを確認するための自己テスト**としてのみ扱う。
-
-これは以下の理由からAIモデル精度のPoC結果には含めない。
-
-- 入力取得が本番相当経路ではない
-- ChatGPT会話内で内容を確認しながらbaselineを作成している
-- 実Provider APIを独立に呼び出した結果ではない
-
-したがって、過去に得られた100%等の値はProvider選定には使用しない。
-
----
-
-## 6. AI料金ベースライン
-
-AI候補の公式料金を比較するための基準値は、各Providerの公式料金情報を元に作成した。
-
-これは技術性能PoCではなく、**価格調査結果**として有効とする。
-
-実際の1レシピあたりコストは、実API PoCで入力Token / 出力Tokenを計測して確定する。
-
-採用決定時には各社公式料金を再確認する。
-
----
-
-## 7. 現時点で完了と認めるもの
-
-以下のみ完了扱いとする。
-
-- PoC検証計画書の作成
-- Recipe Schemaの作成
-- AI評価スクリプトの作成
-- 公式情報に基づくAI料金ベースライン調査
-
-これらはPoCを実施するための準備成果物であり、**URL取得・AI精度・E2E成立を証明したものではない。**
-
----
-
-## 8. 現時点で未確定の事項
-
-- 一般Webの本番相当取得方式と成功率
-- クラシルの本番相当取得方式と成功率
-- クックパッドの本番相当取得方式と成功率
-- YouTubeの本番取得方式
-- Instagramの取得方式
-- TikTokの取得方式
-- MVP正式対応URLソース
-- AI Provider
-- AI Model
-- AI実APIでの抽出精度
-- hallucination水準
-- 実際の1レシピあたりAIコスト
-- URL取得 → AI解析 → Schema validationの最終E2E成立
-
----
-
-## 9. 次に実施する項目
-
-- [ ] 本番Backend相当のNode.js HTTP実行環境から対象URLを直接取得する
-- [ ] 必要なサービスは公式API等の本番候補方式を実際に呼び出す
-- [ ] その取得結果を保存し、AI比較fixtureを確定する
-- [ ] Gemini / OpenAI / Qwen / DeepSeekへ同一fixtureを実API投入する
-- [ ] 結果を `evaluate.mjs` で比較する
-- [ ] 採用AI Provider / Modelを決定する
-- [ ] 採用取得方式 + 採用AIで最終E2Eを通す
-
-上記が完了するまでは `todo.md` の `poc` は未完了とする。
+AI比較で1社以上が全合格基準を満たし、選定候補の3回反復E2Eも同じ基準を満たした後にだけ、`todo.md`のPoCを完了へ更新する。

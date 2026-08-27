@@ -79,7 +79,7 @@
 | 非同期Queue | Google Cloud Tasks | 採用 |
 | Worker | Google Cloud Run | 採用 |
 | Push Notification | Firebase Cloud Messaging + APNs | 採用 |
-| AI Provider | Gemini / OpenAI / DeepSeek / Qwen等をPoC比較 | 未確定 |
+| AI Provider | Gemini / OpenAI / Z.ai / DeepSeekをPoC比較 | 未確定 |
 | AI出力検証 | JSON Schema相当 + アプリ側Schema validation | 採用 |
 | IaC | Terraform | 採用 |
 | Secrets | Google Cloud Secret Manager | 採用 |
@@ -344,8 +344,7 @@ AI Providerは技術選定段階では確定しない。
 - Google Gemini
 - OpenAI
 - DeepSeek
-- Alibaba Qwen
-- Anthropic Claude（主に品質比較用）
+- Z.ai
 
 中国系モデルも比較対象から除外しない。
 
@@ -384,7 +383,7 @@ RecipeExtractor
 ├─ GeminiRecipeExtractor
 ├─ OpenAIRecipeExtractor
 ├─ DeepSeekRecipeExtractor
-└─ QwenRecipeExtractor
+└─ ZaiRecipeExtractor
 ```
 
 これにより、価格・性能・提供条件の変化に応じてProviderを交換しやすくする。
@@ -777,7 +776,7 @@ Async
 
 AI
   Provider abstraction
-  Gemini / OpenAI / DeepSeek / Qwen等をPoC比較後に決定
+  Gemini / OpenAI / Z.ai / DeepSeekをPoC比較後に決定
 
 Notification
   Firebase Cloud Messaging
