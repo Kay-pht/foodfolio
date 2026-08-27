@@ -1,0 +1,39 @@
+{
+  "name": "foodfolio",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0",
+    "npm": ">=11.0.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "poc:url": "tsx poc/url-extraction/run.ts",
+    "poc:ai": "tsx poc/ai-extraction/run.ts",
+    "poc:e2e": "tsx poc/end-to-end/run.ts",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:e2e": "vitest run tests/e2e",
+    "test": "npm run test:unit && npm run test:integration && npm run test:e2e",
+    "verify": "npm run test && npm run lint && npm run format:check && npm run build"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "cheerio": "^1.1.2",
+    "dotenv": "^17.2.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.35.0",
+    "@types/node": "^24.3.1",
+    "eslint": "^9.35.0",
+    "prettier": "^3.6.2",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.42.0",
+    "vitest": "^3.2.4"
+  }
+}

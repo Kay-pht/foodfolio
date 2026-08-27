@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+poc/artifacts/
+poc/results/
+package-lock.json
+.vscode/
+docs/
