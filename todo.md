@@ -15,6 +15,7 @@
   - [x] TikTok実投稿URLの取得方式を実検証
   - [x] ローカルNode.jsの取得結果を元にAI比較用fixtureを確定
   - [ ] Gemini / OpenAI / Z.ai / DeepSeekの実API比較（全社の課金残高不足で停止中）
+  - [ ] Gemini URL Contextの別枠実API検証（Geminiの課金残高不足で停止中）
   - [ ] AI Provider / Model確定
   - [ ] 採用取得方式 + 採用AIで最終E2E確認
 - [ ] 実装設計

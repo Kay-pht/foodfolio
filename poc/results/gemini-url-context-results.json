@@ -1,0 +1,62 @@
+{
+  "generatedAt": "2026-08-27T05:33:46.592Z",
+  "architecture": "Gemini Generate Content API with URL Context",
+  "model": "gemini-3.5-flash-lite",
+  "excluded": {
+    "youtube": "Gemini URL Context official limitations list YouTube videos as unsupported"
+  },
+  "costCapUsd": 5,
+  "conservativeCostUsd": 1.2982912,
+  "actualCostUsd": 0,
+  "completed": 0,
+  "results": [
+    {
+      "id": "kikkoman-00050326",
+      "sourceUrl": "https://www.kikkoman.co.jp/homecook/search/recipe/00050326/",
+      "model": "gemini-3.5-flash-lite",
+      "capturedAt": "2026-08-27T05:33:46.591Z",
+      "retrievals": [],
+      "usage": null,
+      "costUsd": 0,
+      "recipe": null,
+      "evaluation": null,
+      "error": "429 API error: {\"error\":{\"code\":429,\"message\":\"Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. \",\"status\":\"RESOURCE_EXHAUSTED\"}}"
+    },
+    {
+      "id": "kurashiru-a3b1f093",
+      "sourceUrl": "https://www.kurashiru.com/recipes/a3b1f093-1f5e-4114-8cc8-8869e8e6871d",
+      "model": "gemini-3.5-flash-lite",
+      "capturedAt": "2026-08-27T05:33:46.592Z",
+      "retrievals": [],
+      "usage": null,
+      "costUsd": 0,
+      "recipe": null,
+      "evaluation": null,
+      "error": "skipped after Gemini became unavailable: 429 API error: {\"error\":{\"code\":429,\"message\":\"Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. \",\"status\":\"RESOURCE_EXHAUSTED\"}}"
+    },
+    {
+      "id": "cookpad-21712598",
+      "sourceUrl": "https://cookpad.com/jp/recipes/21712598",
+      "model": "gemini-3.5-flash-lite",
+      "capturedAt": "2026-08-27T05:33:46.592Z",
+      "retrievals": [],
+      "usage": null,
+      "costUsd": 0,
+      "recipe": null,
+      "evaluation": null,
+      "error": "skipped after Gemini became unavailable: 429 API error: {\"error\":{\"code\":429,\"message\":\"Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. \",\"status\":\"RESOURCE_EXHAUSTED\"}}"
+    },
+    {
+      "id": "instagram-CyUydFXyBUh",
+      "sourceUrl": "https://www.instagram.com/reel/CyUydFXyBUh/",
+      "model": "gemini-3.5-flash-lite",
+      "capturedAt": "2026-08-27T05:33:46.592Z",
+      "retrievals": [],
+      "usage": null,
+      "costUsd": 0,
+      "recipe": null,
+      "evaluation": null,
+      "error": "skipped after Gemini became unavailable: 429 API error: {\"error\":{\"code\":429,\"message\":\"Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. \",\"status\":\"RESOURCE_EXHAUSTED\"}}"
+    }
+  ]
+}

@@ -14,6 +14,7 @@
     "lint": "eslint .",
     "poc:url": "tsx poc/url-extraction/run.ts",
     "poc:ai": "tsx poc/ai-extraction/run.ts",
+    "poc:gemini-url": "tsx poc/ai-extraction/run-gemini-url-context.ts",
     "poc:e2e": "tsx poc/end-to-end/run.ts",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
