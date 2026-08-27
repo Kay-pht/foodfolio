@@ -31,11 +31,21 @@
 MVP作成段階に限り、次の値を使用する。
 
 - アプリ名: `Foodfolio`
-- Bundle ID: `com.key_ukt.foodfolio`
-- GCP Project ID: `foodfolio-<ランダム文字列>`。作成前に利用可能性を確認し、一意な値を生成する。
+- Bundle ID: `com.keyukt.foodfolio`
+- GCP Project ID: `foodfolio-af28aa`
+- GCPリージョン: Project自体はグローバル。Cloud Run、Cloud Tasks、Artifact Registry等のリージョン指定が必要なリソースは `asia-southeast1` (Singapore) を使用する。
 - GCP認証アカウント: `kei.patheng@gmail.com`
 - GCP Billing Account ID: `01C106-36E5A8-E7EA38`
 - GCP予算目安: 月額1,000円
+- Neon Project ID: `patient-hill-48111601`
+- Neonリージョン: `aws-ap-southeast-1` (Singapore)
+- Neon PostgreSQL: 18
+- Neon既定branch: `production`
+
+CLI実行時は次を守る。
+
+- `gcloud` の現在のglobal projectはFoodfolio以外を指しているため、Foodfolio向けコマンドでは必ず `--project foodfolio-af28aa` 等で対象を明示し、global設定を変更しない。
+- Xcodeは `/Applications/Xcode.app` に導入済みだが、globalのactive developer directoryはCommand Line Toolsを指している。FoodfolioのXcodeコマンドでは `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` を指定し、global設定を変更しない。
 
 MVP作成段階に限り、ユーザーは次の外部操作を明示的に許可している。対象をFoodfolio専用のリソースに限定し、既存の他プロジェクト・他アプリ・他データへ変更を加えない。
 

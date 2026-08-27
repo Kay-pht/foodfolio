@@ -11,3 +11,4 @@ coverage/
 # PoC raw evidence can contain full third-party page/API responses.
 poc/artifacts/
 tmp.*
+.neon
