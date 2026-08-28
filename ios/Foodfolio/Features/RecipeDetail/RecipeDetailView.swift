@@ -49,13 +49,23 @@ struct RecipeDetailView: View {
           }
         }
         if let raw = recipe.servingsRaw {
-          Section("人数") {
-            Text(raw)
-            if let base = recipe.servingsValue, base > 0 {
-              Stepper(
-                "表示人数: \(Int(displayServings ?? base))人",
-                value: Binding(get: { displayServings ?? base }, set: { displayServings = $0 }),
-                in: 1...20)
+          Section {
+            HStack {
+              Text(servingsText(raw: raw))
+                .accessibilityIdentifier("detail.servingsValue")
+              if let base = recipe.servingsValue, base > 0 {
+                Spacer()
+                Stepper(
+                  value: Binding(get: { displayServings ?? base }, set: { displayServings = $0 }),
+                  in: 1...20
+                ) {
+                  EmptyView()
+                }
+                .labelsHidden()
+                .accessibilityLabel("人数を変更")
+                .accessibilityValue(servingsText(raw: raw))
+                .accessibilityIdentifier("detail.servingsStepper")
+              }
             }
           }
         }
@@ -168,6 +178,11 @@ struct RecipeDetailView: View {
       Text(errorMessage ?? "")
     }
     .onAppear { displayServings = recipe.servingsValue }
+  }
+  private func servingsText(raw: String) -> String {
+    guard let base = recipe.servingsValue, let displayServings else { return raw }
+    guard displayServings != base else { return raw }
+    return "\(displayServings.formatted(.number.precision(.fractionLength(0...2))))人分"
   }
   private func scaledAmount(_ amount: String?) -> String? {
     guard let base = recipe.servingsValue, let displayServings else { return amount }
