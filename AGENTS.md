@@ -66,7 +66,6 @@ Apple Developer Program加入、規約同意、MFA、App Store Connectの新規�
 - Push通知の実機検証前: APNsキーとFirebaseへの登録
 - 初回TestFlight upload前: App Store ConnectのFoodfolioアプリレコードと、CLI uploadに使用する認証設定
 
-
 ## 検証と完了条件
 
 実装を終えただけではタスク完了としない。次のすべてを実行し、成功を確認する。

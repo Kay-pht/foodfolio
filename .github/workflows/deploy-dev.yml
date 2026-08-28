@@ -1,0 +1,75 @@
+name: Deploy dev
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - package.json
+      - package-lock.json
+      - prisma/**
+      - schemas/**
+      - src/**
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
+
+env:
+  PROJECT_ID: foodfolio-af28aa
+  REGION: asia-southeast1
+  REPOSITORY: foodfolio
+  API_SERVICE: foodfolio-dev-api
+  WORKER_SERVICE: foodfolio-dev-worker
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.18.0
+          package-manager-cache: false
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Authenticate Docker
+        run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+      - name: Verify before deployment
+        run: npm ci && npm run verify
+      - name: Apply database migrations
+        shell: bash
+        run: |
+          DATABASE_DIRECT_URL="$(gcloud secrets versions access latest --secret=foodfolio-dev-database-direct-url --project="${PROJECT_ID}")"
+          export DATABASE_DIRECT_URL
+          npm run prisma:migrate:deploy
+      - name: Build and push image
+        shell: bash
+        run: |
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/app:${GITHUB_SHA}"
+          docker build --tag "${IMAGE}" .
+          docker push "${IMAGE}"
+          echo "IMAGE=${IMAGE}" >> "${GITHUB_ENV}"
+      - name: Deploy Worker
+        run: >-
+          gcloud run deploy "${WORKER_SERVICE}" --image="${IMAGE}"
+          --region="${REGION}" --project="${PROJECT_ID}" --quiet
+      - name: Deploy API
+        run: >-
+          gcloud run deploy "${API_SERVICE}" --image="${IMAGE}"
+          --region="${REGION}" --project="${PROJECT_ID}" --quiet
+      - name: Verify revisions are ready
+        shell: bash
+        run: |
+          test "$(gcloud run services describe "${WORKER_SERVICE}" --region="${REGION}" --project="${PROJECT_ID}" --format='value(status.conditions[0].status)')" = "True"
+          test "$(gcloud run services describe "${API_SERVICE}" --region="${REGION}" --project="${PROJECT_ID}" --format='value(status.conditions[0].status)')" = "True"

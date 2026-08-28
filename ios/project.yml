@@ -1,0 +1,104 @@
+name: Foodfolio
+options:
+  bundleIdPrefix: com.keyukt
+  deploymentTarget:
+    iOS: "26.0"
+  xcodeVersion: "26.0"
+packages:
+  Firebase:
+    url: https://github.com/firebase/firebase-ios-sdk.git
+    from: 12.17.0
+  GoogleSignIn:
+    url: https://github.com/google/GoogleSignIn-iOS.git
+    from: 9.2.0
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    CURRENT_PROJECT_VERSION: 1
+    MARKETING_VERSION: 0.1.0
+    DEVELOPMENT_TEAM: ""
+targets:
+  Foodfolio:
+    type: application
+    platform: iOS
+    sources:
+      - path: Foodfolio
+    info:
+      path: Foodfolio/Info.plist
+      properties:
+        API_BASE_URL: $(API_BASE_URL)
+        CFBundleDisplayName: Foodfolio
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleURLTypes:
+          - CFBundleTypeRole: Editor
+            CFBundleURLSchemes:
+              - com.googleusercontent.apps.414277381291-96m1vegr6sfb0laa8hi6oe40o5f5tj2d
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: true
+          UISceneConfigurations: {}
+        UIApplicationSupportsIndirectInputEvents: true
+        UILaunchScreen: {}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.keyukt.foodfolio
+        CODE_SIGN_ENTITLEMENTS: Foodfolio/Foodfolio.entitlements
+        GENERATE_INFOPLIST_FILE: NO
+        API_BASE_URL: https://foodfolio-dev-api-m4i6rcorua-as.a.run.app
+    dependencies:
+      - package: Firebase
+        product: FirebaseAuth
+      - package: Firebase
+        product: FirebaseCore
+      - package: Firebase
+        product: FirebaseMessaging
+      - package: Firebase
+        product: FirebaseCrashlytics
+      - package: Firebase
+        product: FirebaseAnalytics
+      - package: GoogleSignIn
+        product: GoogleSignIn
+  FoodfolioTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [FoodfolioTests]
+    dependencies:
+      - target: Foodfolio
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.keyukt.foodfolio.tests
+        GENERATE_INFOPLIST_FILE: YES
+  FoodfolioIntegrationTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [FoodfolioIntegrationTests]
+    dependencies:
+      - target: Foodfolio
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.keyukt.foodfolio.integrationtests
+        GENERATE_INFOPLIST_FILE: YES
+  FoodfolioUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [FoodfolioUITests]
+    dependencies:
+      - target: Foodfolio
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.keyukt.foodfolio.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Foodfolio
+schemes:
+  Foodfolio:
+    build:
+      targets:
+        Foodfolio: all
+        FoodfolioTests: [test]
+        FoodfolioIntegrationTests: [test]
+        FoodfolioUITests: [test]
+    test:
+      targets:
+        - FoodfolioTests
+        - FoodfolioIntegrationTests
+        - FoodfolioUITests
