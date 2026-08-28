@@ -91,10 +91,16 @@ private struct RecipeCard: View {
   let recipe: LocalRecipe
   var body: some View {
     VStack(alignment: .leading) {
-      RecipeImageView(recipe: recipe).aspectRatio(1.2, contentMode: .fill).clipShape(
-        RoundedRectangle(cornerRadius: 12))
+      GeometryReader { proxy in
+        RecipeImageView(recipe: recipe)
+          .frame(width: proxy.size.width, height: proxy.size.height)
+      }
+      .aspectRatio(1.2, contentMode: .fit)
+      .clipShape(RoundedRectangle(cornerRadius: 12))
       Text(recipe.title).font(.headline).lineLimit(2).foregroundStyle(.primary)
-    }.accessibilityIdentifier("recipe.card.\(recipe.id)")
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .accessibilityIdentifier("recipe.card.\(recipe.id)")
   }
 }
 

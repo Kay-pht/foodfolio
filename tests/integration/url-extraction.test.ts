@@ -1,6 +1,8 @@
 import { createServer } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
 import { extractUrl } from "../../poc/url-extraction/extract.js";
+import { ProductionSourceContentExtractor } from "../../src/infrastructure/url/source-content-extractor.js";
+import type { SafeHttpClient } from "../../src/infrastructure/url/safe-http-client.js";
 
 const servers: ReturnType<typeof createServer>[] = [];
 
@@ -47,5 +49,35 @@ describe("extractUrl integration", () => {
     expect(result.metadata.imageUrl).toBe("https://example.test/curry.jpg");
     expect(result.jsonLdRecipes).toHaveLength(1);
     expect(result.aiInput.usable).toBe(true);
+  });
+
+  it("builds TikTok recipe input from public oEmbed metadata", async () => {
+    const http = {
+      async get(url: URL) {
+        expect(url.origin + url.pathname).toBe("https://www.tiktok.com/oembed");
+        expect(url.searchParams.get("url")).toBe(
+          "https://www.tiktok.com/@chef/video/123",
+        );
+        return {
+          finalUrl: url.toString(),
+          statusCode: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            title: "材料 豚肉 200g 作り方 焼く",
+            thumbnail_url: "https://images.example/tiktok.jpg",
+          }),
+        };
+      },
+    } as SafeHttpClient;
+    const extractor = new ProductionSourceContentExtractor(http, "unused");
+
+    await expect(
+      extractor.extract(new URL("https://www.tiktok.com/@chef/video/123")),
+    ).resolves.toEqual({
+      sourceType: "tiktok",
+      resolvedUrl: "https://www.tiktok.com/@chef/video/123",
+      imageUrl: "https://images.example/tiktok.jpg",
+      textForAi: "TITLE\n材料 豚肉 200g 作り方 焼く",
+    });
   });
 });
