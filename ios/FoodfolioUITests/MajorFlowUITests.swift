@@ -24,6 +24,8 @@ import XCTest
       app.swipeUp()
     }
     XCTAssertTrue(app.staticTexts["材料"].waitForExistence(timeout: 2))
+    XCTAssertTrue(app.staticTexts["1/2個"].exists)
+    XCTAssertFalse(app.staticTexts["0.5個"].exists)
   }
 
   func testDrawerContainsSettingsAndAccount() {
@@ -80,6 +82,11 @@ import XCTest
     XCTAssertTrue(app.staticTexts["追加したレシピ 更新"].waitForExistence(timeout: 3))
 
     for _ in 0..<4 where !app.buttons["detail.delete"].exists { app.swipeUp() }
+    app.buttons["detail.delete"].tap()
+    XCTAssertTrue(app.buttons["キャンセル"].waitForExistence(timeout: 2))
+    app.buttons["キャンセル"].tap()
+    XCTAssertTrue(app.staticTexts["追加したレシピ 更新"].exists)
+
     app.buttons["detail.delete"].tap()
     app.buttons["削除"].tap()
     XCTAssertFalse(app.staticTexts["追加したレシピ 更新"].waitForExistence(timeout: 2))

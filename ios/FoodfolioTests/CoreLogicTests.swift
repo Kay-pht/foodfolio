@@ -10,6 +10,21 @@ final class CoreLogicTests: XCTestCase {
     XCTAssertEqual(AmountScaler.scale("少々", multiplier: 2), "少々")
   }
 
+  func testAmountScalerPreservesOriginalFractionAtBaseServings() {
+    XCTAssertEqual(AmountScaler.scale("1/6個", multiplier: 1), "1/6個")
+    XCTAssertEqual(AmountScaler.scale("1/8個", multiplier: 1), "1/8個")
+    XCTAssertEqual(AmountScaler.scale("小さじ1/3", multiplier: 1), "小さじ1/3")
+  }
+
+  func testAmountScalerScalesFractionsWithoutConvertingToDecimals() {
+    XCTAssertEqual(AmountScaler.scale("1/6個", multiplier: 2), "1/3個")
+    XCTAssertEqual(AmountScaler.scale("1/8個", multiplier: 2), "1/4個")
+    XCTAssertEqual(AmountScaler.scale("小さじ1/3", multiplier: 2), "小さじ2/3")
+    XCTAssertEqual(AmountScaler.scale("3/4個", multiplier: 2), "1と1/2個")
+    XCTAssertEqual(AmountScaler.scale("1と1/2個", multiplier: 2), "3個")
+    XCTAssertEqual(AmountScaler.scale("1/2個", multiplier: 1.0 / 3.0), "1/6個")
+  }
+
   func testSearchHistoryDeduplicatesAndCapsAtTen() {
     let defaults = UserDefaults(suiteName: UUID().uuidString)!
     let store = SearchHistoryStore(defaults: defaults, key: "test")
@@ -33,6 +48,23 @@ final class CoreLogicTests: XCTestCase {
     XCTAssertEqual(APIError.from(status: 401, data: Data()), .unauthenticated)
   }
 
+  func testAPIClientDoesNotSendJSONContentTypeWithEmptyDeleteBody() async throws {
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [APIRequestCaptureURLProtocol.self]
+    let session = URLSession(configuration: configuration)
+    let client = APIClient(
+      baseURL: URL(string: "https://api.example.test")!,
+      tokenProvider: CoreLogicStaticTokenProvider(),
+      session: session)
+
+    try await client.sendWithoutResponse(
+      "/v1/recipes/recipe-1", method: "DELETE", body: Optional<String>.none)
+
+    let request = try XCTUnwrap(APIRequestCaptureURLProtocol.lastRequest)
+    XCTAssertNil(request.value(forHTTPHeaderField: "Content-Type"))
+    XCTAssertNil(request.httpBody)
+  }
+
   func testGoogleOAuthClientMatchesRegisteredURLScheme() throws {
     let configURL = try XCTUnwrap(
       Bundle.main.url(forResource: "GoogleService-Info", withExtension: "plist"))
@@ -45,6 +77,25 @@ final class CoreLogicTests: XCTestCase {
     let schemes = urlTypes.flatMap { $0["CFBundleURLSchemes"] as? [String] ?? [] }
     XCTAssertTrue(schemes.contains(reversedClientID))
   }
+}
+
+private struct CoreLogicStaticTokenProvider: IDTokenProvider {
+  func idToken() async throws -> String { "test-token" }
+}
+
+private final class APIRequestCaptureURLProtocol: URLProtocol, @unchecked Sendable {
+  nonisolated(unsafe) static var lastRequest: URLRequest?
+
+  override class func canInit(with request: URLRequest) -> Bool { true }
+  override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+  override func startLoading() {
+    Self.lastRequest = request
+    let response = HTTPURLResponse(
+      url: request.url!, statusCode: 204, httpVersion: "HTTP/1.1", headerFields: nil)!
+    client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+    client?.urlProtocolDidFinishLoading(self)
+  }
+  override func stopLoading() {}
 }
 
 @MainActor final class AddRecipeViewModelTests: XCTestCase {
