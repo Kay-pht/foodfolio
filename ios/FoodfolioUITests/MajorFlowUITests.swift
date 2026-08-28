@@ -69,6 +69,26 @@ import XCTest
     add(collapsedScreenshot)
   }
 
+  func testRecipeDetailShowsServingsAndStepperOnOneRow() {
+    let app = launch()
+    XCTAssertTrue(app.staticTexts["親子丼"].waitForExistence(timeout: 5))
+    app.staticTexts["親子丼"].tap()
+
+    let servings = app.staticTexts["detail.servingsValue"]
+    let stepper = app.steppers["detail.servingsStepper"]
+    XCTAssertTrue(servings.waitForExistence(timeout: 3))
+    XCTAssertEqual(servings.label, "2人分")
+    XCTAssertTrue(stepper.exists)
+    XCTAssertEqual(servings.frame.midY, stepper.frame.midY, accuracy: 2)
+    XCTAssertFalse(app.staticTexts["人数"].exists)
+    XCTAssertFalse(app.staticTexts["表示人数: 2人"].exists)
+
+    XCTAssertEqual(stepper.buttons.count, 2)
+    stepper.buttons.element(boundBy: 1).tap()
+    expectation(for: NSPredicate(format: "label == %@", "3人分"), evaluatedWith: servings)
+    waitForExpectations(timeout: 2)
+  }
+
   func testDrawerContainsSettingsAndAccount() {
     let app = launch()
     app.buttons["home.drawer"].tap()
