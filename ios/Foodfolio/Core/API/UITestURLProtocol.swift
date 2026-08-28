@@ -1,0 +1,118 @@
+#if DEBUG
+  import Foundation
+
+  final class UITestURLProtocol: URLProtocol {
+    override class func canInit(with request: URLRequest) -> Bool {
+      request.url?.host == "ui-test.foodfolio.invalid"
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+      guard let url = request.url else {
+        finish(status: 400, json: error("INVALID_REQUEST"))
+        return
+      }
+      let path = url.path
+      let method = request.httpMethod ?? "GET"
+
+      switch (method, path) {
+      case ("POST", "/v1/recipes"):
+        finish(status: 201, json: recipe(title: "追加したレシピ"))
+      case ("PATCH", "/v1/recipes/ui-added-recipe"):
+        let body = requestBody()
+        finish(
+          status: 200,
+          json: recipe(
+            title: "追加したレシピ 更新",
+            genre: body["genre"] as? String,
+            ingredients: body["ingredients"] as? [[String: Any]] ?? [],
+            tags: []))
+      case ("DELETE", "/v1/recipes/ui-added-recipe"):
+        finish(status: 204)
+      case ("POST", "/v1/tags"):
+        finish(status: 201, json: tag())
+      case ("POST", "/v1/recipes/ui-added-recipe/tags"):
+        finish(status: 200, json: recipe(title: "追加したレシピ", tags: [tag()]))
+      case ("DELETE", "/v1/recipes/ui-added-recipe/tags/ui-new-tag"):
+        finish(status: 204)
+      case ("GET", "/v1/settings"):
+        finish(status: 200, json: ["recipeAnalysisNotificationEnabled": true])
+      case ("PATCH", "/v1/settings"):
+        finish(
+          status: 200,
+          json: [
+            "recipeAnalysisNotificationEnabled":
+              requestBody()["recipeAnalysisNotificationEnabled"] as? Bool ?? true
+          ])
+      case ("DELETE", "/v1/me"):
+        finish(status: 204)
+      default:
+        finish(status: 404, json: error("NOT_FOUND"))
+      }
+    }
+
+    override func stopLoading() {}
+
+    private func requestBody() -> [String: Any] {
+      guard let data = request.httpBody,
+        let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+      else { return [:] }
+      return object
+    }
+
+    private func recipe(
+      title: String, genre: String? = "主菜", ingredients: [[String: Any]] = [],
+      tags: [[String: Any]] = []
+    ) -> [String: Any] {
+      [
+        "id": "ui-added-recipe",
+        "originalUrl": "https://example.com/new-recipe",
+        "sourceType": "web",
+        "title": title,
+        "imageUrl": NSNull(),
+        "servingsValue": 2,
+        "servingsRaw": "2人分",
+        "cookingTimeMinutes": 15,
+        "genre": genre ?? NSNull(),
+        "analysisStatus": "completed",
+        "ingredients": ingredients.enumerated().map { index, item in
+          [
+            "id": "ui-added-ingredient-\(index)",
+            "name": item["name"] as? String ?? "材料",
+            "amount": item["amount"] ?? NSNull(),
+            "sortOrder": index,
+          ]
+        },
+        "steps": [],
+        "tags": tags,
+        "createdAt": "2026-08-28T00:00:00Z",
+        "updatedAt": "2026-08-28T00:00:01Z",
+      ]
+    }
+
+    private func tag() -> [String: Any] {
+      [
+        "id": "ui-new-tag",
+        "name": "新規タグ",
+        "createdAt": "2026-08-28T00:00:00Z",
+      ]
+    }
+
+    private func error(_ code: String) -> [String: Any] {
+      ["error": ["code": code, "message": code, "requestId": "ui-test"]]
+    }
+
+    private func finish(status: Int, json: [String: Any]? = nil) {
+      guard let url = request.url,
+        let response = HTTPURLResponse(
+          url: url, statusCode: status, httpVersion: "HTTP/1.1",
+          headerFields: ["Content-Type": "application/json"])
+      else { return }
+      let data = json.flatMap { try? JSONSerialization.data(withJSONObject: $0) } ?? Data()
+      client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+      if !data.isEmpty { client?.urlProtocol(self, didLoad: data) }
+      client?.urlProtocolDidFinishLoading(self)
+    }
+  }
+#endif

@@ -41,6 +41,7 @@
 		D5EEEAA3CA86F0AA3824CC98 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D3965347199E92FB3A7B3DC /* HomeView.swift */; };
 		DDC062F93A445AC294F9A984 /* MajorFlowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44051BF0E339B00667317CE8 /* MajorFlowUITests.swift */; };
 		E309C40D30ED28AB2FFB9013 /* AddRecipeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECFCFC4094A6F7C43D207BD9 /* AddRecipeViewModel.swift */; };
+		F53B2150F1EE7921A3F2AE3F /* UITestURLProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A993C6BFE9620AFEEF2DDC8 /* UITestURLProtocol.swift */; };
 		FA991B498E6D0AC09B7037E8 /* RecipeImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37A045F49C93644AD456EB75 /* RecipeImageView.swift */; };
 /* End PBXBuildFile section */
 
@@ -70,6 +71,7 @@
 
 /* Begin PBXFileReference section */
 		04AE37190983F6E3B3E9A0C1 /* SearchHistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchHistoryStore.swift; sourceTree = "<group>"; };
+		0A993C6BFE9620AFEEF2DDC8 /* UITestURLProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITestURLProtocol.swift; sourceTree = "<group>"; };
 		14DAEA41833367104FF7D07F /* RecipeEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecipeEditView.swift; sourceTree = "<group>"; };
 		16416C01D36C6837DD180225 /* RecipeSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecipeSyncService.swift; sourceTree = "<group>"; };
 		171FEC0B382ED552031AD5BE /* AddRecipeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddRecipeView.swift; sourceTree = "<group>"; };
@@ -202,6 +204,7 @@
 			children = (
 				AA1F87C3FD70DC1781AD9FBD /* APIClient.swift */,
 				BF1D47FB9FEFB57914F6677E /* APIError.swift */,
+				0A993C6BFE9620AFEEF2DDC8 /* UITestURLProtocol.swift */,
 				B3577B887A1B2AB79B18D40F /* DTO */,
 			);
 			path = API;
@@ -529,6 +532,7 @@
 				6D86554E3483C8CFE203ABB5 /* RecipeSyncService.swift in Sources */,
 				430B804610B32089D4A42990 /* SearchHistoryStore.swift in Sources */,
 				9CE85E02B1B8ACDEF70E053D /* SettingsView.swift in Sources */,
+				F53B2150F1EE7921A3F2AE3F /* UITestURLProtocol.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
