@@ -20,8 +20,9 @@ struct AuthView: View {
         }
         Section("メールで続ける") {
           TextField("メールアドレス", text: $email).textInputAutocapitalization(.never).keyboardType(
-            .emailAddress)
-          SecureField("パスワード", text: $password)
+            .emailAddress
+          ).accessibilityIdentifier("auth.email")
+          SecureField("パスワード", text: $password).accessibilityIdentifier("auth.password")
           Button(isSignUp ? "新規登録" : "ログイン") {
             run {
               if isSignUp {
@@ -30,14 +31,14 @@ struct AuthView: View {
                 try await session.auth.signIn(email: email, password: password)
               }
             }
-          }
+          }.accessibilityIdentifier("auth.emailSubmit")
           Button(isSignUp ? "ログインへ" : "新規登録へ") { isSignUp.toggle() }.buttonStyle(.plain)
           Button("パスワードをリセット") {
             run(refresh: false) {
               try await session.auth.resetPassword(email: email)
               message = "リセットメールを送信しました。"
             }
-          }.disabled(email.isEmpty)
+          }.disabled(email.isEmpty).accessibilityIdentifier("auth.resetPassword")
         }
         if isLoading { ProgressView().frame(maxWidth: .infinity) }
         if let message { Text(message).foregroundStyle(.secondary) }

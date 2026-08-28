@@ -69,11 +69,15 @@ struct RecipeDetailView: View {
         Link("元レシピを見る", destination: URL(string: recipe.originalUrl)!).accessibilityIdentifier(
           "detail.source")
       }
-      Section { Button("レシピを削除", role: .destructive) { showDelete = true } }
+      Section {
+        Button("レシピを削除", role: .destructive) { showDelete = true }.accessibilityIdentifier(
+          "detail.delete")
+      }
     }
     .navigationTitle("レシピ詳細").toolbar {
       if ![.pending, .processing].contains(recipe.analysisStatus) {
-        NavigationLink("編集", destination: RecipeEditView(recipe: recipe))
+        NavigationLink("編集", destination: RecipeEditView(recipe: recipe)).accessibilityIdentifier(
+          "detail.edit")
       }
     }
     .sheet(isPresented: $showTags) { TagPickerSheet(recipe: recipe) }
@@ -119,9 +123,10 @@ private struct TagPickerSheet: View {
           }
         }
         Section("新しいタグ") {
-          TextField("タグ名", text: $name)
+          TextField("タグ名", text: $name).accessibilityIdentifier("tag.name")
           Button("追加") { createAndAttach() }.disabled(
-            name.trimmingCharacters(in: .whitespaces).isEmpty)
+            name.trimmingCharacters(in: .whitespaces).isEmpty
+          ).accessibilityIdentifier("tag.create")
         }
         if let error { Text(error).foregroundStyle(.red) }
       }.navigationTitle("タグを追加").toolbar { Button("閉じる") { dismiss() } }.onAppear {

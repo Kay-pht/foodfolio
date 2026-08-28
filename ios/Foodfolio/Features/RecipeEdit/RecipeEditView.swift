@@ -20,7 +20,9 @@ struct RecipeEditView: View {
   }
   var body: some View {
     Form {
-      Section("料理名") { TextField("料理名", text: $title) }
+      Section("料理名") {
+        TextField("料理名", text: $title).accessibilityIdentifier("edit.title")
+      }
       Section("ジャンル") {
         Picker("ジャンル", selection: $genre) {
           Text("未設定").tag(nil as RecipeGenre?)

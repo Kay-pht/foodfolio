@@ -20,16 +20,31 @@ import SwiftData
     uiTesting: Bool = ProcessInfo.processInfo.arguments.contains("-ui-testing")
   ) throws {
     self.uiTesting = uiTesting
-    let auth: AuthService = uiTesting ? UITestAuthService() : FirebaseAuthService()
+    let loggedOut = ProcessInfo.processInfo.arguments.contains("-ui-testing-logged-out")
+    let auth: AuthService =
+      uiTesting ? UITestAuthService(loggedOut: loggedOut) : FirebaseAuthService()
     self.auth = auth
     self.user = auth.currentUser
     let configuredBaseURL =
-      ProcessInfo.processInfo.environment["API_BASE_URL"]
-      ?? Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String
-      ?? "http://127.0.0.1:8080"
+      uiTesting
+      ? "https://ui-test.foodfolio.invalid"
+      : ProcessInfo.processInfo.environment["API_BASE_URL"]
+        ?? Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String
+        ?? "http://127.0.0.1:8080"
     guard let base = URL(string: configuredBaseURL) else { throw APIError.invalidURL }
+    #if DEBUG
+      let urlSession: URLSession = {
+        guard uiTesting else { return .shared }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [UITestURLProtocol.self]
+        return URLSession(configuration: configuration)
+      }()
+    #else
+      let urlSession = URLSession.shared
+    #endif
     let api = APIClient(
-      baseURL: base, tokenProvider: uiTesting ? StaticTokenProvider() : FirebaseTokenProvider())
+      baseURL: base, tokenProvider: uiTesting ? StaticTokenProvider() : FirebaseTokenProvider(),
+      session: urlSession)
     self.api = api
     let images = try RecipeImageStore()
     self.images = images
@@ -83,13 +98,27 @@ private struct StaticTokenProvider: IDTokenProvider {
 }
 
 @MainActor private final class UITestAuthService: AuthService {
-  var currentUser: AuthenticatedUser? = AuthenticatedUser(
-    uid: "ui-user", email: "ui@example.com", providers: ["password"])
-  func signIn(email: String, password: String) async throws {}
-  func signUp(email: String, password: String) async throws {}
+  var currentUser: AuthenticatedUser?
+  init(loggedOut: Bool) {
+    currentUser =
+      loggedOut
+      ? nil
+      : AuthenticatedUser(uid: "ui-user", email: "ui@example.com", providers: ["password"])
+  }
+  func signIn(email: String, password: String) async throws {
+    currentUser = AuthenticatedUser(uid: "ui-user", email: email, providers: ["password"])
+  }
+  func signUp(email: String, password: String) async throws {
+    currentUser = AuthenticatedUser(uid: "ui-user", email: email, providers: ["password"])
+  }
   func resetPassword(email: String) async throws {}
-  func signInWithGoogle() async throws {}
-  func signInWithApple() async throws {}
+  func signInWithGoogle() async throws {
+    currentUser = AuthenticatedUser(
+      uid: "ui-google", email: "google@example.com", providers: ["google.com"])
+  }
+  func signInWithApple() async throws {
+    currentUser = AuthenticatedUser(uid: "ui-apple", email: nil, providers: ["apple.com"])
+  }
   func revokeAppleToken() async throws {}
   func signOut() throws { currentUser = nil }
 }
