@@ -9,7 +9,10 @@ import {
   decodeSyncCursor,
   encodeSyncCursor,
 } from "../../src/shared/sync-cursor.js";
-import { isPublicAddress } from "../../src/infrastructure/url/safe-http-client.js";
+import {
+  isPublicAddress,
+  publicLookupResult,
+} from "../../src/infrastructure/url/safe-http-client.js";
 
 describe("recipe URL", () => {
   it("normalizes tracking, query order, fragment and default port", () => {
@@ -66,4 +69,22 @@ describe("SSRF address validation", () => {
     "allows %s",
     (address) => expect(isPublicAddress(address)).toBe(true),
   );
+  it("preserves the DNS lookup all option contract", () => {
+    const addresses = [
+      { address: "8.8.8.8", family: 4 as const },
+      { address: "2606:4700:4700::1111", family: 6 as const },
+    ];
+    expect(publicLookupResult(addresses, true)).toEqual(addresses);
+    expect(publicLookupResult(addresses, false)).toEqual(addresses[0]);
+  });
+  it("rejects the complete DNS result when any address is unsafe", () =>
+    expect(() =>
+      publicLookupResult(
+        [
+          { address: "8.8.8.8", family: 4 },
+          { address: "127.0.0.1", family: 4 },
+        ],
+        true,
+      ),
+    ).toThrow("Unsafe DNS result"));
 });

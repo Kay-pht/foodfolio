@@ -101,6 +101,7 @@ export class ProductionSourceContentExtractor implements SourceContentExtractor 
   async extract(url: URL): Promise<SourceContent> {
     const sourceType = sourceTypeForUrl(url);
     if (sourceType === "youtube") return this.extractYoutube(url);
+    if (sourceType === "tiktok") return this.extractTikTok(url);
     const response = await this.http.get(url);
     const extracted = htmlContent(response.body);
     if (!extracted.text)
@@ -116,6 +117,47 @@ export class ProductionSourceContentExtractor implements SourceContentExtractor 
         ? new URL(extracted.imageUrl, response.finalUrl).toString()
         : null,
       textForAi: extracted.text,
+    };
+  }
+  private async extractTikTok(url: URL): Promise<SourceContent> {
+    const endpoint = new URL("https://www.tiktok.com/oembed");
+    endpoint.searchParams.set("url", url.toString());
+    const response = await this.http.get(endpoint);
+    let value: unknown;
+    try {
+      value = JSON.parse(response.body);
+    } catch {
+      throw new AnalysisError(
+        "SOURCE_CONTENT_UNAVAILABLE",
+        false,
+        "TikTok oEmbed response is invalid",
+      );
+    }
+    if (!value || typeof value !== "object")
+      throw new AnalysisError(
+        "SOURCE_CONTENT_UNAVAILABLE",
+        false,
+        "TikTok oEmbed metadata unavailable",
+      );
+    const record = value as Record<string, unknown>;
+    const title = normalize(record.title);
+    if (
+      !title ||
+      !/(材料|作り方|手順|recipe|ingredients?|instructions?|調理)/i.test(title)
+    )
+      throw new AnalysisError(
+        "SOURCE_CONTENT_UNAVAILABLE",
+        false,
+        "TikTok post has no recipe content",
+      );
+    const thumbnailUrl = normalize(record.thumbnail_url);
+    return {
+      sourceType: "tiktok",
+      resolvedUrl: url.toString(),
+      imageUrl: thumbnailUrl
+        ? new URL(thumbnailUrl, response.finalUrl).toString()
+        : null,
+      textForAi: `TITLE\n${title}`.slice(0, MAX_AI_CHARS),
     };
   }
   private async extractYoutube(url: URL): Promise<SourceContent> {

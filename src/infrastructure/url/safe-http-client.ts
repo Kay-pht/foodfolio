@@ -1,4 +1,4 @@
-import { lookup } from "node:dns";
+import { lookup, type LookupAddress } from "node:dns";
 import ipaddr from "ipaddr.js";
 import { Agent, request } from "undici";
 import { AnalysisError } from "../../application/analysis/types.js";
@@ -20,6 +20,21 @@ export function isPublicAddress(address: string): boolean {
   }
 }
 
+export function publicLookupResult(
+  addresses: LookupAddress[],
+  all: boolean,
+): LookupAddress | LookupAddress[] {
+  const publicAddresses = addresses.filter(({ address }) =>
+    isPublicAddress(address),
+  );
+  if (
+    publicAddresses.length !== addresses.length ||
+    publicAddresses.length === 0
+  )
+    throw new Error("Unsafe DNS result");
+  return all ? publicAddresses : publicAddresses[0]!;
+}
+
 function validateHostname(hostname: string): void {
   const normalized = hostname.toLowerCase().replace(/\.$/, "");
   if (
@@ -39,17 +54,19 @@ function safeDispatcher(): Agent {
       lookup(hostname, options, callback) {
         lookup(hostname, { ...options, all: true }, (error, addresses) => {
           if (error) return callback(error, "", 4);
-          const publicAddresses = addresses.filter(({ address }) =>
-            isPublicAddress(address),
-          );
-          if (
-            publicAddresses.length !== addresses.length ||
-            publicAddresses.length === 0
-          ) {
-            return callback(new Error("Unsafe DNS result"), "", 4);
+          try {
+            const result = publicLookupResult(addresses, options.all === true);
+            if (Array.isArray(result)) return callback(null, result);
+            return callback(null, result.address, result.family);
+          } catch (lookupError) {
+            return callback(
+              lookupError instanceof Error
+                ? lookupError
+                : new Error("Unsafe DNS result"),
+              "",
+              4,
+            );
           }
-          const selected = publicAddresses[0]!;
-          callback(null, selected.address, selected.family);
         });
       },
     },
