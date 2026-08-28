@@ -78,6 +78,21 @@ import XCTest
     XCTAssertTrue(app.switches["settings.analysisNotification"].waitForExistence(timeout: 3))
   }
 
+  func testBrandTitleIsBesideDrawerIcon() {
+    let app = launch()
+    let drawerIcon = app.buttons["home.drawer"]
+    let brandTitle = app.staticTexts["home.brandTitle"]
+
+    XCTAssertTrue(drawerIcon.waitForExistence(timeout: 3))
+    XCTAssertTrue(brandTitle.waitForExistence(timeout: 3))
+    XCTAssertEqual(brandTitle.label, "foodfolio")
+    XCTAssertTrue(brandTitle.isHittable)
+    XCTAssertGreaterThanOrEqual(brandTitle.frame.minX, drawerIcon.frame.maxX)
+    XCTAssertLessThanOrEqual(brandTitle.frame.maxX, app.frame.maxX)
+    XCTAssertGreaterThan(brandTitle.frame.width, 55)
+    XCTAssertEqual(brandTitle.frame.midY, drawerIcon.frame.midY, accuracy: 2)
+  }
+
   func testLoggedOutAuthenticationAndPasswordReset() {
     let app = launch(arguments: ["-ui-testing-logged-out"])
     XCTAssertTrue(app.buttons["auth.google"].waitForExistence(timeout: 3))
