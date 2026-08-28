@@ -10,6 +10,21 @@ final class CoreLogicTests: XCTestCase {
     XCTAssertEqual(AmountScaler.scale("少々", multiplier: 2), "少々")
   }
 
+  func testAmountScalerPreservesOriginalFractionAtBaseServings() {
+    XCTAssertEqual(AmountScaler.scale("1/6個", multiplier: 1), "1/6個")
+    XCTAssertEqual(AmountScaler.scale("1/8個", multiplier: 1), "1/8個")
+    XCTAssertEqual(AmountScaler.scale("小さじ1/3", multiplier: 1), "小さじ1/3")
+  }
+
+  func testAmountScalerScalesFractionsWithoutConvertingToDecimals() {
+    XCTAssertEqual(AmountScaler.scale("1/6個", multiplier: 2), "1/3個")
+    XCTAssertEqual(AmountScaler.scale("1/8個", multiplier: 2), "1/4個")
+    XCTAssertEqual(AmountScaler.scale("小さじ1/3", multiplier: 2), "小さじ2/3")
+    XCTAssertEqual(AmountScaler.scale("3/4個", multiplier: 2), "1と1/2個")
+    XCTAssertEqual(AmountScaler.scale("1と1/2個", multiplier: 2), "3個")
+    XCTAssertEqual(AmountScaler.scale("1/2個", multiplier: 1.0 / 3.0), "1/6個")
+  }
+
   func testSearchHistoryDeduplicatesAndCapsAtTen() {
     let defaults = UserDefaults(suiteName: UUID().uuidString)!
     let store = SearchHistoryStore(defaults: defaults, key: "test")
