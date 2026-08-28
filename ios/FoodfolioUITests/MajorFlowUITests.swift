@@ -28,6 +28,47 @@ import XCTest
     XCTAssertFalse(app.staticTexts["0.5個"].exists)
   }
 
+  func testRecipeDetailHeroAndCollapsingHeader() {
+    let fullTitle = "親子丼 フライパンひとつで作れるとろとろ卵の簡単レシピ"
+    let app = launch(arguments: ["-ui-testing-long-title"])
+    XCTAssertTrue(app.staticTexts[fullTitle].waitForExistence(timeout: 5))
+    app.staticTexts[fullTitle].tap()
+
+    let hero = app.descendants(matching: .any)["detail.heroImage"]
+    XCTAssertTrue(hero.waitForExistence(timeout: 3))
+    XCTAssertEqual(hero.frame.width, app.frame.width, accuracy: 2)
+    XCTAssertLessThanOrEqual(hero.frame.minY, app.frame.minY + 1)
+    XCTAssertGreaterThanOrEqual(hero.frame.maxY, app.frame.width * 0.92)
+    XCTAssertLessThanOrEqual(hero.frame.maxY, app.frame.width)
+
+    let expandedTitle = app.staticTexts["detail.title"]
+    XCTAssertTrue(expandedTitle.exists)
+    XCTAssertEqual(expandedTitle.label, fullTitle)
+    XCTAssertGreaterThan(expandedTitle.frame.height, 50)
+    XCTAssertGreaterThanOrEqual(expandedTitle.frame.minY, hero.frame.maxY - 1)
+    XCTAssertTrue(expandedTitle.isHittable)
+    XCTAssertFalse(app.staticTexts["detail.compactTitle"].exists)
+
+    let initialScreenshot = XCTAttachment(screenshot: app.screenshot())
+    initialScreenshot.name = "Recipe detail hero"
+    initialScreenshot.lifetime = .keepAlways
+    add(initialScreenshot)
+
+    for _ in 0..<4 where !app.staticTexts["detail.compactTitle"].exists {
+      app.swipeUp()
+    }
+
+    let compactTitle = app.staticTexts["detail.compactTitle"]
+    XCTAssertTrue(compactTitle.waitForExistence(timeout: 2))
+    XCTAssertEqual(compactTitle.label, fullTitle)
+    XCTAssertTrue(app.buttons["detail.edit"].exists)
+
+    let collapsedScreenshot = XCTAttachment(screenshot: app.screenshot())
+    collapsedScreenshot.name = "Recipe detail collapsed header"
+    collapsedScreenshot.lifetime = .keepAlways
+    add(collapsedScreenshot)
+  }
+
   func testDrawerContainsSettingsAndAccount() {
     let app = launch()
     app.buttons["home.drawer"].tap()

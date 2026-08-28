@@ -80,8 +80,12 @@ import SwiftData
 
   private func seedUITestData(context: ModelContext) {
     guard (try? repository.allRecipes().isEmpty) == true else { return }
+    let title =
+      ProcessInfo.processInfo.arguments.contains("-ui-testing-long-title")
+      ? "親子丼 フライパンひとつで作れるとろとろ卵の簡単レシピ"
+      : "親子丼"
     let recipe = LocalRecipe(
-      id: "ui-recipe", originalUrl: "https://example.com/oyakodon", sourceType: "web", title: "親子丼",
+      id: "ui-recipe", originalUrl: "https://example.com/oyakodon", sourceType: "web", title: title,
       servingsValue: 2, servingsRaw: "2人分", cookingTimeMinutes: 20, genreRaw: "主菜",
       analysisStatus: .completed, createdAt: Date(), updatedAt: Date(),
       ingredients: [
