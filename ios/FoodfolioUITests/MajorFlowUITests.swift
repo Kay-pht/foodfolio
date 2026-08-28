@@ -33,6 +33,33 @@ import XCTest
     XCTAssertFalse(app.staticTexts["0.5個"].exists)
   }
 
+  func testSearchGenreAndTagUseWheelPickers() {
+    let app = launch()
+    XCTAssertTrue(app.buttons["home.search"].waitForExistence(timeout: 5))
+    app.buttons["home.search"].tap()
+
+    let genreButton = app.buttons["search.genre"]
+    XCTAssertTrue(genreButton.waitForExistence(timeout: 3))
+    genreButton.tap()
+    let genreWheel = app.pickerWheels.firstMatch
+    XCTAssertTrue(genreWheel.waitForExistence(timeout: 3))
+    genreWheel.adjust(toPickerWheelValue: "主菜")
+    let pickerScreenshot = XCTAttachment(screenshot: app.screenshot())
+    pickerScreenshot.name = "Search genre wheel picker"
+    pickerScreenshot.lifetime = .keepAlways
+    add(pickerScreenshot)
+    app.buttons["search.genre.done"].tap()
+    XCTAssertEqual(genreButton.label, "主菜")
+
+    let tagButton = app.buttons["search.tag"]
+    tagButton.tap()
+    let tagWheel = app.pickerWheels.firstMatch
+    XCTAssertTrue(tagWheel.waitForExistence(timeout: 3))
+    tagWheel.adjust(toPickerWheelValue: "簡単")
+    app.buttons["search.tag.done"].tap()
+    XCTAssertEqual(tagButton.label, "簡単")
+  }
+
   func testRecipeDetailHeroAndCollapsingHeader() {
     let fullTitle = "親子丼 フライパンひとつで作れるとろとろ卵の簡単レシピ"
     let app = launch(arguments: ["-ui-testing-long-title"])
