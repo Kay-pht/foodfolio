@@ -17,4 +17,5 @@ infra/terraform/.terraform/
 infra/terraform/*.tfplan
 ios/TestResults/
 ios/.derived-data*/
+xcuserdata/
 src/generated/prisma/
