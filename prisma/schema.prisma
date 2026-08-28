@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum SourceType {
+  youtube
+  instagram
+  tiktok
+  kurashiru
+  cookpad
+  web
+}
+
+enum AnalysisStatus {
+  pending
+  processing
+  completed
+  failed
+}
+
+enum Genre {
+  mainDish   @map("主菜")
+  sideDish   @map("副菜")
+  staple     @map("主食")
+  noodles    @map("麺")
+  soup       @map("スープ・汁物")
+  salad      @map("サラダ")
+  dessert    @map("デザート")
+  other      @map("その他")
+}
+
+model User {
+  id            String        @id @default(uuid()) @db.Uuid
+  firebaseUid   String        @unique
+  createdAt     DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime      @updatedAt @db.Timestamptz(3)
+  setting       UserSetting?
+  recipes       Recipe[]
+  tags          Tag[]
+  deviceTokens  DeviceToken[]
+}
+
+model UserSetting {
+  userId                             String   @id @db.Uuid
+  recipeAnalysisNotificationEnabled Boolean  @default(true)
+  createdAt                          DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt                          DateTime @updatedAt @db.Timestamptz(3)
+  user                               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Recipe {
+  id                 String         @id @default(uuid()) @db.Uuid
+  userId             String         @db.Uuid
+  originalUrl        String         @db.Text
+  normalizedUrl      String         @db.Text
+  sourceType         SourceType
+  title              String         @default("解析中のレシピ")
+  imageUrl           String?        @db.Text
+  servingsValue      Float?
+  servingsRaw        String?
+  cookingTimeMinutes Int?
+  genre               Genre?
+  analysisStatus      AnalysisStatus @default(pending)
+  createdAt           DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime       @updatedAt @db.Timestamptz(3)
+  user                User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ingredients         Ingredient[]
+  steps               RecipeStep[]
+  recipeTags          RecipeTag[]
+
+  @@unique([userId, normalizedUrl])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, genre])
+  @@index([userId, analysisStatus])
+  @@index([userId, updatedAt])
+}
+
+model Ingredient {
+  id        String  @id @default(uuid()) @db.Uuid
+  recipeId  String  @db.Uuid
+  name      String
+  amount    String?
+  sortOrder Int
+  recipe    Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, sortOrder])
+}
+
+model RecipeStep {
+  id        String @id @default(uuid()) @db.Uuid
+  recipeId  String @db.Uuid
+  text      String @db.Text
+  sortOrder Int
+  recipe    Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, sortOrder])
+}
+
+model Tag {
+  id             String      @id @default(uuid()) @db.Uuid
+  userId         String      @db.Uuid
+  name           String
+  normalizedName String
+  createdAt      DateTime    @default(now()) @db.Timestamptz(3)
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipeTags     RecipeTag[]
+
+  @@unique([userId, normalizedName])
+  @@index([userId, createdAt])
+}
+
+model RecipeTag {
+  recipeId String @db.Uuid
+  tagId    String @db.Uuid
+  recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  tag      Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([recipeId, tagId])
+}
+
+model DeviceToken {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  fcmToken   String   @unique @db.Text
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+  lastSeenAt DateTime @default(now()) @db.Timestamptz(3)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}

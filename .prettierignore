@@ -6,3 +6,5 @@ poc/results/
 package-lock.json
 .vscode/
 docs/
+ios/.derived-data/
+ios/TestResults/

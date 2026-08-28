@@ -2,7 +2,7 @@ import "dotenv/config";
 import fs from "node:fs/promises";
 import path from "node:path";
 import expectedFixtures from "./results/expected.json" with { type: "json" };
-import recipeSchema from "../shared/recipe-schema.json" with { type: "json" };
+import recipeSchema from "../../schemas/extracted-recipe.schema.json" with { type: "json" };
 import { parseAndEvaluate } from "./evaluate.js";
 import {
   callGeminiUrlContext,

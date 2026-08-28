@@ -8,10 +8,7 @@ const TIMEOUT_MS = 20_000;
 const MAX_AI_INPUT_CHARS = 18_000;
 const YOUTUBE_DATA_API_URL = "https://www.googleapis.com/youtube/v3/videos";
 
-type FetchLike = (
-  input: string | URL,
-  init?: RequestInit,
-) => Promise<Response>;
+type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
 export interface ExtractUrlOptions {
   youtubeApiKey?: string;
@@ -112,7 +109,9 @@ function visibleText(html: string): string {
   return $("body").text().replace(/\s+/g, " ").trim();
 }
 
-function normalizeYoutubeVideoId(value: string | null | undefined): string | null {
+function normalizeYoutubeVideoId(
+  value: string | null | undefined,
+): string | null {
   if (!value) return null;
   const normalized = value.trim();
   if (!/^[A-Za-z0-9_-]+$/.test(normalized)) return null;
@@ -125,7 +124,9 @@ export function extractYoutubeVideoId(url: string): string | null {
     const hostname = parsed.hostname.toLowerCase().replace(/\.$/, "");
 
     if (hostname === "youtu.be" || hostname.endsWith(".youtu.be")) {
-      return normalizeYoutubeVideoId(parsed.pathname.split("/").filter(Boolean)[0]);
+      return normalizeYoutubeVideoId(
+        parsed.pathname.split("/").filter(Boolean)[0],
+      );
     }
 
     const isYoutubeHost =

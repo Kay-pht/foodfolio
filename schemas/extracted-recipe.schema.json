@@ -13,27 +13,17 @@
     "steps"
   ],
   "properties": {
-    "title": {
-      "type": ["string", "null"]
-    },
+    "title": { "type": ["string", "null"] },
     "servings": {
       "type": ["object", "null"],
       "additionalProperties": false,
       "required": ["value", "raw"],
       "properties": {
-        "value": {
-          "type": ["number", "null"],
-          "exclusiveMinimum": 0
-        },
-        "raw": {
-          "type": ["string", "null"]
-        }
+        "value": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "raw": { "type": ["string", "null"] }
       }
     },
-    "cookingTimeMinutes": {
-      "type": ["integer", "null"],
-      "minimum": 0
-    },
+    "cookingTimeMinutes": { "type": ["integer", "null"], "minimum": 0 },
     "genre": {
       "type": ["string", "null"],
       "enum": [
@@ -55,22 +45,14 @@
         "additionalProperties": false,
         "required": ["name", "amount"],
         "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 1
-          },
-          "amount": {
-            "type": ["string", "null"]
-          }
+          "name": { "type": "string", "minLength": 1 },
+          "amount": { "type": ["string", "null"] }
         }
       }
     },
     "steps": {
       "type": "array",
-      "items": {
-        "type": "string",
-        "minLength": 1
-      }
+      "items": { "type": "string", "minLength": 1 }
     }
   }
 }
