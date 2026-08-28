@@ -23,21 +23,33 @@ struct RecipeDetailView: View {
               .frame(width: geometry.size.width, height: heroHeight)
               .accessibilityIdentifier("detail.heroImage")
 
-            Text(recipe.title)
-              .font(.largeTitle.bold())
-              .frame(maxWidth: .infinity, alignment: .leading)
-              .fixedSize(horizontal: false, vertical: true)
-              .padding(.horizontal, 20)
-              .padding(.vertical, 20)
-              .background(Color(.systemBackground))
-              .accessibilityIdentifier("detail.title")
-              .onGeometryChange(for: CGFloat.self) { proxy in
-                proxy.frame(in: .global).maxY
-              } action: { maxY in
-                withAnimation(.easeInOut(duration: 0.2)) {
-                  showsCompactTitle = maxY > 0 && maxY <= headerBottom
-                }
+            VStack(alignment: .leading, spacing: 8) {
+              if let genre = recipe.genre {
+                Text(genre.rawValue)
+                  .font(.caption.weight(.semibold))
+                  .foregroundStyle(genre.badgeTint)
+                  .padding(.horizontal, 10)
+                  .padding(.vertical, 5)
+                  .background(genre.badgeTint.opacity(0.16), in: Capsule())
+                  .accessibilityIdentifier("detail.genreBadge")
               }
+
+              Text(recipe.title)
+                .font(.largeTitle.bold())
+                .accessibilityIdentifier("detail.title")
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 20)
+            .background(Color(.systemBackground))
+            .onGeometryChange(for: CGFloat.self) { proxy in
+              proxy.frame(in: .global).maxY
+            } action: { maxY in
+              withAnimation(.easeInOut(duration: 0.2)) {
+                showsCompactTitle = maxY > 0 && maxY <= headerBottom
+              }
+            }
           }
           .listRowInsets(EdgeInsets())
           .listRowSeparator(.hidden)
@@ -70,7 +82,6 @@ struct RecipeDetailView: View {
           }
         }
         if let minutes = recipe.cookingTimeMinutes { Section("調理時間") { Text("\(minutes)分") } }
-        if let genre = recipe.genre { Section("ジャンル") { Text(genre.rawValue) } }
         Section("タグ") {
           ScrollView(.horizontal) {
             HStack {
@@ -187,6 +198,21 @@ struct RecipeDetailView: View {
   private func scaledAmount(_ amount: String?) -> String? {
     guard let base = recipe.servingsValue, let displayServings else { return amount }
     return AmountScaler.scale(amount, multiplier: displayServings / base)
+  }
+}
+
+extension RecipeGenre {
+  fileprivate var badgeTint: Color {
+    switch badgeColor {
+    case .red: Color(red: 0.78, green: 0.22, blue: 0.22)
+    case .orange: Color(red: 0.82, green: 0.39, blue: 0.08)
+    case .yellow: Color(red: 0.68, green: 0.49, blue: 0.02)
+    case .purple: Color(red: 0.51, green: 0.27, blue: 0.76)
+    case .blue: Color(red: 0.12, green: 0.43, blue: 0.78)
+    case .green: Color(red: 0.14, green: 0.51, blue: 0.27)
+    case .pink: Color(red: 0.76, green: 0.24, blue: 0.49)
+    case .gray: Color.secondary
+    }
   }
 }
 
