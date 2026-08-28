@@ -16,5 +16,5 @@ gha-creds-*.json
 infra/terraform/.terraform/
 infra/terraform/*.tfplan
 ios/TestResults/
-ios/.derived-data/
+ios/.derived-data*/
 src/generated/prisma/

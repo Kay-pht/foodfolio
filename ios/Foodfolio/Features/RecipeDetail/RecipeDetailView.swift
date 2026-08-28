@@ -70,8 +70,19 @@ struct RecipeDetailView: View {
           "detail.source")
       }
       Section {
-        Button("レシピを削除", role: .destructive) { showDelete = true }.accessibilityIdentifier(
-          "detail.delete")
+        Button("レシピを削除", role: .destructive) { showDelete = true }
+          .accessibilityIdentifier("detail.delete")
+          .alert("このレシピを完全に削除しますか？", isPresented: $showDelete) {
+            Button("削除", role: .destructive) {
+              Task {
+                do {
+                  try await session.repository.delete(id: recipe.id)
+                  dismiss()
+                } catch { errorMessage = error.localizedDescription }
+              }
+            }
+            Button("キャンセル", role: .cancel) {}
+          }
       }
     }
     .navigationTitle("レシピ詳細").toolbar {
@@ -81,16 +92,6 @@ struct RecipeDetailView: View {
       }
     }
     .sheet(isPresented: $showTags) { TagPickerSheet(recipe: recipe) }
-    .confirmationDialog("このレシピを完全に削除しますか？", isPresented: $showDelete) {
-      Button("削除", role: .destructive) {
-        Task {
-          do {
-            try await session.repository.delete(id: recipe.id)
-            dismiss()
-          } catch { errorMessage = error.localizedDescription }
-        }
-      }
-    }
     .alert(
       "エラー",
       isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })

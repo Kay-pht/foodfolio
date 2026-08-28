@@ -39,8 +39,10 @@ actor APIClient {
     request.httpMethod = method
     request.setValue(
       "Bearer \(try await tokenProvider.idToken())", forHTTPHeaderField: "Authorization")
-    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-    if let body { request.httpBody = try encoder.encode(body) }
+    if let body {
+      request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+      request.httpBody = try encoder.encode(body)
+    }
     let data: Data
     let response: URLResponse
     do { (data, response) = try await session.data(for: request) } catch { throw APIError.offline }
