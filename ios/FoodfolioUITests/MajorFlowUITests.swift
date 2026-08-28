@@ -157,7 +157,16 @@ import XCTest
     app.textFields["tag.name"].tap()
     app.textFields["tag.name"].typeText("新規タグ")
     app.buttons["tag.create"].tap()
-    XCTAssertTrue(app.staticTexts["#新規タグ"].waitForExistence(timeout: 3))
+    let tagHeading = app.staticTexts["detail.tagHeading"]
+    let createdTag = app.staticTexts["#新規タグ"]
+    let addTagButton = app.buttons["detail.addTag"]
+    XCTAssertTrue(createdTag.waitForExistence(timeout: 3))
+    XCTAssertTrue(tagHeading.exists)
+    XCTAssertTrue(addTagButton.exists)
+    XCTAssertGreaterThan(createdTag.frame.minX, tagHeading.frame.maxX)
+    XCTAssertGreaterThan(addTagButton.frame.minX, createdTag.frame.maxX)
+    XCTAssertEqual(createdTag.frame.midY, tagHeading.frame.midY, accuracy: 3)
+    XCTAssertEqual(addTagButton.frame.midY, createdTag.frame.midY, accuracy: 3)
 
     app.buttons["detail.edit"].tap()
     XCTAssertTrue(app.textFields["edit.title"].waitForExistence(timeout: 3))
