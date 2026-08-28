@@ -85,7 +85,8 @@ import SwiftData
       servingsValue: 2, servingsRaw: "2人分", cookingTimeMinutes: 20, genreRaw: "主菜",
       analysisStatus: .completed, createdAt: Date(), updatedAt: Date(),
       ingredients: [
-        LocalIngredient(id: "ui-ingredient", name: "鶏もも肉", amount: "200g", sortOrder: 0)
+        LocalIngredient(id: "ui-ingredient", name: "鶏もも肉", amount: "200g", sortOrder: 0),
+        LocalIngredient(id: "ui-fraction-ingredient", name: "玉ねぎ", amount: "1/2個", sortOrder: 1),
       ], steps: [LocalRecipeStep(id: "ui-step", text: "材料を煮る", sortOrder: 0)],
       tags: [LocalTag(id: "ui-tag", name: "簡単", createdAt: Date())])
     context.insert(recipe)

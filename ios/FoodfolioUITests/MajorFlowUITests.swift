@@ -24,6 +24,8 @@ import XCTest
       app.swipeUp()
     }
     XCTAssertTrue(app.staticTexts["材料"].waitForExistence(timeout: 2))
+    XCTAssertTrue(app.staticTexts["1/2個"].exists)
+    XCTAssertFalse(app.staticTexts["0.5個"].exists)
   }
 
   func testDrawerContainsSettingsAndAccount() {
