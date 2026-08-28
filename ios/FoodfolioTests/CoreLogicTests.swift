@@ -32,6 +32,19 @@ final class CoreLogicTests: XCTestCase {
     XCTAssertEqual(error.userMessage, "このレシピはすでに保存されています。")
     XCTAssertEqual(APIError.from(status: 401, data: Data()), .unauthenticated)
   }
+
+  func testGoogleOAuthClientMatchesRegisteredURLScheme() throws {
+    let configURL = try XCTUnwrap(
+      Bundle.main.url(forResource: "GoogleService-Info", withExtension: "plist"))
+    let data = try Data(contentsOf: configURL)
+    let config = try XCTUnwrap(
+      PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any])
+    let reversedClientID = try XCTUnwrap(config["REVERSED_CLIENT_ID"] as? String)
+    let urlTypes = try XCTUnwrap(
+      Bundle.main.object(forInfoDictionaryKey: "CFBundleURLTypes") as? [[String: Any]])
+    let schemes = urlTypes.flatMap { $0["CFBundleURLSchemes"] as? [String] ?? [] }
+    XCTAssertTrue(schemes.contains(reversedClientID))
+  }
 }
 
 @MainActor final class AddRecipeViewModelTests: XCTestCase {
