@@ -28,6 +28,8 @@ targets:
       properties:
         API_BASE_URL: $(API_BASE_URL)
         CFBundleDisplayName: Foodfolio
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleURLTypes:
           - CFBundleTypeRole: Editor
             CFBundleURLSchemes:
