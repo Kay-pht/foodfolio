@@ -24,7 +24,12 @@ import XCTest
       app.swipeUp()
     }
     XCTAssertTrue(app.staticTexts["材料"].waitForExistence(timeout: 2))
-    XCTAssertTrue(app.staticTexts["1/2個"].exists)
+    let ingredientAmount = app.staticTexts["1/2個"]
+    for _ in 0..<3 where !ingredientAmount.isHittable {
+      app.swipeUp()
+    }
+    XCTAssertTrue(ingredientAmount.waitForExistence(timeout: 2))
+    XCTAssertTrue(ingredientAmount.isHittable)
     XCTAssertFalse(app.staticTexts["0.5個"].exists)
   }
 
@@ -42,7 +47,12 @@ import XCTest
     XCTAssertLessThanOrEqual(hero.frame.maxY, app.frame.width)
 
     let expandedTitle = app.staticTexts["detail.title"]
+    let genreBadge = app.staticTexts["detail.genreBadge"]
     XCTAssertTrue(expandedTitle.exists)
+    XCTAssertTrue(genreBadge.exists)
+    XCTAssertEqual(genreBadge.label, "主菜")
+    XCTAssertLessThan(genreBadge.frame.maxY, expandedTitle.frame.minY)
+    XCTAssertFalse(app.staticTexts["ジャンル"].exists)
     XCTAssertEqual(expandedTitle.label, fullTitle)
     XCTAssertGreaterThan(expandedTitle.frame.height, 50)
     XCTAssertGreaterThanOrEqual(expandedTitle.frame.minY, hero.frame.maxY - 1)
