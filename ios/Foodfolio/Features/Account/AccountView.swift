@@ -7,9 +7,9 @@ struct AccountView: View {
   @State private var error: String?
   var body: some View {
     Form {
-      Section("ログイン情報") {
+      Section("email") {
         Text(session.user?.email ?? "メールアドレスなし")
-        Text(session.user?.providers.joined(separator: ", ") ?? "")
+          .accessibilityIdentifier("account.email")
       }
       Section {
         Button("ログアウト") {

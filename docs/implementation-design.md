@@ -323,7 +323,7 @@ User
 
 メールアドレスやログインProviderはFirebase Authenticationを正とし、MVPではDBへ重複保存しない。
 
-アカウント画面のログイン情報・ログイン方法はiOS側のFirebase User情報から取得する。
+アカウント画面のemailはiOS側のFirebase User情報から取得する。
 
 ### 7.2 UserSetting
 
