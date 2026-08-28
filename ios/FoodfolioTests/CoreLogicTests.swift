@@ -3,6 +3,12 @@ import XCTest
 @testable import Foodfolio
 
 final class CoreLogicTests: XCTestCase {
+  func testEveryRecipeGenreHasItsOwnBadgeColor() {
+    let colors = RecipeGenre.allCases.map(\.badgeColor)
+    XCTAssertEqual(colors.count, GenreBadgeColor.allCases.count)
+    XCTAssertEqual(Set(colors.map(\.rawValue)).count, RecipeGenre.allCases.count)
+  }
+
   func testAmountScalerScalesNumericAndFractionAmounts() {
     XCTAssertEqual(AmountScaler.scale("200g", multiplier: 2), "400g")
     XCTAssertEqual(AmountScaler.scale("大さじ2", multiplier: 1.5), "大さじ3")
