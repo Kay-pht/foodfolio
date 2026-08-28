@@ -47,7 +47,8 @@ struct RecipeDetailView: View {
               proxy.frame(in: .global).maxY
             } action: { maxY in
               withAnimation(.easeInOut(duration: 0.2)) {
-                showsCompactTitle = maxY > 0 && maxY <= headerBottom
+                showsCompactTitle =
+                  maxY > 0 && maxY <= headerBottom + headerHeight + 8
               }
             }
           }
@@ -82,19 +83,29 @@ struct RecipeDetailView: View {
           }
         }
         if let minutes = recipe.cookingTimeMinutes { Section("調理時間") { Text("\(minutes)分") } }
-        Section("タグ") {
-          ScrollView(.horizontal) {
-            HStack {
-              ForEach(recipe.tags) {
-                Text("#\($0.name)").padding(6).background(.quaternary, in: Capsule())
-              }
-              Button {
-                showTags = true
-              } label: {
-                Image(systemName: "plus.circle")
-              }.accessibilityIdentifier("detail.addTag")
+        Section {
+          TagFlowLayout(spacing: 8) {
+            Text("タグ")
+              .font(.headline)
+              .foregroundStyle(.secondary)
+              .accessibilityIdentifier("detail.tagHeading")
+            ForEach(recipe.tags) {
+              Text("#\($0.name)")
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(.quaternary, in: Capsule())
             }
+            Button {
+              showTags = true
+            } label: {
+              Image(systemName: "plus.circle.fill")
+                .font(.title3)
+                .symbolRenderingMode(.hierarchical)
+            }
+            .accessibilityLabel("タグを追加")
+            .accessibilityIdentifier("detail.addTag")
           }
+          .padding(.vertical, 4)
         }
         if !recipe.ingredients.isEmpty {
           Section("材料") {
@@ -223,25 +234,70 @@ private struct TagPickerSheet: View {
   @State private var name = ""
   @State private var tags: [LocalTag] = []
   @State private var error: String?
+  private var availableTags: [LocalTag] {
+    tags.filter { tag in !recipe.tags.contains(where: { $0.id == tag.id }) }
+  }
+
   var body: some View {
     NavigationStack {
-      List {
-        Section("既存タグ") {
-          ForEach(tags.filter { tag in !recipe.tags.contains(where: { $0.id == tag.id }) }) { tag in
-            Button(tag.name) { attach(tag.id) }
+      ScrollView {
+        VStack(alignment: .leading, spacing: 24) {
+          VStack(alignment: .leading, spacing: 12) {
+            Text("既存タグ")
+              .font(.headline)
+              .foregroundStyle(.secondary)
+
+            if availableTags.isEmpty {
+              Text("追加できる既存タグはありません")
+                .font(.subheadline)
+                .foregroundStyle(.tertiary)
+            } else {
+              TagFlowLayout(spacing: 8) {
+                ForEach(availableTags) { tag in
+                  Button("#\(tag.name)") { attach(tag.id) }
+                    .buttonStyle(.bordered)
+                    .buttonBorderShape(.capsule)
+                }
+              }
+            }
+          }
+
+          Divider()
+
+          VStack(alignment: .leading, spacing: 12) {
+            Text("新しいタグ")
+              .font(.headline)
+              .foregroundStyle(.secondary)
+
+            HStack(spacing: 12) {
+              TextField("タグ名", text: $name)
+                .textFieldStyle(.roundedBorder)
+                .submitLabel(.done)
+                .onSubmit(createAndAttach)
+                .accessibilityIdentifier("tag.name")
+              Button("追加") { createAndAttach() }
+                .buttonStyle(.borderedProminent)
+                .buttonBorderShape(.capsule)
+                .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .accessibilityIdentifier("tag.create")
+            }
+          }
+
+          if let error {
+            Text(error)
+              .font(.footnote)
+              .foregroundStyle(.red)
           }
         }
-        Section("新しいタグ") {
-          TextField("タグ名", text: $name).accessibilityIdentifier("tag.name")
-          Button("追加") { createAndAttach() }.disabled(
-            name.trimmingCharacters(in: .whitespaces).isEmpty
-          ).accessibilityIdentifier("tag.create")
-        }
-        if let error { Text(error).foregroundStyle(.red) }
-      }.navigationTitle("タグを追加").toolbar { Button("閉じる") { dismiss() } }.onAppear {
-        tags = (try? session.repository.allTags()) ?? []
+        .padding(20)
       }
+      .navigationTitle("タグを追加")
+      .navigationBarTitleDisplayMode(.inline)
+      .toolbar { Button("閉じる") { dismiss() } }
+      .onAppear { tags = (try? session.repository.allTags()) ?? [] }
     }
+    .presentationDetents([.medium, .large])
+    .presentationDragIndicator(.visible)
   }
   private func attach(_ id: String) {
     Task {
@@ -252,12 +308,83 @@ private struct TagPickerSheet: View {
     }
   }
   private func createAndAttach() {
+    let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmedName.isEmpty else { return }
     Task {
       do {
-        let tag = try await session.repository.createTag(name: name)
+        let tag = try await session.repository.createTag(name: trimmedName)
         _ = try await session.repository.attach(tagID: tag.id, recipeID: recipe.id)
         dismiss()
       } catch { self.error = error.localizedDescription }
     }
+  }
+}
+
+private struct TagFlowLayout: Layout {
+  let spacing: CGFloat
+
+  func sizeThatFits(
+    proposal: ProposedViewSize,
+    subviews: Subviews,
+    cache: inout ()
+  ) -> CGSize {
+    let result = layout(subviews: subviews, width: proposal.width ?? .infinity)
+    return CGSize(width: proposal.width ?? result.width, height: result.height)
+  }
+
+  func placeSubviews(
+    in bounds: CGRect,
+    proposal: ProposedViewSize,
+    subviews: Subviews,
+    cache: inout ()
+  ) {
+    let result = layout(subviews: subviews, width: bounds.width)
+    for (index, point) in result.points.enumerated() {
+      subviews[index].place(
+        at: CGPoint(x: bounds.minX + point.x, y: bounds.minY + point.y),
+        anchor: .topLeading,
+        proposal: .unspecified)
+    }
+  }
+
+  private func layout(subviews: Subviews, width: CGFloat) -> (
+    points: [CGPoint], width: CGFloat, height: CGFloat
+  ) {
+    let sizes = subviews.map { $0.sizeThatFits(.unspecified) }
+    var lines: [[Int]] = []
+    var currentLine: [Int] = []
+    var currentWidth: CGFloat = 0
+
+    for index in sizes.indices {
+      let size = sizes[index]
+      let proposedWidth = currentLine.isEmpty ? size.width : currentWidth + spacing + size.width
+      if !currentLine.isEmpty, proposedWidth > width {
+        lines.append(currentLine)
+        currentLine = [index]
+        currentWidth = size.width
+      } else {
+        currentLine.append(index)
+        currentWidth = proposedWidth
+      }
+    }
+    if !currentLine.isEmpty { lines.append(currentLine) }
+
+    var points = Array(repeating: CGPoint.zero, count: subviews.count)
+    var y: CGFloat = 0
+    var usedWidth: CGFloat = 0
+
+    for line in lines {
+      let lineHeight = line.map { sizes[$0].height }.max() ?? 0
+      var x: CGFloat = 0
+      for index in line {
+        let size = sizes[index]
+        points[index] = CGPoint(x: x, y: y + (lineHeight - size.height) / 2)
+        x += size.width + spacing
+      }
+      usedWidth = max(usedWidth, x - spacing)
+      y += lineHeight + spacing
+    }
+
+    return (points, usedWidth, max(0, y - spacing))
   }
 }
