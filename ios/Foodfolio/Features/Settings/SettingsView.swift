@@ -6,12 +6,15 @@ struct SettingsView: View {
   @Environment(AppSession.self) private var session
   @State private var enabled = true
   @State private var osStatus: UNAuthorizationStatus = .notDetermined
+  @State private var isLoading = true
   @State private var error: String?
   var body: some View {
     Form {
       Section("通知") {
         Toggle("レシピ解析通知", isOn: $enabled).onChange(of: enabled) { _, value in update(value) }
           .accessibilityIdentifier("settings.analysisNotification")
+          .accessibilityValue(enabled ? "オン" : "オフ")
+          .disabled(isLoading)
         if NotificationService.shouldShowOpenSettings(
           appNotificationEnabled: enabled, status: osStatus)
         {
@@ -21,10 +24,12 @@ struct SettingsView: View {
           }
         }
       }
+      if isLoading { ProgressView() }
       if let error { Text(error).foregroundStyle(.red) }
     }.navigationTitle("設定").task { await load() }
   }
   private func load() async {
+    defer { isLoading = false }
     do {
       let setting: SettingDTO = try await session.api.get("/v1/settings")
       enabled = setting.recipeAnalysisNotificationEnabled
