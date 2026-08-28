@@ -52,14 +52,22 @@ struct HomeView: View {
           DrawerView(show: $showDrawer).frame(width: 260).transition(.move(edge: .leading))
         }
       }
-      .navigationTitle("Foodfolio")
+      .navigationTitle("")
       .toolbar {
         ToolbarItem(placement: .topBarLeading) {
           Button {
             showDrawer.toggle()
           } label: {
             Image(systemName: "fork.knife.circle")
-          }.accessibilityIdentifier("home.drawer")
+          }
+          .accessibilityLabel("メニュー")
+          .accessibilityIdentifier("home.drawer")
+        }
+        ToolbarItem(placement: .topBarLeading) {
+          Text("foodfolio")
+            .font(.headline)
+            .fixedSize(horizontal: true, vertical: false)
+            .accessibilityIdentifier("home.brandTitle")
         }
       }
       .overlay(alignment: .bottomTrailing) {
