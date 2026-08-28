@@ -11,6 +11,23 @@ enum RecipeGenre: String, Codable, CaseIterable {
   case salad = "サラダ"
   case dessert = "デザート"
   case other = "その他"
+
+  var badgeColor: GenreBadgeColor {
+    switch self {
+    case .main: .red
+    case .side: .orange
+    case .staple: .yellow
+    case .noodles: .purple
+    case .soup: .blue
+    case .salad: .green
+    case .dessert: .pink
+    case .other: .gray
+    }
+  }
+}
+
+enum GenreBadgeColor: String, CaseIterable {
+  case red, orange, yellow, purple, blue, green, pink, gray
 }
 
 @Model final class LocalIngredient {
