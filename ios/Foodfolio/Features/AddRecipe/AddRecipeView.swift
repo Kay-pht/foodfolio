@@ -13,7 +13,7 @@ struct AddRecipeView: View {
         VStack(alignment: .leading, spacing: 18) {
           VStack(alignment: .leading, spacing: 6) {
             Text("レシピ帳に追加")
-              .font(.title2.bold())
+              .font(.title2.weight(.semibold))
               .foregroundStyle(FoodfolioTheme.ink)
             Text("ネットで見つけたレシピのURLを貼り付けてください。")
               .font(.subheadline)
@@ -32,8 +32,14 @@ struct AddRecipeView: View {
           }
           .padding(.horizontal, 14)
           .frame(minHeight: 54)
-          .glassEffect(
-            .regular, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+          .background(
+            FoodfolioTheme.surface.opacity(0.94),
+            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+          )
+          .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+              .stroke(FoodfolioTheme.hairline, lineWidth: 1)
+          }
 
           Label("保存後はすぐ一覧に戻り、解析はバックグラウンドで進みます。", systemImage: "sparkles")
             .font(.footnote)
