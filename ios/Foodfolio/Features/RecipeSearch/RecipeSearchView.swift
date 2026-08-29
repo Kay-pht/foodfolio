@@ -8,50 +8,148 @@ struct RecipeSearchView: View {
   @State private var genre: RecipeGenre?
   @State private var tagID: String?
   @State private var results: [LocalRecipe] = []
+
+  private let columns = [
+    GridItem(.flexible(), spacing: 12),
+    GridItem(.flexible(), spacing: 12),
+  ]
+
   var body: some View {
-    VStack {
-      TextField("料理名・材料を検索", text: $query).textFieldStyle(.roundedBorder).padding(.horizontal)
-        .accessibilityIdentifier("search.query")
-      HStack(spacing: 12) {
-        SearchFilterPicker(
-          title: "ジャンル", selection: $genre,
-          options: RecipeGenre.allCases.map { ($0, $0.rawValue) },
-          accessibilityIdentifier: "search.genre")
-        SearchFilterPicker(
-          title: "タグ", selection: $tagID,
-          options: tags.map { ($0.id, $0.name) },
-          accessibilityIdentifier: "search.tag")
-      }
-      .padding(.horizontal)
-      if query.isEmpty && genre == nil && tagID == nil {
-        List {
-          Section("最近の検索") {
-            ForEach(session.history.values, id: \.self) { value in Button(value) { query = value } }
-            Button("すべて削除", role: .destructive) { session.history.removeAll() }
+    ZStack {
+      FoodfolioBackground()
+      ScrollView {
+        VStack(alignment: .leading, spacing: 18) {
+          searchField
+
+          HStack(spacing: 10) {
+            SearchFilterMenu(
+              title: "ジャンル",
+              selection: $genre,
+              options: RecipeGenre.allCases.map { ($0, $0.rawValue) },
+              accessibilityIdentifier: "search.genre"
+            )
+            SearchFilterMenu(
+              title: "タグ",
+              selection: $tagID,
+              options: tags.map { ($0.id, $0.name) },
+              accessibilityIdentifier: "search.tag"
+            )
+          }
+
+          if query.isEmpty && genre == nil && tagID == nil {
+            historySection
+          } else if results.isEmpty {
+            ContentUnavailableView.search(text: query)
+              .frame(maxWidth: .infinity)
+              .padding(.top, 56)
+          } else {
+            Text("検索結果")
+              .font(.title3.bold())
+              .foregroundStyle(FoodfolioTheme.ink)
+
+            LazyVGrid(columns: columns, spacing: 20) {
+              ForEach(results) { recipe in
+                NavigationLink(destination: RecipeDetailView(recipe: recipe)) {
+                  RecipeCard(recipe: recipe)
+                }
+                .buttonStyle(.plain)
+              }
+            }
           }
         }
-      } else if results.isEmpty {
-        ContentUnavailableView.search(text: query)
-      } else {
-        List(results) { recipe in
-          NavigationLink(recipe.title, destination: RecipeDetailView(recipe: recipe))
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 40)
+      }
+      .scrollIndicators(.hidden)
+    }
+    .tint(FoodfolioTheme.terracotta)
+    .navigationTitle("レシピ検索")
+    .navigationBarTitleDisplayMode(.inline)
+    .onChange(of: query) { _, _ in refresh() }
+    .onChange(of: genre) { _, _ in refresh() }
+    .onChange(of: tagID) { _, _ in refresh() }
+    .onSubmit { session.history.add(query) }
+  }
+
+  private var searchField: some View {
+    HStack(spacing: 10) {
+      Image(systemName: "magnifyingglass")
+        .foregroundStyle(FoodfolioTheme.secondaryInk)
+      TextField("料理名・材料を検索", text: $query)
+        .textFieldStyle(.plain)
+        .submitLabel(.search)
+        .accessibilityIdentifier("search.query")
+      if !query.isEmpty {
+        Button {
+          query = ""
+        } label: {
+          Image(systemName: "xmark.circle.fill")
+            .foregroundStyle(FoodfolioTheme.secondaryInk)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("検索語を消去")
+      }
+    }
+    .padding(.horizontal, 14)
+    .frame(minHeight: 50)
+    .glassEffect(
+      .regular, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+  }
+
+  private var historySection: some View {
+    VStack(alignment: .leading, spacing: 4) {
+      HStack {
+        Text("最近の検索")
+          .font(.title3.bold())
+          .foregroundStyle(FoodfolioTheme.ink)
+        Spacer()
+        if !session.history.values.isEmpty {
+          Button("すべて削除", role: .destructive) { session.history.removeAll() }
+            .font(.subheadline)
         }
       }
-    }.navigationTitle("レシピ検索").onChange(of: query) { _, _ in refresh() }.onChange(of: genre) {
-      _, _ in refresh()
-    }.onChange(of: tagID) { _, _ in refresh() }.onSubmit { session.history.add(query) }
+      .padding(.bottom, 6)
+
+      if session.history.values.isEmpty {
+        Text("検索した料理名や材料がここに残ります。")
+          .font(.subheadline)
+          .foregroundStyle(FoodfolioTheme.secondaryInk)
+          .padding(.vertical, 12)
+      } else {
+        ForEach(session.history.values, id: \.self) { value in
+          Button {
+            query = value
+          } label: {
+            HStack(spacing: 12) {
+              Image(systemName: "clock.arrow.circlepath")
+                .foregroundStyle(FoodfolioTheme.sage)
+              Text(value)
+                .foregroundStyle(FoodfolioTheme.ink)
+              Spacer()
+              Image(systemName: "arrow.up.left")
+                .font(.caption)
+                .foregroundStyle(FoodfolioTheme.secondaryInk)
+            }
+            .padding(.vertical, 12)
+          }
+          .buttonStyle(.plain)
+          Divider().overlay(FoodfolioTheme.hairline)
+        }
+      }
+    }
   }
+
   private func refresh() {
     results = (try? session.repository.search(query: query, genre: genre, tagID: tagID)) ?? []
   }
 }
 
-private struct SearchFilterPicker<Option: Hashable>: View {
+private struct SearchFilterMenu<Option: Hashable>: View {
   let title: String
   @Binding var selection: Option?
   let options: [(value: Option, title: String)]
   let accessibilityIdentifier: String
-  @State private var isPresented = false
 
   private var selectedTitle: String {
     guard let selection else { return title }
@@ -59,8 +157,32 @@ private struct SearchFilterPicker<Option: Hashable>: View {
   }
 
   var body: some View {
-    Button {
-      isPresented = true
+    Menu {
+      Button {
+        selection = nil
+      } label: {
+        if selection == nil {
+          Label("すべて", systemImage: "checkmark")
+        } else {
+          Text("すべて")
+        }
+      }
+      .accessibilityIdentifier("\(accessibilityIdentifier).option.all")
+
+      Divider()
+
+      ForEach(options, id: \.value) { option in
+        Button {
+          selection = option.value
+        } label: {
+          if selection == option.value {
+            Label(option.title, systemImage: "checkmark")
+          } else {
+            Text(option.title)
+          }
+        }
+        .accessibilityIdentifier("\(accessibilityIdentifier).option.\(option.title)")
+      }
     } label: {
       HStack(spacing: 8) {
         Text(selectedTitle)
@@ -68,40 +190,14 @@ private struct SearchFilterPicker<Option: Hashable>: View {
         Spacer(minLength: 0)
         Image(systemName: "chevron.down")
           .font(.caption.weight(.semibold))
-          .foregroundStyle(.secondary)
       }
-      .foregroundStyle(selection == nil ? .secondary : .primary)
-      .padding(.horizontal, 12)
+      .font(.subheadline.weight(.semibold))
+      .foregroundStyle(selection == nil ? FoodfolioTheme.secondaryInk : FoodfolioTheme.ink)
+      .padding(.horizontal, 14)
       .frame(maxWidth: .infinity, minHeight: 44)
-      .background(.background, in: RoundedRectangle(cornerRadius: 10))
-      .overlay {
-        RoundedRectangle(cornerRadius: 10)
-          .stroke(.secondary.opacity(0.35), lineWidth: 1)
-      }
+      .glassEffect(.regular.interactive(), in: Capsule())
     }
-    .buttonStyle(.plain)
+    .accessibilityLabel(selectedTitle)
     .accessibilityIdentifier(accessibilityIdentifier)
-    .sheet(isPresented: $isPresented) {
-      NavigationStack {
-        Picker(title, selection: $selection) {
-          Text("すべて").tag(Optional<Option>.none)
-          ForEach(options, id: \.value) { option in
-            Text(option.title).tag(Optional(option.value))
-          }
-        }
-        .pickerStyle(.wheel)
-        .accessibilityIdentifier("\(accessibilityIdentifier).picker")
-        .navigationTitle(title)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-          ToolbarItem(placement: .confirmationAction) {
-            Button("完了") { isPresented = false }
-              .accessibilityIdentifier("\(accessibilityIdentifier).done")
-          }
-        }
-      }
-      .presentationDetents([.height(280)])
-      .presentationDragIndicator(.visible)
-    }
   }
 }

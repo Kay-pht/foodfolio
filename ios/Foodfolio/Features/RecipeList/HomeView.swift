@@ -22,36 +22,89 @@ struct HomeView: View {
   @State private var showAdd = false
   @State private var showDrawer = false
 
-  private let columns = [GridItem(.flexible()), GridItem(.flexible())]
+  private let columns = [
+    GridItem(.flexible(), spacing: 12),
+    GridItem(.flexible(), spacing: 12),
+  ]
+
   var body: some View {
     NavigationStack {
       ZStack(alignment: .leading) {
-        VStack {
-          NavigationLink(destination: RecipeSearchView()) {
-            Label("レシピを検索", systemImage: "magnifyingglass").frame(
-              maxWidth: .infinity, alignment: .leading
-            ).padding().background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
-          }.padding(.horizontal).accessibilityIdentifier("home.search")
+        FoodfolioBackground()
+        VStack(spacing: 0) {
+          VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 2) {
+              Text("わたしのレシピ")
+                .font(.title2.bold())
+                .foregroundStyle(FoodfolioTheme.ink)
+              Text("いつもの味を、ここに。")
+                .font(.subheadline)
+                .foregroundStyle(FoodfolioTheme.secondaryInk)
+            }
+
+            NavigationLink(destination: RecipeSearchView()) {
+              HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass")
+                Text("料理名・材料から探す")
+                Spacer(minLength: 0)
+              }
+              .font(.body.weight(.medium))
+              .foregroundStyle(FoodfolioTheme.secondaryInk)
+              .padding(.horizontal, 16)
+              .frame(maxWidth: .infinity, minHeight: 52)
+              .glassEffect(
+                .regular.interactive(), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("home.search")
+          }
+          .padding(.horizontal, 20)
+          .padding(.top, 8)
+          .padding(.bottom, 12)
+
           if recipes.isEmpty {
-            ContentUnavailableView(
-              "レシピがありません", systemImage: "book.closed", description: Text("右下の＋からURLを保存できます。"))
+            Spacer()
+            VStack(spacing: 12) {
+              Image(systemName: "book.pages")
+                .font(.system(size: 38, weight: .medium))
+                .foregroundStyle(FoodfolioTheme.sage)
+              Text("まだレシピがありません")
+                .font(.headline)
+                .foregroundStyle(FoodfolioTheme.ink)
+              Text("右下の＋から、最初のレシピを保存できます。")
+                .font(.subheadline)
+                .foregroundStyle(FoodfolioTheme.secondaryInk)
+                .multilineTextAlignment(.center)
+            }
+            .padding(.horizontal, 32)
+            Spacer()
           } else {
             ScrollView {
-              LazyVGrid(columns: columns) {
+              LazyVGrid(columns: columns, spacing: 20) {
                 ForEach(recipes) { recipe in
                   NavigationLink(destination: RecipeDetailView(recipe: recipe)) {
                     RecipeCard(recipe: recipe)
                   }
+                  .buttonStyle(.plain)
                 }
-              }.padding()
+              }
+              .padding(.horizontal, 20)
+              .padding(.top, 4)
+              .padding(.bottom, 96)
             }
+            .scrollIndicators(.hidden)
           }
         }
-        .offset(x: showDrawer ? 260 : 0).animation(.snappy, value: showDrawer)
+        .offset(x: showDrawer ? 260 : 0)
+        .animation(.snappy, value: showDrawer)
+
         if showDrawer {
-          DrawerView(show: $showDrawer).frame(width: 260).transition(.move(edge: .leading))
+          DrawerView(show: $showDrawer)
+            .frame(width: 260)
+            .transition(.move(edge: .leading))
         }
       }
+      .tint(FoodfolioTheme.terracotta)
       .navigationTitle("")
       .toolbar {
         ToolbarItem(placement: .topBarLeading) {
@@ -65,7 +118,8 @@ struct HomeView: View {
         }
         ToolbarItem(placement: .topBarLeading) {
           Text("foodfolio")
-            .font(.headline)
+            .font(.headline.weight(.semibold))
+            .foregroundStyle(FoodfolioTheme.ink)
             .fixedSize(horizontal: true, vertical: false)
             .accessibilityIdentifier("home.brandTitle")
         }
@@ -74,10 +128,16 @@ struct HomeView: View {
         Button {
           showAdd = true
         } label: {
-          Image(systemName: "plus").font(.title2.bold()).frame(width: 58, height: 58).background(
-            .tint, in: Circle()
-          ).foregroundStyle(.white).shadow(radius: 4)
-        }.padding().accessibilityIdentifier("home.add")
+          Image(systemName: "plus")
+            .font(.title2.bold())
+            .foregroundStyle(.white)
+            .frame(width: 58, height: 58)
+            .glassEffect(.regular.tint(FoodfolioTheme.terracotta).interactive(), in: Circle())
+        }
+        .buttonStyle(.plain)
+        .padding(20)
+        .accessibilityLabel("レシピを追加")
+        .accessibilityIdentifier("home.add")
       }
       .sheet(isPresented: $showAdd) { AddRecipeView() }
       .refreshable { await session.synchronize() }
@@ -95,32 +155,51 @@ struct HomeView: View {
   }
 }
 
-private struct RecipeCard: View {
+struct RecipeCard: View {
   let recipe: LocalRecipe
+
   var body: some View {
-    VStack(alignment: .leading) {
+    VStack(alignment: .leading, spacing: 8) {
       GeometryReader { proxy in
         RecipeImageView(recipe: recipe)
           .frame(width: proxy.size.width, height: proxy.size.height)
       }
-      .aspectRatio(1.2, contentMode: .fit)
-      .clipShape(RoundedRectangle(cornerRadius: 12))
-      Text(recipe.title).font(.headline).lineLimit(2).foregroundStyle(.primary)
+      .aspectRatio(1.18, contentMode: .fit)
+      .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+
+      Text(recipe.title)
+        .font(.headline)
+        .lineLimit(2)
+        .foregroundStyle(FoodfolioTheme.ink)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
+    .contentShape(Rectangle())
     .accessibilityIdentifier("recipe.card.\(recipe.id)")
   }
 }
 
 private struct DrawerView: View {
   @Binding var show: Bool
+
   var body: some View {
     NavigationStack {
       List {
-        NavigationLink("設定", destination: SettingsView()).accessibilityIdentifier("drawer.settings")
-        NavigationLink("アカウント", destination: AccountView()).accessibilityIdentifier(
-          "drawer.account")
-      }.navigationTitle("メニュー").toolbar { Button("閉じる") { show = false } }
-    }.background(.background)
+        NavigationLink(destination: SettingsView()) {
+          Label("設定", systemImage: "bell.badge")
+        }
+        .accessibilityIdentifier("drawer.settings")
+
+        NavigationLink(destination: AccountView()) {
+          Label("アカウント", systemImage: "person.crop.circle")
+        }
+        .accessibilityIdentifier("drawer.account")
+      }
+      .scrollContentBackground(.hidden)
+      .background(FoodfolioTheme.paper)
+      .navigationTitle("メニュー")
+      .toolbar { Button("閉じる") { show = false } }
+    }
+    .tint(FoodfolioTheme.terracotta)
   }
 }
