@@ -245,11 +245,12 @@ import XCTest
     XCTAssertTrue(app.buttons["account.delete"].waitForExistence(timeout: 3))
 
     app.buttons["account.delete"].tap()
-    XCTAssertTrue(
-      app.staticTexts["アカウントとすべてのデータを完全に削除しますか？"].waitForExistence(timeout: 2))
-    XCTAssertTrue(app.buttons["完全に削除"].exists)
-    XCTAssertTrue(app.buttons["キャンセル"].exists)
-    app.buttons["キャンセル"].tap()
+    let deleteAlert = app.alerts["アカウント削除"]
+    XCTAssertTrue(deleteAlert.waitForExistence(timeout: 2))
+    XCTAssertTrue(deleteAlert.staticTexts["アカウントとすべてのデータを完全に削除しますか？"].exists)
+    XCTAssertTrue(deleteAlert.buttons["完全に削除"].exists)
+    XCTAssertTrue(deleteAlert.buttons["キャンセル"].exists)
+    deleteAlert.buttons["キャンセル"].tap()
     XCTAssertTrue(app.staticTexts["account.email"].exists)
   }
 
@@ -276,14 +277,16 @@ import XCTest
     XCTAssertTrue(app.buttons["account.logout"].waitForExistence(timeout: 3))
 
     app.buttons["account.logout"].tap()
-    XCTAssertTrue(app.staticTexts["ログアウトしますか？"].waitForExistence(timeout: 2))
-    XCTAssertTrue(app.buttons["ログアウトする"].exists)
-    XCTAssertTrue(app.buttons["キャンセル"].exists)
-    app.buttons["キャンセル"].tap()
+    let logoutAlert = app.alerts["ログアウト"]
+    XCTAssertTrue(logoutAlert.waitForExistence(timeout: 2))
+    XCTAssertTrue(logoutAlert.staticTexts["ログアウトしますか？"].exists)
+    XCTAssertTrue(logoutAlert.buttons["ログアウト"].exists)
+    XCTAssertTrue(logoutAlert.buttons["キャンセル"].exists)
+    logoutAlert.buttons["キャンセル"].tap()
     XCTAssertTrue(app.staticTexts["account.email"].exists)
 
     app.buttons["account.logout"].tap()
-    app.buttons["ログアウトする"].tap()
+    app.alerts["ログアウト"].buttons["ログアウト"].tap()
     XCTAssertTrue(app.buttons["auth.google"].waitForExistence(timeout: 3))
   }
 }
