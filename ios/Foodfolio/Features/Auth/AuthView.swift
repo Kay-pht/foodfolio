@@ -1,5 +1,10 @@
 import GoogleSignIn
 import SwiftUI
+import UIKit
+
+private enum AuthMethodButtonMetrics {
+  static let height: CGFloat = 52
+}
 
 struct AuthView: View {
   @Environment(AppSession.self) private var session
@@ -36,38 +41,35 @@ struct AuthView: View {
               Button {
                 run { try await session.auth.signInWithApple() }
               } label: {
-                HStack(spacing: 10) {
+                AuthMethodButtonLabel(title: "Appleでサインイン") {
                   Image(systemName: "apple.logo")
-                    .font(.title3)
-                  Text("Appleで続ける")
-                    .font(.body.weight(.semibold))
+                    .font(.system(size: 19, weight: .semibold))
                 }
-                .foregroundStyle(FoodfolioTheme.ink)
-                .frame(maxWidth: .infinity, minHeight: 52)
-                .glassEffect(
-                  .regular.interactive(),
-                  in: RoundedRectangle(cornerRadius: 16, style: .continuous)
-                )
               }
               .buttonStyle(.plain)
+              .accessibilityLabel("Appleでサインイン")
               .accessibilityIdentifier("auth.apple")
 
-              BrandedGoogleSignInButton {
+              Button {
                 run { try await session.auth.signInWithGoogle() }
-              }
-              .frame(maxWidth: .infinity, minHeight: 52, maxHeight: 52)
-
-              NavigationLink(destination: EmailAuthView()) {
-                Label("メールで続ける", systemImage: "envelope")
-                  .font(.body.weight(.semibold))
-                  .foregroundStyle(FoodfolioTheme.ink)
-                  .frame(maxWidth: .infinity, minHeight: 52)
-                  .glassEffect(
-                    .clear.interactive(),
-                    in: RoundedRectangle(cornerRadius: 16, style: .continuous)
-                  )
+              } label: {
+                AuthMethodButtonLabel(title: "Googleでサインイン") {
+                  GoogleSignInLogo()
+                    .frame(width: 24, height: 24)
+                }
               }
               .buttonStyle(.plain)
+              .accessibilityLabel("Googleでサインイン")
+              .accessibilityIdentifier("auth.google")
+
+              NavigationLink(destination: EmailAuthView()) {
+                AuthMethodButtonLabel(title: "メールで続ける") {
+                  Image(systemName: "envelope")
+                    .font(.system(size: 18, weight: .medium))
+                }
+              }
+              .buttonStyle(.plain)
+              .accessibilityLabel("メールで続ける")
               .accessibilityIdentifier("auth.emailContinue")
             }
 
@@ -103,6 +105,35 @@ struct AuthView: View {
       } catch { message = error.localizedDescription }
       isLoading = false
     }
+  }
+}
+
+private struct AuthMethodButtonLabel<Icon: View>: View {
+  let title: String
+  let icon: Icon
+
+  init(title: String, @ViewBuilder icon: () -> Icon) {
+    self.title = title
+    self.icon = icon()
+  }
+
+  var body: some View {
+    HStack(spacing: 12) {
+      icon
+        .frame(width: 24, height: 24)
+
+      Text(title)
+        .font(.body.weight(.semibold))
+    }
+    .foregroundStyle(FoodfolioTheme.ink)
+    .frame(maxWidth: .infinity)
+    .frame(height: AuthMethodButtonMetrics.height)
+    .background(Color.white, in: Capsule())
+    .overlay {
+      Capsule()
+        .stroke(FoodfolioTheme.ink.opacity(0.58), lineWidth: 1)
+    }
+    .contentShape(Capsule())
   }
 }
 
@@ -227,28 +258,30 @@ private struct EmailAuthView: View {
   }
 }
 
-private struct BrandedGoogleSignInButton: UIViewRepresentable {
-  let action: () -> Void
-
-  func makeCoordinator() -> Coordinator { Coordinator(action: action) }
-
-  func makeUIView(context: Context) -> GIDSignInButton {
-    let button = GIDSignInButton()
-    button.style = .wide
-    button.colorScheme = .light
-    button.accessibilityIdentifier = "auth.google"
-    button.addTarget(
-      context.coordinator, action: #selector(Coordinator.tapped), for: .touchUpInside)
-    return button
+private struct GoogleSignInLogo: UIViewRepresentable {
+  func makeUIView(context: Context) -> GoogleSignInLogoImageView {
+    GoogleSignInLogoImageView(frame: .zero)
   }
 
-  func updateUIView(_ uiView: GIDSignInButton, context: Context) {}
+  func updateUIView(_ uiView: GoogleSignInLogoImageView, context: Context) {}
+}
 
-  final class Coordinator: NSObject {
-    private let action: () -> Void
+private final class GoogleSignInLogoImageView: UIImageView {
+  override init(frame: CGRect) {
+    super.init(frame: frame)
+    backgroundColor = .clear
+    contentMode = .scaleAspectFit
+    isUserInteractionEnabled = false
+    isAccessibilityElement = false
 
-    init(action: @escaping () -> Void) { self.action = action }
+    let sourceButton = GIDSignInButton()
+    sourceButton.style = .iconOnly
+    sourceButton.colorScheme = .light
+    image = sourceButton.subviews.compactMap { $0 as? UIImageView }.first?.image
+  }
 
-    @objc func tapped() { action() }
+  @available(*, unavailable)
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
   }
 }
