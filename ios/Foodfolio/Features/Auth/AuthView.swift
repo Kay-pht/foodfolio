@@ -4,7 +4,6 @@ import UIKit
 
 private enum AuthMethodButtonMetrics {
   static let height: CGFloat = 52
-  static let cornerRadius: CGFloat = 26
 }
 
 struct AuthView: View {
@@ -260,41 +259,29 @@ private struct EmailAuthView: View {
 }
 
 private struct GoogleSignInLogo: UIViewRepresentable {
-  func makeUIView(context: Context) -> GoogleSignInLogoView {
-    GoogleSignInLogoView()
+  func makeUIView(context: Context) -> GoogleSignInLogoImageView {
+    GoogleSignInLogoImageView()
   }
 
-  func updateUIView(_ uiView: GoogleSignInLogoView, context: Context) {}
+  func updateUIView(_ uiView: GoogleSignInLogoImageView, context: Context) {}
 }
 
-private final class GoogleSignInLogoView: UIView {
-  private let button = GIDSignInButton()
-
+private final class GoogleSignInLogoImageView: UIImageView {
   override init(frame: CGRect) {
     super.init(frame: frame)
     backgroundColor = .clear
-    clipsToBounds = true
+    contentMode = .scaleAspectFit
     isUserInteractionEnabled = false
     isAccessibilityElement = false
 
-    button.style = .iconOnly
-    button.colorScheme = .light
-    button.isUserInteractionEnabled = false
-    button.accessibilityElementsHidden = true
-    addSubview(button)
+    let sourceButton = GIDSignInButton()
+    sourceButton.style = .iconOnly
+    sourceButton.colorScheme = .light
+    image = sourceButton.subviews.compactMap { $0 as? UIImageView }.first?.image
   }
 
   @available(*, unavailable)
   required init?(coder: NSCoder) {
     fatalError("init(coder:) has not been implemented")
-  }
-
-  override func layoutSubviews() {
-    super.layoutSubviews()
-
-    // GIDSignInButton renders the official multicolor G at roughly (9, 10), 29x30
-    // inside its 48pt icon-only control. Offset the control so only that branded mark
-    // is visible; the surrounding capsule and text are rendered consistently in SwiftUI.
-    button.frame = CGRect(x: -7, y: -8, width: 48, height: 48)
   }
 }
