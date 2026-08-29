@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import {
   PostgreSqlContainer,
@@ -13,6 +13,31 @@ export interface PostgresTestContext {
   prisma: PrismaClient;
 }
 
+async function applyMigrations(databaseUrl: string): Promise<void> {
+  const migrationsRoot = fileURLToPath(
+    new URL("../../prisma/migrations/", import.meta.url),
+  );
+  const migrationDirectories = (await readdir(migrationsRoot, { withFileTypes: true }))
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
+
+  const pool = new Pool({ connectionString: databaseUrl });
+  try {
+    for (const directory of migrationDirectories) {
+      const migrationPath = fileURLToPath(
+        new URL(
+          `../../prisma/migrations/${directory}/migration.sql`,
+          import.meta.url,
+        ),
+      );
+      await pool.query(await readFile(migrationPath, "utf8"));
+    }
+  } finally {
+    await pool.end();
+  }
+}
+
 export async function startPostgres(): Promise<PostgresTestContext> {
   const container = await new PostgreSqlContainer("postgres:18-alpine")
     .withDatabase("foodfolio")
@@ -22,15 +47,7 @@ export async function startPostgres(): Promise<PostgresTestContext> {
   const databaseUrl = container.getConnectionUri();
   process.env.DATABASE_URL = databaseUrl;
   process.env.DATABASE_DIRECT_URL = databaseUrl;
-  const migrationPath = fileURLToPath(
-    new URL(
-      "../../prisma/migrations/20260827120000_initial/migration.sql",
-      import.meta.url,
-    ),
-  );
-  const pool = new Pool({ connectionString: databaseUrl });
-  await pool.query(await readFile(migrationPath, "utf8"));
-  await pool.end();
+  await applyMigrations(databaseUrl);
   return {
     container,
     prisma: new PrismaClient({
