@@ -54,24 +54,26 @@ model UserSetting {
 }
 
 model Recipe {
-  id                 String         @id @default(uuid()) @db.Uuid
-  userId             String         @db.Uuid
-  originalUrl        String         @db.Text
-  normalizedUrl      String         @db.Text
-  sourceType         SourceType
-  title              String         @default("解析中のレシピ")
-  imageUrl           String?        @db.Text
-  servingsValue      Float?
-  servingsRaw        String?
-  cookingTimeMinutes Int?
-  genre               Genre?
-  analysisStatus      AnalysisStatus @default(pending)
-  createdAt           DateTime       @default(now()) @db.Timestamptz(3)
-  updatedAt           DateTime       @updatedAt @db.Timestamptz(3)
-  user                User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  ingredients         Ingredient[]
-  steps               RecipeStep[]
-  recipeTags          RecipeTag[]
+  id                       String         @id @default(uuid()) @db.Uuid
+  userId                   String         @db.Uuid
+  originalUrl              String         @db.Text
+  normalizedUrl            String         @db.Text
+  sourceType               SourceType
+  title                    String         @default("解析中のレシピ")
+  imageUrl                 String?        @db.Text
+  servingsValue            Float?
+  servingsRaw              String?
+  cookingTimeMinutes       Int?
+  genre                    Genre?
+  analysisStatus           AnalysisStatus @default(pending)
+  processingRunId          String?        @db.Uuid
+  processingLeaseExpiresAt DateTime?      @db.Timestamptz(3)
+  createdAt                DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt                DateTime       @updatedAt @db.Timestamptz(3)
+  user                     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ingredients              Ingredient[]
+  steps                    RecipeStep[]
+  recipeTags               RecipeTag[]
 
   @@unique([userId, normalizedUrl])
   @@index([userId, createdAt(sort: Desc)])
