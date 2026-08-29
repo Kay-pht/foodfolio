@@ -260,7 +260,7 @@ private struct EmailAuthView: View {
 
 private struct GoogleSignInLogo: UIViewRepresentable {
   func makeUIView(context: Context) -> GoogleSignInLogoImageView {
-    GoogleSignInLogoImageView()
+    GoogleSignInLogoImageView(frame: .zero)
   }
 
   func updateUIView(_ uiView: GoogleSignInLogoImageView, context: Context) {}
