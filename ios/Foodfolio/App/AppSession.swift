@@ -95,7 +95,7 @@ import SwiftData
           : arguments.contains("-ui-testing-twenty-servings")
             ? (20, "20人分")
             : (2, "2人分")
-    let status: RecipeAnalysisStatus =
+    let status: AnalysisStatus =
       arguments.contains("-ui-testing-status-pending")
       ? .pending
       : arguments.contains("-ui-testing-status-processing")
