@@ -25,21 +25,17 @@ struct AccountView: View {
       if let error { Text(error).foregroundStyle(.red) }
     }
     .navigationTitle("アカウント")
-    .confirmationDialog(
-      "ログアウトしますか？",
-      isPresented: $showLogout,
-      titleVisibility: .visible
-    ) {
-      Button("ログアウトする", role: .destructive) { logout() }
+    .alert("ログアウト", isPresented: $showLogout) {
       Button("キャンセル", role: .cancel) {}
+      Button("ログアウト", role: .destructive) { logout() }
+    } message: {
+      Text("ログアウトしますか？")
     }
-    .confirmationDialog(
-      "アカウントとすべてのデータを完全に削除しますか？",
-      isPresented: $showDelete,
-      titleVisibility: .visible
-    ) {
-      Button("完全に削除", role: .destructive) { deleteAccount() }
+    .alert("アカウント削除", isPresented: $showDelete) {
       Button("キャンセル", role: .cancel) {}
+      Button("完全に削除", role: .destructive) { deleteAccount() }
+    } message: {
+      Text("アカウントとすべてのデータを完全に削除しますか？")
     }
   }
 
