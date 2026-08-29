@@ -118,11 +118,17 @@ struct HomeView: View {
           .accessibilityIdentifier("home.drawer")
         }
         ToolbarItem(placement: .topBarLeading) {
-          Text("foodfolio")
-            .font(.headline.weight(.semibold))
-            .foregroundStyle(FoodfolioTheme.ink)
-            .fixedSize(horizontal: true, vertical: false)
-            .accessibilityIdentifier("home.brandTitle")
+          Button {
+            showDrawer.toggle()
+          } label: {
+            Text("foodfolio")
+              .font(.headline.weight(.semibold))
+              .foregroundStyle(FoodfolioTheme.ink)
+              .fixedSize(horizontal: true, vertical: false)
+          }
+          .buttonStyle(.plain)
+          .accessibilityLabel("foodfolio メニュー")
+          .accessibilityIdentifier("home.brandTitle")
         }
       }
       .overlay(alignment: .bottomTrailing) {
@@ -187,7 +193,7 @@ private struct DrawerView: View {
     NavigationStack {
       List {
         NavigationLink(destination: SettingsView()) {
-          Label("設定", systemImage: "bell.badge")
+          Label("設定", systemImage: "gearshape")
         }
         .accessibilityIdentifier("drawer.settings")
 
