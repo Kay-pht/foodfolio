@@ -42,8 +42,14 @@ struct HomeView: View {
             .foregroundStyle(FoodfolioTheme.secondaryInk)
             .padding(.horizontal, 16)
             .frame(maxWidth: .infinity, minHeight: 52)
-            .glassEffect(
-              .regular.interactive(), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(
+              FoodfolioTheme.surface.opacity(0.94),
+              in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+            )
+            .overlay {
+              RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(FoodfolioTheme.hairline, lineWidth: 1)
+            }
           }
           .buttonStyle(.plain)
           .accessibilityIdentifier("home.search")
@@ -157,16 +163,20 @@ struct RecipeCard: View {
   let recipe: LocalRecipe
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
+    VStack(alignment: .leading, spacing: 9) {
       GeometryReader { proxy in
         RecipeImageView(recipe: recipe)
           .frame(width: proxy.size.width, height: proxy.size.height)
       }
       .aspectRatio(1.18, contentMode: .fit)
-      .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+      .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+      .overlay {
+        RoundedRectangle(cornerRadius: 20, style: .continuous)
+          .stroke(FoodfolioTheme.hairline, lineWidth: 1)
+      }
 
       Text(recipe.title)
-        .font(.headline)
+        .font(.subheadline.weight(.semibold))
         .lineLimit(2)
         .foregroundStyle(FoodfolioTheme.ink)
         .frame(maxWidth: .infinity, alignment: .leading)
