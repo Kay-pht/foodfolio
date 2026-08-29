@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { PrismaClient } from "../../generated/prisma/client.js";
 import { genreFromLabel } from "../../domain/recipe/genre.js";
 import {
@@ -6,6 +7,8 @@ import {
   type RecipeExtractor,
   type SourceContentExtractor,
 } from "./types.js";
+
+const PROCESSING_LEASE_MS = 210_000;
 
 export interface AnalysisDependencies {
   prisma: PrismaClient;
@@ -32,17 +35,10 @@ export class RecipeAnalysisService {
       recipe.analysisStatus === "failed"
     )
       return { retry: false };
-    const reclaimInterruptedProcessing = attempt > 1;
-    const claimed = await this.deps.prisma.recipe.updateMany({
-      where: {
-        id: recipeId,
-        analysisStatus: reclaimInterruptedProcessing
-          ? { in: ["pending", "processing"] }
-          : "pending",
-      },
-      data: { analysisStatus: "processing", updatedAt: new Date() },
-    });
-    if (claimed.count === 0) {
+
+    const runId = randomUUID();
+    const claimed = await this.claim(recipeId, runId, attempt);
+    if (!claimed) {
       log(
         { recipeId, analysisAttempt: attempt },
         "recipe analysis is already processing",
@@ -51,21 +47,26 @@ export class RecipeAnalysisService {
     }
     if (recipe.analysisStatus === "processing")
       log(
-        { recipeId, analysisAttempt: attempt },
-        "reclaiming interrupted recipe analysis",
+        { recipeId, analysisAttempt: attempt, processingRunId: runId },
+        "reclaiming stale recipe analysis lease",
       );
+
     try {
       const source = await this.deps.sourceExtractor.extract(
         new URL(recipe.originalUrl),
       );
       const result = await this.deps.recipeExtractor.extract(source);
       const title = result.recipe.title?.trim() || "タイトル未取得のレシピ";
-      await this.deps.prisma.$transaction(async (tx) => {
-        const stillExists = await tx.recipe.findUnique({
-          where: { id: recipeId },
+      const committed = await this.deps.prisma.$transaction(async (tx) => {
+        const owned = await tx.recipe.findFirst({
+          where: {
+            id: recipeId,
+            analysisStatus: "processing",
+            processingRunId: runId,
+          },
           select: { id: true },
         });
-        if (!stillExists) return;
+        if (!owned) return false;
         await tx.ingredient.deleteMany({ where: { recipeId } });
         await tx.recipeStep.deleteMany({ where: { recipeId } });
         if (result.recipe.ingredients.length)
@@ -96,10 +97,14 @@ export class RecipeAnalysisService {
             cookingTimeMinutes: result.recipe.cookingTimeMinutes,
             genre: genreFromLabel(result.recipe.genre),
             analysisStatus: "completed",
+            processingRunId: null,
+            processingLeaseExpiresAt: null,
             updatedAt: new Date(),
           },
         });
+        return true;
       });
+      if (!committed) return this.resultAfterLostOwnership(recipeId);
       log(
         {
           recipeId,
@@ -127,14 +132,21 @@ export class RecipeAnalysisService {
       const final =
         !analysisError.retryable || attempt >= this.deps.maxAttempts;
       const title = "解析に失敗したレシピ";
-      await this.deps.prisma.recipe.updateMany({
-        where: { id: recipeId },
+      const changed = await this.deps.prisma.recipe.updateMany({
+        where: {
+          id: recipeId,
+          analysisStatus: "processing",
+          processingRunId: runId,
+        },
         data: {
           analysisStatus: final ? "failed" : "pending",
+          processingRunId: null,
+          processingLeaseExpiresAt: null,
           ...(final ? { title } : {}),
           updatedAt: new Date(),
         },
       });
+      if (changed.count === 0) return this.resultAfterLostOwnership(recipeId);
       log(
         {
           recipeId,
@@ -148,6 +160,62 @@ export class RecipeAnalysisService {
         await this.notify(recipe.userId, recipeId, title, "failed", log);
       return { retry: !final };
     }
+  }
+
+  private async claim(
+    recipeId: string,
+    runId: string,
+    attempt: number,
+  ): Promise<boolean> {
+    return this.deps.prisma.$transaction(async (tx) => {
+      const [clock] = await tx.$queryRaw<
+        Array<{ now: Date }>
+      >`SELECT clock_timestamp() AS now`;
+      const now = clock?.now ?? new Date();
+      const leaseExpiresAt = new Date(now.getTime() + PROCESSING_LEASE_MS);
+      const claimed = await tx.recipe.updateMany({
+        where: {
+          id: recipeId,
+          OR: [
+            { analysisStatus: "pending" },
+            {
+              analysisStatus: "processing",
+              processingLeaseExpiresAt: { lte: now },
+            },
+            ...(attempt > 1
+              ? [
+                  {
+                    analysisStatus: "processing" as const,
+                    processingLeaseExpiresAt: null,
+                  },
+                ]
+              : []),
+          ],
+        },
+        data: {
+          analysisStatus: "processing",
+          processingRunId: runId,
+          processingLeaseExpiresAt: leaseExpiresAt,
+          updatedAt: now,
+        },
+      });
+      return claimed.count === 1;
+    });
+  }
+
+  private async resultAfterLostOwnership(
+    recipeId: string,
+  ): Promise<{ retry: boolean }> {
+    const current = await this.deps.prisma.recipe.findUnique({
+      where: { id: recipeId },
+      select: { analysisStatus: true },
+    });
+    return {
+      retry:
+        !!current &&
+        current.analysisStatus !== "completed" &&
+        current.analysisStatus !== "failed",
+    };
   }
 
   private async notify(
