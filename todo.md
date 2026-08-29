@@ -5,19 +5,19 @@
 - [x] UI/UX設計・FigJamワイヤーフレーム
 - [x] 技術選定
 - [x] poc
-  - [x] PoC検証計画書作成
-  - [x] Recipe Schema作成
-  - [x] AI評価スクリプト作成
-  - [x] AI候補の公式料金ベースライン確認
-  - [x] ローカルNode.js HTTP実行環境で一般Web / クラシル / クックパッドを取得検証
-  - [x] YouTubeのローカルNode.js取得方式を実検証
-  - [x] Instagram実投稿URLの取得方式を実検証
-  - [x] TikTok実投稿URLの取得方式を実検証
-  - [x] ローカルNode.jsの取得結果を元にAI比較用fixtureを確定
-  - [x] Z.ai先行実API評価とGemini Free Tier比較
-  - [x] Gemini URL Contextの別枠実API検証
-  - [x] AI Provider / Model確定（Z.ai / GLM-5.3-Flash）
-  - [x] 採用取得方式 + 採用AIで最終E2E確認（5 URL × 3回）
+- [x] PoC検証計画書作成
+- [x] Recipe Schema作成
+- [x] AI評価スクリプト作成
+- [x] AI候補の公式料金ベースライン確認
+- [x] ローカルNode.js HTTP実行環境で一般Web / クラシル / クックパッドを取得検証
+- [x] YouTubeのローカルNode.js取得方式を実検証
+- [x] Instagram実投稿URLの取得方式を実検証
+- [x] TikTok実投稿URLの取得方式を実検証
+- [x] ローカルNode.jsの取得結果を元にAI比較用fixtureを確定
+- [x] Z.ai先行実API評価とGemini Free Tier比較
+- [x] Gemini URL Contextの別枠実API検証
+- [x] AI Provider / Model確定（Z.ai / GLM-5.3-Flash）
+- [x] 採用取得方式 + 採用AIで最終E2E確認（5 URL × 3回）
 - [x] 実装設計
 - [x] 実装・テスト
 - [ ] TestFlightリリース準備
