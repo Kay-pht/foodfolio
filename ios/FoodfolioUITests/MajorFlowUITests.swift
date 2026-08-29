@@ -64,8 +64,8 @@ import XCTest
     let hero = app.descendants(matching: .any)["detail.heroImage"]
     XCTAssertTrue(hero.waitForExistence(timeout: 3))
     XCTAssertEqual(hero.frame.width, app.frame.width, accuracy: 2)
-    XCTAssertGreaterThanOrEqual(hero.frame.height, app.frame.width * 0.65)
-    XCTAssertLessThanOrEqual(hero.frame.height, app.frame.width * 0.8)
+    XCTAssertGreaterThanOrEqual(hero.frame.height, 260)
+    XCTAssertLessThanOrEqual(hero.frame.height, 320)
 
     let title = app.staticTexts["detail.title"]
     let genreBadge = app.staticTexts["detail.genreBadge"]
@@ -73,6 +73,7 @@ import XCTest
     XCTAssertEqual(title.label, fullTitle)
     XCTAssertTrue(genreBadge.exists)
     XCTAssertEqual(genreBadge.label, "主菜")
+    XCTAssertGreaterThanOrEqual(genreBadge.frame.minY, hero.frame.maxY - 1)
     XCTAssertTrue(app.buttons["detail.edit"].exists)
     XCTAssertFalse(app.staticTexts["ジャンル"].exists)
 
