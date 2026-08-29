@@ -32,32 +32,21 @@ struct HomeView: View {
       ZStack(alignment: .leading) {
         FoodfolioBackground()
         VStack(spacing: 0) {
-          VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 2) {
-              Text("わたしのレシピ")
-                .font(.title2.bold())
-                .foregroundStyle(FoodfolioTheme.ink)
-              Text("いつもの味を、ここに。")
-                .font(.subheadline)
-                .foregroundStyle(FoodfolioTheme.secondaryInk)
+          NavigationLink(destination: RecipeSearchView()) {
+            HStack(spacing: 10) {
+              Image(systemName: "magnifyingglass")
+              Text("料理名・材料から探す")
+              Spacer(minLength: 0)
             }
-
-            NavigationLink(destination: RecipeSearchView()) {
-              HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass")
-                Text("料理名・材料から探す")
-                Spacer(minLength: 0)
-              }
-              .font(.body.weight(.medium))
-              .foregroundStyle(FoodfolioTheme.secondaryInk)
-              .padding(.horizontal, 16)
-              .frame(maxWidth: .infinity, minHeight: 52)
-              .glassEffect(
-                .regular.interactive(), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("home.search")
+            .font(.body.weight(.medium))
+            .foregroundStyle(FoodfolioTheme.secondaryInk)
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, minHeight: 52)
+            .glassEffect(
+              .regular.interactive(), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
           }
+          .buttonStyle(.plain)
+          .accessibilityIdentifier("home.search")
           .padding(.horizontal, 20)
           .padding(.top, 8)
           .padding(.bottom, 12)
@@ -109,26 +98,28 @@ struct HomeView: View {
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .topBarLeading) {
-          Button {
-            showDrawer.toggle()
-          } label: {
-            Image(systemName: "fork.knife.circle")
+          HStack(spacing: 6) {
+            Button {
+              showDrawer.toggle()
+            } label: {
+              Image(systemName: "fork.knife.circle")
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("メニュー")
+            .accessibilityIdentifier("home.drawer")
+
+            Button {
+              showDrawer.toggle()
+            } label: {
+              Text("foodfolio")
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(FoodfolioTheme.ink)
+                .fixedSize(horizontal: true, vertical: false)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("foodfolio メニュー")
+            .accessibilityIdentifier("home.brandTitle")
           }
-          .accessibilityLabel("メニュー")
-          .accessibilityIdentifier("home.drawer")
-        }
-        ToolbarItem(placement: .topBarLeading) {
-          Button {
-            showDrawer.toggle()
-          } label: {
-            Text("foodfolio")
-              .font(.headline.weight(.semibold))
-              .foregroundStyle(FoodfolioTheme.ink)
-              .fixedSize(horizontal: true, vertical: false)
-          }
-          .buttonStyle(.plain)
-          .accessibilityLabel("foodfolio メニュー")
-          .accessibilityIdentifier("home.brandTitle")
         }
       }
       .overlay(alignment: .bottomTrailing) {
