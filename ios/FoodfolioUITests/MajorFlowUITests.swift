@@ -189,6 +189,23 @@ import XCTest
     XCTAssertTrue(app.buttons["home.add"].waitForExistence(timeout: 3))
   }
 
+  func testAuthenticationMethodsUseConsistentButtonGeometry() {
+    let app = launch(arguments: ["-ui-testing-logged-out"])
+    let apple = app.buttons["auth.apple"]
+    let google = app.buttons["auth.google"]
+    let email = app.buttons["auth.emailContinue"]
+
+    XCTAssertTrue(apple.waitForExistence(timeout: 3))
+    XCTAssertTrue(google.exists)
+    XCTAssertTrue(email.exists)
+
+    XCTAssertEqual(apple.frame.height, 52, accuracy: 2)
+    XCTAssertEqual(google.frame.height, 52, accuracy: 2)
+    XCTAssertEqual(email.frame.height, 52, accuracy: 2)
+    XCTAssertEqual(apple.frame.width, google.frame.width, accuracy: 2)
+    XCTAssertEqual(apple.frame.width, email.frame.width, accuracy: 2)
+  }
+
   func testAppleAuthenticationAdapter() {
     let app = launch(arguments: ["-ui-testing-logged-out"])
     XCTAssertTrue(app.buttons["auth.apple"].waitForExistence(timeout: 3))
