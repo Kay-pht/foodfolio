@@ -106,6 +106,7 @@ struct HomeView: View {
       }
       .tint(FoodfolioTheme.terracotta)
       .navigationTitle("")
+      .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .topBarLeading) {
           Button {
@@ -198,6 +199,7 @@ private struct DrawerView: View {
       .scrollContentBackground(.hidden)
       .background(FoodfolioTheme.paper)
       .navigationTitle("メニュー")
+      .navigationBarTitleDisplayMode(.inline)
       .toolbar { Button("閉じる") { show = false } }
     }
     .tint(FoodfolioTheme.terracotta)
