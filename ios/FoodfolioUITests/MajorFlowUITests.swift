@@ -33,7 +33,7 @@ import XCTest
     XCTAssertFalse(app.staticTexts["0.5個"].exists)
   }
 
-  func testSearchGenreAndTagUseWheelPickers() {
+  func testSearchGenreAndTagUseAnchoredMenus() {
     let app = launch()
     XCTAssertTrue(app.buttons["home.search"].waitForExistence(timeout: 5))
     app.buttons["home.search"].tap()
@@ -41,26 +41,21 @@ import XCTest
     let genreButton = app.buttons["search.genre"]
     XCTAssertTrue(genreButton.waitForExistence(timeout: 3))
     genreButton.tap()
-    let genreWheel = app.pickerWheels.firstMatch
-    XCTAssertTrue(genreWheel.waitForExistence(timeout: 3))
-    genreWheel.adjust(toPickerWheelValue: "主菜")
-    let pickerScreenshot = XCTAttachment(screenshot: app.screenshot())
-    pickerScreenshot.name = "Search genre wheel picker"
-    pickerScreenshot.lifetime = .keepAlways
-    add(pickerScreenshot)
-    app.buttons["search.genre.done"].tap()
+    let mainOption = app.buttons["search.genre.option.主菜"]
+    XCTAssertTrue(mainOption.waitForExistence(timeout: 3))
+    XCTAssertFalse(app.pickerWheels.firstMatch.exists)
+    mainOption.tap()
     XCTAssertEqual(genreButton.label, "主菜")
 
     let tagButton = app.buttons["search.tag"]
     tagButton.tap()
-    let tagWheel = app.pickerWheels.firstMatch
-    XCTAssertTrue(tagWheel.waitForExistence(timeout: 3))
-    tagWheel.adjust(toPickerWheelValue: "簡単")
-    app.buttons["search.tag.done"].tap()
+    let easyOption = app.buttons["search.tag.option.簡単"]
+    XCTAssertTrue(easyOption.waitForExistence(timeout: 3))
+    easyOption.tap()
     XCTAssertEqual(tagButton.label, "簡単")
   }
 
-  func testRecipeDetailHeroAndCollapsingHeader() {
+  func testRecipeDetailUsesCompactTitleAndContentLayout() {
     let fullTitle = "親子丼 フライパンひとつで作れるとろとろ卵の簡単レシピ"
     let app = launch(arguments: ["-ui-testing-long-title"])
     XCTAssertTrue(app.staticTexts[fullTitle].waitForExistence(timeout: 5))
@@ -69,59 +64,42 @@ import XCTest
     let hero = app.descendants(matching: .any)["detail.heroImage"]
     XCTAssertTrue(hero.waitForExistence(timeout: 3))
     XCTAssertEqual(hero.frame.width, app.frame.width, accuracy: 2)
-    XCTAssertLessThanOrEqual(hero.frame.minY, app.frame.minY + 1)
-    XCTAssertGreaterThanOrEqual(hero.frame.maxY, app.frame.width * 0.92)
-    XCTAssertLessThanOrEqual(hero.frame.maxY, app.frame.width)
+    XCTAssertGreaterThanOrEqual(hero.frame.height, app.frame.width * 0.65)
+    XCTAssertLessThanOrEqual(hero.frame.height, app.frame.width * 0.8)
 
-    let expandedTitle = app.staticTexts["detail.title"]
+    let title = app.staticTexts["detail.title"]
     let genreBadge = app.staticTexts["detail.genreBadge"]
-    XCTAssertTrue(expandedTitle.exists)
+    XCTAssertTrue(title.exists)
+    XCTAssertEqual(title.label, fullTitle)
     XCTAssertTrue(genreBadge.exists)
     XCTAssertEqual(genreBadge.label, "主菜")
-    XCTAssertLessThan(genreBadge.frame.maxY, expandedTitle.frame.minY)
-    XCTAssertFalse(app.staticTexts["ジャンル"].exists)
-    XCTAssertEqual(expandedTitle.label, fullTitle)
-    XCTAssertGreaterThan(expandedTitle.frame.height, 50)
-    XCTAssertGreaterThanOrEqual(expandedTitle.frame.minY, hero.frame.maxY - 1)
-    XCTAssertTrue(expandedTitle.isHittable)
-    XCTAssertFalse(app.staticTexts["detail.compactTitle"].exists)
-
-    let initialScreenshot = XCTAttachment(screenshot: app.screenshot())
-    initialScreenshot.name = "Recipe detail hero"
-    initialScreenshot.lifetime = .keepAlways
-    add(initialScreenshot)
-
-    for _ in 0..<4 where !app.staticTexts["detail.compactTitle"].exists {
-      app.swipeUp()
-    }
-
-    let compactTitle = app.staticTexts["detail.compactTitle"]
-    XCTAssertTrue(compactTitle.waitForExistence(timeout: 2))
-    XCTAssertEqual(compactTitle.label, fullTitle)
     XCTAssertTrue(app.buttons["detail.edit"].exists)
+    XCTAssertFalse(app.staticTexts["ジャンル"].exists)
 
-    let collapsedScreenshot = XCTAttachment(screenshot: app.screenshot())
-    collapsedScreenshot.name = "Recipe detail collapsed header"
-    collapsedScreenshot.lifetime = .keepAlways
-    add(collapsedScreenshot)
+    let screenshot = XCTAttachment(screenshot: app.screenshot())
+    screenshot.name = "Recipe detail kitchen notebook"
+    screenshot.lifetime = .keepAlways
+    add(screenshot)
   }
 
-  func testRecipeDetailShowsServingsAndStepperOnOneRow() {
+  func testRecipeDetailShowsServingsControlsOnOneRow() {
     let app = launch()
     XCTAssertTrue(app.staticTexts["親子丼"].waitForExistence(timeout: 5))
     app.staticTexts["親子丼"].tap()
 
     let servings = app.staticTexts["detail.servingsValue"]
-    let stepper = app.steppers["detail.servingsStepper"]
+    let minusButton = app.buttons["detail.servingsMinus"]
+    let plusButton = app.buttons["detail.servingsPlus"]
     XCTAssertTrue(servings.waitForExistence(timeout: 3))
     XCTAssertEqual(servings.label, "2人分")
-    XCTAssertTrue(stepper.exists)
-    XCTAssertEqual(servings.frame.midY, stepper.frame.midY, accuracy: 2)
+    XCTAssertTrue(minusButton.exists)
+    XCTAssertTrue(plusButton.exists)
+    XCTAssertEqual(servings.frame.midY, minusButton.frame.midY, accuracy: 4)
+    XCTAssertEqual(servings.frame.midY, plusButton.frame.midY, accuracy: 4)
     XCTAssertFalse(app.staticTexts["人数"].exists)
     XCTAssertFalse(app.staticTexts["表示人数: 2人"].exists)
 
-    XCTAssertEqual(stepper.buttons.count, 2)
-    stepper.buttons.element(boundBy: 1).tap()
+    plusButton.tap()
     expectation(for: NSPredicate(format: "label == %@", "3人分"), evaluatedWith: servings)
     waitForExpectations(timeout: 2)
   }
@@ -153,10 +131,15 @@ import XCTest
   func testLoggedOutAuthenticationAndPasswordReset() {
     let app = launch(arguments: ["-ui-testing-logged-out"])
     XCTAssertTrue(app.buttons["auth.google"].waitForExistence(timeout: 3))
+    XCTAssertTrue(app.buttons["auth.emailContinue"].exists)
+    app.buttons["auth.emailContinue"].tap()
     app.textFields["auth.email"].tap()
     app.textFields["auth.email"].typeText("ui@example.com")
     app.buttons["auth.resetPassword"].tap()
     XCTAssertTrue(app.staticTexts["リセットメールを送信しました。"].waitForExistence(timeout: 3))
+
+    app.navigationBars.buttons.firstMatch.tap()
+    XCTAssertTrue(app.buttons["auth.google"].waitForExistence(timeout: 3))
     app.buttons["auth.google"].tap()
     XCTAssertTrue(app.buttons["home.add"].waitForExistence(timeout: 3))
   }
