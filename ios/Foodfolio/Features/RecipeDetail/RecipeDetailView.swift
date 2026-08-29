@@ -11,12 +11,13 @@ struct RecipeDetailView: View {
 
   var body: some View {
     GeometryReader { geometry in
-      let heroHeight = min(geometry.size.width * 0.72, 320)
+      let heroHeight = min(max(geometry.size.width * 0.72, 260), 320)
 
       ScrollView {
         VStack(spacing: 0) {
           RecipeImageView(recipe: recipe)
             .frame(width: geometry.size.width, height: heroHeight)
+            .clipped()
             .accessibilityIdentifier("detail.heroImage")
 
           VStack(alignment: .leading, spacing: 24) {
@@ -61,6 +62,7 @@ struct RecipeDetailView: View {
           .padding(.horizontal, 20)
           .padding(.top, 18)
           .padding(.bottom, 40)
+          .background(FoodfolioTheme.paper)
         }
       }
       .scrollIndicators(.hidden)
