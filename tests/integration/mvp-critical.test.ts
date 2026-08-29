@@ -17,13 +17,9 @@ const auth: AuthVerifier = {
     return { firebaseUid: token };
   },
 };
-
 const noOpFirebase: FirebaseUserManager = { deleteUser: async () => {} };
 const noOpQueue: AnalysisTaskQueue = { enqueueRecipeAnalysis: async () => {} };
-
-function headers(user: string) {
-  return { authorization: `Bearer ${user}` };
-}
+const headers = (user: string) => ({ authorization: `Bearer ${user}` });
 
 describe("MVP critical API integration", () => {
   let context: PostgresTestContext;
@@ -31,35 +27,20 @@ describe("MVP critical API integration", () => {
   beforeAll(async () => {
     context = await startPostgres();
   }, 120_000);
-
   afterAll(async () => {
     await stopPostgres(context);
   }, 120_000);
 
   it("rejects missing, empty and invalid authentication", async () => {
-    const app = buildApi({
-      prisma: context.prisma,
-      authVerifier: auth,
-      firebaseUsers: noOpFirebase,
-      taskQueue: noOpQueue,
-    });
+    const app = buildApi({ prisma: context.prisma, authVerifier: auth, firebaseUsers: noOpFirebase, taskQueue: noOpQueue });
     expect((await app.inject({ method: "GET", url: "/v1/recipes" })).statusCode).toBe(401);
-    expect(
-      (await app.inject({ method: "GET", url: "/v1/recipes", headers: { authorization: "Bearer " } })).statusCode,
-    ).toBe(401);
-    expect(
-      (await app.inject({ method: "GET", url: "/v1/recipes", headers: headers("invalid") })).statusCode,
-    ).toBe(401);
+    expect((await app.inject({ method: "GET", url: "/v1/recipes", headers: { authorization: "Bearer " } })).statusCode).toBe(401);
+    expect((await app.inject({ method: "GET", url: "/v1/recipes", headers: headers("invalid") })).statusCode).toBe(401);
     await app.close();
   });
 
   it("does not expose another user's recipe through GET, PATCH or DELETE", async () => {
-    const app = buildApi({
-      prisma: context.prisma,
-      authVerifier: auth,
-      firebaseUsers: noOpFirebase,
-      taskQueue: noOpQueue,
-    });
+    const app = buildApi({ prisma: context.prisma, authVerifier: auth, firebaseUsers: noOpFirebase, taskQueue: noOpQueue });
     const created = await app.inject({
       method: "POST",
       url: "/v1/recipes",
@@ -73,62 +54,37 @@ describe("MVP critical API integration", () => {
       { method: "PATCH" as const, url: `/v1/recipes/${id}`, payload: { title: "stolen" } },
       { method: "DELETE" as const, url: `/v1/recipes/${id}` },
     ]) {
-      const response = await app.inject({ ...request, headers: headers("other-user") });
-      expect(response.statusCode).toBe(404);
+      expect((await app.inject({ ...request, headers: headers("other-user") })).statusCode).toBe(404);
     }
     expect((await context.prisma.recipe.findUnique({ where: { id } }))?.title).not.toBe("stolen");
     await app.close();
   });
 
   it("blocks edits while analysis is pending or processing and allows completed or failed", async () => {
-    const app = buildApi({
-      prisma: context.prisma,
-      authVerifier: auth,
-      firebaseUsers: noOpFirebase,
-      taskQueue: noOpQueue,
-    });
+    const app = buildApi({ prisma: context.prisma, authVerifier: auth, firebaseUsers: noOpFirebase, taskQueue: noOpQueue });
     const userHeaders = headers("analysis-state-user");
     for (const [status, expected] of [
-      ["pending", 409],
-      ["processing", 409],
-      ["completed", 200],
-      ["failed", 200],
+      ["pending", 409], ["processing", 409], ["completed", 200], ["failed", 200],
     ] as const) {
       const created = await app.inject({
-        method: "POST",
-        url: "/v1/recipes",
-        headers: userHeaders,
+        method: "POST", url: "/v1/recipes", headers: userHeaders,
         payload: { url: `https://example.com/state-${status}` },
       });
       const id = created.json().id as string;
       await context.prisma.recipe.update({ where: { id }, data: { analysisStatus: status } });
-      const response = await app.inject({
-        method: "PATCH",
-        url: `/v1/recipes/${id}`,
-        headers: userHeaders,
+      expect((await app.inject({
+        method: "PATCH", url: `/v1/recipes/${id}`, headers: userHeaders,
         payload: { title: `${status}-edited` },
-      });
-      expect(response.statusCode).toBe(expected);
+      })).statusCode).toBe(expected);
     }
     await app.close();
   });
 
   it("keeps a saved recipe when task enqueue fails", async () => {
-    const taskQueue: AnalysisTaskQueue = {
-      enqueueRecipeAnalysis: async () => {
-        throw new Error("queue unavailable");
-      },
-    };
-    const app = buildApi({
-      prisma: context.prisma,
-      authVerifier: auth,
-      firebaseUsers: noOpFirebase,
-      taskQueue,
-    });
+    const taskQueue: AnalysisTaskQueue = { enqueueRecipeAnalysis: async () => { throw new Error("queue unavailable"); } };
+    const app = buildApi({ prisma: context.prisma, authVerifier: auth, firebaseUsers: noOpFirebase, taskQueue });
     const response = await app.inject({
-      method: "POST",
-      url: "/v1/recipes",
-      headers: headers("enqueue-user"),
+      method: "POST", url: "/v1/recipes", headers: headers("enqueue-user"),
       payload: { url: "https://example.com/queue-failure" },
     });
     expect(response.statusCode).toBe(201);
@@ -146,12 +102,7 @@ describe("MVP critical API integration", () => {
         if (firebaseCalls === 1) throw Object.assign(new Error("temporary"), { code: "auth/internal-error" });
       },
     };
-    const app = buildApi({
-      prisma: context.prisma,
-      authVerifier: auth,
-      firebaseUsers,
-      taskQueue: noOpQueue,
-    });
+    const app = buildApi({ prisma: context.prisma, authVerifier: auth, firebaseUsers, taskQueue: noOpQueue });
     const userHeaders = headers("cascade-delete-user");
     await app.inject({ method: "GET", url: "/v1/settings", headers: userHeaders });
     const user = await context.prisma.user.findUniqueOrThrow({ where: { firebaseUid: "cascade-delete-user" } });
@@ -186,34 +137,25 @@ describe("MVP critical API integration", () => {
   });
 
   it("keeps sync cursor ordering stable when recipes share updatedAt and rejects malformed cursors", async () => {
-    const app = buildApi({
-      prisma: context.prisma,
-      authVerifier: auth,
-      firebaseUsers: noOpFirebase,
-      taskQueue: noOpQueue,
-    });
+    const app = buildApi({ prisma: context.prisma, authVerifier: auth, firebaseUsers: noOpFirebase, taskQueue: noOpQueue });
     const userHeaders = headers("sync-boundary-user");
     await app.inject({ method: "GET", url: "/v1/settings", headers: userHeaders });
     const user = await context.prisma.user.findUniqueOrThrow({ where: { firebaseUid: "sync-boundary-user" } });
     const timestamp = new Date("2026-08-29T01:00:00.000Z");
-    const rows = await Promise.all(
-      ["a", "b"].map((suffix) => context.prisma.recipe.create({
-        data: {
-          userId: user.id,
-          originalUrl: `https://example.com/sync-${suffix}`,
-          normalizedUrl: `https://example.com/sync-${suffix}`,
-          sourceType: "web",
-          updatedAt: timestamp,
-        },
-      })),
-    );
+    const rows = await Promise.all(["a", "b"].map((suffix) => context.prisma.recipe.create({
+      data: {
+        userId: user.id,
+        originalUrl: `https://example.com/sync-${suffix}`,
+        normalizedUrl: `https://example.com/sync-${suffix}`,
+        sourceType: "web",
+        updatedAt: timestamp,
+      },
+    })));
     const sync = await app.inject({ method: "GET", url: "/v1/sync", headers: userHeaders });
     expect(sync.statusCode).toBe(200);
     const syncedIDs = new Set(sync.json().recipes.map((recipe: { id: string }) => recipe.id));
     expect(rows.every((row) => syncedIDs.has(row.id))).toBe(true);
-
-    const malformed = await app.inject({ method: "GET", url: "/v1/sync?cursor=not-a-cursor", headers: userHeaders });
-    expect(malformed.statusCode).toBe(500);
+    expect((await app.inject({ method: "GET", url: "/v1/sync?cursor=not-a-cursor", headers: userHeaders })).statusCode).toBe(400);
 
     const nextRecipe = await context.prisma.recipe.create({
       data: {
@@ -233,17 +175,10 @@ describe("MVP critical API integration", () => {
   });
 
   it("covers validation boundaries for title, genre, ingredients and tag names", async () => {
-    const app = buildApi({
-      prisma: context.prisma,
-      authVerifier: auth,
-      firebaseUsers: noOpFirebase,
-      taskQueue: noOpQueue,
-    });
+    const app = buildApi({ prisma: context.prisma, authVerifier: auth, firebaseUsers: noOpFirebase, taskQueue: noOpQueue });
     const userHeaders = headers("validation-user");
     const created = await app.inject({
-      method: "POST",
-      url: "/v1/recipes",
-      headers: userHeaders,
+      method: "POST", url: "/v1/recipes", headers: userHeaders,
       payload: { url: "https://example.com/validation" },
     });
     const id = created.json().id as string;
@@ -260,12 +195,7 @@ describe("MVP critical API integration", () => {
   });
 
   it("moves a device token to the latest user and prevents the previous user from deleting it", async () => {
-    const app = buildApi({
-      prisma: context.prisma,
-      authVerifier: auth,
-      firebaseUsers: noOpFirebase,
-      taskQueue: noOpQueue,
-    });
+    const app = buildApi({ prisma: context.prisma, authVerifier: auth, firebaseUsers: noOpFirebase, taskQueue: noOpQueue });
     const token = "shared-device-token";
     expect((await app.inject({ method: "PUT", url: "/v1/device-token", headers: headers("token-user-a"), payload: { token } })).statusCode).toBe(204);
     expect((await app.inject({ method: "PUT", url: "/v1/device-token", headers: headers("token-user-b"), payload: { token } })).statusCode).toBe(204);
