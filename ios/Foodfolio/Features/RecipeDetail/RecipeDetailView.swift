@@ -196,7 +196,6 @@ struct RecipeDetailView: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .glassEffect(.regular, in: Capsule())
-        .accessibilityIdentifier("detail.servingsControl")
       } else {
         Text(raw)
           .font(.subheadline.weight(.semibold))
@@ -220,6 +219,7 @@ struct RecipeDetailView: View {
           Text(servingsText(raw: raw))
             .font(.subheadline)
             .foregroundStyle(FoodfolioTheme.secondaryInk)
+            .accessibilityIdentifier("detail.materialsServingsValue")
         }
       }
 
@@ -306,9 +306,7 @@ struct RecipeDetailView: View {
   }
 
   private func servingsText(raw: String) -> String {
-    guard let base = recipe.servingsValue, let displayServings else { return raw }
-    guard displayServings != base else { return raw }
-    return "\(displayServings.formatted(.number.precision(.fractionLength(0...2))))人分"
+    ServingDisplayFormatter.text(value: displayServings ?? recipe.servingsValue, raw: raw)
   }
 
   private func scaledAmount(_ amount: String?) -> String? {
