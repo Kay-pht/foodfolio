@@ -8,6 +8,7 @@ struct RecipeSearchView: View {
   @State private var genre: RecipeGenre?
   @State private var tagID: String?
   @State private var results: [LocalRecipe] = []
+  @State private var historyRevision = 0
 
   private let columns = [
     GridItem(.flexible(), spacing: 12),
@@ -98,42 +99,62 @@ struct RecipeSearchView: View {
   }
 
   private var historySection: some View {
-    VStack(alignment: .leading, spacing: 4) {
+    let values = session.history.values
+    let _ = historyRevision
+
+    return VStack(alignment: .leading, spacing: 4) {
       HStack {
         Text("最近の検索")
           .font(.title3.bold())
           .foregroundStyle(FoodfolioTheme.ink)
         Spacer()
-        if !session.history.values.isEmpty {
-          Button("すべて削除", role: .destructive) { session.history.removeAll() }
-            .font(.subheadline)
+        if !values.isEmpty {
+          Button("すべて削除", role: .destructive) {
+            session.history.removeAll()
+            historyRevision += 1
+          }
+          .font(.subheadline)
         }
       }
       .padding(.bottom, 6)
 
-      if session.history.values.isEmpty {
+      if values.isEmpty {
         Text("検索した料理名や材料がここに残ります。")
           .font(.subheadline)
           .foregroundStyle(FoodfolioTheme.secondaryInk)
           .padding(.vertical, 12)
       } else {
-        ForEach(session.history.values, id: \.self) { value in
-          Button {
-            query = value
-          } label: {
-            HStack(spacing: 12) {
-              Image(systemName: "clock.arrow.circlepath")
-                .foregroundStyle(FoodfolioTheme.sage)
-              Text(value)
-                .foregroundStyle(FoodfolioTheme.ink)
-              Spacer()
-              Image(systemName: "arrow.up.left")
-                .font(.caption)
-                .foregroundStyle(FoodfolioTheme.secondaryInk)
+        ForEach(values, id: \.self) { value in
+          HStack(spacing: 12) {
+            Button {
+              query = value
+            } label: {
+              HStack(spacing: 12) {
+                Image(systemName: "clock.arrow.circlepath")
+                  .foregroundStyle(FoodfolioTheme.sage)
+                Text(value)
+                  .foregroundStyle(FoodfolioTheme.ink)
+                Spacer(minLength: 0)
+              }
+              .contentShape(Rectangle())
+              .padding(.vertical, 12)
             }
-            .padding(.vertical, 12)
+            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button(role: .destructive) {
+              session.history.remove(value)
+              historyRevision += 1
+            } label: {
+              Image(systemName: "xmark")
+                .font(.subheadline.weight(.semibold))
+                .frame(width: 36, height: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(value) を検索履歴から削除")
+            .accessibilityIdentifier("search.history.delete.\(value)")
           }
-          .buttonStyle(.plain)
           Divider().overlay(FoodfolioTheme.hairline)
         }
       }
