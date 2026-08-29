@@ -37,7 +37,7 @@ export class RecipeAnalysisService {
       return { retry: false };
 
     const runId = randomUUID();
-    const claimed = await this.claim(recipeId, runId);
+    const claimed = await this.claim(recipeId, runId, attempt);
     if (!claimed) {
       log(
         { recipeId, analysisAttempt: attempt },
@@ -162,13 +162,21 @@ export class RecipeAnalysisService {
     }
   }
 
-  private async claim(recipeId: string, runId: string): Promise<boolean> {
+  private async claim(
+    recipeId: string,
+    runId: string,
+    attempt: number,
+  ): Promise<boolean> {
     return this.deps.prisma.$transaction(async (tx) => {
       const [clock] = await tx.$queryRaw<Array<{ now: Date }>>`
         SELECT clock_timestamp() AS now
       `;
       const now = clock?.now ?? new Date();
       const leaseExpiresAt = new Date(now.getTime() + PROCESSING_LEASE_MS);
+      const processingConditions = [
+        { processingLeaseExpiresAt: { lte: now } },
+        ...(attempt > 1 ? [{ processingLeaseExpiresAt: null }] : []),
+      ];
       const claimed = await tx.recipe.updateMany({
         where: {
           id: recipeId,
@@ -176,7 +184,7 @@ export class RecipeAnalysisService {
             { analysisStatus: "pending" },
             {
               analysisStatus: "processing",
-              processingLeaseExpiresAt: { lte: now },
+              OR: processingConditions,
             },
           ],
         },
