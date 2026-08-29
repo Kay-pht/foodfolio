@@ -55,6 +55,23 @@ import XCTest
     XCTAssertEqual(tagButton.label, "簡単")
   }
 
+  func testSearchHistoryCanDeleteOneEntry() {
+    let app = launch()
+    XCTAssertTrue(app.buttons["home.search"].waitForExistence(timeout: 5))
+    app.buttons["home.search"].tap()
+
+    let queryField = app.textFields["search.query"]
+    queryField.tap()
+    queryField.typeText("履歴削除テスト\n")
+    app.buttons["検索語を消去"].tap()
+
+    let deleteButton = app.buttons["search.history.delete.履歴削除テスト"]
+    XCTAssertTrue(deleteButton.waitForExistence(timeout: 3))
+    deleteButton.tap()
+    expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: deleteButton)
+    waitForExpectations(timeout: 3)
+  }
+
   func testRecipeDetailUsesCompactTitleAndContentLayout() {
     let fullTitle = "親子丼 フライパンひとつで作れるとろとろ卵の簡単レシピ"
     let app = launch(arguments: ["-ui-testing-long-title"])
@@ -114,39 +131,46 @@ import XCTest
     XCTAssertTrue(app.switches["settings.analysisNotification"].waitForExistence(timeout: 3))
   }
 
-  func testDrawerKeepsHomeHeaderVerticalPositionStable() {
+  func testDrawerKeepsSearchBarVerticalPositionStableAndOmitsIntroCopy() {
     let app = launch()
-    let heading = app.staticTexts["わたしのレシピ"]
+    let searchButton = app.buttons["home.search"]
     let drawerButton = app.buttons["home.drawer"]
     let settingsButton = app.buttons["drawer.settings"]
 
-    XCTAssertTrue(heading.waitForExistence(timeout: 3))
+    XCTAssertTrue(searchButton.waitForExistence(timeout: 3))
     XCTAssertTrue(drawerButton.waitForExistence(timeout: 3))
-    let initialMinY = heading.frame.minY
+    XCTAssertFalse(app.staticTexts["わたしのレシピ"].exists)
+    XCTAssertFalse(app.staticTexts["いつもの味を、ここに。"].exists)
+    let initialMinY = searchButton.frame.minY
 
     drawerButton.tap()
     XCTAssertTrue(settingsButton.waitForExistence(timeout: 3))
-    XCTAssertEqual(heading.frame.minY, initialMinY, accuracy: 2)
+    XCTAssertEqual(searchButton.frame.minY, initialMinY, accuracy: 2)
 
     app.buttons["閉じる"].tap()
     expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: settingsButton)
     waitForExpectations(timeout: 3)
-    XCTAssertEqual(heading.frame.minY, initialMinY, accuracy: 2)
+    XCTAssertEqual(searchButton.frame.minY, initialMinY, accuracy: 2)
   }
 
-  func testBrandTitleIsBesideDrawerIcon() {
+  func testBrandTitleIsBesideDrawerIconAndOpensDrawer() {
     let app = launch()
     let drawerIcon = app.buttons["home.drawer"]
-    let brandTitle = app.staticTexts["home.brandTitle"]
+    let brandButton = app.buttons["home.brandTitle"]
 
     XCTAssertTrue(drawerIcon.waitForExistence(timeout: 3))
-    XCTAssertTrue(brandTitle.waitForExistence(timeout: 3))
-    XCTAssertEqual(brandTitle.label, "foodfolio")
-    XCTAssertTrue(brandTitle.isHittable)
-    XCTAssertGreaterThanOrEqual(brandTitle.frame.minX, drawerIcon.frame.maxX)
-    XCTAssertLessThanOrEqual(brandTitle.frame.maxX, app.frame.maxX)
-    XCTAssertGreaterThan(brandTitle.frame.width, 55)
-    XCTAssertEqual(brandTitle.frame.midY, drawerIcon.frame.midY, accuracy: 2)
+    XCTAssertTrue(brandButton.waitForExistence(timeout: 3))
+    XCTAssertTrue(brandButton.label.contains("foodfolio"))
+    XCTAssertTrue(brandButton.isHittable)
+    let gap = brandButton.frame.minX - drawerIcon.frame.maxX
+    XCTAssertGreaterThanOrEqual(gap, 0)
+    XCTAssertLessThanOrEqual(gap, 10)
+    XCTAssertLessThanOrEqual(brandButton.frame.maxX, app.frame.maxX)
+    XCTAssertGreaterThan(brandButton.frame.width, 55)
+    XCTAssertEqual(brandButton.frame.midY, drawerIcon.frame.midY, accuracy: 2)
+
+    brandButton.tap()
+    XCTAssertTrue(app.buttons["drawer.settings"].waitForExistence(timeout: 3))
   }
 
   func testLoggedOutAuthenticationAndPasswordReset() {
@@ -218,6 +242,22 @@ import XCTest
     XCTAssertFalse(app.staticTexts["追加したレシピ 更新"].waitForExistence(timeout: 2))
   }
 
+  func testAccountDeletionRequiresConfirmation() {
+    let app = launch()
+    app.buttons["home.drawer"].tap()
+    app.buttons["drawer.account"].tap()
+    XCTAssertTrue(app.buttons["account.delete"].waitForExistence(timeout: 3))
+
+    app.buttons["account.delete"].tap()
+    let deleteAlert = app.alerts["アカウント削除"]
+    XCTAssertTrue(deleteAlert.waitForExistence(timeout: 2))
+    XCTAssertTrue(deleteAlert.staticTexts["アカウントとすべてのデータを完全に削除しますか？"].exists)
+    XCTAssertTrue(deleteAlert.buttons["完全に削除"].exists)
+    XCTAssertTrue(deleteAlert.buttons["キャンセル"].exists)
+    deleteAlert.buttons["キャンセル"].tap()
+    XCTAssertTrue(app.staticTexts["account.email"].exists)
+  }
+
   func testNotificationToggleAndLogout() {
     let app = launch()
     app.buttons["home.drawer"].tap()
@@ -239,7 +279,18 @@ import XCTest
     XCTAssertEqual(app.staticTexts["account.email"].label, "ui@example.com")
     XCTAssertFalse(app.staticTexts["password"].exists)
     XCTAssertTrue(app.buttons["account.logout"].waitForExistence(timeout: 3))
+
     app.buttons["account.logout"].tap()
+    let logoutAlert = app.alerts["ログアウト"]
+    XCTAssertTrue(logoutAlert.waitForExistence(timeout: 2))
+    XCTAssertTrue(logoutAlert.staticTexts["ログアウトしますか？"].exists)
+    XCTAssertTrue(logoutAlert.buttons["ログアウト"].exists)
+    XCTAssertTrue(logoutAlert.buttons["キャンセル"].exists)
+    logoutAlert.buttons["キャンセル"].tap()
+    XCTAssertTrue(app.staticTexts["account.email"].exists)
+
+    app.buttons["account.logout"].tap()
+    app.alerts["ログアウト"].buttons["ログアウト"].tap()
     XCTAssertTrue(app.buttons["auth.google"].waitForExistence(timeout: 3))
   }
 }
