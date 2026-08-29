@@ -45,7 +45,7 @@ struct RecipeSearchView: View {
               .padding(.top, 56)
           } else {
             Text("検索結果")
-              .font(.title3.bold())
+              .font(.title3.weight(.semibold))
               .foregroundStyle(FoodfolioTheme.ink)
 
             LazyVGrid(columns: columns, spacing: 20) {
@@ -94,8 +94,14 @@ struct RecipeSearchView: View {
     }
     .padding(.horizontal, 14)
     .frame(minHeight: 50)
-    .glassEffect(
-      .regular, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    .background(
+      FoodfolioTheme.surface.opacity(0.94),
+      in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+    )
+    .overlay {
+      RoundedRectangle(cornerRadius: 16, style: .continuous)
+        .stroke(FoodfolioTheme.hairline, lineWidth: 1)
+    }
   }
 
   private var historySection: some View {
@@ -105,7 +111,7 @@ struct RecipeSearchView: View {
     return VStack(alignment: .leading, spacing: 4) {
       HStack {
         Text("最近の検索")
-          .font(.title3.bold())
+          .font(.title3.weight(.semibold))
           .foregroundStyle(FoodfolioTheme.ink)
         Spacer()
         if !values.isEmpty {
@@ -216,7 +222,11 @@ private struct SearchFilterMenu<Option: Hashable>: View {
       .foregroundStyle(selection == nil ? FoodfolioTheme.secondaryInk : FoodfolioTheme.ink)
       .padding(.horizontal, 14)
       .frame(maxWidth: .infinity, minHeight: 44)
-      .glassEffect(.regular.interactive(), in: Capsule())
+      .background(FoodfolioTheme.surface.opacity(0.94), in: Capsule())
+      .overlay {
+        Capsule()
+          .stroke(FoodfolioTheme.hairline, lineWidth: 1)
+      }
     }
     .accessibilityLabel(selectedTitle)
     .accessibilityIdentifier(accessibilityIdentifier)
