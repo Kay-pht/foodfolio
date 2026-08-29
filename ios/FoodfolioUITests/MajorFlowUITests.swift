@@ -131,24 +131,26 @@ import XCTest
     XCTAssertTrue(app.switches["settings.analysisNotification"].waitForExistence(timeout: 3))
   }
 
-  func testDrawerKeepsHomeHeaderVerticalPositionStable() {
+  func testDrawerKeepsSearchBarVerticalPositionStableAndOmitsIntroCopy() {
     let app = launch()
-    let heading = app.staticTexts["わたしのレシピ"]
+    let searchButton = app.buttons["home.search"]
     let drawerButton = app.buttons["home.drawer"]
     let settingsButton = app.buttons["drawer.settings"]
 
-    XCTAssertTrue(heading.waitForExistence(timeout: 3))
+    XCTAssertTrue(searchButton.waitForExistence(timeout: 3))
     XCTAssertTrue(drawerButton.waitForExistence(timeout: 3))
-    let initialMinY = heading.frame.minY
+    XCTAssertFalse(app.staticTexts["わたしのレシピ"].exists)
+    XCTAssertFalse(app.staticTexts["いつもの味を、ここに。"].exists)
+    let initialMinY = searchButton.frame.minY
 
     drawerButton.tap()
     XCTAssertTrue(settingsButton.waitForExistence(timeout: 3))
-    XCTAssertEqual(heading.frame.minY, initialMinY, accuracy: 2)
+    XCTAssertEqual(searchButton.frame.minY, initialMinY, accuracy: 2)
 
     app.buttons["閉じる"].tap()
     expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: settingsButton)
     waitForExpectations(timeout: 3)
-    XCTAssertEqual(heading.frame.minY, initialMinY, accuracy: 2)
+    XCTAssertEqual(searchButton.frame.minY, initialMinY, accuracy: 2)
   }
 
   func testBrandTitleIsBesideDrawerIconAndOpensDrawer() {
@@ -160,7 +162,9 @@ import XCTest
     XCTAssertTrue(brandButton.waitForExistence(timeout: 3))
     XCTAssertTrue(brandButton.label.contains("foodfolio"))
     XCTAssertTrue(brandButton.isHittable)
-    XCTAssertGreaterThanOrEqual(brandButton.frame.minX, drawerIcon.frame.maxX)
+    let gap = brandButton.frame.minX - drawerIcon.frame.maxX
+    XCTAssertGreaterThanOrEqual(gap, 0)
+    XCTAssertLessThanOrEqual(gap, 10)
     XCTAssertLessThanOrEqual(brandButton.frame.maxX, app.frame.maxX)
     XCTAssertGreaterThan(brandButton.frame.width, 55)
     XCTAssertEqual(brandButton.frame.midY, drawerIcon.frame.midY, accuracy: 2)
