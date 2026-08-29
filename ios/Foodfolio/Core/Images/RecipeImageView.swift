@@ -11,8 +11,10 @@ struct RecipeImageView: View {
       if let image {
         Image(uiImage: image).resizable().scaledToFill()
       } else {
-        Rectangle().fill(.quaternary).overlay {
-          Image(systemName: "fork.knife").font(.largeTitle).foregroundStyle(.secondary)
+        Rectangle().fill(FoodfolioTheme.paper).overlay {
+          Image(systemName: "fork.knife")
+            .font(.largeTitle)
+            .foregroundStyle(FoodfolioTheme.sage)
         }
       }
     }
