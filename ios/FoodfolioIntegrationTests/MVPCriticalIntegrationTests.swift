@@ -96,7 +96,7 @@ import XCTest
       try await images.store(Data(id.utf8), recipeID: id)
     }
 
-    try await repository.removeLocalRecipes(notIn: ["keep"])
+    try await repository.removeLocalRecipes(notIn: Set(["keep"]))
     XCTAssertNotNil(try repository.recipe(id: "keep"))
     XCTAssertNil(try repository.recipe(id: "remove"))
     XCTAssertNotNil(await images.data(for: "keep"))
