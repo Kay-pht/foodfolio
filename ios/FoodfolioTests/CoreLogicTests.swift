@@ -31,6 +31,18 @@ final class CoreLogicTests: XCTestCase {
     XCTAssertEqual(AmountScaler.scale("1/2個", multiplier: 1.0 / 3.0), "1/6個")
   }
 
+  func testServingDisplayFormatterUsesJapaneseUnitForNumericServings() {
+    XCTAssertEqual(ServingDisplayFormatter.text(value: 2, raw: "2 servings"), "2人分")
+    XCTAssertEqual(ServingDisplayFormatter.text(value: 2, raw: "2人前"), "2人分")
+    XCTAssertEqual(ServingDisplayFormatter.text(value: 1.5, raw: "1.5 servings"), "1.5人分")
+  }
+
+  func testServingDisplayFormatterNormalizesRecognizedRawUnitsOnly() {
+    XCTAssertEqual(ServingDisplayFormatter.text(value: nil, raw: "1〜2人前"), "1〜2人分")
+    XCTAssertEqual(ServingDisplayFormatter.text(value: nil, raw: "2〜3 servings"), "2〜3人分")
+    XCTAssertEqual(ServingDisplayFormatter.text(value: nil, raw: "6個分"), "6個分")
+  }
+
   func testSearchHistoryDeduplicatesAndCapsAtTen() {
     let defaults = UserDefaults(suiteName: UUID().uuidString)!
     let store = SearchHistoryStore(defaults: defaults, key: "test")

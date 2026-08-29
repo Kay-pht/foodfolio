@@ -106,10 +106,13 @@ import XCTest
     app.staticTexts["親子丼"].tap()
 
     let servings = app.staticTexts["detail.servingsValue"]
+    let materialsServings = app.staticTexts["detail.materialsServingsValue"]
     let minusButton = app.buttons["detail.servingsMinus"]
     let plusButton = app.buttons["detail.servingsPlus"]
     XCTAssertTrue(servings.waitForExistence(timeout: 3))
+    XCTAssertTrue(materialsServings.exists)
     XCTAssertEqual(servings.label, "2人分")
+    XCTAssertEqual(materialsServings.label, "2人分")
     XCTAssertTrue(minusButton.exists)
     XCTAssertTrue(plusButton.exists)
     XCTAssertEqual(servings.frame.midY, minusButton.frame.midY, accuracy: 4)
@@ -119,6 +122,8 @@ import XCTest
 
     plusButton.tap()
     expectation(for: NSPredicate(format: "label == %@", "3人分"), evaluatedWith: servings)
+    expectation(
+      for: NSPredicate(format: "label == %@", "3人分"), evaluatedWith: materialsServings)
     waitForExpectations(timeout: 2)
   }
 
