@@ -1,5 +1,21 @@
 import Foundation
 
+enum ServingDisplayFormatter {
+  static func text(value: Double?, raw: String) -> String {
+    if let value, value > 0 {
+      return "\(value.formatted(.number.precision(.fractionLength(0...2))))人分"
+    }
+
+    let pattern = #"^\s*(.+?)\s*(?:人前|人分|servings?)\s*$"#
+    guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+      let match = regex.firstMatch(
+        in: raw, range: NSRange(raw.startIndex..., in: raw)),
+      let amountRange = Range(match.range(at: 1), in: raw)
+    else { return raw }
+    return "\(raw[amountRange].trimmingCharacters(in: .whitespacesAndNewlines))人分"
+  }
+}
+
 enum AmountScaler {
   static func scale(_ amount: String?, multiplier: Double) -> String? {
     guard let amount, multiplier > 0 else { return amount }
