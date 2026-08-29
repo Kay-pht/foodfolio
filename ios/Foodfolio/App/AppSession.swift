@@ -80,17 +80,35 @@ import SwiftData
 
   private func seedUITestData(context: ModelContext) {
     guard (try? repository.allRecipes().isEmpty) == true else { return }
+    let arguments = ProcessInfo.processInfo.arguments
     let title =
-      ProcessInfo.processInfo.arguments.contains("-ui-testing-long-title")
+      arguments.contains("-ui-testing-long-title")
       ? "親子丼 フライパンひとつで作れるとろとろ卵の簡単レシピ"
       : "親子丼"
+    let servings: (Double?, String?) =
+      arguments.contains("-ui-testing-no-servings")
+      ? (nil, nil)
+      : arguments.contains("-ui-testing-range-servings")
+        ? (nil, "1〜2人分")
+        : arguments.contains("-ui-testing-one-serving")
+          ? (1, "1人分")
+          : arguments.contains("-ui-testing-twenty-servings")
+            ? (20, "20人分")
+            : (2, "2人分")
+    let status: RecipeAnalysisStatus =
+      arguments.contains("-ui-testing-status-pending")
+      ? .pending
+      : arguments.contains("-ui-testing-status-processing")
+        ? .processing
+        : arguments.contains("-ui-testing-status-failed") ? .failed : .completed
     let recipe = LocalRecipe(
       id: "ui-recipe", originalUrl: "https://example.com/oyakodon", sourceType: "web", title: title,
-      servingsValue: 2, servingsRaw: "2人分", cookingTimeMinutes: 20, genreRaw: "主菜",
-      analysisStatus: .completed, createdAt: Date(), updatedAt: Date(),
+      servingsValue: servings.0, servingsRaw: servings.1, cookingTimeMinutes: 20, genreRaw: "主菜",
+      analysisStatus: status, createdAt: Date(), updatedAt: Date(),
       ingredients: [
         LocalIngredient(id: "ui-ingredient", name: "鶏もも肉", amount: "200g", sortOrder: 0),
         LocalIngredient(id: "ui-fraction-ingredient", name: "玉ねぎ", amount: "1/2個", sortOrder: 1),
+        LocalIngredient(id: "ui-nonnumeric-ingredient", name: "塩", amount: "少々", sortOrder: 2),
       ], steps: [LocalRecipeStep(id: "ui-step", text: "材料を煮る", sortOrder: 0)],
       tags: [LocalTag(id: "ui-tag", name: "簡単", createdAt: Date())])
     context.insert(recipe)
