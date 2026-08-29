@@ -23,11 +23,15 @@ struct AuthView: View {
                 .font(.system(size: 64, weight: .medium))
                 .foregroundStyle(FoodfolioTheme.terracotta)
                 .frame(width: 92, height: 92)
-                .glassEffect(.regular, in: Circle())
+                .background(FoodfolioTheme.surface.opacity(0.94), in: Circle())
+                .overlay {
+                  Circle()
+                    .stroke(FoodfolioTheme.hairline, lineWidth: 1)
+                }
 
               VStack(spacing: 8) {
                 Text("foodfolio")
-                  .font(.largeTitle.bold())
+                  .font(.largeTitle.weight(.bold))
                   .foregroundStyle(FoodfolioTheme.ink)
                 Text("見つけたレシピを、\nわたしの定番に。")
                   .font(.title3.weight(.medium))
@@ -128,10 +132,10 @@ private struct AuthMethodButtonLabel<Icon: View>: View {
     .foregroundStyle(FoodfolioTheme.ink)
     .frame(maxWidth: .infinity)
     .frame(height: AuthMethodButtonMetrics.height)
-    .background(Color.white, in: Capsule())
+    .background(FoodfolioTheme.surface.opacity(0.96), in: Capsule())
     .overlay {
       Capsule()
-        .stroke(FoodfolioTheme.ink.opacity(0.58), lineWidth: 1)
+        .stroke(FoodfolioTheme.hairline, lineWidth: 1)
     }
     .contentShape(Capsule())
   }
@@ -153,7 +157,7 @@ private struct EmailAuthView: View {
         VStack(alignment: .leading, spacing: 18) {
           VStack(alignment: .leading, spacing: 6) {
             Text(isSignUp ? "アカウントを作成" : "おかえりなさい")
-              .font(.title.bold())
+              .font(.title.weight(.semibold))
               .foregroundStyle(FoodfolioTheme.ink)
             Text(isSignUp ? "メールアドレスでFoodfolioを始めます。" : "メールアドレスで続けます。")
               .font(.subheadline)
@@ -240,9 +244,14 @@ private struct EmailAuthView: View {
     }
     .padding(.horizontal, 14)
     .frame(minHeight: 52)
-    .glassEffect(
-      .regular, in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+    .background(
+      FoodfolioTheme.surface.opacity(0.94),
+      in: RoundedRectangle(cornerRadius: 16, style: .continuous)
     )
+    .overlay {
+      RoundedRectangle(cornerRadius: 16, style: .continuous)
+        .stroke(FoodfolioTheme.hairline, lineWidth: 1)
+    }
   }
 
   private func run(refresh: Bool = true, _ action: @escaping () async throws -> Void) {
