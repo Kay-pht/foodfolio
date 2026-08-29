@@ -11,7 +11,7 @@ struct RecipeDetailView: View {
 
   var body: some View {
     GeometryReader { geometry in
-      let heroHeight = min(max(geometry.size.width * 0.72, 260), 320)
+      let heroHeight = min(max(geometry.size.width * 0.82, 300), 360)
 
       ScrollView {
         VStack(spacing: 0) {
