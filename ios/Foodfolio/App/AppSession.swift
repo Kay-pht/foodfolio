@@ -86,7 +86,7 @@ import SwiftData
       : "親子丼"
     let recipe = LocalRecipe(
       id: "ui-recipe", originalUrl: "https://example.com/oyakodon", sourceType: "web", title: title,
-      servingsValue: 2, servingsRaw: "2人分", cookingTimeMinutes: 20, genreRaw: "主菜",
+      servingsValue: 2, servingsRaw: "2 servings", cookingTimeMinutes: 20, genreRaw: "主菜",
       analysisStatus: .completed, createdAt: Date(), updatedAt: Date(),
       ingredients: [
         LocalIngredient(id: "ui-ingredient", name: "鶏もも肉", amount: "200g", sortOrder: 0),
