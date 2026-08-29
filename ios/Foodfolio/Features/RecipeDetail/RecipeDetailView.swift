@@ -20,7 +20,7 @@ struct RecipeDetailView: View {
             .clipped()
             .accessibilityIdentifier("detail.heroImage")
 
-          VStack(alignment: .leading, spacing: 24) {
+          VStack(alignment: .leading, spacing: 22) {
             summarySection
 
             if recipe.analysisStatus == .failed {
@@ -62,7 +62,12 @@ struct RecipeDetailView: View {
           .padding(.horizontal, 20)
           .padding(.top, 18)
           .padding(.bottom, 40)
-          .background(FoodfolioTheme.paper)
+          .background(
+            FoodfolioTheme.paper,
+            in: RoundedRectangle(cornerRadius: 28, style: .continuous)
+          )
+          .offset(y: -22)
+          .padding(.bottom, -22)
         }
       }
       .scrollIndicators(.hidden)
@@ -75,7 +80,7 @@ struct RecipeDetailView: View {
     .toolbar {
       ToolbarItem(placement: .principal) {
         Text(recipe.title)
-          .font(.headline)
+          .font(.headline.weight(.semibold))
           .lineLimit(1)
           .truncationMode(.tail)
           .accessibilityIdentifier("detail.title")
@@ -103,7 +108,7 @@ struct RecipeDetailView: View {
   }
 
   private var summarySection: some View {
-    VStack(alignment: .leading, spacing: 14) {
+    VStack(alignment: .leading, spacing: 12) {
       HStack(spacing: 10) {
         if let genre = recipe.genre {
           Text(genre.rawValue)
@@ -111,13 +116,13 @@ struct RecipeDetailView: View {
             .foregroundStyle(genre.badgeTint)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(genre.badgeTint.opacity(0.14), in: Capsule())
+            .background(genre.badgeTint.opacity(0.12), in: Capsule())
             .accessibilityIdentifier("detail.genreBadge")
         }
 
         if let minutes = recipe.cookingTimeMinutes {
           Label("\(minutes)分", systemImage: "clock")
-            .font(.caption.weight(.semibold))
+            .font(.caption.weight(.medium))
             .foregroundStyle(FoodfolioTheme.secondaryInk)
         }
 
@@ -128,18 +133,13 @@ struct RecipeDetailView: View {
 
       ScrollView(.horizontal) {
         HStack(spacing: 8) {
-          Text("タグ")
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(FoodfolioTheme.secondaryInk)
-            .accessibilityIdentifier("detail.tagHeading")
-
-          ForEach(Array(recipe.tags.enumerated()), id: \.element.id) { index, tag in
+          ForEach(recipe.tags) { tag in
             Text("#\(tag.name)")
               .font(.subheadline.weight(.medium))
               .foregroundStyle(FoodfolioTheme.ink)
               .padding(.horizontal, 10)
               .padding(.vertical, 6)
-              .background(tagBackground(index: index), in: Capsule())
+              .background(FoodfolioTheme.sage.opacity(0.14), in: Capsule())
           }
 
           Button {
@@ -148,7 +148,11 @@ struct RecipeDetailView: View {
             Image(systemName: "plus")
               .font(.caption.bold())
               .frame(width: 30, height: 30)
-              .glassEffect(.clear.interactive(), in: Circle())
+              .background(FoodfolioTheme.surface.opacity(0.94), in: Circle())
+              .overlay {
+                Circle()
+                  .stroke(FoodfolioTheme.hairline, lineWidth: 1)
+              }
           }
           .buttonStyle(.plain)
           .accessibilityLabel("タグを追加")
@@ -156,6 +160,7 @@ struct RecipeDetailView: View {
         }
       }
       .scrollIndicators(.hidden)
+      .accessibilityIdentifier("detail.tagHeading")
     }
   }
 
@@ -195,24 +200,32 @@ struct RecipeDetailView: View {
         .foregroundStyle(FoodfolioTheme.ink)
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .glassEffect(.regular, in: Capsule())
+        .background(FoodfolioTheme.surface.opacity(0.94), in: Capsule())
+        .overlay {
+          Capsule()
+            .stroke(FoodfolioTheme.hairline, lineWidth: 1)
+        }
       } else {
         Text(raw)
           .font(.subheadline.weight(.semibold))
           .foregroundStyle(FoodfolioTheme.ink)
           .padding(.horizontal, 12)
           .padding(.vertical, 8)
-          .glassEffect(.regular, in: Capsule())
+          .background(FoodfolioTheme.surface.opacity(0.94), in: Capsule())
+          .overlay {
+            Capsule()
+              .stroke(FoodfolioTheme.hairline, lineWidth: 1)
+          }
           .accessibilityIdentifier("detail.servingsValue")
       }
     }
   }
 
   private var materialsSection: some View {
-    VStack(alignment: .leading, spacing: 12) {
+    VStack(alignment: .leading, spacing: 10) {
       HStack(alignment: .firstTextBaseline) {
         Text("材料")
-          .font(.title2.bold())
+          .font(.title3.weight(.semibold))
           .foregroundStyle(FoodfolioTheme.ink)
         Spacer()
         if let raw = recipe.servingsRaw {
@@ -237,7 +250,7 @@ struct RecipeDetailView: View {
               .multilineTextAlignment(.trailing)
           }
           .font(.body)
-          .padding(.vertical, 12)
+          .padding(.vertical, 11)
 
           if index < recipe.ingredients.count - 1 {
             Divider().overlay(FoodfolioTheme.hairline)
@@ -250,26 +263,25 @@ struct RecipeDetailView: View {
   private var stepsSection: some View {
     VStack(alignment: .leading, spacing: 16) {
       Text("作り方")
-        .font(.title2.bold())
+        .font(.title3.weight(.semibold))
         .foregroundStyle(FoodfolioTheme.ink)
 
-      VStack(alignment: .leading, spacing: 20) {
+      VStack(alignment: .leading, spacing: 22) {
         ForEach(
           Array(recipe.steps.sorted(by: { $0.sortOrder < $1.sortOrder }).enumerated()),
           id: \.element.id
         ) { index, step in
           HStack(alignment: .top, spacing: 14) {
-            Text("\(index + 1)")
-              .font(.subheadline.bold())
+            Text(stepNumber(index))
+              .font(.headline.weight(.medium))
+              .monospacedDigit()
               .foregroundStyle(FoodfolioTheme.terracotta)
-              .frame(width: 32, height: 32)
-              .background(FoodfolioTheme.terracotta.opacity(0.13), in: Circle())
+              .frame(width: 34, alignment: .leading)
 
             Text(step.text)
               .font(.body)
               .foregroundStyle(FoodfolioTheme.ink)
               .fixedSize(horizontal: false, vertical: true)
-              .padding(.top, 4)
           }
         }
       }
@@ -281,23 +293,33 @@ struct RecipeDetailView: View {
       Divider().overlay(FoodfolioTheme.hairline)
 
       Link(destination: URL(string: recipe.originalUrl)!) {
-        Label("元レシピを見る", systemImage: "safari")
-          .font(.body.weight(.semibold))
-          .foregroundStyle(FoodfolioTheme.ink)
-          .frame(maxWidth: .infinity, minHeight: 50)
-          .glassEffect(
-            .regular.interactive(), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        HStack(spacing: 10) {
+          Image(systemName: "safari")
+          Text("元レシピを見る")
+          Spacer(minLength: 0)
+          Image(systemName: "arrow.up.right")
+            .font(.subheadline.weight(.semibold))
+        }
+        .font(.body.weight(.semibold))
+        .foregroundStyle(FoodfolioTheme.ink)
+        .padding(.horizontal, 16)
+        .frame(maxWidth: .infinity, minHeight: 50)
+        .background(
+          FoodfolioTheme.surface.opacity(0.94),
+          in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+        )
+        .overlay {
+          RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .stroke(FoodfolioTheme.hairline, lineWidth: 1)
+        }
       }
       .accessibilityIdentifier("detail.source")
     }
   }
 
-  private func tagBackground(index: Int) -> Color {
-    switch index % 3 {
-    case 0: FoodfolioTheme.sage.opacity(0.18)
-    case 1: FoodfolioTheme.butter.opacity(0.22)
-    default: FoodfolioTheme.terracotta.opacity(0.14)
-    }
+  private func stepNumber(_ index: Int) -> String {
+    let number = index + 1
+    return number < 10 ? "0\(number)" : "\(number)"
   }
 
   private func updateServings(by delta: Double, base: Double) {
