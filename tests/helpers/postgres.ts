@@ -17,7 +17,9 @@ async function applyMigrations(databaseUrl: string): Promise<void> {
   const migrationsRoot = fileURLToPath(
     new URL("../../prisma/migrations/", import.meta.url),
   );
-  const migrationDirectories = (await readdir(migrationsRoot, { withFileTypes: true }))
+  const migrationDirectories = (
+    await readdir(migrationsRoot, { withFileTypes: true })
+  )
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
     .sort();

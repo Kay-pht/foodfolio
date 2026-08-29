@@ -72,8 +72,12 @@ describe("Worker lease and delivery ownership E2E", () => {
     const user = await context.prisma.user.create({
       data: {
         firebaseUid: `worker-lease-${name}`,
-        setting: { create: { recipeAnalysisNotificationEnabled: notification } },
-        ...(notification ? { deviceTokens: { create: { fcmToken: `token-${name}` } } } : {}),
+        setting: {
+          create: { recipeAnalysisNotificationEnabled: notification },
+        },
+        ...(notification
+          ? { deviceTokens: { create: { fcmToken: `token-${name}` } } }
+          : {}),
       },
     });
     return context.prisma.recipe.create({
@@ -99,7 +103,9 @@ describe("Worker lease and delivery ownership E2E", () => {
         return source;
       },
     };
-    const extractor: RecipeExtractor = { extract: async () => successResult("winner") };
+    const extractor: RecipeExtractor = {
+      extract: async () => successResult("winner"),
+    };
     const service = new RecipeAnalysisService({
       prisma: context.prisma,
       sourceExtractor,
@@ -115,7 +121,13 @@ describe("Worker lease and delivery ownership E2E", () => {
     expect(extractionCalls).toBe(1);
     release.resolve();
     expect((await first).retry).toBe(false);
-    expect((await context.prisma.recipe.findUniqueOrThrow({ where: { id: target.id } })).analysisStatus).toBe("completed");
+    expect(
+      (
+        await context.prisma.recipe.findUniqueOrThrow({
+          where: { id: target.id },
+        })
+      ).analysisStatus,
+    ).toBe("completed");
   });
 
   it("does not reclaim an active lease but reclaims an expired lease", async () => {
@@ -129,7 +141,12 @@ describe("Worker lease and delivery ownership E2E", () => {
       },
     });
     let calls = 0;
-    const sourceExtractor: SourceContentExtractor = { extract: async () => { calls += 1; return source; } };
+    const sourceExtractor: SourceContentExtractor = {
+      extract: async () => {
+        calls += 1;
+        return source;
+      },
+    };
     const service = new RecipeAnalysisService({
       prisma: context.prisma,
       sourceExtractor,
@@ -146,7 +163,13 @@ describe("Worker lease and delivery ownership E2E", () => {
     });
     expect((await service.process(active.id, 2, log)).retry).toBe(false);
     expect(calls).toBe(1);
-    expect((await context.prisma.recipe.findUniqueOrThrow({ where: { id: active.id } })).analysisStatus).toBe("completed");
+    expect(
+      (
+        await context.prisma.recipe.findUniqueOrThrow({
+          where: { id: active.id },
+        })
+      ).analysisStatus,
+    ).toBe("completed");
   });
 
   it("prevents an old worker from overwriting a reclaimed run", async () => {
@@ -233,7 +256,13 @@ describe("Worker lease and delivery ownership E2E", () => {
     await newEntered.promise;
     oldRelease.resolve();
     expect((await oldRun).retry).toBe(true);
-    expect((await context.prisma.recipe.findUniqueOrThrow({ where: { id: target.id } })).analysisStatus).toBe("processing");
+    expect(
+      (
+        await context.prisma.recipe.findUniqueOrThrow({
+          where: { id: target.id },
+        })
+      ).analysisStatus,
+    ).toBe("processing");
     newRelease.resolve();
     expect((await newRun).retry).toBe(false);
   });
@@ -250,7 +279,11 @@ describe("Worker lease and delivery ownership E2E", () => {
       maxAttempts: 3,
     });
     expect((await service.process(invalidTarget.id, 1, log)).retry).toBe(false);
-    expect(await context.prisma.deviceToken.count({ where: { fcmToken: "token-invalid-token" } })).toBe(0);
+    expect(
+      await context.prisma.deviceToken.count({
+        where: { fcmToken: "token-invalid-token" },
+      }),
+    ).toBe(0);
 
     const throwingTarget = await recipe("notification-throws", true);
     const throwingNotifications = new Notifications();
@@ -258,11 +291,21 @@ describe("Worker lease and delivery ownership E2E", () => {
     const throwingService = new RecipeAnalysisService({
       prisma: context.prisma,
       sourceExtractor: { extract: async () => source },
-      recipeExtractor: { extract: async () => successResult("still-completed") },
+      recipeExtractor: {
+        extract: async () => successResult("still-completed"),
+      },
       notifications: throwingNotifications,
       maxAttempts: 3,
     });
-    expect((await throwingService.process(throwingTarget.id, 1, log)).retry).toBe(false);
-    expect((await context.prisma.recipe.findUniqueOrThrow({ where: { id: throwingTarget.id } })).analysisStatus).toBe("completed");
+    expect(
+      (await throwingService.process(throwingTarget.id, 1, log)).retry,
+    ).toBe(false);
+    expect(
+      (
+        await context.prisma.recipe.findUniqueOrThrow({
+          where: { id: throwingTarget.id },
+        })
+      ).analysisStatus,
+    ).toBe("completed");
   });
 });
