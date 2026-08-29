@@ -5,7 +5,7 @@ import UIKit
 
 private enum AuthMethodButtonMetrics {
   static let height: CGFloat = 52
-  static let cornerRadius: CGFloat = height / 2
+  static let cornerRadius: CGFloat = 26
 }
 
 struct AuthView: View {
@@ -241,6 +241,15 @@ private struct BrandedAppleSignInButton: UIViewRepresentable {
     uiView.cornerRadius = AuthMethodButtonMetrics.cornerRadius
   }
 
+  func sizeThatFits(
+    _ proposal: ProposedViewSize,
+    uiView: ASAuthorizationAppleIDButton,
+    context: Context
+  ) -> CGSize? {
+    guard let width = proposal.width else { return nil }
+    return CGSize(width: width, height: proposal.height ?? AuthMethodButtonMetrics.height)
+  }
+
   final class Coordinator: NSObject {
     private let action: () -> Void
 
@@ -261,6 +270,7 @@ private struct BrandedGoogleSignInButton: View {
         Capsule()
           .stroke(googleBorderColor, lineWidth: 1)
         GoogleSignInButtonContent()
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
           .allowsHitTesting(false)
       }
       .frame(maxWidth: .infinity)
@@ -268,6 +278,7 @@ private struct BrandedGoogleSignInButton: View {
       .contentShape(Capsule())
     }
     .buttonStyle(.plain)
+    .accessibilityLabel("Googleで続ける")
     .accessibilityIdentifier("auth.google")
   }
 
@@ -282,6 +293,15 @@ private struct GoogleSignInButtonContent: UIViewRepresentable {
   }
 
   func updateUIView(_ uiView: GoogleSignInButtonContentView, context: Context) {}
+
+  func sizeThatFits(
+    _ proposal: ProposedViewSize,
+    uiView: GoogleSignInButtonContentView,
+    context: Context
+  ) -> CGSize? {
+    guard let width = proposal.width else { return nil }
+    return CGSize(width: width, height: proposal.height ?? AuthMethodButtonMetrics.height)
+  }
 }
 
 private final class GoogleSignInButtonContentView: UIView {
