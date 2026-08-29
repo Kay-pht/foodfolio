@@ -114,6 +114,26 @@ import XCTest
     XCTAssertTrue(app.switches["settings.analysisNotification"].waitForExistence(timeout: 3))
   }
 
+  func testDrawerKeepsHomeHeaderVerticalPositionStable() {
+    let app = launch()
+    let heading = app.staticTexts["わたしのレシピ"]
+    let drawerButton = app.buttons["home.drawer"]
+    let settingsButton = app.buttons["drawer.settings"]
+
+    XCTAssertTrue(heading.waitForExistence(timeout: 3))
+    XCTAssertTrue(drawerButton.waitForExistence(timeout: 3))
+    let initialMinY = heading.frame.minY
+
+    drawerButton.tap()
+    XCTAssertTrue(settingsButton.waitForExistence(timeout: 3))
+    XCTAssertEqual(heading.frame.minY, initialMinY, accuracy: 2)
+
+    app.buttons["閉じる"].tap()
+    expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: settingsButton)
+    waitForExpectations(timeout: 3)
+    XCTAssertEqual(heading.frame.minY, initialMinY, accuracy: 2)
+  }
+
   func testBrandTitleIsBesideDrawerIcon() {
     let app = launch()
     let drawerIcon = app.buttons["home.drawer"]
