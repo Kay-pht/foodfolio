@@ -1,4 +1,3 @@
-import AuthenticationServices
 import GoogleSignIn
 import SwiftUI
 import UIKit
@@ -40,30 +39,38 @@ struct AuthView: View {
             .padding(.top, 48)
 
             VStack(spacing: 12) {
-              BrandedAppleSignInButton {
+              Button {
                 run { try await session.auth.signInWithApple() }
-              }
-              .frame(maxWidth: .infinity)
-              .frame(height: AuthMethodButtonMetrics.height)
-
-              BrandedGoogleSignInButton {
-                run { try await session.auth.signInWithGoogle() }
-              }
-
-              NavigationLink(destination: EmailAuthView()) {
-                Label("メールで続ける", systemImage: "envelope")
-                  .font(.body.weight(.semibold))
-                  .foregroundStyle(FoodfolioTheme.ink)
-                  .frame(maxWidth: .infinity)
-                  .frame(height: AuthMethodButtonMetrics.height)
-                  .background(Color.white, in: Capsule())
-                  .overlay {
-                    Capsule()
-                      .stroke(FoodfolioTheme.ink.opacity(0.22), lineWidth: 1)
-                  }
-                  .contentShape(Capsule())
+              } label: {
+                AuthMethodButtonLabel(title: "Appleでサインイン") {
+                  Image(systemName: "apple.logo")
+                    .font(.system(size: 19, weight: .semibold))
+                }
               }
               .buttonStyle(.plain)
+              .accessibilityLabel("Appleでサインイン")
+              .accessibilityIdentifier("auth.apple")
+
+              Button {
+                run { try await session.auth.signInWithGoogle() }
+              } label: {
+                AuthMethodButtonLabel(title: "Googleでサインイン") {
+                  GoogleSignInLogo()
+                    .frame(width: 24, height: 24)
+                }
+              }
+              .buttonStyle(.plain)
+              .accessibilityLabel("Googleでサインイン")
+              .accessibilityIdentifier("auth.google")
+
+              NavigationLink(destination: EmailAuthView()) {
+                AuthMethodButtonLabel(title: "メールで続ける") {
+                  Image(systemName: "envelope")
+                    .font(.system(size: 18, weight: .medium))
+                }
+              }
+              .buttonStyle(.plain)
+              .accessibilityLabel("メールで続ける")
               .accessibilityIdentifier("auth.emailContinue")
             }
 
@@ -99,6 +106,35 @@ struct AuthView: View {
       } catch { message = error.localizedDescription }
       isLoading = false
     }
+  }
+}
+
+private struct AuthMethodButtonLabel<Icon: View>: View {
+  let title: String
+  let icon: Icon
+
+  init(title: String, @ViewBuilder icon: () -> Icon) {
+    self.title = title
+    self.icon = icon()
+  }
+
+  var body: some View {
+    HStack(spacing: 12) {
+      icon
+        .frame(width: 24, height: 24)
+
+      Text(title)
+        .font(.body.weight(.semibold))
+    }
+    .foregroundStyle(FoodfolioTheme.ink)
+    .frame(maxWidth: .infinity)
+    .frame(height: AuthMethodButtonMetrics.height)
+    .background(Color.white, in: Capsule())
+    .overlay {
+      Capsule()
+        .stroke(FoodfolioTheme.ink.opacity(0.58), lineWidth: 1)
+    }
+    .contentShape(Capsule())
   }
 }
 
@@ -223,97 +259,25 @@ private struct EmailAuthView: View {
   }
 }
 
-private struct BrandedAppleSignInButton: UIViewRepresentable {
-  let action: () -> Void
-
-  func makeCoordinator() -> Coordinator { Coordinator(action: action) }
-
-  func makeUIView(context: Context) -> ASAuthorizationAppleIDButton {
-    let button = ASAuthorizationAppleIDButton(type: .continue, style: .whiteOutline)
-    button.cornerRadius = AuthMethodButtonMetrics.cornerRadius
-    button.accessibilityIdentifier = "auth.apple"
-    button.addTarget(
-      context.coordinator, action: #selector(Coordinator.tapped), for: .touchUpInside)
-    return button
+private struct GoogleSignInLogo: UIViewRepresentable {
+  func makeUIView(context: Context) -> GoogleSignInLogoView {
+    GoogleSignInLogoView()
   }
 
-  func updateUIView(_ uiView: ASAuthorizationAppleIDButton, context: Context) {
-    uiView.cornerRadius = AuthMethodButtonMetrics.cornerRadius
-  }
-
-  func sizeThatFits(
-    _ proposal: ProposedViewSize,
-    uiView: ASAuthorizationAppleIDButton,
-    context: Context
-  ) -> CGSize? {
-    guard let width = proposal.width else { return nil }
-    return CGSize(width: width, height: proposal.height ?? AuthMethodButtonMetrics.height)
-  }
-
-  final class Coordinator: NSObject {
-    private let action: () -> Void
-
-    init(action: @escaping () -> Void) { self.action = action }
-
-    @objc func tapped() { action() }
-  }
+  func updateUIView(_ uiView: GoogleSignInLogoView, context: Context) {}
 }
 
-private struct BrandedGoogleSignInButton: View {
-  let action: () -> Void
-
-  var body: some View {
-    Button(action: action) {
-      ZStack {
-        Capsule()
-          .fill(Color.white)
-        Capsule()
-          .stroke(googleBorderColor, lineWidth: 1)
-        GoogleSignInButtonContent()
-          .frame(maxWidth: .infinity, maxHeight: .infinity)
-          .allowsHitTesting(false)
-      }
-      .frame(maxWidth: .infinity)
-      .frame(height: AuthMethodButtonMetrics.height)
-      .contentShape(Capsule())
-    }
-    .buttonStyle(.plain)
-    .accessibilityLabel("Googleで続ける")
-    .accessibilityIdentifier("auth.google")
-  }
-
-  private var googleBorderColor: Color {
-    Color(red: 116.0 / 255.0, green: 119.0 / 255.0, blue: 117.0 / 255.0)
-  }
-}
-
-private struct GoogleSignInButtonContent: UIViewRepresentable {
-  func makeUIView(context: Context) -> GoogleSignInButtonContentView {
-    GoogleSignInButtonContentView()
-  }
-
-  func updateUIView(_ uiView: GoogleSignInButtonContentView, context: Context) {}
-
-  func sizeThatFits(
-    _ proposal: ProposedViewSize,
-    uiView: GoogleSignInButtonContentView,
-    context: Context
-  ) -> CGSize? {
-    guard let width = proposal.width else { return nil }
-    return CGSize(width: width, height: proposal.height ?? AuthMethodButtonMetrics.height)
-  }
-}
-
-private final class GoogleSignInButtonContentView: UIView {
+private final class GoogleSignInLogoView: UIView {
   private let button = GIDSignInButton()
 
   override init(frame: CGRect) {
     super.init(frame: frame)
     backgroundColor = .clear
+    clipsToBounds = true
     isUserInteractionEnabled = false
     isAccessibilityElement = false
 
-    button.style = .wide
+    button.style = .iconOnly
     button.colorScheme = .light
     button.isUserInteractionEnabled = false
     button.accessibilityElementsHidden = true
@@ -328,18 +292,9 @@ private final class GoogleSignInButtonContentView: UIView {
   override func layoutSubviews() {
     super.layoutSubviews()
 
-    let fittingSize = button.sizeThatFits(CGSize(width: 0, height: 48))
-    let contentWidth = min(bounds.width, fittingSize.width)
-    button.frame = CGRect(
-      x: (bounds.width - contentWidth) / 2,
-      y: (bounds.height - 48) / 2,
-      width: contentWidth,
-      height: 48
-    )
-
-    let mask = CAShapeLayer()
-    mask.frame = button.bounds
-    mask.path = UIBezierPath(rect: button.bounds.insetBy(dx: 6, dy: 6)).cgPath
-    button.layer.mask = mask
+    // GIDSignInButton renders the official multicolor G at roughly (9, 10), 29x30
+    // inside its 48pt icon-only control. Offset the control so only that branded mark
+    // is visible; the surrounding capsule and text are rendered consistently in SwiftUI.
+    button.frame = CGRect(x: -7, y: -8, width: 48, height: 48)
   }
 }
