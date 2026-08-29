@@ -64,8 +64,8 @@ import XCTest
     let hero = app.descendants(matching: .any)["detail.heroImage"]
     XCTAssertTrue(hero.waitForExistence(timeout: 3))
     XCTAssertEqual(hero.frame.width, app.frame.width, accuracy: 2)
-    XCTAssertGreaterThanOrEqual(hero.frame.height, 260)
-    XCTAssertLessThanOrEqual(hero.frame.height, 320)
+    XCTAssertGreaterThanOrEqual(hero.frame.height, 300)
+    XCTAssertLessThanOrEqual(hero.frame.height, 360)
 
     let title = app.staticTexts["detail.title"]
     let genreBadge = app.staticTexts["detail.genreBadge"]
