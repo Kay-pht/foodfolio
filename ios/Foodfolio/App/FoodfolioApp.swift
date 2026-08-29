@@ -5,6 +5,28 @@ import SwiftData
 import SwiftUI
 import UIKit
 
+enum FoodfolioTheme {
+  static let paper = Color(red: 0.984, green: 0.969, blue: 0.945)
+  static let surface = Color(red: 1.0, green: 0.992, blue: 0.984)
+  static let terracotta = Color(red: 0.847, green: 0.451, blue: 0.333)
+  static let sage = Color(red: 0.506, green: 0.592, blue: 0.475)
+  static let butter = Color(red: 0.914, green: 0.776, blue: 0.459)
+  static let ink = Color(red: 0.2, green: 0.169, blue: 0.153)
+  static let secondaryInk = Color(red: 0.475, green: 0.427, blue: 0.404)
+  static let hairline = ink.opacity(0.1)
+}
+
+struct FoodfolioBackground: View {
+  var body: some View {
+    LinearGradient(
+      colors: [FoodfolioTheme.paper, FoodfolioTheme.surface],
+      startPoint: .topLeading,
+      endPoint: .bottomTrailing
+    )
+    .ignoresSafeArea()
+  }
+}
+
 final class AppDelegate: NSObject, UIApplicationDelegate {
   func application(
     _ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
