@@ -21,6 +21,65 @@
 - [x] 実装設計
 - [x] 実装・テスト
 - [ ] TestFlightリリース準備
+  - [ ] Apple側の利用資格と登録を完了する
+    - [ ] Apple Developer Programへの加入、最新規約への同意、MFAを完了する（ユーザー作業）
+    - [ ] Apple DeveloperのTeam IDを確認し、Xcodeの署名用アカウントを登録する（ユーザー作業）
+    - [ ] App Store Connectに、アプリ名 `Foodfolio`、Bundle ID `com.keyukt.foodfolio`、SKU、主言語を設定したアプリレコードを作成する（ユーザー作業）
+    - [ ] App ID `com.keyukt.foodfolio` でSign in with AppleとPush Notificationsを有効化する（ユーザー作業）
+    - [ ] XcodeのReleaseビルドをFoodfolioのTeamとDistribution用プロビジョニングで署名できる状態にする
+  - [ ] Production環境を構築する
+    - [ ] dev専用名がハードコードされているTerraformを環境別に扱えるようにし、Production用Cloud Run API / Worker、Cloud Tasks、IAM、Secret Managerを定義する
+    - [ ] NeonにProduction用データベースまたはbranchを用意し、Production用のpooled接続とmigration用direct接続をSecret Managerへ登録する
+    - [ ] Production用のZ.ai APIキーとYouTube APIキーをSecret Managerへ登録し、値をログやGitへ出さないことを確認する
+    - [ ] Production環境へDB migration、API、Workerをデプロイし、API→Cloud Tasks→Worker→Neonの実経路を検証する
+    - [ ] Production APIのURLを確定し、Releaseビルドがdev APIではなくProduction APIを参照するように設定を分離する
+    - [ ] Cloud Runの最大インスタンス数、Cloud Tasksの流量制限、予算アラートを確認し、月額1,000円のMVP方針を明らかに超えない構成にする
+    - [ ] Productionのログと監視で、APIエラー、Worker失敗、Cloud Tasksのリトライ枯渇を検知できることを確認する
+  - [ ] Production用の認証を設定・検証する
+    - [ ] Firebase iOS AppのBundle ID、`GoogleService-Info.plist`、URL SchemeがReleaseビルドと一致することを確認する
+    - [ ] Sign in with AppleをFirebase Authenticationに設定し、実Apple IDによるログイン、再ログイン、ログアウトを実機で検証する
+    - [ ] Sign in with Apple利用者のアカウント削除時に、Appleトークン失効とFoodfolio側データ削除が完了することを実機で検証する
+    - [ ] Google OAuth同意画面のアプリ名、サポート連絡先、プライバシーポリシーURL、承認済みドメインを設定し、Productionステータスへ公開する（ユーザーのGoogle再認証が必要な場合はユーザー作業）
+    - [ ] Googleログイン、再ログイン、ログアウト、アカウント削除をRelease相当の実機ビルドで検証する
+    - [ ] メール認証の送信者名、メールテンプレート、承認済みドメインを確認し、登録、ログイン、パスワード再設定、アカウント削除を検証する
+  - [ ] Production用のPush通知を設定・検証する
+    - [ ] APNs認証キーをApple Developerで発行し、Key IDとTeam IDとともにFirebase Cloud Messagingへ登録する（秘密鍵の発行・登録はユーザー作業）
+    - [ ] Release署名時にProduction用APNs entitlementが付与され、実機のFCM tokenがProduction APIへ登録されることを確認する
+    - [ ] 実機で解析成功通知と解析失敗通知を受信し、通知タップで対象レシピが開くことを確認する
+    - [ ] アプリ内の解析通知がOFFの場合は成功・失敗の両方を通知せず、ONの場合は両方を通知することを確認する
+    - [ ] ログアウトとアカウント削除後に端末tokenが解除され、その利用者へ通知されないことを確認する
+  - [ ] AnalyticsとCrash reportingを完成させる
+    - [ ] MVPユーザー検証で必要なAnalyticsイベントとプロパティを定義する（ログイン方式、URL保存、解析成功・失敗、検索、絞り込み、元サイト表示。URL本文、レシピ本文、メールアドレス等は送信しない）
+    - [ ] Firebase Analyticsを実装し、DebugViewで各イベントが重複なく記録されることを確認する
+    - [ ] CrashlyticsのdSYM upload用Run ScriptとInput FilesをXcode projectへ設定する
+    - [ ] Release相当ビルドからテストクラッシュと非致命的エラーを送信し、Firebase Consoleでシンボル化されたレポートを確認する
+  - [ ] プライバシー・法務情報を確定する
+    - [ ] 取得・保存・外部送信するデータを棚卸しする（認証ID・メール、保存URL・レシピ、検索履歴、端末token、Analytics、Crash情報）
+    - [ ] Firebase、GCP、Neon、Z.ai、YouTube、Apple、Googleへのデータ送信内容と目的を整理する
+    - [ ] データの保存期間、ユーザーによる削除方法、問い合わせ先、安全管理、外部URL解析について記載したプライバシーポリシーを作成する
+    - [ ] プライバシーポリシーをHTTPSの公開URLで掲載し、アプリ内とApp Store Connectの双方から到達できるようにする
+    - [ ] 利用規約が必要かを確認し、必要なら作成・公開する。不要と判断した場合も理由を記録する
+    - [ ] App Store ConnectのApp Privacyで、Foodfolio本体と組み込みSDKが収集するデータ、利用目的、ユーザーとの紐付け、トラッキング有無を正しく回答する
+    - [ ] XcodeのPrivacy Reportと使用APIを確認し、Foodfolio本体に必要な `PrivacyInfo.xcprivacy` を作成してArchiveに含める
+  - [ ] アプリの配布用表示とメタデータを用意する
+    - [ ] 正式なApp Iconを全必須サイズでAssetsへ登録し、Archive検証で欠落警告がないことを確認する
+    - [ ] アプリ名 `Foodfolio`、version、build number、Minimum Deployment Target、対応端末を確定する
+    - [ ] TestFlight用のBeta App Description、Feedback Email、テスター向け「テストしてほしいこと」を日本語で用意する
+    - [ ] TestFlight App Review向けの連絡先、ログイン方法、審査用アカウントまたは登録手順、バックエンド処理の説明を用意する
+    - [ ] プライバシーポリシーURLとサポートURLをApp Store Connectへ登録する
+    - [ ] HTTPS通信等の暗号利用を棚卸しし、App Store Connectの輸出コンプライアンス質問へ回答する。免除を宣言できる場合のみInfo.plistへ適切な設定を追加する
+  - [ ] TestFlight buildを作成して内部テストする
+    - [ ] Release構成で実装部分のテスト、全体テスト、結合テスト、E2E、lint、format check、buildを実行し、`npm run verify` を含む全検証を成功させる
+    - [ ] 実機で新規インストール、ログイン3方式、URL保存、AI解析、同期、検索、通知、ログアウト、アカウント削除の回帰テストを行う
+    - [ ] XcodeでGeneric iOS Device向けArchiveを作成し、Validate Appで署名、entitlement、アイコン、Privacy Manifestのエラーがないことを確認する
+    - [ ] ArchiveをApp Store Connectへuploadし、build processing完了後にエラー・警告・Missing Complianceが残っていないことを確認する
+    - [ ] App Store Connectで内部テスターグループを作成し、内部テスターの実機でインストール、起動、Production接続、主要フローをスモークテストする
+  - [ ] 外部TestFlight審査へ提出できる状態にする
+    - [ ] 外部テスターグループを作成し、対象buildと「テストしてほしいこと」を設定する
+    - [ ] TestFlight Test InformationとBeta App Review Informationの必須項目をすべて入力する
+    - [ ] 対象buildをTestFlight App Reviewへ提出し、承認または指摘対応の完了を確認する
+    - [ ] 承認済みbuildが外部テスターへ配布可能であることを確認する（実際の招待・配布は次の「MVPリリース・ユーザー検証」で行う）
+  - [ ] 上記の全子タスクが完了し、証跡を確認した後にのみ「TestFlightリリース準備」を完了にする
 - [ ] MVPリリース・ユーザー検証
 - [x] これ人数表記のところは一行にして、そこに追加のプラスマイナスボタンもかけるよね？わざわざ二行にする必要がない
 
@@ -31,7 +90,9 @@
 - [x] レシピのタイトルは詳細画面においては、戻るボタンと編集ボタンの間に表示する。
 - [x] 編集ボタンはペンマークでいい。なるべく横幅を取らないように
 - [x] 一覧画面におけるfoodfolioという文字はアイコンの右横に配置して。今は下に来ているけど、これはだめ
+
 <!-- - [ ] 材料名がそのまますぎる。 -->
+
 - [x] アカウントのログイン情報というのが不要。emailでいい。ログイン方法は書かなくていい。
 - [x] ログアウトが簡単にできすぎる。ボタンを押したら、ログアウトするか確認をとって。アカウント削除も同様ね。
 - [x] ログイン画面がおかしい。ログイン画面のベストプラクティスに則った画面表示と画面遷移にしたい。appleとかgoogleならロゴを使うべきでしょ。
