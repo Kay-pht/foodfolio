@@ -34,7 +34,8 @@ import XCTest
     XCTAssertEqual(try repository.allRecipes().map(\.id), ["offline-recipe"])
     XCTAssertEqual(
       try repository.search(query: "鶏肉", genre: nil, tagID: nil).map(\.id), ["offline-recipe"])
-    XCTAssertNotNil(await images.data(for: "offline-recipe"))
+    let storedOfflineImage = await images.data(for: "offline-recipe")
+    XCTAssertNotNil(storedOfflineImage)
 
     do {
       try await repository.delete(id: "offline-recipe")
@@ -43,7 +44,8 @@ import XCTest
       XCTAssertEqual(error as? APIError, .offline)
     }
     XCTAssertNotNil(try repository.recipe(id: "offline-recipe"))
-    XCTAssertNotNil(await images.data(for: "offline-recipe"))
+    let retainedOfflineImage = await images.data(for: "offline-recipe")
+    XCTAssertNotNil(retainedOfflineImage)
   }
 
   func testLocalSearchCoversTitleIngredientAndCombinedFiltersWithoutFalseMatches() throws {
@@ -67,12 +69,19 @@ import XCTest
         steps: [], tags: [TagDTO(id: "summer", name: "夏", createdAt: date)], createdAt: date,
         updatedAt: date.addingTimeInterval(1)))
 
-    XCTAssertEqual(try repository.search(query: "カレー", genre: nil, tagID: nil).map(\.id), ["search-a"])
-    XCTAssertEqual(Set(try repository.search(query: "鶏肉", genre: nil, tagID: nil).map(\.id)), Set(["search-a", "search-b"]))
-    XCTAssertEqual(try repository.search(query: "鶏肉 玉ねぎ", genre: nil, tagID: nil).map(\.id), ["search-a"])
-    XCTAssertEqual(try repository.search(query: "", genre: .noodles, tagID: nil).map(\.id), ["search-b"])
-    XCTAssertEqual(try repository.search(query: "", genre: nil, tagID: "easy").map(\.id), ["search-a"])
-    XCTAssertEqual(try repository.search(query: "鶏肉", genre: .main, tagID: "easy").map(\.id), ["search-a"])
+    XCTAssertEqual(
+      try repository.search(query: "カレー", genre: nil, tagID: nil).map(\.id), ["search-a"])
+    XCTAssertEqual(
+      Set(try repository.search(query: "鶏肉", genre: nil, tagID: nil).map(\.id)),
+      Set(["search-a", "search-b"]))
+    XCTAssertEqual(
+      try repository.search(query: "鶏肉 玉ねぎ", genre: nil, tagID: nil).map(\.id), ["search-a"])
+    XCTAssertEqual(
+      try repository.search(query: "", genre: .noodles, tagID: nil).map(\.id), ["search-b"])
+    XCTAssertEqual(
+      try repository.search(query: "", genre: nil, tagID: "easy").map(\.id), ["search-a"])
+    XCTAssertEqual(
+      try repository.search(query: "鶏肉", genre: .main, tagID: "easy").map(\.id), ["search-a"])
     XCTAssertTrue(try repository.search(query: "存在しない", genre: nil, tagID: nil).isEmpty)
   }
 
@@ -99,13 +108,16 @@ import XCTest
     try await repository.removeLocalRecipes(notIn: Set(["keep"]))
     XCTAssertNotNil(try repository.recipe(id: "keep"))
     XCTAssertNil(try repository.recipe(id: "remove"))
-    XCTAssertNotNil(await images.data(for: "keep"))
-    XCTAssertNil(await images.data(for: "remove"))
+    let keptImage = await images.data(for: "keep")
+    let removedImage = await images.data(for: "remove")
+    XCTAssertNotNil(keptImage)
+    XCTAssertNil(removedImage)
 
     try await repository.clearLocalData()
     XCTAssertTrue(try repository.allRecipes().isEmpty)
     XCTAssertTrue(try repository.allTags().isEmpty)
-    XCTAssertNil(await images.data(for: "keep"))
+    let clearedImage = await images.data(for: "keep")
+    XCTAssertNil(clearedImage)
   }
 
   func testSyncDoesNotAdvanceCursorOrReconciliationTimestampWhenFetchFails() async throws {
@@ -119,7 +131,10 @@ import XCTest
       repository: repository,
       defaults: defaults,
       fetchSync: { _ in throw APIError.offline },
-      fetchRecipeIDs: { XCTFail("ID reconciliation must not run"); return RecipeIDsResponse(recipeIds: []) })
+      fetchRecipeIDs: {
+        XCTFail("ID reconciliation must not run")
+        return RecipeIDsResponse(recipeIds: [])
+      })
 
     do {
       try await service.sync(now: previousReconciliation.addingTimeInterval(90_000))
@@ -128,7 +143,8 @@ import XCTest
       XCTAssertEqual(error as? APIError, .offline)
     }
     XCTAssertEqual(defaults.string(forKey: "recipeSyncCursor"), "existing-cursor")
-    XCTAssertEqual(defaults.object(forKey: "lastFullReconciliationAt") as? Date, previousReconciliation)
+    XCTAssertEqual(
+      defaults.object(forKey: "lastFullReconciliationAt") as? Date, previousReconciliation)
   }
 
   private func makeRepository(container: ModelContainer) throws -> RecipeRepository {

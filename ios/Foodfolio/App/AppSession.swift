@@ -101,6 +101,12 @@ import SwiftData
       : arguments.contains("-ui-testing-status-processing")
         ? .processing
         : arguments.contains("-ui-testing-status-failed") ? .failed : .completed
+    let steps =
+      arguments.contains("-ui-testing-long-title")
+      ? (0..<8).map {
+        LocalRecipeStep(id: "ui-step-\($0)", text: "調理手順\($0 + 1)", sortOrder: $0)
+      }
+      : [LocalRecipeStep(id: "ui-step", text: "材料を煮る", sortOrder: 0)]
     let recipe = LocalRecipe(
       id: "ui-recipe", originalUrl: "https://example.com/oyakodon", sourceType: "web", title: title,
       servingsValue: servings.0, servingsRaw: servings.1, cookingTimeMinutes: 20, genreRaw: "主菜",
@@ -109,7 +115,7 @@ import SwiftData
         LocalIngredient(id: "ui-ingredient", name: "鶏もも肉", amount: "200g", sortOrder: 0),
         LocalIngredient(id: "ui-fraction-ingredient", name: "玉ねぎ", amount: "1/2個", sortOrder: 1),
         LocalIngredient(id: "ui-nonnumeric-ingredient", name: "塩", amount: "少々", sortOrder: 2),
-      ], steps: [LocalRecipeStep(id: "ui-step", text: "材料を煮る", sortOrder: 0)],
+      ], steps: steps,
       tags: [LocalTag(id: "ui-tag", name: "簡単", createdAt: Date())])
     context.insert(recipe)
 

@@ -3,6 +3,7 @@ import XCTest
 @MainActor final class MVPBoundaryUITests: XCTestCase {
   private func launch(arguments: [String] = []) -> XCUIApplication {
     let app = XCUIApplication()
+    app.terminate()
     app.launchArguments = ["-ui-testing"] + arguments
     app.launch()
     return app
@@ -59,7 +60,7 @@ import XCTest
     let app = launch()
     openRecipe(app)
     let value = app.staticTexts["detail.servingsValue"]
-    XCTAssertEqual(value.label, "2 servings")
+    XCTAssertEqual(value.label, "2人分")
     app.buttons["detail.servingsPlus"].tap()
     expectation(for: NSPredicate(format: "label == %@", "3人分"), evaluatedWith: value)
     waitForExpectations(timeout: 2)
@@ -68,7 +69,7 @@ import XCTest
     app.navigationBars.buttons.firstMatch.tap()
     XCTAssertTrue(app.staticTexts["親子丼"].waitForExistence(timeout: 3))
     app.staticTexts["親子丼"].tap()
-    XCTAssertEqual(app.staticTexts["detail.servingsValue"].label, "2 servings")
+    XCTAssertEqual(app.staticTexts["detail.servingsValue"].label, "2人分")
   }
 
   func testPendingAndProcessingRecipesCannotBeEdited() {
