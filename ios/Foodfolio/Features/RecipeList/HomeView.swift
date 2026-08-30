@@ -23,8 +23,8 @@ struct HomeView: View {
   @State private var showDrawer = false
 
   private let columns = [
-    GridItem(.flexible(), spacing: 12),
-    GridItem(.flexible(), spacing: 12),
+    GridItem(.flexible(), spacing: 12, alignment: .top),
+    GridItem(.flexible(), spacing: 12, alignment: .top),
   ]
 
   var body: some View {
