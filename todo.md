@@ -22,10 +22,10 @@
 - [x] 実装・テスト
 - [ ] TestFlightリリース準備
   - [ ] Apple側の利用資格と登録を完了する
-    - [ ] Apple Developer Programへの加入、最新規約への同意、MFAを完了する（ユーザー作業）
-    - [ ] Apple DeveloperのTeam IDを確認し、Xcodeの署名用アカウントを登録する（ユーザー作業）
-    - [ ] App Store Connectに、アプリ名 `Foodfolio`、Bundle ID `com.keyukt.foodfolio`、SKU、主言語を設定したアプリレコードを作成する（ユーザー作業）
-    - [ ] App ID `com.keyukt.foodfolio` でSign in with AppleとPush Notificationsを有効化する（ユーザー作業）
+    - [x] Apple Developer Programへの加入、最新規約への同意、MFAを完了する（ユーザー作業）
+    - [x] Apple DeveloperのTeam IDを確認し、Xcodeの署名用アカウントを登録する（ユーザー作業）
+    - [x] App Store Connectに、アプリ名 `Foodfolio - あなたのレシピ帳`、Bundle ID `com.keyukt.foodfolio`、SKU、主言語を設定したアプリレコードを作成する（ユーザー作業）
+    - [x] App ID `com.keyukt.foodfolio` でSign in with AppleとPush Notificationsを有効化する（ユーザー作業）
     - [ ] XcodeのReleaseビルドをFoodfolioのTeamとDistribution用プロビジョニングで署名できる状態にする
   - [ ] Production環境を構築する
     - [ ] dev専用名がハードコードされているTerraformを環境別に扱えるようにし、Production用Cloud Run API / Worker、Cloud Tasks、IAM、Secret Managerを定義する
@@ -43,7 +43,7 @@
     - [ ] Googleログイン、再ログイン、ログアウト、アカウント削除をRelease相当の実機ビルドで検証する
     - [ ] メール認証の送信者名、メールテンプレート、承認済みドメインを確認し、登録、ログイン、パスワード再設定、アカウント削除を検証する
   - [ ] Production用のPush通知を設定・検証する
-    - [ ] APNs認証キーをApple Developerで発行し、Key IDとTeam IDとともにFirebase Cloud Messagingへ登録する（秘密鍵の発行・登録はユーザー作業）
+    - [x] APNs認証キーをApple Developerで発行し、Key IDとTeam IDとともにFirebase Cloud Messagingへ登録する（秘密鍵の発行・登録はユーザー作業）
     - [ ] Release署名時にProduction用APNs entitlementが付与され、実機のFCM tokenがProduction APIへ登録されることを確認する
     - [ ] 実機で解析成功通知と解析失敗通知を受信し、通知タップで対象レシピが開くことを確認する
     - [ ] アプリ内の解析通知がOFFの場合は成功・失敗の両方を通知せず、ONの場合は両方を通知することを確認する
