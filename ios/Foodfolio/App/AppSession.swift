@@ -112,6 +112,17 @@ import SwiftData
       ], steps: [LocalRecipeStep(id: "ui-step", text: "材料を煮る", sortOrder: 0)],
       tags: [LocalTag(id: "ui-tag", name: "簡単", createdAt: Date())])
     context.insert(recipe)
+
+    if arguments.contains("-ui-testing-mixed-title-grid") {
+      let longTitleRecipe = LocalRecipe(
+        id: "ui-recipe-long", originalUrl: "https://example.com/cabbage-steak", sourceType: "web",
+        title: "キャベツステーキ 簡単レシピ！シンプルだけど香ばしい",
+        servingsValue: 2, servingsRaw: "2 servings", cookingTimeMinutes: 15, genreRaw: "副菜",
+        analysisStatus: .completed, createdAt: Date().addingTimeInterval(-60),
+        updatedAt: Date().addingTimeInterval(-60), ingredients: [], steps: [], tags: [])
+      context.insert(longTitleRecipe)
+    }
+
     try? context.save()
   }
 }
