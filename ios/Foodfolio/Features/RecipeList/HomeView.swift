@@ -131,6 +131,7 @@ struct HomeView: View {
             .foregroundStyle(.white)
             .frame(width: 58, height: 58)
             .glassEffect(.regular.tint(FoodfolioTheme.terracotta).interactive(), in: Circle())
+            .contentShape(Circle())
         }
         .buttonStyle(.plain)
         .padding(20)
