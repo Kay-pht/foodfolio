@@ -3,6 +3,7 @@ import XCTest
 @MainActor final class MajorFlowUITests: XCTestCase {
   private func launch(arguments: [String] = []) -> XCUIApplication {
     let app = XCUIApplication()
+    app.terminate()
     app.launchArguments = ["-ui-testing"] + arguments
     app.launch()
     return app
@@ -84,15 +85,25 @@ import XCTest
     XCTAssertGreaterThanOrEqual(hero.frame.height, 300)
     XCTAssertLessThanOrEqual(hero.frame.height, 360)
 
-    let title = app.staticTexts["detail.title"]
+    let expandedTitle = app.staticTexts["detail.title"]
+    let compactTitle = app.staticTexts["detail.compactTitle"]
     let genreBadge = app.staticTexts["detail.genreBadge"]
-    XCTAssertTrue(title.exists)
-    XCTAssertEqual(title.label, fullTitle)
+    XCTAssertTrue(expandedTitle.exists)
+    XCTAssertEqual(expandedTitle.label, fullTitle)
+    XCTAssertTrue(expandedTitle.isHittable)
+    XCTAssertFalse(compactTitle.exists)
     XCTAssertTrue(genreBadge.exists)
     XCTAssertEqual(genreBadge.label, "主菜")
     XCTAssertGreaterThanOrEqual(genreBadge.frame.minY, hero.frame.maxY - 1)
+    XCTAssertGreaterThan(expandedTitle.frame.minY, genreBadge.frame.maxY)
     XCTAssertTrue(app.buttons["detail.edit"].exists)
     XCTAssertFalse(app.staticTexts["ジャンル"].exists)
+
+    for _ in 0..<4 where !compactTitle.exists {
+      app.swipeUp()
+    }
+    XCTAssertTrue(compactTitle.waitForExistence(timeout: 2))
+    XCTAssertEqual(compactTitle.label, fullTitle)
 
     let screenshot = XCTAttachment(screenshot: app.screenshot())
     screenshot.name = "Recipe detail kitchen notebook"

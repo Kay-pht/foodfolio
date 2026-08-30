@@ -11,7 +11,8 @@ import XCTest
     let repository = RecipeRepository(
       context: container.mainContext,
       api: APIClient(
-        baseURL: URL(string: "https://example.invalid")!, tokenProvider: SyncMetadataTokenProvider()),
+        baseURL: URL(string: "https://example.invalid")!, tokenProvider: SyncMetadataTokenProvider()
+      ),
       images: try RecipeImageStore(root: root))
     let defaults = UserDefaults(suiteName: UUID().uuidString)!
     defaults.set("cursor", forKey: "recipeSyncCursor")

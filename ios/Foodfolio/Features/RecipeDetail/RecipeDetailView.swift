@@ -8,6 +8,7 @@ struct RecipeDetailView: View {
   @State private var showTags = false
   @State private var showDelete = false
   @State private var errorMessage: String?
+  @State private var showsCompactTitle = false
 
   var body: some View {
     GeometryReader { geometry in
@@ -66,6 +67,13 @@ struct RecipeDetailView: View {
         }
       }
       .scrollIndicators(.hidden)
+      .onScrollGeometryChange(for: Bool.self) { scrollGeometry in
+        scrollGeometry.contentOffset.y > heroHeight
+      } action: { _, shouldShowCompactTitle in
+        withAnimation(.easeInOut(duration: 0.2)) {
+          showsCompactTitle = shouldShowCompactTitle
+        }
+      }
       .background(FoodfolioTheme.paper)
     }
     .ignoresSafeArea(edges: .top)
@@ -74,11 +82,14 @@ struct RecipeDetailView: View {
     .tint(FoodfolioTheme.terracotta)
     .toolbar {
       ToolbarItem(placement: .principal) {
-        Text(recipe.title)
-          .font(.headline)
-          .lineLimit(1)
-          .truncationMode(.tail)
-          .accessibilityIdentifier("detail.title")
+        if showsCompactTitle {
+          Text(recipe.title)
+            .font(.headline)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .accessibilityIdentifier("detail.compactTitle")
+            .transition(.opacity)
+        }
       }
       ToolbarItem(placement: .topBarTrailing) {
         if ![.pending, .processing].contains(recipe.analysisStatus) {
@@ -104,17 +115,24 @@ struct RecipeDetailView: View {
 
   private var summarySection: some View {
     VStack(alignment: .leading, spacing: 14) {
-      HStack(spacing: 10) {
-        if let genre = recipe.genre {
-          Text(genre.rawValue)
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(genre.badgeTint)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(genre.badgeTint.opacity(0.14), in: Capsule())
-            .accessibilityIdentifier("detail.genreBadge")
-        }
+      if let genre = recipe.genre {
+        Text(genre.rawValue)
+          .font(.caption.weight(.semibold))
+          .foregroundStyle(genre.badgeTint)
+          .padding(.horizontal, 10)
+          .padding(.vertical, 6)
+          .background(genre.badgeTint.opacity(0.14), in: Capsule())
+          .accessibilityIdentifier("detail.genreBadge")
+      }
 
+      Text(recipe.title)
+        .font(.largeTitle.bold())
+        .foregroundStyle(FoodfolioTheme.ink)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
+        .accessibilityIdentifier("detail.title")
+
+      HStack(spacing: 10) {
         if let minutes = recipe.cookingTimeMinutes {
           Label("\(minutes)分", systemImage: "clock")
             .font(.caption.weight(.semibold))
