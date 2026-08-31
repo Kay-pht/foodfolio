@@ -8,9 +8,22 @@ extension Notification.Name {
     "foodfolioAPNsRegistrationDidSucceed")
 }
 
+struct APNsRegistrationState {
+  private(set) var isReady = false
+
+  mutating func beginRegistration() {
+    isReady = false
+  }
+
+  mutating func markSucceeded() {
+    isReady = true
+  }
+}
+
 @MainActor
 final class NotificationService: NSObject, UNUserNotificationCenterDelegate, MessagingDelegate {
   private let api: APIClient
+  private var apnsRegistrationState = APNsRegistrationState()
   var onRecipeOpened: ((String) -> Void)?
 
   init(api: APIClient) {
@@ -41,8 +54,7 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate, Mes
     let settings = await UNUserNotificationCenter.current().notificationSettings()
 
     if Self.shouldRegisterForRemoteNotifications(status: settings.authorizationStatus) {
-      UIApplication.shared.registerForRemoteNotifications()
-      await syncCurrentToken()
+      beginAPNsRegistration()
       return
     }
 
@@ -57,8 +69,7 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate, Mes
         .alert, .badge, .sound,
       ])
       guard granted else { return }
-      UIApplication.shared.registerForRemoteNotifications()
-      await syncCurrentToken()
+      beginAPNsRegistration()
     } catch {
       debugLog("Notification authorization request failed: \(error.localizedDescription)")
     }
@@ -105,7 +116,12 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate, Mes
   nonisolated func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?)
   {
     guard let fcmToken else { return }
-    Task { @MainActor in
+    Task { @MainActor [weak self] in
+      guard let self else { return }
+      guard apnsRegistrationState.isReady else {
+        debugLog("Ignoring FCM token callback until APNs registration succeeds.")
+        return
+      }
       await registerToken(fcmToken, source: "Firebase callback")
     }
   }
@@ -124,14 +140,26 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate, Mes
 
   @objc nonisolated private func handleAPNsRegistrationDidSucceed() {
     Task { @MainActor [weak self] in
-      await self?.syncCurrentToken()
+      guard let self else { return }
+      apnsRegistrationState.markSucceeded()
+      await syncCurrentToken()
     }
   }
 
+  private func beginAPNsRegistration() {
+    apnsRegistrationState.beginRegistration()
+    UIApplication.shared.registerForRemoteNotifications()
+  }
+
   private func syncCurrentToken() async {
+    guard apnsRegistrationState.isReady else {
+      debugLog("Skipping FCM token sync until APNs registration succeeds.")
+      return
+    }
+
     do {
       let token = try await Messaging.messaging().token()
-      await registerToken(token, source: "authenticated session sync")
+      await registerToken(token, source: "APNs registration sync")
     } catch {
       debugLog("FCM token retrieval failed: \(error.localizedDescription)")
     }
