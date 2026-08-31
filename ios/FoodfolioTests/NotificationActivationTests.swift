@@ -29,29 +29,29 @@ final class NotificationActivationTests: XCTestCase {
     XCTAssertFalse(NotificationService.shouldRegisterForRemoteNotifications(status: .denied))
   }
 
-  func testAPNsRegistrationIsNotReadyInitially() {
+  func testFCMTokenSyncIsBlockedBeforeAPNsRegistrationSucceeds() {
     let state = APNsRegistrationState()
 
-    XCTAssertFalse(state.isReady)
+    XCTAssertFalse(state.canSyncFCMToken)
   }
 
-  func testAPNsRegistrationBecomesReadyOnlyAfterSuccess() {
+  func testFCMTokenSyncIsEnabledOnlyAfterAPNsRegistrationSucceeds() {
     var state = APNsRegistrationState()
 
     state.beginRegistration()
-    XCTAssertFalse(state.isReady)
+    XCTAssertFalse(state.canSyncFCMToken)
 
     state.markSucceeded()
-    XCTAssertTrue(state.isReady)
+    XCTAssertTrue(state.canSyncFCMToken)
   }
 
-  func testStartingNewAPNsRegistrationBlocksFCMSyncAgain() {
+  func testStartingNewAPNsRegistrationBlocksFCMTokenSyncAgain() {
     var state = APNsRegistrationState()
     state.markSucceeded()
-    XCTAssertTrue(state.isReady)
+    XCTAssertTrue(state.canSyncFCMToken)
 
     state.beginRegistration()
 
-    XCTAssertFalse(state.isReady)
+    XCTAssertFalse(state.canSyncFCMToken)
   }
 }
