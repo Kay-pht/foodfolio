@@ -87,20 +87,8 @@ if [[ -n "${TIKTOK_POC_COOKIES_FROM_BROWSER:-}" ]]; then
   echo "Browser cookies: $TIKTOK_POC_COOKIES_FROM_BROWSER"
 fi
 
-echo
-echo "== 1. Metadata / available media formats =="
-for index in "${!URLS[@]}"; do
-  url="${URLS[$index]}"
-  metadata="$WORK_DIR/metadata-$index.json"
-
-  echo
-  echo "URL: $url"
-  "$YT_DLP" \
-    "${COMMON_ARGS[@]}" \
-    --skip-download \
-    --dump-single-json \
-    "$url" > "$metadata"
-
+print_metadata_summary() {
+  local metadata="$1"
   node --input-type=commonjs - "$metadata" <<'NODE'
 const fs = require('node:fs');
 const path = process.argv[2];
@@ -122,16 +110,109 @@ if (mp4Formats.length === 0) {
   process.exitCode = 1;
 }
 NODE
+}
+
+extract_metadata() {
+  local url="$1"
+  local metadata="$2"
+  local log="$3"
+  local mode="$4"
+
+  local extra_args=()
+  if [[ "$mode" == "chrome" ]]; then
+    extra_args+=(--impersonate chrome)
+  fi
+
+  if "$YT_DLP" \
+    "${COMMON_ARGS[@]}" \
+    "${extra_args[@]}" \
+    --skip-download \
+    --dump-single-json \
+    --verbose \
+    "$url" > "$metadata" 2> "$log"; then
+    if print_metadata_summary "$metadata"; then
+      return 0
+    fi
+  fi
+
+  return 1
+}
+
+SUCCESS_URLS=()
+SUCCESS_MODES=()
+FAILURE_COUNT=0
+
+echo
+echo "== 1. Metadata / available media formats =="
+for index in "${!URLS[@]}"; do
+  url="${URLS[$index]}"
+  metadata="$WORK_DIR/metadata-$index.json"
+  log="$WORK_DIR/metadata-$index.log"
+
+  echo
+  echo "URL: $url"
+  echo "Attempt 1: yt-dlp default TikTok extraction"
+
+  if extract_metadata "$url" "$metadata" "$log" "default"; then
+    SUCCESS_URLS+=("$url")
+    SUCCESS_MODES+=("default")
+    echo "Metadata SUCCESS (default)"
+    continue
+  fi
+
+  echo "Default extraction failed. Last diagnostic lines:"
+  tail -n 12 "$log" || true
+  echo
+  echo "Attempt 2: explicit Chrome request impersonation"
+
+  if extract_metadata "$url" "$metadata" "$log" "chrome"; then
+    SUCCESS_URLS+=("$url")
+    SUCCESS_MODES+=("chrome")
+    echo "Metadata SUCCESS (Chrome impersonation)"
+    continue
+  fi
+
+  FAILURE_COUNT=$((FAILURE_COUNT + 1))
+  echo "Chrome impersonation also failed. Last diagnostic lines:"
+  tail -n 20 "$log" || true
+  echo "Metadata FAILED for this URL; continuing with the remaining URLs."
 done
 
-DOWNLOAD_URL="${TIKTOK_POC_DOWNLOAD_URL:-${URLS[0]}}"
+echo
+echo "Metadata result: ${#SUCCESS_URLS[@]} succeeded / ${#URLS[@]} tested"
+
+if [[ ${#SUCCESS_URLS[@]} -eq 0 ]]; then
+  echo >&2
+  echo "PoC FAILED before video download: none of the tested TikTok URLs exposed usable metadata." >&2
+  if [[ -z "${TIKTOK_POC_COOKIES_FROM_BROWSER:-}" ]]; then
+    echo >&2
+    echo "Next diagnostic: retry with your own logged-in TikTok browser session." >&2
+    echo "Chrome:" >&2
+    echo "  TIKTOK_POC_COOKIES_FROM_BROWSER=chrome npm run poc:tiktok-video" >&2
+    echo "Safari:" >&2
+    echo "  TIKTOK_POC_COOKIES_FROM_BROWSER=safari npm run poc:tiktok-video" >&2
+  else
+    echo "Browser cookies were already supplied, so this is not merely the anonymous-web path failing." >&2
+  fi
+  echo "Set KEEP_TIKTOK_POC_VIDEO=1 to retain verbose metadata logs in the displayed temp directory." >&2
+  exit 1
+fi
+
+DOWNLOAD_URL="${TIKTOK_POC_DOWNLOAD_URL:-${SUCCESS_URLS[0]}}"
+DOWNLOAD_MODE="${SUCCESS_MODES[0]}"
 OUTPUT_TEMPLATE="$WORK_DIR/tiktok-poc.%(ext)s"
+DOWNLOAD_EXTRA_ARGS=()
+if [[ "$DOWNLOAD_MODE" == "chrome" ]]; then
+  DOWNLOAD_EXTRA_ARGS+=(--impersonate chrome)
+fi
 
 echo
 echo "== 2. Download one TikTok video as MP4 =="
 echo "URL: $DOWNLOAD_URL"
+echo "Extraction mode: $DOWNLOAD_MODE"
 "$YT_DLP" \
   "${COMMON_ARGS[@]}" \
+  "${DOWNLOAD_EXTRA_ARGS[@]}" \
   --max-filesize 100M \
   -f 'b[ext=mp4]' \
   -o "$OUTPUT_TEMPLATE" \
@@ -173,7 +254,10 @@ else
 fi
 
 echo
-echo "PoC SUCCESS: TikTok metadata was extracted and an MP4 file was downloaded."
+echo "PoC SUCCESS: at least one TikTok URL exposed metadata and an MP4 file was downloaded."
+if [[ "$FAILURE_COUNT" -gt 0 ]]; then
+  echo "Note: $FAILURE_COUNT URL(s) failed metadata extraction; see the diagnostic output above."
+fi
 if [[ "$KEEP_OUTPUT" != "1" ]]; then
-  echo "The downloaded video will be deleted when this script exits."
+  echo "The downloaded video and diagnostic files will be deleted when this script exits."
 fi
