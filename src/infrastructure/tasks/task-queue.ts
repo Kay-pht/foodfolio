@@ -5,7 +5,6 @@ export interface AnalysisTaskQueue {
 }
 
 export class CloudTasksAnalysisQueue implements AnalysisTaskQueue {
-  private readonly client = new CloudTasksClient();
   constructor(
     private readonly config: {
       projectId: string;
@@ -14,6 +13,7 @@ export class CloudTasksAnalysisQueue implements AnalysisTaskQueue {
       workerUrl: string;
       serviceAccountEmail: string;
     },
+    private readonly client: CloudTasksClient = new CloudTasksClient(),
   ) {}
   async enqueueRecipeAnalysis(recipeId: string): Promise<void> {
     const parent = this.client.queuePath(
@@ -24,6 +24,7 @@ export class CloudTasksAnalysisQueue implements AnalysisTaskQueue {
     await this.client.createTask({
       parent,
       task: {
+        dispatchDeadline: { seconds: 600 },
         httpRequest: {
           httpMethod: "POST",
           url: `${this.config.workerUrl.replace(/\/$/, "")}/internal/tasks/recipe-analysis`,

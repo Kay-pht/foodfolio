@@ -110,7 +110,7 @@ describe("extractUrl integration", () => {
     },
   );
 
-  it("rejects a generic food caption without recipe content", async () => {
+  it("keeps a generic TikTok title so completeness can be decided after AI extraction", async () => {
     const http = {
       async get() {
         return {
@@ -125,9 +125,29 @@ describe("extractUrl integration", () => {
 
     await expect(
       extractor.extract(new URL("https://www.tiktok.com/@chef/video/123")),
-    ).rejects.toMatchObject({
-      code: "SOURCE_CONTENT_UNAVAILABLE",
-      retryable: false,
+    ).resolves.toMatchObject({
+      sourceType: "tiktok",
+      textForAi: "TITLE\n簡単な料理を食べてみた",
     });
+  });
+
+  it("returns empty TikTok text so the analysis service can use video fallback", async () => {
+    const http = {
+      async get() {
+        return {
+          finalUrl: "https://www.tiktok.com/oembed",
+          statusCode: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            thumbnail_url: "https://images.example/tiktok.jpg",
+          }),
+        };
+      },
+    } as SafeHttpClient;
+    const extractor = new ProductionSourceContentExtractor(http, "unused");
+
+    await expect(
+      extractor.extract(new URL("https://www.tiktok.com/@chef/video/123")),
+    ).resolves.toMatchObject({ sourceType: "tiktok", textForAi: null });
   });
 });

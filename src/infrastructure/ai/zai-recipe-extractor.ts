@@ -3,11 +3,13 @@ import recipeSchema from "../../../schemas/extracted-recipe.schema.json" with { 
 import {
   AnalysisError,
   type ExtractedRecipe,
+  type RecipeExtractionResult,
   type RecipeExtractor,
   type SourceContent,
+  type VideoRecipeExtractor,
 } from "../../application/analysis/types.js";
 
-const SYSTEM_PROMPT = `You extract recipe facts only from supplied source text.
+const SYSTEM_PROMPT = `You extract recipe facts only from supplied source material.
 Return JSON matching the schema exactly. Return one recipe data instance.
 Never return, copy, modify, or annotate the JSON Schema itself.
 Do not infer missing facts, except that genre must be classified from the supplied recipe content.
@@ -18,7 +20,9 @@ Genre must be one allowed Japanese enum value.`;
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 const validate = ajv.compile<ExtractedRecipe>(recipeSchema);
 
-export class ZaiRecipeExtractor implements RecipeExtractor {
+export class ZaiRecipeExtractor
+  implements RecipeExtractor, VideoRecipeExtractor
+{
   constructor(
     private readonly apiKey: string,
     private readonly model = "glm-5.3-flash",
@@ -30,6 +34,34 @@ export class ZaiRecipeExtractor implements RecipeExtractor {
         false,
         "Source text is empty",
       );
+    return this.request({
+      role: "user",
+      content: `SOURCE TEXT\n${input.textForAi}`,
+    });
+  }
+
+  async extractVideo(input: SourceContent, videoUrl: string) {
+    return this.request({
+      role: "user",
+      content: [
+        { type: "video_url", video_url: { url: videoUrl } },
+        {
+          type: "text",
+          text: `Extract the recipe shown or spoken in this video. Use the source metadata only as supporting context.\nSOURCE METADATA\n${input.textForAi ?? "(none)"}`,
+        },
+      ],
+    });
+  }
+
+  private async request(userMessage: {
+    role: "user";
+    content:
+      | string
+      | Array<
+          | { type: "video_url"; video_url: { url: string } }
+          | { type: "text"; text: string }
+        >;
+  }): Promise<RecipeExtractionResult> {
     const startedAt = Date.now();
     let response: Response;
     try {
@@ -47,7 +79,7 @@ export class ZaiRecipeExtractor implements RecipeExtractor {
               role: "system",
               content: `${SYSTEM_PROMPT}\nJSON SCHEMA\n${JSON.stringify(recipeSchema)}`,
             },
-            { role: "user", content: `SOURCE TEXT\n${input.textForAi}` },
+            userMessage,
           ],
           response_format: { type: "json_object" },
           max_tokens: 4000,

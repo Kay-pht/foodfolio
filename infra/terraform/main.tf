@@ -13,6 +13,7 @@ locals {
     "identitytoolkit.googleapis.com",
     "run.googleapis.com",
     "secretmanager.googleapis.com",
+    "storage.googleapis.com",
     "sts.googleapis.com",
     "youtube.googleapis.com",
   ])
@@ -66,6 +67,40 @@ resource "google_service_account" "task_invoker" {
 resource "google_service_account" "github_deployer" {
   account_id   = "${local.name_prefix}-github"
   display_name = "Foodfolio dev GitHub deployer"
+}
+
+resource "google_storage_bucket" "tiktok_video_fallback" {
+  name                        = "${var.project_id}-${var.environment}-tiktok-video-fallback"
+  location                    = var.region
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+
+  soft_delete_policy {
+    retention_duration_seconds = 0
+  }
+
+  lifecycle_rule {
+    condition {
+      age = 1
+    }
+    action {
+      type = "Delete"
+    }
+  }
+
+  depends_on = [google_project_service.required]
+}
+
+resource "google_storage_bucket_iam_member" "worker_tiktok_video_objects" {
+  bucket = google_storage_bucket.tiktok_video_fallback.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.worker.email}"
+}
+
+resource "google_service_account_iam_member" "worker_signs_tiktok_video_urls" {
+  service_account_id = google_service_account.worker.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "serviceAccount:${google_service_account.worker.email}"
 }
 
 resource "google_project_iam_member" "api_roles" {
@@ -151,7 +186,7 @@ resource "google_cloud_run_v2_service" "worker" {
 
   template {
     service_account = google_service_account.worker.email
-    timeout         = "300s"
+    timeout         = "600s"
     scaling {
       min_instance_count = 0
       max_instance_count = 2
@@ -177,6 +212,22 @@ resource "google_cloud_run_v2_service" "worker" {
       env {
         name  = "AI_MODEL"
         value = "glm-5.3-flash"
+      }
+      env {
+        name  = "TIKTOK_VIDEO_FALLBACK_ENABLED"
+        value = "true"
+      }
+      env {
+        name  = "TIKTOK_VIDEO_BUCKET"
+        value = google_storage_bucket.tiktok_video_fallback.name
+      }
+      env {
+        name  = "TIKTOK_VIDEO_MAX_ATTEMPTS"
+        value = "5"
+      }
+      env {
+        name  = "YT_DLP_PATH"
+        value = "/usr/local/bin/yt-dlp"
       }
       env {
         name = "DATABASE_URL"
@@ -207,7 +258,12 @@ resource "google_cloud_run_v2_service" "worker" {
       }
     }
   }
-  depends_on = [google_project_service.required, google_project_iam_member.worker_roles]
+  depends_on = [
+    google_project_service.required,
+    google_project_iam_member.worker_roles,
+    google_storage_bucket_iam_member.worker_tiktok_video_objects,
+    google_service_account_iam_member.worker_signs_tiktok_video_urls,
+  ]
 }
 
 resource "google_cloud_run_v2_service_iam_member" "task_invokes_worker" {
