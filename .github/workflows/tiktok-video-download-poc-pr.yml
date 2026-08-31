@@ -1,67 +1,14 @@
 name: TikTok Video Download PoC PR
 
 on:
-  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  tiktok-video-download:
+  disabled:
+    if: ${{ false }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
-
-      - name: Install yt-dlp 2026.08.19
-        run: |
-          curl -fL --retry 3 \
-            -o /tmp/yt-dlp \
-            https://github.com/yt-dlp/yt-dlp/releases/download/2026.08.19/yt-dlp_linux
-          chmod +x /tmp/yt-dlp
-          /tmp/yt-dlp --version
-          ffprobe -version | head -n 1
-
-      - name: Extract TikTok metadata and media URLs
-        shell: bash
-        run: |
-          set -euo pipefail
-          urls=(
-            "https://www.tiktok.com/@shimatassin/video/7503733456203992328"
-            "https://www.tiktok.com/@nasutonaru/video/6919749564979383554"
-            "https://www.tiktok.com/@bayashi.tiktok/video/6920502857028455681"
-          )
-
-          for url in "${urls[@]}"; do
-            echo "===== $url ====="
-            /tmp/yt-dlp \
-              --skip-download \
-              --dump-single-json \
-              --no-playlist \
-              "$url" \
-              | jq '{id,title,duration,ext,format_count:(.formats|length),subtitle_languages:(.subtitles|keys)}'
-          done
-
-      - name: Download one recipe video and inspect media
-        shell: bash
-        run: |
-          set -euo pipefail
-          url="https://www.tiktok.com/@shimatassin/video/7503733456203992328"
-          rm -f /tmp/tiktok-poc.*
-          /tmp/yt-dlp \
-            --no-playlist \
-            --max-filesize 100M \
-            -f 'b[ext=mp4]/b' \
-            -o '/tmp/tiktok-poc.%(ext)s' \
-            "$url"
-
-          file="$(find /tmp -maxdepth 1 -type f -name 'tiktok-poc.*' | head -n 1)"
-          test -n "$file"
-          ls -lh "$file"
-          ffprobe \
-            -v error \
-            -show_entries format=format_name,duration,size:stream=index,codec_type,codec_name,width,height \
-            -of json \
-            "$file"
-
-          rm -f "$file"
+      - run: echo "This PoC moved to local execution: npm run poc:tiktok-video"
