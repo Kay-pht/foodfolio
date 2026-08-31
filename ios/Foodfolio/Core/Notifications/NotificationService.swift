@@ -9,14 +9,14 @@ extension Notification.Name {
 }
 
 struct APNsRegistrationState {
-  private(set) var isReady = false
+  private(set) var canSyncFCMToken = false
 
   mutating func beginRegistration() {
-    isReady = false
+    canSyncFCMToken = false
   }
 
   mutating func markSucceeded() {
-    isReady = true
+    canSyncFCMToken = true
   }
 }
 
@@ -118,7 +118,7 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate, Mes
     guard let fcmToken else { return }
     Task { @MainActor [weak self] in
       guard let self else { return }
-      guard apnsRegistrationState.isReady else {
+      guard apnsRegistrationState.canSyncFCMToken else {
         debugLog("Ignoring FCM token callback until APNs registration succeeds.")
         return
       }
@@ -152,7 +152,7 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate, Mes
   }
 
   private func syncCurrentToken() async {
-    guard apnsRegistrationState.isReady else {
+    guard apnsRegistrationState.canSyncFCMToken else {
       debugLog("Skipping FCM token sync until APNs registration succeeds.")
       return
     }
