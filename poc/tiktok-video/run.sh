@@ -13,8 +13,20 @@ if (( $# > 1 )); then
   exit 2
 fi
 
+normalize_url() {
+  local input="$1"
+  local markdown_regex='^\[[^]]*\]\((https?://[^)]*)\)$'
+
+  if [[ "$input" =~ $markdown_regex ]]; then
+    input="${BASH_REMATCH[1]}"
+  fi
+
+  input="${input//\\_/_}"
+  printf '%s\n' "$input"
+}
+
 if [[ $# -eq 1 ]]; then
-  URLS=("$1")
+  URLS=("$(normalize_url "$1")")
 else
   URLS=("${DEFAULT_URLS[@]}")
 fi
@@ -118,20 +130,26 @@ extract_metadata() {
   local log="$3"
   local mode="$4"
 
-  local extra_args=()
   if [[ "$mode" == "chrome" ]]; then
-    extra_args+=(--impersonate chrome)
-  fi
-
-  if "$YT_DLP" \
-    "${COMMON_ARGS[@]}" \
-    "${extra_args[@]}" \
-    --skip-download \
-    --dump-single-json \
-    --verbose \
-    "$url" > "$metadata" 2> "$log"; then
-    if print_metadata_summary "$metadata"; then
-      return 0
+    if "$YT_DLP" \
+      "${COMMON_ARGS[@]}" \
+      --impersonate chrome \
+      --skip-download \
+      --dump-single-json \
+      --verbose \
+      "$url" > "$metadata" 2> "$log"; then
+      print_metadata_summary "$metadata"
+      return $?
+    fi
+  else
+    if "$YT_DLP" \
+      "${COMMON_ARGS[@]}" \
+      --skip-download \
+      --dump-single-json \
+      --verbose \
+      "$url" > "$metadata" 2> "$log"; then
+      print_metadata_summary "$metadata"
+      return $?
     fi
   fi
 
@@ -201,22 +219,28 @@ fi
 DOWNLOAD_URL="${TIKTOK_POC_DOWNLOAD_URL:-${SUCCESS_URLS[0]}}"
 DOWNLOAD_MODE="${SUCCESS_MODES[0]}"
 OUTPUT_TEMPLATE="$WORK_DIR/tiktok-poc.%(ext)s"
-DOWNLOAD_EXTRA_ARGS=()
-if [[ "$DOWNLOAD_MODE" == "chrome" ]]; then
-  DOWNLOAD_EXTRA_ARGS+=(--impersonate chrome)
-fi
 
 echo
 echo "== 2. Download one TikTok video as MP4 =="
 echo "URL: $DOWNLOAD_URL"
 echo "Extraction mode: $DOWNLOAD_MODE"
-"$YT_DLP" \
-  "${COMMON_ARGS[@]}" \
-  "${DOWNLOAD_EXTRA_ARGS[@]}" \
-  --max-filesize 100M \
-  -f 'b[ext=mp4]' \
-  -o "$OUTPUT_TEMPLATE" \
-  "$DOWNLOAD_URL"
+
+if [[ "$DOWNLOAD_MODE" == "chrome" ]]; then
+  "$YT_DLP" \
+    "${COMMON_ARGS[@]}" \
+    --impersonate chrome \
+    --max-filesize 100M \
+    -f 'b[ext=mp4]' \
+    -o "$OUTPUT_TEMPLATE" \
+    "$DOWNLOAD_URL"
+else
+  "$YT_DLP" \
+    "${COMMON_ARGS[@]}" \
+    --max-filesize 100M \
+    -f 'b[ext=mp4]' \
+    -o "$OUTPUT_TEMPLATE" \
+    "$DOWNLOAD_URL"
+fi
 
 DOWNLOADED_FILE="$(find "$WORK_DIR" -maxdepth 1 -type f -name 'tiktok-poc.*' | head -n 1)"
 if [[ -z "$DOWNLOADED_FILE" ]]; then
