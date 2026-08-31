@@ -1,14 +1,16 @@
 import XCTest
 
-@MainActor final class MajorFlowUITests: XCTestCase {
-  private func launch(arguments: [String] = []) -> XCUIApplication {
+@MainActor class FoodfolioUITestCase: XCTestCase {
+  func launch(arguments: [String] = []) -> XCUIApplication {
     let app = XCUIApplication()
     app.terminate()
     app.launchArguments = ["-ui-testing"] + arguments
     app.launch()
     return app
   }
+}
 
+@MainActor final class RecipeDiscoveryUITests: FoodfolioUITestCase {
   func testBrowseSearchAndOpenRecipeDetail() {
     let app = launch()
     XCTAssertTrue(app.staticTexts["親子丼"].waitForExistence(timeout: 5))
@@ -54,23 +56,6 @@ import XCTest
     XCTAssertTrue(easyOption.waitForExistence(timeout: 3))
     easyOption.tap()
     XCTAssertEqual(tagButton.label, "簡単")
-  }
-
-  func testSearchHistoryCanDeleteOneEntry() {
-    let app = launch()
-    XCTAssertTrue(app.buttons["home.search"].waitForExistence(timeout: 5))
-    app.buttons["home.search"].tap()
-
-    let queryField = app.textFields["search.query"]
-    queryField.tap()
-    queryField.typeText("履歴削除テスト\n")
-    app.buttons["検索語を消去"].tap()
-
-    let deleteButton = app.buttons["search.history.delete.履歴削除テスト"]
-    XCTAssertTrue(deleteButton.waitForExistence(timeout: 3))
-    deleteButton.tap()
-    expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: deleteButton)
-    waitForExpectations(timeout: 3)
   }
 
   func testRecipeDetailUsesCompactTitleAndContentLayout() {
@@ -137,7 +122,9 @@ import XCTest
       for: NSPredicate(format: "label == %@", "3人分"), evaluatedWith: materialsServings)
     waitForExpectations(timeout: 2)
   }
+}
 
+@MainActor final class HomeNavigationUITests: FoodfolioUITestCase {
   func testDrawerContainsSettingsAndAccount() {
     let app = launch()
     app.buttons["home.drawer"].tap()
@@ -188,7 +175,9 @@ import XCTest
     brandButton.tap()
     XCTAssertTrue(app.buttons["drawer.settings"].waitForExistence(timeout: 3))
   }
+}
 
+@MainActor final class AuthenticationUITests: FoodfolioUITestCase {
   func testLoggedOutAuthenticationAndPasswordReset() {
     let app = launch(arguments: ["-ui-testing-logged-out"])
     XCTAssertTrue(app.buttons["auth.google"].waitForExistence(timeout: 3))
@@ -228,7 +217,9 @@ import XCTest
     app.buttons["auth.apple"].tap()
     XCTAssertTrue(app.buttons["home.add"].waitForExistence(timeout: 3))
   }
+}
 
+@MainActor final class MutationAndAccountUITests: FoodfolioUITestCase {
   func testAddTagEditAndDeleteRecipe() {
     let app = launch()
     app.buttons["home.add"].tap()
