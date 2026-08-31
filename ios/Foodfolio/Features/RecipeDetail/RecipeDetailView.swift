@@ -24,7 +24,7 @@ struct RecipeDetailView: View {
           VStack(alignment: .leading, spacing: 24) {
             summarySection
 
-            if recipe.analysisStatus == .failed {
+            if RecipeDetailPresentation.showsAnalysisFailure(for: recipe.analysisStatus) {
               Label("レシピの解析に問題がありました。", systemImage: "exclamationmark.triangle")
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.orange)
@@ -92,7 +92,7 @@ struct RecipeDetailView: View {
         }
       }
       ToolbarItem(placement: .topBarTrailing) {
-        if ![.pending, .processing].contains(recipe.analysisStatus) {
+        if RecipeDetailPresentation.canEdit(status: recipe.analysisStatus) {
           NavigationLink(destination: RecipeEditView(recipe: recipe)) {
             Image(systemName: "pencil")
           }
@@ -178,8 +178,21 @@ struct RecipeDetailView: View {
   }
 
   @ViewBuilder private var servingsControl: some View {
-    if let raw = recipe.servingsRaw {
-      if let base = recipe.servingsValue, base > 0 {
+    switch RecipeDetailPresentation.servingsControl(
+      raw: recipe.servingsRaw, base: recipe.servingsValue, displayed: displayServings
+    ) {
+    case .hidden:
+      EmptyView()
+    case .fixed(let text):
+      Text(text)
+        .font(.subheadline.weight(.semibold))
+        .foregroundStyle(FoodfolioTheme.ink)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .glassEffect(.regular, in: Capsule())
+        .accessibilityIdentifier("detail.servingsValue")
+    case .adjustable(let text, let canDecrease, let canIncrease):
+      if let base = recipe.servingsValue {
         HStack(spacing: 8) {
           Button {
             updateServings(by: -1, base: base)
@@ -189,11 +202,11 @@ struct RecipeDetailView: View {
               .frame(width: 26, height: 26)
           }
           .buttonStyle(.plain)
-          .disabled((displayServings ?? base) <= 1)
+          .disabled(!canDecrease)
           .accessibilityLabel("人数を減らす")
           .accessibilityIdentifier("detail.servingsMinus")
 
-          Text(servingsText(raw: raw))
+          Text(text)
             .font(.subheadline.weight(.semibold))
             .monospacedDigit()
             .accessibilityIdentifier("detail.servingsValue")
@@ -206,7 +219,7 @@ struct RecipeDetailView: View {
               .frame(width: 26, height: 26)
           }
           .buttonStyle(.plain)
-          .disabled((displayServings ?? base) >= 20)
+          .disabled(!canIncrease)
           .accessibilityLabel("人数を増やす")
           .accessibilityIdentifier("detail.servingsPlus")
         }
@@ -214,14 +227,6 @@ struct RecipeDetailView: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .glassEffect(.regular, in: Capsule())
-      } else {
-        Text(raw)
-          .font(.subheadline.weight(.semibold))
-          .foregroundStyle(FoodfolioTheme.ink)
-          .padding(.horizontal, 12)
-          .padding(.vertical, 8)
-          .glassEffect(.regular, in: Capsule())
-          .accessibilityIdentifier("detail.servingsValue")
       }
     }
   }
@@ -319,8 +324,8 @@ struct RecipeDetailView: View {
   }
 
   private func updateServings(by delta: Double, base: Double) {
-    let current = displayServings ?? base
-    displayServings = min(20, max(1, current + delta))
+    displayServings = RecipeDetailPresentation.updatedServings(
+      current: displayServings, base: base, delta: delta)
   }
 
   private func servingsText(raw: String) -> String {
@@ -328,8 +333,8 @@ struct RecipeDetailView: View {
   }
 
   private func scaledAmount(_ amount: String?) -> String? {
-    guard let base = recipe.servingsValue, let displayServings else { return amount }
-    return AmountScaler.scale(amount, multiplier: displayServings / base)
+    RecipeDetailPresentation.scaledAmount(
+      amount, base: recipe.servingsValue, displayed: displayServings)
   }
 }
 

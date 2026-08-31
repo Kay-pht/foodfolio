@@ -89,8 +89,8 @@
 | YouTube metadata | YouTube Data API v3 `videos.list(part=snippet)` | 採用 |
 | IaC | Terraform | 採用 |
 | Secrets | Google Cloud Secret Manager | 採用 |
-| Crash Reporting | Firebase Crashlytics | 採用 |
-| Analytics | Firebase Analytics | 採用 |
+| Crash Reporting | TestFlight標準のクラッシュ情報 | 初回TestFlightで利用 |
+| Analytics | TestFlight標準のセッション情報 | 初回TestFlightで利用 |
 | 画像Cloud Storage | MVP初期は専用Storageを持たない | 採用 |
 
 ---
@@ -205,8 +205,8 @@ MVPでは依存ライブラリを増やしすぎない。
 - Local image storage: FileManager
 - Auth: Firebase Authentication SDK
 - Push: Firebase Messaging SDK
-- Crash: Firebase Crashlytics
-- Analytics: Firebase Analytics
+
+初回TestFlightではFirebase CrashlyticsとFirebase AnalyticsをiOS targetに含めない。利用者数が増え、TestFlight標準情報では判断できない課題が生じた段階で導入を再検討する。
 
 ### 5.4 ローカル永続化
 
@@ -286,7 +286,11 @@ TestFlight利用者は主に日本からアクセスする想定だが、日本�
 
 性能上問題がある場合は、Cloud RunだけをTokyoに変更するのではなく、Backend ↔ DB間の往復も含めて構成全体を再評価する。
 
-### 7.3 Prisma
+### 7.3 初期TestFlightの環境方針
+
+初期TestFlightでは独立したProduction環境を構築せず、現在のGCP / Firebase / Neonバックエンド環境を利用する。利用者数、データ保護、可用性、運用監視などの要件が生じた段階で、Production環境の分離を再検討する。
+
+### 7.4 Prisma
 
 ORMはPrismaを採用する。
 
@@ -294,7 +298,7 @@ Cloud Runのようにインスタンス数が変動する環境では、Neonのp
 
 DB migrationについてはPrisma Migrateを利用する。
 
-### 7.4 Search
+### 7.5 Search
 
 MVPのレシピ検索は、iOSに同期済みのSwiftDataを対象にローカル実行する。
 
@@ -657,18 +661,9 @@ iOSはMVP初期ではXcode / App Store ConnectによるTestFlight配布を基本
 
 ## 16. Analytics / Crash Reporting
 
-MVPの外部TestFlight検証では以下を利用する。
+初回の外部TestFlight検証ではFirebase CrashlyticsとFirebase Analyticsを導入せず、TestFlight標準のセッション、クラッシュ、フィードバックを利用する。
 
-- Firebase Crashlytics
-- Firebase Analytics
-
-目的：
-
-- クラッシュ把握
-- 主要操作が正常に利用されているかの把握
-- MVPユーザー検証時の最低限の利用状況確認
-
-詳細なイベント設計はTestFlightリリース準備工程で行う。
+利用者数が増えた段階で、必要なイベントと取得データを改めて設計し、Firebase Crashlytics / Analyticsの導入を再検討する。
 
 ---
 
@@ -688,7 +683,7 @@ Cloud Tasksは月最初の100万billable operationsが無料枠となってい�
 
 - Firebase Cloud Messagingは無料
 - Firebase Authenticationには無料利用枠がある
-- Crashlytics / AnalyticsはMVPで利用しやすい無料サービスとして利用する
+- Crashlytics / Analyticsは初回TestFlightでは利用せず、利用者数が増えた段階で導入を再検討する
 
 ### 17.4 Neon
 
@@ -900,8 +895,7 @@ Notification
   APNs
 
 Observability
-  Firebase Crashlytics
-  Firebase Analytics
+  TestFlight sessions / crashes / feedback
 
 Infrastructure
   Terraform

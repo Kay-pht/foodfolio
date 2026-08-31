@@ -592,18 +592,19 @@ URL保存
 
 ## 必要作業
 
-* Production環境構築
 * TestFlight build作成
 * アプリ名
 * App Icon
-* 最低限の説明文
 * プライバシーポリシー
-* 利用規約の必要性確認
-* Analytics
-* Crash reporting
-* TestFlightテスター向け説明
-* Apple / Google / メール認証のProduction設定
-* 通知のProduction設定
+* 外部TestFlightの必須情報のみ用意（Beta App Description、Feedback Email、What to Test、審査連絡先、ログイン方法）
+* Apple / Google / メール認証のTestFlight向け設定・実機検証
+* 通知のTestFlight向け設定・実機検証
+
+初期TestFlightでは独立したProduction環境を構築せず、現在のバックエンド環境を利用する。利用者数や運用上の必要性が生じた段階で、Production環境の分離を再検討する。
+
+初回TestFlightではFirebase AnalyticsとFirebase Crashlyticsを利用せず、TestFlight標準のセッション、クラッシュ、フィードバックを利用する。独自利用規約は作成せず、Apple標準EULAを使用する。Push通知は省略せず、実機で検証する。
+
+認証の主要分岐は自動テストし、Apple / Google / メールの正常系を実機で各1回、Apple token失効を含むアカウント削除を実機で1回確認する。
 
 また、外部ユーザーに配布するため、
 
