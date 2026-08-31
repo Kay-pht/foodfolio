@@ -33,7 +33,11 @@ URL取得は一般Web・各サービスの公開仕様に沿ったサービス�
 | Instagram | 3/3 | 3/3 | 1/3 | MVP利用可能（公開メタデータ範囲） |
 | TikTok | 1/3 | 3/3 | 3/3 | 条件付き |
 
-TikTokは実行間でも0/3から1/3へ変動した。公開oEmbedまたはHTMLメタデータに十分なレシピ本文がある投稿だけを扱い、本文不足時は解析不能として返す。
+TikTokの公開metadataだけでは十分なレシピ本文を得られない場合がある。その後の動画取得PoCでは、`yt-dlp 2026.08.19`、二重抽出の廃止、初回を含む最大5回の処理全体再試行により、stable版で12 URL試行中11 URL、nightlyを含めると15 URL試行中14 URLでMP4取得に成功した。
+
+この結果から、タイトル解析で材料または手順が0件の場合だけ動画へフォールバックする方式を本番コードへ採用する。ただし任意URL、Cloud Run IP、ログイン・年齢・地域制限投稿での成功は未確認である。書面許可を確認したdev環境で機能フラグを有効化し、実アプリからGLM動画入力までのE2Eを検証する。
+
+2026-08-31にZ.ai公式OpenAPIが例示する動画URLを`glm-5.3-flash`の`video_url`へ1回入力し、Recipe Schemaに適合するJSON応答を確認した。実測は入力24,265 tokens、出力327 tokens、20.710秒だった。この確認は動画入力APIとSchema変換の成立だけを示し、TikTokレシピ動画の抽出品質、GCS署名URL経路、Cloud Run上の動作を証明しない。
 
 ### 2.1 YouTube取得方式の訂正
 
@@ -217,7 +221,7 @@ Googleは`videos.list`の応答時間保証を公開していないため、**�
 - YouTube認証: 公開動画メタデータはBackendのAPI keyを使用。ユーザーOAuthは要求しない
 - YouTube Secret: `YOUTUBE_API_KEY`をSecret Managerで管理
 - YouTube HTMLの`ytInitialPlayerResponse`抽出: 不採用
-- TikTok: 条件付き対応
+- TikTok: タイトル不足時の動画フォールバックを本番コードへ採用。書面許可を確認したdev環境で機能フラグを有効化
 - Gemini URL Context: 補助検証結果として保持し、MVP共通経路には不採用
 - Validation: BackendでRecipe Schema validationを必須化
 - Provider adapter: 将来の再比較用に維持
