@@ -94,14 +94,14 @@ for index in "${!URLS[@]}"; do
   metadata="$WORK_DIR/metadata-$index.json"
 
   echo
-echo "URL: $url"
+  echo "URL: $url"
   "$YT_DLP" \
     "${COMMON_ARGS[@]}" \
     --skip-download \
     --dump-single-json \
     "$url" > "$metadata"
 
-  node - "$metadata" <<'NODE'
+  node --input-type=commonjs - "$metadata" <<'NODE'
 const fs = require('node:fs');
 const path = process.argv[2];
 const data = JSON.parse(fs.readFileSync(path, 'utf8'));
@@ -160,7 +160,7 @@ file "$DOWNLOADED_FILE" || true
 
 if command -v ffprobe >/dev/null 2>&1; then
   echo
-echo "== 3. ffprobe media inspection =="
+  echo "== 3. ffprobe media inspection =="
   ffprobe \
     -v error \
     -show_entries format=format_name,duration,size:stream=index,codec_type,codec_name,width,height \
@@ -168,7 +168,7 @@ echo "== 3. ffprobe media inspection =="
     "$DOWNLOADED_FILE"
 else
   echo
-echo "ffprobe was not found; stream-level inspection was skipped."
+  echo "ffprobe was not found; stream-level inspection was skipped."
   echo "On macOS, install it with: brew install ffmpeg"
 fi
 
