@@ -31,7 +31,7 @@ PoC用コードは本番実装を目的とせず、必要に応じて破棄で�
 - TerraformによるGCPリソース管理
 - Firebase Crashlytics / Analytics
 
-これらは本実装時に公式手順に沿って構築し、通常の実装テストで確認する。
+これらは本実装時に公式手順に沿って構築し、通常の実装テストで確認する。ただし、その後のスコープ見直しにより、Firebase Crashlytics / Analyticsは初回TestFlightに含めず、利用者数が増えた段階で導入を再検討する。
 
 Cloud RunとNeon間のレイテンシも現時点では独立PoCを設けない。MVP規模で実装中に問題が確認された場合のみ追加検証する。
 
