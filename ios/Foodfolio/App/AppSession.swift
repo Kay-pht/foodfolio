@@ -59,16 +59,24 @@ import SwiftData
   }
 
   func refreshUser() { user = auth.currentUser }
+
   func didAuthenticate() async {
     refreshUser()
     await notifications?.requestAfterFirstLogin()
     await synchronize()
   }
+
+  func restoreAuthenticatedSession() async {
+    guard user != nil else { return }
+    await notifications?.restoreAuthenticatedSession()
+  }
+
   func synchronize() async {
     do { try await syncService.sync() } catch {
       globalError = (error as? APIError)?.userMessage ?? "同期に失敗しました。"
     }
   }
+
   func logout() async throws {
     await notifications?.unregisterCurrentToken()
     try auth.signOut()

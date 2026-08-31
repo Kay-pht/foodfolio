@@ -30,6 +30,7 @@
     "poc:ai:reevaluate": "tsx poc/ai-extraction/reevaluate.ts",
     "poc:gemini-url": "tsx poc/ai-extraction/run-gemini-url-context.ts",
     "poc:e2e": "tsx poc/end-to-end/run.ts",
+    "ios:push:simulator": "bash scripts/push-simulator-notification.sh",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
     "test:e2e": "vitest run tests/e2e",
