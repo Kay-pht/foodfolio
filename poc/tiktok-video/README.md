@@ -28,6 +28,8 @@ npm run poc:tiktok-video
 npm run poc:tiktok-video -- 'https://www.tiktok.com/@USER/video/VIDEO_ID'
 ```
 
+チャット等からMarkdown形式のリンクをそのまま貼った場合も、`[URL](URL)` から実URLを自動抽出して検証します。ただし、可能なら上記のように生URLだけを渡してください。
+
 ## 必要環境
 
 - macOS または Linux
