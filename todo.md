@@ -27,24 +27,15 @@
     - [x] App Store Connectに、アプリ名 `Foodfolio - あなたのレシピ帳`、Bundle ID `com.keyukt.foodfolio`、SKU、主言語を設定したアプリレコードを作成する（ユーザー作業）
     - [x] App ID `com.keyukt.foodfolio` でSign in with AppleとPush Notificationsを有効化する（ユーザー作業）
     - [ ] XcodeのReleaseビルドをFoodfolioのTeamとDistribution用プロビジョニングで署名できる状態にする
-  - [ ] Production環境を構築する
-    - [ ] dev専用名がハードコードされているTerraformを環境別に扱えるようにし、Production用Cloud Run API / Worker、Cloud Tasks、IAM、Secret Managerを定義する
-    - [ ] NeonにProduction用データベースまたはbranchを用意し、Production用のpooled接続とmigration用direct接続をSecret Managerへ登録する
-    - [ ] Production用のZ.ai APIキーとYouTube APIキーをSecret Managerへ登録し、値をログやGitへ出さないことを確認する
-    - [ ] Production環境へDB migration、API、Workerをデプロイし、API→Cloud Tasks→Worker→Neonの実経路を検証する
-    - [ ] Production APIのURLを確定し、Releaseビルドがdev APIではなくProduction APIを参照するように設定を分離する
-    - [ ] Cloud Runの最大インスタンス数、Cloud Tasksの流量制限、予算アラートを確認し、月額1,000円のMVP方針を明らかに超えない構成にする
-    - [ ] Productionのログと監視で、APIエラー、Worker失敗、Cloud Tasksのリトライ枯渇を検知できることを確認する
-  - [ ] Production用の認証を設定・検証する
+  - [ ] TestFlight用の認証を設定・検証する
     - [ ] Firebase iOS AppのBundle ID、`GoogleService-Info.plist`、URL SchemeがReleaseビルドと一致することを確認する
     - [ ] Sign in with AppleをFirebase Authenticationに設定し、実Apple IDによるログイン、再ログイン、ログアウトを実機で検証する
     - [ ] Sign in with Apple利用者のアカウント削除時に、Appleトークン失効とFoodfolio側データ削除が完了することを実機で検証する
-    - [ ] Google OAuth同意画面のアプリ名、サポート連絡先、プライバシーポリシーURL、承認済みドメインを設定し、Productionステータスへ公開する（ユーザーのGoogle再認証が必要な場合はユーザー作業）
     - [ ] Googleログイン、再ログイン、ログアウト、アカウント削除をRelease相当の実機ビルドで検証する
     - [ ] メール認証の送信者名、メールテンプレート、承認済みドメインを確認し、登録、ログイン、パスワード再設定、アカウント削除を検証する
-  - [ ] Production用のPush通知を設定・検証する
+  - [ ] TestFlight用のPush通知を設定・検証する
     - [x] APNs認証キーをApple Developerで発行し、Key IDとTeam IDとともにFirebase Cloud Messagingへ登録する（秘密鍵の発行・登録はユーザー作業）
-    - [ ] Release署名時にProduction用APNs entitlementが付与され、実機のFCM tokenがProduction APIへ登録されることを確認する
+    - [ ] Release署名時に配布用APNs entitlementが付与され、実機のFCM tokenが現在利用するAPIへ登録されることを確認する
     - [ ] 実機で解析成功通知と解析失敗通知を受信し、通知タップで対象レシピが開くことを確認する
     - [ ] アプリ内の解析通知がOFFの場合は成功・失敗の両方を通知せず、ONの場合は両方を通知することを確認する
     - [ ] ログアウトとアカウント削除後に端末tokenが解除され、その利用者へ通知されないことを確認する
@@ -73,7 +64,7 @@
     - [ ] 実機で新規インストール、ログイン3方式、URL保存、AI解析、同期、検索、通知、ログアウト、アカウント削除の回帰テストを行う
     - [ ] XcodeでGeneric iOS Device向けArchiveを作成し、Validate Appで署名、entitlement、アイコン、Privacy Manifestのエラーがないことを確認する
     - [ ] ArchiveをApp Store Connectへuploadし、build processing完了後にエラー・警告・Missing Complianceが残っていないことを確認する
-    - [ ] App Store Connectで内部テスターグループを作成し、内部テスターの実機でインストール、起動、Production接続、主要フローをスモークテストする
+    - [ ] App Store Connectで内部テスターグループを作成し、内部テスターの実機でインストール、起動、現在利用するバックエンドへの接続、主要フローをスモークテストする
   - [ ] 外部TestFlight審査へ提出できる状態にする
     - [ ] 外部テスターグループを作成し、対象buildと「テストしてほしいこと」を設定する
     - [ ] TestFlight Test InformationとBeta App Review Informationの必須項目をすべて入力する
