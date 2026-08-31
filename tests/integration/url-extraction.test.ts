@@ -80,4 +80,54 @@ describe("extractUrl integration", () => {
       textForAi: "TITLE\n材料 豚肉 200g 作り方 焼く",
     });
   });
+
+  it.each([
+    "#レシピ #簡単 #息子の夜食 #ペペロンチーノ",
+    "分量はキャプションを確認してください",
+    "下ごしらえを紹介します",
+    "下準備のポイント",
+    "作りかたを紹介します",
+    "つくり方を紹介します",
+    "つくりかたを紹介します",
+  ])(
+    "accepts Japanese recipe wording in TikTok metadata: %s",
+    async (title) => {
+      const http = {
+        async get() {
+          return {
+            finalUrl: "https://www.tiktok.com/oembed",
+            statusCode: 200,
+            contentType: "application/json",
+            body: JSON.stringify({ title }),
+          };
+        },
+      } as SafeHttpClient;
+      const extractor = new ProductionSourceContentExtractor(http, "unused");
+
+      await expect(
+        extractor.extract(new URL("https://www.tiktok.com/@chef/video/123")),
+      ).resolves.toMatchObject({ textForAi: `TITLE\n${title}` });
+    },
+  );
+
+  it("rejects a generic food caption without recipe content", async () => {
+    const http = {
+      async get() {
+        return {
+          finalUrl: "https://www.tiktok.com/oembed",
+          statusCode: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ title: "簡単な料理を食べてみた" }),
+        };
+      },
+    } as SafeHttpClient;
+    const extractor = new ProductionSourceContentExtractor(http, "unused");
+
+    await expect(
+      extractor.extract(new URL("https://www.tiktok.com/@chef/video/123")),
+    ).rejects.toMatchObject({
+      code: "SOURCE_CONTENT_UNAVAILABLE",
+      retryable: false,
+    });
+  });
 });
