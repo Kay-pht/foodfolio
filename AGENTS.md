@@ -42,6 +42,10 @@ MVP作成段階に限り、次の値を使用する。
 - Neon PostgreSQL: 18
 - Neon既定branch: `production`
 
+初期TestFlightでは独立したProduction環境を構築せず、現在のGCP / Firebase / Neonバックエンド環境を利用する。Neonの`production`は現在利用している既存branch名であり、独立したProduction環境が存在することを意味しない。利用者数や運用上の必要性が生じた段階で、Production環境の分離を再検討する。
+
+初回TestFlightではPush通知を必須機能とする。Firebase AnalyticsとFirebase Crashlyticsは導入せず、リリース前にiOS targetから両SDKの依存を外して、TestFlight標準のセッション、クラッシュ、フィードバックを利用する。独自利用規約は作成せず、Apple標準EULAを使用する。認証の主要分岐は自動テストし、Apple / Google / メールの正常系を実機で各1回、Apple token失効を含むアカウント削除を実機で1回確認する。
+
 CLI実行時は次を守る。
 
 - `gcloud` の現在のglobal projectはFoodfolio以外を指しているため、Foodfolio向けコマンドでは必ず `--project foodfolio-af28aa` 等で対象を明示し、global設定を変更しない。

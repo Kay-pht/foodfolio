@@ -55,6 +55,77 @@ final class CoreLogicTests: XCTestCase {
     XCTAssertTrue(store.values.isEmpty)
   }
 
+  func testSearchHistoryRemovesOnlySelectedEntry() {
+    let defaults = UserDefaults(suiteName: UUID().uuidString)!
+    let store = SearchHistoryStore(defaults: defaults, key: "test")
+    store.add("残す履歴")
+    store.add("削除する履歴")
+
+    store.remove("削除する履歴")
+
+    XCTAssertEqual(store.values, ["残す履歴"])
+  }
+
+  func testServingsControlIsHiddenWithoutRawServings() {
+    XCTAssertEqual(
+      RecipeDetailPresentation.servingsControl(raw: nil, base: nil, displayed: nil), .hidden)
+  }
+
+  func testServingsControlShowsNormalizedFixedTextWithoutNumericBase() {
+    XCTAssertEqual(
+      RecipeDetailPresentation.servingsControl(
+        raw: "1〜2 servings", base: nil, displayed: nil),
+      .fixed(text: "1〜2人分"))
+  }
+
+  func testServingsControlUsesBaseValueAndAllowsChangesWithinBounds() {
+    XCTAssertEqual(
+      RecipeDetailPresentation.servingsControl(raw: "2 servings", base: 2, displayed: nil),
+      .adjustable(text: "2人分", canDecrease: true, canIncrease: true))
+  }
+
+  func testServingsControlDisablesDecreaseAtOnePersonBoundary() {
+    XCTAssertEqual(
+      RecipeDetailPresentation.servingsControl(raw: "1 serving", base: 1, displayed: 1),
+      .adjustable(text: "1人分", canDecrease: false, canIncrease: true))
+  }
+
+  func testServingsControlDisablesIncreaseAtTwentyPersonBoundary() {
+    XCTAssertEqual(
+      RecipeDetailPresentation.servingsControl(raw: "20 servings", base: 20, displayed: 20),
+      .adjustable(text: "20人分", canDecrease: true, canIncrease: false))
+  }
+
+  func testServingsUpdatesClampToSupportedBoundaries() {
+    XCTAssertEqual(
+      RecipeDetailPresentation.updatedServings(current: 1, base: 2, delta: -1), 1)
+    XCTAssertEqual(
+      RecipeDetailPresentation.updatedServings(current: 20, base: 2, delta: 1), 20)
+    XCTAssertEqual(
+      RecipeDetailPresentation.updatedServings(current: nil, base: 2, delta: 1), 3)
+  }
+
+  func testScaledAmountPreservesNonNumericValuesAndStartsFromBaseAmount() {
+    XCTAssertEqual(
+      RecipeDetailPresentation.scaledAmount("少々", base: 2, displayed: 3), "少々")
+    XCTAssertEqual(
+      RecipeDetailPresentation.scaledAmount("200g", base: 2, displayed: nil), "200g")
+  }
+
+  func testPendingAndProcessingRecipesCannotBeEdited() {
+    XCTAssertFalse(RecipeDetailPresentation.canEdit(status: .pending))
+    XCTAssertFalse(RecipeDetailPresentation.canEdit(status: .processing))
+    XCTAssertTrue(RecipeDetailPresentation.canEdit(status: .completed))
+    XCTAssertTrue(RecipeDetailPresentation.canEdit(status: .failed))
+  }
+
+  func testOnlyFailedRecipesShowAnalysisFailure() {
+    XCTAssertFalse(RecipeDetailPresentation.showsAnalysisFailure(for: .pending))
+    XCTAssertFalse(RecipeDetailPresentation.showsAnalysisFailure(for: .processing))
+    XCTAssertFalse(RecipeDetailPresentation.showsAnalysisFailure(for: .completed))
+    XCTAssertTrue(RecipeDetailPresentation.showsAnalysisFailure(for: .failed))
+  }
+
   func testAPIErrorMapsBackendCodesToUserMessages() throws {
     let data = try XCTUnwrap(
       """

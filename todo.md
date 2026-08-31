@@ -21,6 +21,7 @@
 - [x] 実装設計
 - [x] 実装・テスト
 - [ ] TestFlightリリース準備
+  - 環境方針: 初期TestFlightでは独立したProduction環境を構築せず、現在のバックエンド環境を利用する。利用者数や運用上の必要性が生じた段階で、Production環境の分離を再検討する
   - [ ] Apple側の利用資格と登録を完了する
     - [x] Apple Developer Programへの加入、最新規約への同意、MFAを完了する（ユーザー作業）
     - [x] Apple DeveloperのTeam IDを確認し、Xcodeの署名用アカウントを登録する（ユーザー作業）
@@ -29,39 +30,33 @@
     - [ ] XcodeのReleaseビルドをFoodfolioのTeamとDistribution用プロビジョニングで署名できる状態にする
   - [ ] TestFlight用の認証を設定・検証する
     - [ ] Firebase iOS AppのBundle ID、`GoogleService-Info.plist`、URL SchemeがReleaseビルドと一致することを確認する
-    - [ ] Sign in with AppleをFirebase Authenticationに設定し、実Apple IDによるログイン、再ログイン、ログアウトを実機で検証する
-    - [ ] Sign in with Apple利用者のアカウント削除時に、Appleトークン失効とFoodfolio側データ削除が完了することを実機で検証する
-    - [ ] Googleログイン、再ログイン、ログアウト、アカウント削除をRelease相当の実機ビルドで検証する
-    - [ ] メール認証の送信者名、メールテンプレート、承認済みドメインを確認し、登録、ログイン、パスワード再設定、アカウント削除を検証する
+    - [ ] Apple / Google / メール認証とアカウント削除の主要分岐を自動テストする
+    - [ ] Release相当の実機ビルドでApple / Google / メールの正常系を各1回確認する
+    - [ ] Release相当の実機ビルドで、Apple token失効とFoodfolio側データ削除を含むアカウント削除を1回確認する
   - [ ] TestFlight用のPush通知を設定・検証する
     - [x] APNs認証キーをApple Developerで発行し、Key IDとTeam IDとともにFirebase Cloud Messagingへ登録する（秘密鍵の発行・登録はユーザー作業）
     - [ ] Release署名時に配布用APNs entitlementが付与され、実機のFCM tokenが現在利用するAPIへ登録されることを確認する
     - [ ] 実機で解析成功通知と解析失敗通知を受信し、通知タップで対象レシピが開くことを確認する
     - [ ] アプリ内の解析通知がOFFの場合は成功・失敗の両方を通知せず、ONの場合は両方を通知することを確認する
     - [ ] ログアウトとアカウント削除後に端末tokenが解除され、その利用者へ通知されないことを確認する
-  - [ ] AnalyticsとCrash reportingを完成させる
-    - [ ] MVPユーザー検証で必要なAnalyticsイベントとプロパティを定義する（ログイン方式、URL保存、解析成功・失敗、検索、絞り込み、元サイト表示。URL本文、レシピ本文、メールアドレス等は送信しない）
-    - [ ] Firebase Analyticsを実装し、DebugViewで各イベントが重複なく記録されることを確認する
-    - [ ] CrashlyticsのdSYM upload用Run ScriptとInput FilesをXcode projectへ設定する
-    - [ ] Release相当ビルドからテストクラッシュと非致命的エラーを送信し、Firebase Consoleでシンボル化されたレポートを確認する
+  - [ ] 初回TestFlightで省略するFirebase Analytics / CrashlyticsをiOS targetの依存から外し、Archiveに含まれないことを確認する
   - [ ] プライバシー・法務情報を確定する
-    - [ ] 取得・保存・外部送信するデータを棚卸しする（認証ID・メール、保存URL・レシピ、検索履歴、端末token、Analytics、Crash情報）
+    - [ ] 取得・保存・外部送信するデータを棚卸しする（認証ID・メール、保存URL・レシピ、検索履歴、端末token）
     - [ ] Firebase、GCP、Neon、Z.ai、YouTube、Apple、Googleへのデータ送信内容と目的を整理する
     - [ ] データの保存期間、ユーザーによる削除方法、問い合わせ先、安全管理、外部URL解析について記載したプライバシーポリシーを作成する
     - [ ] プライバシーポリシーをHTTPSの公開URLで掲載し、アプリ内とApp Store Connectの双方から到達できるようにする
-    - [ ] 利用規約が必要かを確認し、必要なら作成・公開する。不要と判断した場合も理由を記録する
+    - [x] 独自利用規約は作成せず、Apple標準EULAを使用する
     - [ ] App Store ConnectのApp Privacyで、Foodfolio本体と組み込みSDKが収集するデータ、利用目的、ユーザーとの紐付け、トラッキング有無を正しく回答する
     - [ ] XcodeのPrivacy Reportと使用APIを確認し、Foodfolio本体に必要な `PrivacyInfo.xcprivacy` を作成してArchiveに含める
   - [ ] アプリの配布用表示とメタデータを用意する
     - [ ] 正式なApp Iconを全必須サイズでAssetsへ登録し、Archive検証で欠落警告がないことを確認する
     - [ ] アプリ名 `Foodfolio`、version、build number、Minimum Deployment Target、対応端末を確定する
-    - [ ] TestFlight用のBeta App Description、Feedback Email、テスター向け「テストしてほしいこと」を日本語で用意する
-    - [ ] TestFlight App Review向けの連絡先、ログイン方法、審査用アカウントまたは登録手順、バックエンド処理の説明を用意する
+    - [ ] 外部TestFlightで必須のBeta App Description、Feedback Email、What to Test、審査連絡先、ログイン方法、審査用アカウントまたは登録手順だけを最小限の文面で用意する
     - [ ] プライバシーポリシーURLとサポートURLをApp Store Connectへ登録する
     - [ ] HTTPS通信等の暗号利用を棚卸しし、App Store Connectの輸出コンプライアンス質問へ回答する。免除を宣言できる場合のみInfo.plistへ適切な設定を追加する
   - [ ] TestFlight buildを作成して内部テストする
     - [ ] Release構成で実装部分のテスト、全体テスト、結合テスト、E2E、lint、format check、buildを実行し、`npm run verify` を含む全検証を成功させる
-    - [ ] 実機で新規インストール、ログイン3方式、URL保存、AI解析、同期、検索、通知、ログアウト、アカウント削除の回帰テストを行う
+    - [ ] 実機で新規インストール、URL保存、AI解析、同期、検索、Push通知の主要フローを各1回スモークテストする（認証とアカウント削除は上記の最小範囲で別途確認する）
     - [ ] XcodeでGeneric iOS Device向けArchiveを作成し、Validate Appで署名、entitlement、アイコン、Privacy Manifestのエラーがないことを確認する
     - [ ] ArchiveをApp Store Connectへuploadし、build processing完了後にエラー・警告・Missing Complianceが残っていないことを確認する
     - [ ] App Store Connectで内部テスターグループを作成し、内部テスターの実機でインストール、起動、現在利用するバックエンドへの接続、主要フローをスモークテストする
