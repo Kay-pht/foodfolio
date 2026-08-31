@@ -43,7 +43,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
   ) {
     #if DEBUG
       print(
-        "[NotificationService] APNs remote notification registration failed: \(error.localizedDescription)")
+        "[NotificationService] APNs remote notification registration failed: \(error.localizedDescription)"
+      )
     #endif
   }
 }
