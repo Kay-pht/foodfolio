@@ -122,7 +122,7 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate, Mes
     await MainActor.run { onRecipeOpened?(recipeID) }
   }
 
-  nonisolated @objc private func handleAPNsRegistrationDidSucceed() {
+  @objc nonisolated private func handleAPNsRegistrationDidSucceed() {
     Task { @MainActor [weak self] in
       await self?.syncCurrentToken()
     }
