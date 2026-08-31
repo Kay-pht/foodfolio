@@ -30,7 +30,21 @@ struct FoodfolioBackground: View {
 final class AppDelegate: NSObject, UIApplicationDelegate {
   func application(
     _ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
-  ) { Messaging.messaging().apnsToken = deviceToken }
+  ) {
+    Messaging.messaging().apnsToken = deviceToken
+    #if DEBUG
+      print("[NotificationService] APNs device token registered.")
+    #endif
+  }
+
+  func application(
+    _ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error
+  ) {
+    #if DEBUG
+      print(
+        "[NotificationService] APNs remote notification registration failed: \(error.localizedDescription)")
+    #endif
+  }
 }
 
 @main struct FoodfolioApp: App {
@@ -54,11 +68,13 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         initialValue: try AppSession(context: container.mainContext, uiTesting: mockMode))
     } catch { fatalError("Unable to initialize Foodfolio: \(error.localizedDescription)") }
   }
+
   var body: some Scene {
     WindowGroup {
       RootView()
         .environment(session)
         .onOpenURL { url in _ = GIDSignIn.sharedInstance.handle(url) }
+        .task { await session.restoreAuthenticatedSession() }
     }.modelContainer(container)
   }
 }
