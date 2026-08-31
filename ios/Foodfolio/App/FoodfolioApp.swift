@@ -32,6 +32,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     _ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
   ) {
     Messaging.messaging().apnsToken = deviceToken
+    NotificationCenter.default.post(name: .foodfolioAPNsRegistrationDidSucceed, object: nil)
     #if DEBUG
       print("[NotificationService] APNs device token registered.")
     #endif
