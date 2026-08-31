@@ -3,6 +3,11 @@ import Foundation
 import UIKit
 import UserNotifications
 
+extension Notification.Name {
+  static let foodfolioAPNsRegistrationDidSucceed = Notification.Name(
+    "foodfolioAPNsRegistrationDidSucceed")
+}
+
 @MainActor
 final class NotificationService: NSObject, UNUserNotificationCenterDelegate, MessagingDelegate {
   private let api: APIClient
@@ -13,6 +18,15 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate, Mes
     super.init()
     UNUserNotificationCenter.current().delegate = self
     Messaging.messaging().delegate = self
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(handleAPNsRegistrationDidSucceed),
+      name: .foodfolioAPNsRegistrationDidSucceed,
+      object: nil)
+  }
+
+  deinit {
+    NotificationCenter.default.removeObserver(self)
   }
 
   func requestAfterFirstLogin() async {
@@ -106,6 +120,12 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate, Mes
     guard let recipeID = response.notification.request.content.userInfo["recipeId"] as? String
     else { return }
     await MainActor.run { onRecipeOpened?(recipeID) }
+  }
+
+  nonisolated @objc private func handleAPNsRegistrationDidSucceed() {
+    Task { @MainActor [weak self] in
+      await self?.syncCurrentToken()
+    }
   }
 
   private func syncCurrentToken() async {
