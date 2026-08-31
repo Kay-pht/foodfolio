@@ -54,4 +54,13 @@ final class NotificationActivationTests: XCTestCase {
 
     XCTAssertFalse(state.canSyncFCMToken)
   }
+
+  func testRepeatedAPNsSuccessKeepsFCMTokenSyncEnabled() {
+    var state = APNsRegistrationState()
+
+    state.markSucceeded()
+    state.markSucceeded()
+
+    XCTAssertTrue(state.canSyncFCMToken)
+  }
 }
