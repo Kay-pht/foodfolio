@@ -30,6 +30,7 @@
     "poc:ai:reevaluate": "tsx poc/ai-extraction/reevaluate.ts",
     "poc:gemini-url": "tsx poc/ai-extraction/run-gemini-url-context.ts",
     "poc:e2e": "tsx poc/end-to-end/run.ts",
+    "poc:tiktok-video": "bash poc/tiktok-video/run.sh",
     "ios:push:simulator": "bash scripts/push-simulator-notification.sh",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
@@ -40,6 +41,7 @@
     "verify": "npm run prisma:generate && npm run prisma:validate && npm run test && npm run lint && npm run format:check && npm run build"
   },
   "dependencies": {
+    "@google-cloud/storage": "^8.0.1",
     "@google-cloud/tasks": "^7.0.0",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",

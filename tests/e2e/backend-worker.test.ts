@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { buildWorker } from "../../src/api/build-worker.js";
 import { RecipeAnalysisService } from "../../src/application/analysis/analysis-service.js";
 import {
@@ -6,6 +6,7 @@ import {
   type NotificationSender,
   type RecipeExtractor,
   type SourceContentExtractor,
+  type TikTokVideoRecipeFallback,
 } from "../../src/application/analysis/types.js";
 import {
   startPostgres,
@@ -303,5 +304,290 @@ describe("API/Worker application E2E", () => {
     ).toBe(204);
     expect(notifications.failed).toEqual([failedRecipe.id]);
     await failedWorker.close();
+  });
+
+  it("uses TikTok video fallback when title extraction has no ingredients or steps", async () => {
+    const user = await context.prisma.user.create({
+      data: {
+        firebaseUid: "tiktok-video-fallback-user",
+        setting: { create: {} },
+      },
+    });
+    const recipe = await context.prisma.recipe.create({
+      data: {
+        userId: user.id,
+        originalUrl: "https://www.tiktok.com/@chef/video/123",
+        normalizedUrl: "https://www.tiktok.com/@chef/video/123",
+        sourceType: "tiktok",
+      },
+    });
+    const tiktokSourceExtractor: SourceContentExtractor = {
+      extract: async () => ({
+        sourceType: "tiktok",
+        resolvedUrl: "https://www.tiktok.com/@chef/video/123",
+        imageUrl: "https://images.example/tiktok.jpg",
+        textForAi: "TITLE\n絶品パスタ",
+      }),
+    };
+    const titleExtractor: RecipeExtractor = {
+      extract: async () => ({
+        recipe: {
+          title: "絶品パスタ",
+          servings: null,
+          cookingTimeMinutes: null,
+          genre: "麺",
+          ingredients: [],
+          steps: [],
+        },
+        providerRequestId: "title-request",
+        inputTokens: 3,
+        outputTokens: 4,
+        latencyMs: 5,
+      }),
+    };
+    const extractVideo = vi.fn(async () => ({
+      recipe: {
+        title: "絶品パスタ",
+        servings: { value: 1, raw: "1人分" },
+        cookingTimeMinutes: 15,
+        genre: "麺",
+        ingredients: [{ name: "パスタ", amount: "100g" }],
+        steps: ["パスタを茹でる"],
+      },
+      providerRequestId: "video-request",
+      inputTokens: 30,
+      outputTokens: 40,
+      latencyMs: 50,
+    }));
+    const tiktokVideoFallback: TikTokVideoRecipeFallback = {
+      extract: extractVideo,
+    };
+    const worker = buildWorker(
+      new RecipeAnalysisService({
+        prisma: context.prisma,
+        sourceExtractor: tiktokSourceExtractor,
+        recipeExtractor: titleExtractor,
+        tiktokVideoFallback,
+        notifications: new FakeNotifications(),
+        maxAttempts: 3,
+      }),
+    );
+
+    const response = await worker.inject({
+      method: "POST",
+      url: "/internal/tasks/recipe-analysis",
+      payload: { recipeId: recipe.id },
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(extractVideo).toHaveBeenCalledOnce();
+    const updated = await context.prisma.recipe.findUniqueOrThrow({
+      where: { id: recipe.id },
+      include: { ingredients: true, steps: true },
+    });
+    expect(updated.analysisStatus).toBe("completed");
+    expect(updated.ingredients).toHaveLength(1);
+    expect(updated.steps).toHaveLength(1);
+    await worker.close();
+  });
+
+  it("does not download a TikTok video when title extraction is complete", async () => {
+    const user = await context.prisma.user.create({
+      data: {
+        firebaseUid: "tiktok-title-complete-user",
+        setting: { create: {} },
+      },
+    });
+    const recipe = await context.prisma.recipe.create({
+      data: {
+        userId: user.id,
+        originalUrl: "https://www.tiktok.com/@chef/video/789",
+        normalizedUrl: "https://www.tiktok.com/@chef/video/789",
+        sourceType: "tiktok",
+      },
+    });
+    const extractVideo = vi.fn();
+    const worker = buildWorker(
+      new RecipeAnalysisService({
+        prisma: context.prisma,
+        sourceExtractor: {
+          extract: async () => ({
+            sourceType: "tiktok",
+            resolvedUrl: "https://www.tiktok.com/@chef/video/789",
+            imageUrl: null,
+            textForAi: "TITLE\n材料 パスタ100g 作り方 茹でる",
+          }),
+        },
+        recipeExtractor: {
+          extract: async () => ({
+            recipe: {
+              title: "パスタ",
+              servings: null,
+              cookingTimeMinutes: null,
+              genre: "麺",
+              ingredients: [{ name: "パスタ", amount: "100g" }],
+              steps: ["茹でる"],
+            },
+            providerRequestId: "title-request",
+            inputTokens: 3,
+            outputTokens: 4,
+            latencyMs: 5,
+          }),
+        },
+        tiktokVideoFallback: { extract: extractVideo },
+        notifications: new FakeNotifications(),
+        maxAttempts: 3,
+      }),
+    );
+
+    const response = await worker.inject({
+      method: "POST",
+      url: "/internal/tasks/recipe-analysis",
+      payload: { recipeId: recipe.id },
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(extractVideo).not.toHaveBeenCalled();
+    expect(
+      (
+        await context.prisma.recipe.findUniqueOrThrow({
+          where: { id: recipe.id },
+        })
+      ).analysisStatus,
+    ).toBe("completed");
+    await worker.close();
+  });
+
+  it("fails without creating an incomplete page when video extraction is still incomplete", async () => {
+    const user = await context.prisma.user.create({
+      data: {
+        firebaseUid: "tiktok-video-incomplete-user",
+        setting: { create: {} },
+      },
+    });
+    const recipe = await context.prisma.recipe.create({
+      data: {
+        userId: user.id,
+        originalUrl: "https://www.tiktok.com/@chef/video/999",
+        normalizedUrl: "https://www.tiktok.com/@chef/video/999",
+        sourceType: "tiktok",
+      },
+    });
+    const extractTitle = vi.fn(async () => {
+      throw new Error("title extraction must not run without title text");
+    });
+    const worker = buildWorker(
+      new RecipeAnalysisService({
+        prisma: context.prisma,
+        sourceExtractor: {
+          extract: async () => ({
+            sourceType: "tiktok",
+            resolvedUrl: "https://www.tiktok.com/@chef/video/999",
+            imageUrl: null,
+            textForAi: null,
+          }),
+        },
+        recipeExtractor: { extract: extractTitle },
+        tiktokVideoFallback: {
+          extract: async () => ({
+            recipe: {
+              title: null,
+              servings: null,
+              cookingTimeMinutes: null,
+              genre: null,
+              ingredients: [],
+              steps: [],
+            },
+            providerRequestId: "video-request",
+            inputTokens: 3,
+            outputTokens: 4,
+            latencyMs: 5,
+          }),
+        },
+        notifications: new FakeNotifications(),
+        maxAttempts: 3,
+      }),
+    );
+
+    const response = await worker.inject({
+      method: "POST",
+      url: "/internal/tasks/recipe-analysis",
+      payload: { recipeId: recipe.id },
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(extractTitle).not.toHaveBeenCalled();
+    const updated = await context.prisma.recipe.findUniqueOrThrow({
+      where: { id: recipe.id },
+      include: { ingredients: true, steps: true },
+    });
+    expect(updated.analysisStatus).toBe("failed");
+    expect(updated.ingredients).toHaveLength(0);
+    expect(updated.steps).toHaveLength(0);
+    await worker.close();
+  });
+
+  it("fails an incomplete TikTok title without downloading when fallback is disabled", async () => {
+    const user = await context.prisma.user.create({
+      data: {
+        firebaseUid: "tiktok-video-fallback-disabled-user",
+        setting: { create: {} },
+      },
+    });
+    const recipe = await context.prisma.recipe.create({
+      data: {
+        userId: user.id,
+        originalUrl: "https://www.tiktok.com/@chef/video/456",
+        normalizedUrl: "https://www.tiktok.com/@chef/video/456",
+        sourceType: "tiktok",
+      },
+    });
+    const worker = buildWorker(
+      new RecipeAnalysisService({
+        prisma: context.prisma,
+        sourceExtractor: {
+          extract: async () => ({
+            sourceType: "tiktok",
+            resolvedUrl: "https://www.tiktok.com/@chef/video/456",
+            imageUrl: null,
+            textForAi: "TITLE\n絶品パスタ",
+          }),
+        },
+        recipeExtractor: {
+          extract: async () => ({
+            recipe: {
+              title: "絶品パスタ",
+              servings: null,
+              cookingTimeMinutes: null,
+              genre: "麺",
+              ingredients: [],
+              steps: [],
+            },
+            providerRequestId: "title-request",
+            inputTokens: 3,
+            outputTokens: 4,
+            latencyMs: 5,
+          }),
+        },
+        notifications: new FakeNotifications(),
+        maxAttempts: 3,
+      }),
+    );
+
+    const response = await worker.inject({
+      method: "POST",
+      url: "/internal/tasks/recipe-analysis",
+      payload: { recipeId: recipe.id },
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(
+      (
+        await context.prisma.recipe.findUniqueOrThrow({
+          where: { id: recipe.id },
+        })
+      ).analysisStatus,
+    ).toBe("failed");
+    await worker.close();
   });
 });

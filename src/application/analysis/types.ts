@@ -18,14 +18,40 @@ export interface ExtractedRecipe {
 export interface SourceContentExtractor {
   extract(url: URL): Promise<SourceContent>;
 }
+export interface RecipeExtractionResult {
+  recipe: ExtractedRecipe;
+  providerRequestId: string | null;
+  inputTokens: number;
+  outputTokens: number;
+  latencyMs: number;
+}
 export interface RecipeExtractor {
-  extract(input: SourceContent): Promise<{
-    recipe: ExtractedRecipe;
-    providerRequestId: string | null;
-    inputTokens: number;
-    outputTokens: number;
-    latencyMs: number;
-  }>;
+  extract(input: SourceContent): Promise<RecipeExtractionResult>;
+}
+export interface VideoRecipeExtractor {
+  extractVideo(
+    input: SourceContent,
+    videoUrl: string,
+  ): Promise<RecipeExtractionResult>;
+}
+export interface TikTokVideoRecipeFallback {
+  extract(input: SourceContent): Promise<RecipeExtractionResult>;
+}
+export interface DownloadedVideo {
+  filePath: string;
+  sizeBytes: number;
+  attempts: number;
+  dispose(): Promise<void>;
+}
+export interface TikTokVideoDownloader {
+  download(url: URL): Promise<DownloadedVideo>;
+}
+export interface PublishedVideo {
+  url: string;
+  dispose(): Promise<void>;
+}
+export interface TemporaryVideoStore {
+  publish(filePath: string): Promise<PublishedVideo>;
 }
 export interface NotificationSender {
   sendRecipeAnalysisCompleted(
