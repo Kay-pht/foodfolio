@@ -28,4 +28,30 @@ final class NotificationActivationTests: XCTestCase {
   func testDeniedSessionDoesNotRegisterForRemoteNotifications() {
     XCTAssertFalse(NotificationService.shouldRegisterForRemoteNotifications(status: .denied))
   }
+
+  func testAPNsRegistrationIsNotReadyInitially() {
+    let state = APNsRegistrationState()
+
+    XCTAssertFalse(state.isReady)
+  }
+
+  func testAPNsRegistrationBecomesReadyOnlyAfterSuccess() {
+    var state = APNsRegistrationState()
+
+    state.beginRegistration()
+    XCTAssertFalse(state.isReady)
+
+    state.markSucceeded()
+    XCTAssertTrue(state.isReady)
+  }
+
+  func testStartingNewAPNsRegistrationBlocksFCMSyncAgain() {
+    var state = APNsRegistrationState()
+    state.markSucceeded()
+    XCTAssertTrue(state.isReady)
+
+    state.beginRegistration()
+
+    XCTAssertFalse(state.isReady)
+  }
 }
