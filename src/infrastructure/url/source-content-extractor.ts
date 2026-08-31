@@ -139,12 +139,6 @@ export class ProductionSourceContentExtractor implements SourceContentExtractor 
       );
     const record = value as Record<string, unknown>;
     const title = normalize(record.title);
-    if (!title || !RECIPE_CONTENT_PATTERN.test(title))
-      throw new AnalysisError(
-        "SOURCE_CONTENT_UNAVAILABLE",
-        false,
-        "TikTok post has no recipe content",
-      );
     const thumbnailUrl = normalize(record.thumbnail_url);
     return {
       sourceType: "tiktok",
@@ -152,7 +146,7 @@ export class ProductionSourceContentExtractor implements SourceContentExtractor 
       imageUrl: thumbnailUrl
         ? new URL(thumbnailUrl, response.finalUrl).toString()
         : null,
-      textForAi: `TITLE\n${title}`.slice(0, MAX_AI_CHARS),
+      textForAi: title ? `TITLE\n${title}`.slice(0, MAX_AI_CHARS) : null,
     };
   }
   private async extractYoutube(url: URL): Promise<SourceContent> {

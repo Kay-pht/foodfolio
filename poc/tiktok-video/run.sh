@@ -31,8 +31,27 @@ else
   URLS=("${DEFAULT_URLS[@]}")
 fi
 
-WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/foodfolio-tiktok-poc.XXXXXX")"
 KEEP_OUTPUT="${KEEP_TIKTOK_POC_VIDEO:-0}"
+MAX_ATTEMPTS="${TIKTOK_POC_MAX_ATTEMPTS:-5}"
+RETRY_BASE_SECONDS="${TIKTOK_POC_RETRY_BASE_SECONDS:-2}"
+MAX_RETRY_SECONDS="${TIKTOK_POC_MAX_RETRY_SECONDS:-10}"
+
+if ! [[ "$MAX_ATTEMPTS" =~ ^[1-9][0-9]*$ ]]; then
+  echo "TIKTOK_POC_MAX_ATTEMPTS must be a positive integer: $MAX_ATTEMPTS" >&2
+  exit 2
+fi
+
+if ! [[ "$RETRY_BASE_SECONDS" =~ ^[0-9]+$ ]]; then
+  echo "TIKTOK_POC_RETRY_BASE_SECONDS must be a non-negative integer: $RETRY_BASE_SECONDS" >&2
+  exit 2
+fi
+
+if ! [[ "$MAX_RETRY_SECONDS" =~ ^[0-9]+$ ]]; then
+  echo "TIKTOK_POC_MAX_RETRY_SECONDS must be a non-negative integer: $MAX_RETRY_SECONDS" >&2
+  exit 2
+fi
+
+WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/foodfolio-tiktok-poc.XXXXXX")"
 
 cleanup() {
   if [[ "$KEEP_OUTPUT" == "1" ]]; then
@@ -99,6 +118,13 @@ if [[ -n "${TIKTOK_POC_COOKIES_FROM_BROWSER:-}" ]]; then
   echo "Browser cookies: $TIKTOK_POC_COOKIES_FROM_BROWSER"
 fi
 
+COMMON_ARGS+=(
+  --retries 3
+  --fragment-retries 3
+  --extractor-retries 3
+  --sleep-requests 1
+)
+
 print_metadata_summary() {
   local metadata="$1"
   node --input-type=commonjs - "$metadata" <<'NODE'
@@ -124,164 +150,122 @@ if (mp4Formats.length === 0) {
 NODE
 }
 
-extract_metadata() {
-  local url="$1"
-  local metadata="$2"
-  local log="$3"
-  local mode="$4"
-
-  if [[ "$mode" == "chrome" ]]; then
-    if "$YT_DLP" \
-      "${COMMON_ARGS[@]}" \
-      --impersonate chrome \
-      --skip-download \
-      --dump-single-json \
-      --verbose \
-      "$url" > "$metadata" 2> "$log"; then
-      print_metadata_summary "$metadata"
-      return $?
-    fi
-  else
-    if "$YT_DLP" \
-      "${COMMON_ARGS[@]}" \
-      --skip-download \
-      --dump-single-json \
-      --verbose \
-      "$url" > "$metadata" 2> "$log"; then
-      print_metadata_summary "$metadata"
-      return $?
-    fi
-  fi
-
-  return 1
+remove_attempt_artifacts() {
+  local index="$1"
+  find "$WORK_DIR" -maxdepth 1 -type f \
+    \( -name "video-$index.*" -o -name "video-$index.part" \) \
+    -delete
 }
 
-SUCCESS_URLS=()
-SUCCESS_MODES=()
+find_downloaded_file() {
+  local index="$1"
+  find "$WORK_DIR" -maxdepth 1 -type f -name "video-$index.mp4" -print -quit
+}
+
+file_size() {
+  local path="$1"
+  if stat -f '%z' "$path" >/dev/null 2>&1; then
+    stat -f '%z' "$path"
+  else
+    stat -c '%s' "$path"
+  fi
+}
+
+download_video_once() {
+  local url="$1"
+  local index="$2"
+  local log="$3"
+
+  "$YT_DLP" \
+    "${COMMON_ARGS[@]}" \
+    --max-filesize 100M \
+    -f 'b[ext=mp4]' \
+    --write-info-json \
+    --verbose \
+    -o "$WORK_DIR/video-$index.%(ext)s" \
+    "$url" > "$log" 2>&1
+}
+
+SUCCESS_COUNT=0
 FAILURE_COUNT=0
+TOTAL_ATTEMPTS=0
 
 echo
-echo "== 1. Metadata / available media formats =="
+echo "== TikTok MP4 download with bounded whole-operation retries =="
+echo "Maximum attempts per URL: $MAX_ATTEMPTS"
 for index in "${!URLS[@]}"; do
   url="${URLS[$index]}"
-  metadata="$WORK_DIR/metadata-$index.json"
-  log="$WORK_DIR/metadata-$index.log"
-
   echo
   echo "URL: $url"
-  echo "Attempt 1: yt-dlp default TikTok extraction"
+  url_succeeded=0
+  attempt=1
 
-  if extract_metadata "$url" "$metadata" "$log" "default"; then
-    SUCCESS_URLS+=("$url")
-    SUCCESS_MODES+=("default")
-    echo "Metadata SUCCESS (default)"
-    continue
+  while [[ "$attempt" -le "$MAX_ATTEMPTS" ]]; do
+    TOTAL_ATTEMPTS=$((TOTAL_ATTEMPTS + 1))
+    log="$WORK_DIR/attempt-$index-$attempt.log"
+    remove_attempt_artifacts "$index"
+    echo "Attempt $attempt/$MAX_ATTEMPTS: one extraction through MP4 download"
+
+    if download_video_once "$url" "$index" "$log"; then
+      downloaded_file="$(find_downloaded_file "$index")"
+      metadata="$WORK_DIR/video-$index.info.json"
+      if [[ -n "$downloaded_file" && -s "$downloaded_file" && -s "$metadata" ]]; then
+        FILE_SIZE="$(file_size "$downloaded_file")"
+        print_metadata_summary "$metadata"
+        echo "Downloaded: $downloaded_file"
+        echo "Size: $FILE_SIZE bytes"
+        file "$downloaded_file" || true
+
+        if command -v ffprobe >/dev/null 2>&1; then
+          ffprobe \
+            -v error \
+            -show_entries format=format_name,duration,size:stream=index,codec_type,codec_name,width,height \
+            -of json \
+            "$downloaded_file"
+        fi
+
+        echo "URL SUCCESS on attempt $attempt"
+        SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+        url_succeeded=1
+        break
+      fi
+      echo "yt-dlp exited successfully but did not leave a non-empty MP4 and info JSON." >&2
+    fi
+
+    echo "Attempt $attempt failed. Last diagnostic lines:"
+    tail -n 16 "$log" || true
+    if [[ "$attempt" -lt "$MAX_ATTEMPTS" ]]; then
+      retry_delay=$((RETRY_BASE_SECONDS * attempt))
+      if [[ "$retry_delay" -gt "$MAX_RETRY_SECONDS" ]]; then
+        retry_delay="$MAX_RETRY_SECONDS"
+      fi
+      echo "Retrying in $retry_delay second(s) with a fresh yt-dlp process."
+      sleep "$retry_delay"
+    fi
+    attempt=$((attempt + 1))
+  done
+
+  if [[ "$url_succeeded" -eq 0 ]]; then
+    FAILURE_COUNT=$((FAILURE_COUNT + 1))
+    echo "URL FAILED after $MAX_ATTEMPTS attempts." >&2
   fi
-
-  echo "Default extraction failed. Last diagnostic lines:"
-  tail -n 12 "$log" || true
-  echo
-  echo "Attempt 2: explicit Chrome request impersonation"
-
-  if extract_metadata "$url" "$metadata" "$log" "chrome"; then
-    SUCCESS_URLS+=("$url")
-    SUCCESS_MODES+=("chrome")
-    echo "Metadata SUCCESS (Chrome impersonation)"
-    continue
-  fi
-
-  FAILURE_COUNT=$((FAILURE_COUNT + 1))
-  echo "Chrome impersonation also failed. Last diagnostic lines:"
-  tail -n 20 "$log" || true
-  echo "Metadata FAILED for this URL; continuing with the remaining URLs."
 done
 
 echo
-echo "Metadata result: ${#SUCCESS_URLS[@]} succeeded / ${#URLS[@]} tested"
-
-if [[ ${#SUCCESS_URLS[@]} -eq 0 ]]; then
-  echo >&2
-  echo "PoC FAILED before video download: none of the tested TikTok URLs exposed usable metadata." >&2
-  if [[ -z "${TIKTOK_POC_COOKIES_FROM_BROWSER:-}" ]]; then
-    echo >&2
-    echo "Next diagnostic: retry with your own logged-in TikTok browser session." >&2
-    echo "Chrome:" >&2
-    echo "  TIKTOK_POC_COOKIES_FROM_BROWSER=chrome npm run poc:tiktok-video" >&2
-    echo "Safari:" >&2
-    echo "  TIKTOK_POC_COOKIES_FROM_BROWSER=safari npm run poc:tiktok-video" >&2
-  else
-    echo "Browser cookies were already supplied, so this is not merely the anonymous-web path failing." >&2
-  fi
-  echo "Set KEEP_TIKTOK_POC_VIDEO=1 to retain verbose metadata logs in the displayed temp directory." >&2
-  exit 1
-fi
-
-DOWNLOAD_URL="${TIKTOK_POC_DOWNLOAD_URL:-${SUCCESS_URLS[0]}}"
-DOWNLOAD_MODE="${SUCCESS_MODES[0]}"
-OUTPUT_TEMPLATE="$WORK_DIR/tiktok-poc.%(ext)s"
-
-echo
-echo "== 2. Download one TikTok video as MP4 =="
-echo "URL: $DOWNLOAD_URL"
-echo "Extraction mode: $DOWNLOAD_MODE"
-
-if [[ "$DOWNLOAD_MODE" == "chrome" ]]; then
-  "$YT_DLP" \
-    "${COMMON_ARGS[@]}" \
-    --impersonate chrome \
-    --max-filesize 100M \
-    -f 'b[ext=mp4]' \
-    -o "$OUTPUT_TEMPLATE" \
-    "$DOWNLOAD_URL"
-else
-  "$YT_DLP" \
-    "${COMMON_ARGS[@]}" \
-    --max-filesize 100M \
-    -f 'b[ext=mp4]' \
-    -o "$OUTPUT_TEMPLATE" \
-    "$DOWNLOAD_URL"
-fi
-
-DOWNLOADED_FILE="$(find "$WORK_DIR" -maxdepth 1 -type f -name 'tiktok-poc.*' | head -n 1)"
-if [[ -z "$DOWNLOADED_FILE" ]]; then
-  echo "Download command completed but no output file was found." >&2
-  exit 1
-fi
-
-if stat -f '%z' "$DOWNLOADED_FILE" >/dev/null 2>&1; then
-  FILE_SIZE="$(stat -f '%z' "$DOWNLOADED_FILE")"
-else
-  FILE_SIZE="$(stat -c '%s' "$DOWNLOADED_FILE")"
-fi
-
-if [[ "$FILE_SIZE" -le 0 ]]; then
-  echo "Downloaded file is empty: $DOWNLOADED_FILE" >&2
-  exit 1
-fi
-
-echo "Downloaded: $DOWNLOADED_FILE"
-echo "Size: $FILE_SIZE bytes"
-file "$DOWNLOADED_FILE" || true
-
-if command -v ffprobe >/dev/null 2>&1; then
-  echo
-  echo "== 3. ffprobe media inspection =="
-  ffprobe \
-    -v error \
-    -show_entries format=format_name,duration,size:stream=index,codec_type,codec_name,width,height \
-    -of json \
-    "$DOWNLOADED_FILE"
-else
-  echo
-  echo "ffprobe was not found; stream-level inspection was skipped."
-  echo "On macOS, install it with: brew install ffmpeg"
-fi
-
-echo
-echo "PoC SUCCESS: at least one TikTok URL exposed metadata and an MP4 file was downloaded."
+echo "Result: $SUCCESS_COUNT succeeded / ${#URLS[@]} tested; $TOTAL_ATTEMPTS total attempt(s)"
 if [[ "$FAILURE_COUNT" -gt 0 ]]; then
-  echo "Note: $FAILURE_COUNT URL(s) failed metadata extraction; see the diagnostic output above."
+  echo "PoC FAILED: $FAILURE_COUNT URL(s) did not produce an MP4 within the retry limit." >&2
+  if [[ -z "${TIKTOK_POC_COOKIES_FROM_BROWSER:-}" ]]; then
+    echo "No browser cookies were used." >&2
+  fi
+  echo "Set KEEP_TIKTOK_POC_VIDEO=1 to retain verbose logs." >&2
+  exit 1
+fi
+
+echo "PoC SUCCESS: every tested TikTok URL produced a non-empty MP4."
+if ! command -v ffprobe >/dev/null 2>&1; then
+  echo "ffprobe was not found; stream-level inspection was skipped."
 fi
 if [[ "$KEEP_OUTPUT" != "1" ]]; then
-  echo "The downloaded video and diagnostic files will be deleted when this script exits."
+  echo "Downloaded videos, metadata, and diagnostic logs will be deleted on exit."
 fi

@@ -1080,16 +1080,41 @@ PoCで成立した方式を本番モジュールへ移植する。ただしYouTu
 
 - YouTube: URLからvideoId抽出 → YouTube Data API v3 `videos.list(part=snippet)` → `title` / `description` / `thumbnails` 取得
 - Instagram: 公開OG metadata範囲
-- TikTok: 公開oEmbed / HTML metadata範囲
+- TikTok: 公開oEmbed metadata。タイトル解析で材料または手順が得られない場合のみ、許可条件を満たした環境で動画フォールバック
 - クラシル
 - クックパッド
 - 一般Web
 
 YouTubeではページHTML、`ytInitialPlayerResponse`、oEmbedを説明文取得の主経路として使用しない。YouTube Data API呼び出しに必要な `YOUTUBE_API_KEY` はBackendのSecretとしてGoogle Cloud Secret Managerで管理し、Cloud Run Workerへ環境変数として渡す。
 
-認証回避、非公開コンテンツ取得、動画・画像本体の無断downloadは行わない。
+認証回避、非公開コンテンツ取得、動画・画像本体の無断downloadは行わない。TikTok動画フォールバックは書面許可を確認した環境だけで有効化する。dev環境は書面許可を確認済みのため有効とする。
 
-### 14.1 SourceContent
+### 14.1 TikTok動画フォールバック
+
+処理順は以下に固定する。
+
+```text
+TikTok oEmbed title
+↓
+GLM-5.3-Flashでテキスト解析
+├─ ingredients 1件以上 かつ steps 1件以上 → 通常保存
+└─ ingredientsまたはstepsが0件
+   ├─ TIKTOK_VIDEO_FALLBACK_ENABLED=false → 解析失敗
+   └─ true → yt-dlpで動画取得 → 署名URL → GLM-5.3-Flash動画解析
+              ├─ ingredients 1件以上 かつ steps 1件以上 → 保存
+              └─ いずれか0件 → 解析失敗
+```
+
+- `yt-dlp`は`2026.08.19`へ固定し、実行ファイルのSHA-256をDocker build時に検証する
+- 動画取得は初回を含めて最大5回。5回すべて失敗した場合は非リトライ可能とし、Cloud Tasksで同じ取得を繰り返さない
+- 1試行のtimeoutは45秒、待機は2秒、4秒、6秒、8秒とする
+- MP4は100MBを上限とし、非公開GCS bucketへ一時uploadする
+- Z.aiには有効期限10分のV4署名URLを`video_url`として渡す
+- AI処理終了後はGCS objectとWorker一時ファイルを削除し、異常終了時もbucket lifecycleで1日後に削除する。動画を保持し続けないよう、この専用bucketのsoft deleteは無効化する
+- 動画、署名URL、yt-dlpの生出力は通常ログへ記録しない
+- テストは自作または利用許可済み動画を使用する
+
+### 14.2 SourceContent
 
 Worker内部では概念上以下へ変換する。
 
@@ -1104,7 +1129,7 @@ interface SourceContent {
 
 `textForAi` はAI呼び出し後に破棄し、DBへ保存しない。
 
-### 14.2 画像取得失敗
+### 14.3 画像取得失敗
 
 画像取得失敗だけではAI解析失敗にしない。
 
@@ -2231,11 +2256,17 @@ ZAI_API_KEY
 YOUTUBE_API_KEY
 AI_MODEL=glm-5.3-flash
 MAX_ANALYSIS_ATTEMPTS=3
+TIKTOK_VIDEO_FALLBACK_ENABLED=true # dev。新規環境の既定値はfalse
+TIKTOK_VIDEO_BUCKET
+TIKTOK_VIDEO_MAX_ATTEMPTS=5
+YT_DLP_PATH=/usr/local/bin/yt-dlp
 ```
 
 `MAX_ANALYSIS_ATTEMPTS` はCloud Tasks Queueのretry設定とWorkerの最終試行判定で同じ値を使用する。
 
 `ZAI_API_KEY` / `YOUTUBE_API_KEY` / DB接続情報はSecret ManagerからCloud Runへ渡す。
+
+`TIKTOK_VIDEO_FALLBACK_ENABLED`は書面許可を確認した環境だけで`true`とする。dev環境は許可確認済みのため有効化する。`TIKTOK_VIDEO_BUCKET`は公開アクセス禁止の一時保存専用bucket名であり、動画本体や署名URLをDBへ保存しない。
 
 Firebase Admin / Cloud Tasks等のGCP認証にはCloud Run Service AccountのApplication Default Credentialsを基本とし、Service Account JSON key fileを配布しない。
 

@@ -4,16 +4,20 @@ import { genreFromLabel } from "../../domain/recipe/genre.js";
 import {
   AnalysisError,
   type NotificationSender,
+  type RecipeExtractionResult,
   type RecipeExtractor,
+  type SourceContent,
   type SourceContentExtractor,
+  type TikTokVideoRecipeFallback,
 } from "./types.js";
 
-const PROCESSING_LEASE_MS = 210_000;
+const PROCESSING_LEASE_MS = 660_000;
 
 export interface AnalysisDependencies {
   prisma: PrismaClient;
   sourceExtractor: SourceContentExtractor;
   recipeExtractor: RecipeExtractor;
+  tiktokVideoFallback?: TikTokVideoRecipeFallback;
   notifications: NotificationSender;
   maxAttempts: number;
 }
@@ -55,7 +59,7 @@ export class RecipeAnalysisService {
       const source = await this.deps.sourceExtractor.extract(
         new URL(recipe.originalUrl),
       );
-      const result = await this.deps.recipeExtractor.extract(source);
+      const { result, videoFallbackUsed } = await this.extractRecipe(source);
       const title = result.recipe.title?.trim() || "タイトル未取得のレシピ";
       const committed = await this.deps.prisma.$transaction(async (tx) => {
         const owned = await tx.recipe.findFirst({
@@ -115,6 +119,7 @@ export class RecipeAnalysisService {
           latencyMs: result.latencyMs,
           inputTokens: result.inputTokens,
           outputTokens: result.outputTokens,
+          videoFallbackUsed,
         },
         "recipe analysis completed",
       );
@@ -160,6 +165,48 @@ export class RecipeAnalysisService {
         await this.notify(recipe.userId, recipeId, title, "failed", log);
       return { retry: !final };
     }
+  }
+
+  private async extractRecipe(
+    source: SourceContent,
+  ): Promise<{ result: RecipeExtractionResult; videoFallbackUsed: boolean }> {
+    if (source.sourceType !== "tiktok")
+      return {
+        result: await this.deps.recipeExtractor.extract(source),
+        videoFallbackUsed: false,
+      };
+
+    const textResult = source.textForAi
+      ? await this.deps.recipeExtractor.extract(source)
+      : null;
+    if (textResult && hasRequiredRecipeContent(textResult))
+      return { result: textResult, videoFallbackUsed: false };
+
+    if (!this.deps.tiktokVideoFallback)
+      throw new AnalysisError(
+        "TIKTOK_VIDEO_FALLBACK_DISABLED",
+        false,
+        "TikTok title did not contain enough recipe information and video fallback is disabled",
+      );
+
+    const videoResult = await this.deps.tiktokVideoFallback.extract(source);
+    if (!hasRequiredRecipeContent(videoResult))
+      throw new AnalysisError(
+        "SOURCE_CONTENT_UNAVAILABLE",
+        false,
+        "TikTok video did not contain enough recipe information",
+      );
+    return {
+      result: textResult
+        ? {
+            ...videoResult,
+            inputTokens: textResult.inputTokens + videoResult.inputTokens,
+            outputTokens: textResult.outputTokens + videoResult.outputTokens,
+            latencyMs: textResult.latencyMs + videoResult.latencyMs,
+          }
+        : videoResult,
+      videoFallbackUsed: true,
+    };
   }
 
   private async claim(
@@ -257,4 +304,8 @@ export class RecipeAnalysisService {
       );
     }
   }
+}
+
+function hasRequiredRecipeContent(result: RecipeExtractionResult): boolean {
+  return result.recipe.ingredients.length > 0 && result.recipe.steps.length > 0;
 }
