@@ -41,6 +41,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
   func application(
     _ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error
   ) {
+    NotificationCenter.default.post(name: .foodfolioAPNsRegistrationDidFail, object: nil)
     #if DEBUG
       print(
         "[NotificationService] APNs remote notification registration failed: \(error.localizedDescription)"
