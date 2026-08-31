@@ -6,6 +6,8 @@ import UserNotifications
 extension Notification.Name {
   static let foodfolioAPNsRegistrationDidSucceed = Notification.Name(
     "foodfolioAPNsRegistrationDidSucceed")
+  static let foodfolioAPNsRegistrationDidFail = Notification.Name(
+    "foodfolioAPNsRegistrationDidFail")
 }
 
 struct APNsRegistrationState {
@@ -17,6 +19,10 @@ struct APNsRegistrationState {
 
   mutating func markSucceeded() {
     canSyncFCMToken = true
+  }
+
+  mutating func markFailed() {
+    canSyncFCMToken = false
   }
 }
 
@@ -35,6 +41,11 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate, Mes
       self,
       selector: #selector(handleAPNsRegistrationDidSucceed),
       name: .foodfolioAPNsRegistrationDidSucceed,
+      object: nil)
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(handleAPNsRegistrationDidFail),
+      name: .foodfolioAPNsRegistrationDidFail,
       object: nil)
   }
 
@@ -143,6 +154,12 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate, Mes
       guard let self else { return }
       apnsRegistrationState.markSucceeded()
       await syncCurrentToken()
+    }
+  }
+
+  @objc nonisolated private func handleAPNsRegistrationDidFail() {
+    Task { @MainActor [weak self] in
+      self?.apnsRegistrationState.markFailed()
     }
   }
 
