@@ -64,9 +64,21 @@ final class NotificationActivationTests: XCTestCase {
     XCTAssertTrue(state.canSyncFCMToken)
   }
 
-  func testAPNsRegistrationRemainsBlockedWithoutSuccessCallback() {
+  func testAPNsRegistrationFailureKeepsFCMTokenSyncBlocked() {
     var state = APNsRegistrationState()
     state.beginRegistration()
+
+    state.markFailed()
+
+    XCTAssertFalse(state.canSyncFCMToken)
+  }
+
+  func testAPNsRegistrationFailureClearsPreviouslyReadyState() {
+    var state = APNsRegistrationState()
+    state.markSucceeded()
+    XCTAssertTrue(state.canSyncFCMToken)
+
+    state.markFailed()
 
     XCTAssertFalse(state.canSyncFCMToken)
   }
