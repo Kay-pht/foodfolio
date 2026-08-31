@@ -85,22 +85,9 @@ import SwiftData
       arguments.contains("-ui-testing-long-title")
       ? "親子丼 フライパンひとつで作れるとろとろ卵の簡単レシピ"
       : "親子丼"
-    let servings: (Double?, String?) =
-      arguments.contains("-ui-testing-no-servings")
-      ? (nil, nil)
-      : arguments.contains("-ui-testing-range-servings")
-        ? (nil, "1〜2人分")
-        : arguments.contains("-ui-testing-one-serving")
-          ? (1, "1 serving")
-          : arguments.contains("-ui-testing-twenty-servings")
-            ? (20, "20 servings")
-            : (2, "2 servings")
+    let servings: (Double?, String?) = (2, "2 servings")
     let status: AnalysisStatus =
-      arguments.contains("-ui-testing-status-pending")
-      ? .pending
-      : arguments.contains("-ui-testing-status-processing")
-        ? .processing
-        : arguments.contains("-ui-testing-status-failed") ? .failed : .completed
+      arguments.contains("-ui-testing-status-failed") ? .failed : .completed
     let steps =
       arguments.contains("-ui-testing-long-title")
       ? (0..<8).map {
