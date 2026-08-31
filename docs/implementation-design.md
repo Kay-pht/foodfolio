@@ -2211,7 +2211,7 @@ outputTokens
 - AI raw response全文
 - private credential
 
-Crashlytics / Analyticsのイベント詳細はTestFlightリリース準備工程で定義する。
+初回TestFlightではCrashlytics / Analyticsを利用せず、TestFlight標準のセッション、クラッシュ、フィードバックを利用する。利用者数が増えた段階で、取得データとイベントを再設計する。
 
 ---
 
