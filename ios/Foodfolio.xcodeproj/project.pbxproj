@@ -39,6 +39,7 @@
 		9E838CC9AC58B715562EE24E /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5C7777C8944E320D30D27DA /* AuthView.swift */; };
 		9EB90542B091FD11AAC4A76E /* MVPCriticalIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 415C40E7C00469F0FE82142C /* MVPCriticalIntegrationTests.swift */; };
 		A5A754571B5BF660059A0DB8 /* AccountDeletionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F865B5617E8AE629AFB16F21 /* AccountDeletionService.swift */; };
+		A6DD55B569097F863FFC9A55 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FE4DD1DC1E7C38733785B6B1 /* Assets.xcassets */; };
 		AFBC2450A9901304BCEF0FF3 /* FoodfolioApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8CC27A1E7A83EDF3D5DCA5D /* FoodfolioApp.swift */; };
 		D5EEEAA3CA86F0AA3824CC98 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D3965347199E92FB3A7B3DC /* HomeView.swift */; };
 		DDC062F93A445AC294F9A984 /* MajorFlowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44051BF0E339B00667317CE8 /* MajorFlowUITests.swift */; };
@@ -111,6 +112,7 @@
 		F865B5617E8AE629AFB16F21 /* AccountDeletionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionService.swift; sourceTree = "<group>"; };
 		F887C254F5EECBEBA303261E /* RecipeDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecipeDetailView.swift; sourceTree = "<group>"; };
 		FB7164CA62061513D5F3DFF7 /* CoreLogicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreLogicTests.swift; sourceTree = "<group>"; };
+		FE4DD1DC1E7C38733785B6B1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		FE9BEA4FEA4E4EBF0F053B11 /* AppSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSession.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -187,6 +189,7 @@
 		398FCA4F5F6731FDB910B8F2 /* Foodfolio */ = {
 			isa = PBXGroup;
 			children = (
+				FE4DD1DC1E7C38733785B6B1 /* Assets.xcassets */,
 				EB46171A22DCA9D26767C67F /* Foodfolio.entitlements */,
 				2603D1D8033B2A40B1FE1617 /* GoogleService-Info.plist */,
 				2BD0EF851A9D526E55856E7B /* Info.plist */,
@@ -509,6 +512,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A6DD55B569097F863FFC9A55 /* Assets.xcassets in Resources */,
 				0819708633F4F3A8F38E02EF /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
