@@ -10,6 +10,27 @@ describe("ZaiRecipeExtractor video input", () => {
     const fetchMock = vi.fn(async (_url: string | URL, init?: RequestInit) => {
       const request = JSON.parse(String(init?.body)) as Record<string, unknown>;
       expect(request.model).toBe("glm-5.3-flash");
+      const messages = request.messages as Array<Record<string, unknown>>;
+      const systemMessage = messages.find(
+        (message) => message.role === "system",
+      );
+      expect(systemMessage?.content).toEqual(
+        expect.stringContaining(
+          "Write every user-visible string value in natural Japanese",
+        ),
+      );
+      for (const field of [
+        "title",
+        "servings.raw",
+        "ingredients[].name",
+        "ingredients[].amount",
+        "steps[]",
+      ]) {
+        expect(systemMessage?.content).toEqual(expect.stringContaining(field));
+      }
+      expect(systemMessage?.content).toEqual(
+        expect.stringContaining("Keep JSON property names unchanged"),
+      );
       expect(request.messages).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
