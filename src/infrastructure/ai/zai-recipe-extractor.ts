@@ -8,14 +8,7 @@ import {
   type SourceContent,
   type VideoRecipeExtractor,
 } from "../../application/analysis/types.js";
-
-const SYSTEM_PROMPT = `You extract recipe facts only from supplied source material.
-Return JSON matching the schema exactly. Return one recipe data instance.
-Never return, copy, modify, or annotate the JSON Schema itself.
-Do not infer missing facts, except that genre must be classified from the supplied recipe content.
-Use null or an empty array when the source omits any other fact.
-Preserve ingredient names, amounts, yield wording, and important cooking operations faithfully.
-Genre must be one allowed Japanese enum value.`;
+import { RECIPE_EXTRACTION_SYSTEM_PROMPT } from "../../shared/recipe-extraction-system-prompt.js";
 
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 const validate = ajv.compile<ExtractedRecipe>(recipeSchema);
@@ -77,7 +70,7 @@ export class ZaiRecipeExtractor
           messages: [
             {
               role: "system",
-              content: `${SYSTEM_PROMPT}\nJSON SCHEMA\n${JSON.stringify(recipeSchema)}`,
+              content: `${RECIPE_EXTRACTION_SYSTEM_PROMPT}\nJSON SCHEMA\n${JSON.stringify(recipeSchema)}`,
             },
             userMessage,
           ],
