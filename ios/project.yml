@@ -106,3 +106,19 @@ schemes:
           parallelizable: true
         - name: FoodfolioUITests
           parallelizable: true
+  FoodfolioCI:
+    build:
+      targets:
+        Foodfolio: all
+        FoodfolioTests: [test]
+        FoodfolioIntegrationTests: [test]
+        FoodfolioUITests: [test]
+    test:
+      debugEnabled: false
+      targets:
+        - name: FoodfolioTests
+          parallelizable: true
+        - name: FoodfolioIntegrationTests
+          parallelizable: true
+        - name: FoodfolioUITests
+          parallelizable: true
