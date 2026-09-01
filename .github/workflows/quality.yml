@@ -25,8 +25,17 @@ jobs:
   ios:
     runs-on: macos-26
     timeout-minutes: 45
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
       - uses: actions/checkout@v7
+      - name: Record CI environment
+        run: |
+          echo "ImageOS=${ImageOS:-unknown}"
+          echo "ImageVersion=${ImageVersion:-unknown}"
+          sw_vers
+          xcodebuild -version
+          xcrun simctl list runtimes
       - name: Generate Xcode project
         working-directory: ios
         run: |
@@ -35,29 +44,19 @@ jobs:
       - name: Swift format check
         working-directory: ios
         run: >-
-          DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
           xcrun swift-format lint --recursive --strict
           Foodfolio FoodfolioTests FoodfolioIntegrationTests FoodfolioUITests
-      - name: Build
-        working-directory: ios
-        run: >-
-          DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
-          xcodebuild -project Foodfolio.xcodeproj -scheme Foodfolio
-          -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
-          CODE_SIGNING_ALLOWED=NO build
       - name: Build test products
         working-directory: ios
         run: >-
-          DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
-          xcodebuild -project Foodfolio.xcodeproj -scheme Foodfolio
+          xcodebuild -project Foodfolio.xcodeproj -scheme FoodfolioCI
           -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
           -derivedDataPath .derived-data CODE_SIGNING_ALLOWED=NO
-          clean build-for-testing
+          build-for-testing
       - name: Unit, integration, and UI E2E tests
         working-directory: ios
         run: >-
-          DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
-          xcodebuild -project Foodfolio.xcodeproj -scheme Foodfolio
+          xcodebuild -project Foodfolio.xcodeproj -scheme FoodfolioCI
           -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
           -derivedDataPath .derived-data CODE_SIGNING_ALLOWED=NO
           -parallel-testing-enabled YES
