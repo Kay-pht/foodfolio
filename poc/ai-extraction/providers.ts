@@ -1,4 +1,5 @@
 import type { ProviderName, ProviderResponse, Usage } from "./types.js";
+import { RECIPE_EXTRACTION_SYSTEM_PROMPT } from "../../src/shared/recipe-extraction-system-prompt.js";
 
 const TIMEOUT_MS = 120_000;
 const MAX_OUTPUT_TOKENS = 4_000;
@@ -60,16 +61,6 @@ export function resolveProviders(value: string | undefined): ProviderName[] {
   }
   return requested as ProviderName[];
 }
-
-const SYSTEM_PROMPT = `You extract recipe facts only from supplied source text.
-Return JSON matching the schema exactly.
-Return one recipe data instance. Never return, copy, modify, or annotate the JSON Schema itself.
-Do not infer missing facts, except that genre must be classified from the supplied recipe content. Use null or an empty array when the source omits any other fact.
-Write every user-visible string value in natural Japanese: title, servings.raw, ingredients[].name, ingredients[].amount, and steps[].
-Translate source-language wording into natural Japanese without adding or omitting facts. Keep JSON property names unchanged.
-Preserve the original meaning, quantities, yield, and important cooking operations faithfully.
-Proper nouns may remain in the original language only when there is no natural Japanese equivalent.
-Genre must be one allowed Japanese enum value.`;
 
 function outputTextFromResponsesApi(value: Record<string, unknown>): string {
   if (typeof value.output_text === "string") return value.output_text;
@@ -161,7 +152,9 @@ export async function callProvider(
       `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent`,
       { "x-goog-api-key": apiKey },
       {
-        systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+        systemInstruction: {
+          parts: [{ text: RECIPE_EXTRACTION_SYSTEM_PROMPT }],
+        },
         contents: [{ role: "user", parts: [{ text: input }] }],
         generationConfig: {
           responseMimeType: "application/json",
@@ -218,7 +211,7 @@ export async function callProvider(
         messages: [
           {
             role: "system",
-            content: `${SYSTEM_PROMPT}\nJSON SCHEMA\n${JSON.stringify(schema)}`,
+            content: `${RECIPE_EXTRACTION_SYSTEM_PROMPT}\nJSON SCHEMA\n${JSON.stringify(schema)}`,
           },
           { role: "user", content: input },
         ],
@@ -269,7 +262,7 @@ export async function callProvider(
       : "https://api.deepseek.com/responses";
   const body: Record<string, unknown> = {
     model: config.model,
-    instructions: SYSTEM_PROMPT,
+    instructions: RECIPE_EXTRACTION_SYSTEM_PROMPT,
     input,
     max_output_tokens: MAX_OUTPUT_TOKENS,
     store: false,
