@@ -111,9 +111,42 @@ final class NotificationActivationTests: XCTestCase {
   }
 
   func testAutoRefreshPollingOnlyRunsForInFlightStatuses() {
-    XCTAssertTrue(AnalysisAutoRefreshPolicy.shouldPoll(status: .pending))
-    XCTAssertTrue(AnalysisAutoRefreshPolicy.shouldPoll(status: .processing))
-    XCTAssertFalse(AnalysisAutoRefreshPolicy.shouldPoll(status: .completed))
-    XCTAssertFalse(AnalysisAutoRefreshPolicy.shouldPoll(status: .failed))
+    XCTAssertTrue(AnalysisAutoRefreshPolicy.shouldPoll(status: .pending, isAppActive: true))
+    XCTAssertTrue(AnalysisAutoRefreshPolicy.shouldPoll(status: .processing, isAppActive: true))
+    XCTAssertFalse(AnalysisAutoRefreshPolicy.shouldPoll(status: .completed, isAppActive: true))
+    XCTAssertFalse(AnalysisAutoRefreshPolicy.shouldPoll(status: .failed, isAppActive: true))
+    XCTAssertFalse(AnalysisAutoRefreshPolicy.shouldPoll(status: .pending, isAppActive: false))
+    XCTAssertFalse(AnalysisAutoRefreshPolicy.shouldPoll(status: .processing, isAppActive: false))
+  }
+}
+
+@MainActor final class RecipeSynchronizationCoordinatorTests: XCTestCase {
+  func testSilentSynchronizationDoesNotReportAnOperationError() async {
+    let coordinator = RecipeSynchronizationCoordinator { throw APIError.server }
+    var reportedErrors = 0
+    coordinator.onError = { _ in reportedErrors += 1 }
+
+    await coordinator.synchronize(reportError: false)
+
+    XCTAssertEqual(reportedErrors, 0)
+    await coordinator.synchronize(reportError: true)
+    XCTAssertEqual(reportedErrors, 1)
+  }
+
+  func testCancellationStopsSynchronizationWithoutReportingAnError() async {
+    let started = expectation(description: "Synchronization started")
+    let coordinator = RecipeSynchronizationCoordinator {
+      started.fulfill()
+      try await Task.sleep(for: .seconds(60))
+    }
+    var reportedErrors = 0
+    coordinator.onError = { _ in reportedErrors += 1 }
+    let synchronization = Task { await coordinator.synchronize(reportError: true) }
+
+    await fulfillment(of: [started])
+    await coordinator.cancel()
+    await synchronization.value
+
+    XCTAssertEqual(reportedErrors, 0)
   }
 }

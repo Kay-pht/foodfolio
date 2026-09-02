@@ -2,6 +2,60 @@ import Foundation
 import Observation
 import SwiftData
 
+@MainActor
+final class RecipeSynchronizationCoordinator {
+  private let sync: @MainActor () async throws -> Void
+  private var synchronizationTask: Task<Void, Never>?
+  private var synchronizeAgain = false
+  private var pendingErrorReporting = false
+  var onError: ((Error) -> Void)?
+
+  init(sync: @escaping @MainActor () async throws -> Void) {
+    self.sync = sync
+  }
+
+  func synchronize(reportError: Bool) async {
+    pendingErrorReporting = pendingErrorReporting || reportError
+    if let synchronizationTask {
+      synchronizeAgain = true
+      await synchronizationTask.value
+      return
+    }
+
+    let task = Task { @MainActor [weak self] in
+      guard let self else { return }
+      defer { self.synchronizationTask = nil }
+
+      repeat {
+        self.synchronizeAgain = false
+        let shouldReportError = self.pendingErrorReporting
+        self.pendingErrorReporting = false
+        do {
+          try await self.sync()
+        } catch is CancellationError {
+          // View lifecycle and explicit session cancellation are not synchronization failures.
+        } catch {
+          if shouldReportError {
+            self.onError?(error)
+          }
+        }
+      } while self.synchronizeAgain
+    }
+    synchronizationTask = task
+    await task.value
+  }
+
+  func cancel() async {
+    synchronizeAgain = false
+    pendingErrorReporting = false
+    guard let synchronizationTask else { return }
+    synchronizationTask.cancel()
+    await synchronizationTask.value
+    synchronizeAgain = false
+    pendingErrorReporting = false
+  }
+}
+
 @MainActor @Observable final class AppSession {
   var user: AuthenticatedUser?
   var globalError: String?
@@ -14,9 +68,7 @@ import SwiftData
   let notifications: NotificationService?
   let uiTesting: Bool
   var pendingRecipeID: String?
-  private var synchronizationTask: Task<Void, Never>?
-  private var synchronizeAgain = false
-  private var pendingSyncErrorReporting = false
+  private let synchronizationCoordinator: RecipeSynchronizationCoordinator
 
   init(
     context: ModelContext,
@@ -53,9 +105,16 @@ import SwiftData
     self.images = images
     let repository = RecipeRepository(context: context, api: api, images: images)
     self.repository = repository
-    self.syncService = RecipeSyncService(api: api, repository: repository)
+    let syncService = RecipeSyncService(api: api, repository: repository)
+    self.syncService = syncService
+    self.synchronizationCoordinator = RecipeSynchronizationCoordinator { [syncService] in
+      try await syncService.sync()
+    }
     self.history = SearchHistoryStore()
     self.notifications = uiTesting ? nil : NotificationService(api: api)
+    self.synchronizationCoordinator.onError = { [weak self] error in
+      self?.globalError = (error as? APIError)?.userMessage ?? "同期に失敗しました。"
+    }
     self.notifications?.onRecipeAnalysisResultReceived = { [weak self] _ in
       Task { @MainActor [weak self] in
         await self?.synchronize(reportError: false)
@@ -85,43 +144,22 @@ import SwiftData
   }
 
   func synchronize(reportError: Bool = true) async {
-    pendingSyncErrorReporting = pendingSyncErrorReporting || reportError
-    if let synchronizationTask {
-      synchronizeAgain = true
-      await synchronizationTask.value
-      return
-    }
-
-    let task = Task { @MainActor [weak self] in
-      guard let self else { return }
-      defer { self.synchronizationTask = nil }
-
-      repeat {
-        self.synchronizeAgain = false
-        let shouldReportError = self.pendingSyncErrorReporting
-        self.pendingSyncErrorReporting = false
-        do {
-          try await self.syncService.sync()
-        } catch is CancellationError {
-          // View lifecycle and explicit session cancellation are not synchronization failures.
-        } catch {
-          if shouldReportError {
-            self.globalError = (error as? APIError)?.userMessage ?? "同期に失敗しました。"
-          }
-        }
-      } while self.synchronizeAgain
-    }
-    synchronizationTask = task
-    await task.value
+    guard user != nil else { return }
+    await synchronizationCoordinator.synchronize(reportError: reportError)
   }
 
   func logout() async throws {
     await notifications?.unregisterCurrentToken()
     try auth.signOut()
+    refreshUser()
+    try await clearLocalSessionData()
+  }
+
+  func clearLocalSessionData() async throws {
+    await synchronizationCoordinator.cancel()
     try await repository.clearLocalData()
     syncService.clearMetadata()
     history.removeAll()
-    refreshUser()
   }
 
   private func seedUITestData(context: ModelContext) {

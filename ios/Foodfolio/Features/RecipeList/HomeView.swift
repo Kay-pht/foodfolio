@@ -4,8 +4,8 @@ import SwiftUI
 enum AnalysisAutoRefreshPolicy {
   static let pollingInterval: Duration = .seconds(5)
 
-  static func shouldPoll(status: AnalysisStatus) -> Bool {
-    status == .pending || status == .processing
+  static func shouldPoll(status: AnalysisStatus, isAppActive: Bool) -> Bool {
+    isAppActive && (status == .pending || status == .processing)
   }
 }
 
@@ -38,7 +38,10 @@ struct HomeView: View {
 
   private var analyzingRecipeIDs: [String] {
     recipes
-      .filter { AnalysisAutoRefreshPolicy.shouldPoll(status: $0.analysisStatus) }
+      .filter {
+        AnalysisAutoRefreshPolicy.shouldPoll(
+          status: $0.analysisStatus, isAppActive: scenePhase == .active)
+      }
       .map(\.id)
       .sorted()
   }
