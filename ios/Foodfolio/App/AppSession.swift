@@ -53,7 +53,17 @@ import SwiftData
     self.syncService = RecipeSyncService(api: api, repository: repository)
     self.history = SearchHistoryStore()
     self.notifications = uiTesting ? nil : NotificationService(api: api)
-    self.notifications?.onRecipeOpened = { [weak self] recipeID in self?.pendingRecipeID = recipeID
+    self.notifications?.onRecipeAnalysisResultReceived = { [weak self] _ in
+      Task { @MainActor [weak self] in
+        await self?.synchronize(reportError: false)
+      }
+    }
+    self.notifications?.onRecipeOpened = { [weak self] recipeID in
+      Task { @MainActor [weak self] in
+        guard let self else { return }
+        await self.synchronize(reportError: false)
+        self.pendingRecipeID = recipeID
+      }
     }
     if uiTesting { seedUITestData(context: context) }
   }
@@ -71,13 +81,15 @@ import SwiftData
     await notifications?.restoreAuthenticatedSession()
   }
 
-  func synchronize() async {
+  func synchronize(reportError: Bool = true) async {
     do {
       try await syncService.sync()
     } catch is CancellationError {
       return
     } catch {
-      globalError = (error as? APIError)?.userMessage ?? "同期に失敗しました。"
+      if reportError {
+        globalError = (error as? APIError)?.userMessage ?? "同期に失敗しました。"
+      }
     }
   }
 
