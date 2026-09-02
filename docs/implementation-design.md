@@ -2375,7 +2375,10 @@ UI automationはMVPの主要flowに限定する。
 
 ## 34. CI
 
-Pull Request / main pushで最低限以下を実行する。
+Pull Requestでは仮マージ結果に対して最低限以下を実行する。`main` pushでは、
+同一repositoryの成功済みPull Request Qualityが同じGit treeを検証した証跡を
+30日間再利用し、treeが一致しない場合、証跡が失効した場合、または証跡を確認
+できない場合に同じ検証を再実行する。
 
 ```text
 npm test
@@ -2392,6 +2395,10 @@ PostgreSQL integration tests
 ```
 
 外部AI APIを呼ぶテストは通常CIでは実行しない。
+
+dev deployは成功した`main` Qualityの対象SHAだけを受け取り、Backend関連ファイル
+に変更がある場合に実行する。自動deployでは同じQualityを再実行しない。手動deploy
+はPull Request Qualityの証跡を前提にできないため、deploy前に通常Qualityを実行する。
 
 ---
 
