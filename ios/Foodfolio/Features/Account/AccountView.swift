@@ -69,8 +69,7 @@ struct AccountView: View {
 @MainActor private struct SessionCleaner: LocalDataCleaner {
   let session: AppSession
   func clear() async throws {
-    try await session.repository.clearLocalData()
-    session.syncService.clearMetadata()
-    session.history.removeAll()
+    session.refreshUser()
+    try await session.clearLocalSessionData()
   }
 }

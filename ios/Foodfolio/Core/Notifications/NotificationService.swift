@@ -30,6 +30,7 @@ struct APNsRegistrationState {
 final class NotificationService: NSObject, UNUserNotificationCenterDelegate, MessagingDelegate {
   private let api: APIClient
   private var apnsRegistrationState = APNsRegistrationState()
+  var onRecipeAnalysisResultReceived: ((String) -> Void)?
   var onRecipeOpened: ((String) -> Void)?
 
   init(api: APIClient) {
@@ -103,6 +104,16 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate, Mes
     appNotificationEnabled: Bool, status: UNAuthorizationStatus
   ) -> Bool { appNotificationEnabled && status == .denied }
 
+  nonisolated static func recipeAnalysisRecipeID(from userInfo: [AnyHashable: Any]) -> String? {
+    guard
+      let recipeID = userInfo["recipeId"] as? String,
+      !recipeID.isEmpty,
+      let result = userInfo["analysisResult"] as? String,
+      result == "completed" || result == "failed"
+    else { return nil }
+    return recipeID
+  }
+
   func authorizationStatus() async -> UNAuthorizationStatus {
     await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
   }
@@ -139,7 +150,13 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate, Mes
 
   nonisolated func userNotificationCenter(
     _ center: UNUserNotificationCenter, willPresent notification: UNNotification
-  ) async -> UNNotificationPresentationOptions { [.banner, .sound] }
+  ) async -> UNNotificationPresentationOptions {
+    let userInfo = notification.request.content.userInfo
+    if let recipeID = Self.recipeAnalysisRecipeID(from: userInfo) {
+      await MainActor.run { onRecipeAnalysisResultReceived?(recipeID) }
+    }
+    return [.banner, .sound]
+  }
 
   nonisolated func userNotificationCenter(
     _ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse
