@@ -2,19 +2,12 @@ name: Deploy dev
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - Dockerfile
-      - package.json
-      - package-lock.json
-      - prisma/**
-      - schemas/**
-      - src/**
+  workflow_run:
+    workflows: [Quality]
+    types: [completed]
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: deploy-dev
@@ -28,11 +21,65 @@ env:
   WORKER_SERVICE: foodfolio-dev-worker
 
 jobs:
+  classify:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      deploy: ${{ steps.changes.outputs.deploy }}
+      sha: ${{ steps.target.outputs.sha }}
+    steps:
+      - name: Resolve deployment SHA
+        id: target
+        env:
+          DISPATCH_SHA: ${{ github.sha }}
+          QUALITY_SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            echo "sha=${DISPATCH_SHA}" >> "${GITHUB_OUTPUT}"
+          else
+            echo "sha=${QUALITY_SHA}" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.target.outputs.sha }}
+          fetch-depth: 2
+
+      - name: Classify changed files
+        id: changes
+        env:
+          DEPLOY_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            echo "deploy=true" >> "${GITHUB_OUTPUT}"
+          elif git diff --quiet "${DEPLOY_SHA}^1" "${DEPLOY_SHA}" -- \
+            Dockerfile package.json package-lock.json prisma schemas src; then
+            echo "deploy=false" >> "${GITHUB_OUTPUT}"
+          else
+            echo "deploy=true" >> "${GITHUB_OUTPUT}"
+          fi
+
   deploy:
+    needs: classify
+    if: needs.classify.outputs.deploy == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      DEPLOY_SHA: ${{ needs.classify.outputs.sha }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
       - uses: actions/setup-node@v7
         with:
           node-version: 24.18.0
@@ -45,8 +92,11 @@ jobs:
       - uses: google-github-actions/setup-gcloud@v3
       - name: Authenticate Docker
         run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
-      - name: Verify before deployment
-        run: npm ci && npm run verify
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify manual deployment
+        if: github.event_name == 'workflow_dispatch'
+        run: npm run verify
       - name: Apply database migrations
         shell: bash
         run: |
@@ -56,7 +106,7 @@ jobs:
       - name: Build and push image
         shell: bash
         run: |
-          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/app:${GITHUB_SHA}"
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/app:${DEPLOY_SHA}"
           docker build --tag "${IMAGE}" .
           docker push "${IMAGE}"
           echo "IMAGE=${IMAGE}" >> "${GITHUB_ENV}"
