@@ -1,6 +1,14 @@
 import SwiftData
 import SwiftUI
 
+enum AnalysisAutoRefreshPolicy {
+  static let pollingInterval: Duration = .seconds(5)
+
+  static func shouldPoll(status: AnalysisStatus, isAppActive: Bool) -> Bool {
+    isAppActive && (status == .pending || status == .processing)
+  }
+}
+
 struct RootView: View {
   @Environment(AppSession.self) private var session
   var body: some View {
@@ -18,6 +26,7 @@ struct RootView: View {
 
 struct HomeView: View {
   @Environment(AppSession.self) private var session
+  @Environment(\.scenePhase) private var scenePhase
   @Query(sort: \LocalRecipe.createdAt, order: .reverse) private var recipes: [LocalRecipe]
   @State private var showAdd = false
   @State private var showDrawer = false
@@ -26,6 +35,16 @@ struct HomeView: View {
     GridItem(.flexible(), spacing: 12, alignment: .top),
     GridItem(.flexible(), spacing: 12, alignment: .top),
   ]
+
+  private var analyzingRecipeIDs: [String] {
+    recipes
+      .filter {
+        AnalysisAutoRefreshPolicy.shouldPoll(
+          status: $0.analysisStatus, isAppActive: scenePhase == .active)
+      }
+      .map(\.id)
+      .sorted()
+  }
 
   var body: some View {
     NavigationStack {
@@ -141,6 +160,11 @@ struct HomeView: View {
       .sheet(isPresented: $showAdd) { AddRecipeView() }
       .refreshable { await session.synchronize() }
       .task { if !session.uiTesting { await session.synchronize() } }
+      .task(id: analyzingRecipeIDs) { await pollAnalyzingRecipes() }
+      .onChange(of: scenePhase) { oldPhase, newPhase in
+        guard !session.uiTesting, oldPhase != .active, newPhase == .active else { return }
+        Task { await session.synchronize(reportError: false) }
+      }
       .navigationDestination(
         item: Binding(get: { session.pendingRecipeID }, set: { session.pendingRecipeID = $0 })
       ) { recipeID in
@@ -150,6 +174,19 @@ struct HomeView: View {
           ContentUnavailableView("レシピが見つかりません", systemImage: "book.closed")
         }
       }
+    }
+  }
+
+  private func pollAnalyzingRecipes() async {
+    guard !session.uiTesting, !analyzingRecipeIDs.isEmpty else { return }
+    while !Task.isCancelled {
+      do {
+        try await Task.sleep(for: AnalysisAutoRefreshPolicy.pollingInterval)
+      } catch {
+        return
+      }
+      guard !Task.isCancelled else { return }
+      await session.synchronize(reportError: false)
     }
   }
 }
