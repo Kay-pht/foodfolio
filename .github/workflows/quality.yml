@@ -10,6 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
+  actions: read
   contents: read
 
 jobs:
@@ -18,10 +19,56 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+
+      - name: Resolve checked-out tree
+        id: tree
+        shell: bash
+        run: echo "sha=$(git rev-parse 'HEAD^{tree}')" >> "${GITHUB_OUTPUT}"
+
+      - name: Find reusable PR Quality proof
+        id: proof
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          QUALITY_TREE_SHA: ${{ steps.tree.outputs.sha }}
+        run: node scripts/find-reusable-quality-proof.mjs
+
       - uses: actions/setup-node@v7
+        if: steps.proof.outputs.reusable != 'true'
         with:
           node-version: 24.18.0
           cache: npm
           package-manager-cache: false
-      - run: npm ci
-      - run: npm run verify
+
+      - name: Install dependencies
+        if: steps.proof.outputs.reusable != 'true'
+        run: npm ci
+
+      - name: Run Quality checks
+        if: steps.proof.outputs.reusable != 'true'
+        run: npm run verify
+
+      - name: Record PR Quality proof
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          QUALITY_TREE_SHA: ${{ steps.tree.outputs.sha }}
+        shell: bash
+        run: |
+          jq -n \
+            --arg repository "${GITHUB_REPOSITORY}" \
+            --arg run_id "${GITHUB_RUN_ID}" \
+            --arg tree_sha "${QUALITY_TREE_SHA}" \
+            '{repository: $repository, runId: $run_id, treeSha: $tree_sha}' \
+            > "${RUNNER_TEMP}/quality-proof.json"
+
+      - name: Upload PR Quality proof
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/upload-artifact@v7
+        with:
+          name: quality-proof-${{ steps.tree.outputs.sha }}
+          path: ${{ runner.temp }}/quality-proof.json
+          retention-days: 30
