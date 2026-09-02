@@ -72,3 +72,24 @@ jobs:
           name: quality-proof-${{ steps.tree.outputs.sha }}
           path: ${{ runner.temp }}/quality-proof.json
           retention-days: 30
+
+      - name: Record main push range
+        if: github.event_name == 'push'
+        env:
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          PUSH_AFTER_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          jq -n \
+            --arg before "${PUSH_BEFORE_SHA}" \
+            --arg after "${PUSH_AFTER_SHA}" \
+            '{before: $before, after: $after}' \
+            > "${RUNNER_TEMP}/main-push-context.json"
+
+      - name: Upload main push range
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v7
+        with:
+          name: main-push-context-${{ github.run_id }}
+          path: ${{ runner.temp }}/main-push-context.json
+          retention-days: 30

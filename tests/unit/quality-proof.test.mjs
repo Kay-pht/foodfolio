@@ -7,6 +7,7 @@ import {
   findReusableQualityRunId,
   isReusableQualityRun,
 } from "../../scripts/find-reusable-quality-proof.mjs";
+import { classifyDeploymentRange } from "../../scripts/classify-deployment-range.mjs";
 
 const repository = "Kay-pht/foodfolio";
 const validRun = {
@@ -115,6 +116,58 @@ describe("PR Quality proof", () => {
     expect(deployWorkflow).toContain(
       "if: github.event_name == 'workflow_dispatch'",
     );
+    expect(qualityWorkflow).toContain("github.event.before");
+    expect(qualityWorkflow).toContain("main-push-context-${{");
+    expect(deployWorkflow).toContain("Download originating push range");
+    expect(deployWorkflow).toContain("classify-deployment-range.mjs");
+    expect(deployWorkflow).not.toContain("${DEPLOY_SHA}^1");
     expect(deployWorkflow).not.toContain("Verify before deployment");
+  });
+
+  it("compares the complete before-to-after push range", async () => {
+    const beforeSha = "a".repeat(40);
+    const afterSha = "c".repeat(40);
+    const git = vi.fn().mockResolvedValueOnce(0).mockResolvedValueOnce(1);
+
+    await expect(
+      classifyDeploymentRange({
+        beforeSha,
+        afterSha,
+        expectedAfterSha: afterSha,
+        git,
+      }),
+    ).resolves.toEqual({
+      deploy: true,
+      reason: "push range has deployable changes",
+    });
+    expect(git).toHaveBeenNthCalledWith(2, [
+      "diff",
+      "--quiet",
+      beforeSha,
+      afterSha,
+      "--",
+      "Dockerfile",
+      "package.json",
+      "package-lock.json",
+      "prisma",
+      "schemas",
+      "src",
+    ]);
+  });
+
+  it("deploys safely when the recorded range does not match the Quality SHA", async () => {
+    const git = vi.fn();
+    await expect(
+      classifyDeploymentRange({
+        beforeSha: "a".repeat(40),
+        afterSha: "b".repeat(40),
+        expectedAfterSha: "c".repeat(40),
+        git,
+      }),
+    ).resolves.toEqual({
+      deploy: true,
+      reason: "invalid or mismatched push range",
+    });
+    expect(git).not.toHaveBeenCalled();
   });
 });
