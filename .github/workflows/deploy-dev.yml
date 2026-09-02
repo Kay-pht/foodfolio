@@ -7,6 +7,7 @@ on:
     types: [completed]
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
@@ -49,21 +50,29 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ steps.target.outputs.sha }}
-          fetch-depth: 2
+          fetch-depth: 0
+
+      - name: Download originating push range
+        if: github.event_name == 'workflow_run'
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: main-push-context-${{ github.event.workflow_run.id }}
+          path: ${{ runner.temp }}/main-push-context
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
 
       - name: Classify changed files
         id: changes
         env:
           DEPLOY_SHA: ${{ steps.target.outputs.sha }}
+          PUSH_CONTEXT_PATH: ${{ runner.temp }}/main-push-context/main-push-context.json
         shell: bash
         run: |
           if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
             echo "deploy=true" >> "${GITHUB_OUTPUT}"
-          elif git diff --quiet "${DEPLOY_SHA}^1" "${DEPLOY_SHA}" -- \
-            Dockerfile package.json package-lock.json prisma schemas src; then
-            echo "deploy=false" >> "${GITHUB_OUTPUT}"
           else
-            echo "deploy=true" >> "${GITHUB_OUTPUT}"
+            node scripts/classify-deployment-range.mjs
           fi
 
   deploy:

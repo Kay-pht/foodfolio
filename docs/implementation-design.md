@@ -2397,8 +2397,10 @@ PostgreSQL integration tests
 外部AI APIを呼ぶテストは通常CIでは実行しない。
 
 dev deployは成功した`main` Qualityの対象SHAだけを受け取り、Backend関連ファイル
-に変更がある場合に実行する。自動deployでは同じQualityを再実行しない。手動deploy
-はPull Request Qualityの証跡を前提にできないため、deploy前に通常Qualityを実行する。
+に変更がある場合に実行する。変更判定には`main` pushイベントのbefore SHAから
+Quality対象SHAまでの完全なpush範囲を使う。範囲の証跡を取得・検証できない場合は、
+デプロイを省略しない。自動deployでは同じQualityを再実行しない。手動deployは
+Pull Request Qualityの証跡を前提にできないため、deploy前に通常Qualityを実行する。
 
 ---
 
