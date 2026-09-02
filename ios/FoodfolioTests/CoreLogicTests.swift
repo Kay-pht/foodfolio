@@ -154,6 +154,40 @@ final class CoreLogicTests: XCTestCase {
     XCTAssertNil(request.httpBody)
   }
 
+  func testAPIClientTreatsCancelledRequestAsTaskCancellation() async throws {
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [CancelledURLProtocol.self]
+    let client = APIClient(
+      baseURL: URL(string: "https://api.example.test")!,
+      tokenProvider: CoreLogicStaticTokenProvider(),
+      session: URLSession(configuration: configuration))
+
+    do {
+      let _: SyncResponse = try await client.get("/v1/sync")
+      XCTFail("Cancelled request must not succeed")
+    } catch is CancellationError {
+      // Expected: view lifecycle cancellation must not be presented as an offline error.
+    } catch {
+      XCTFail("Expected CancellationError, got \(error)")
+    }
+  }
+
+  func testAPIClientMapsTimeoutToServerError() async throws {
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [TimedOutURLProtocol.self]
+    let client = APIClient(
+      baseURL: URL(string: "https://api.example.test")!,
+      tokenProvider: CoreLogicStaticTokenProvider(),
+      session: URLSession(configuration: configuration))
+
+    do {
+      let _: SyncResponse = try await client.get("/v1/sync")
+      XCTFail("Timed out request must not succeed")
+    } catch {
+      XCTAssertEqual(error as? APIError, .server)
+    }
+  }
+
   func testGoogleOAuthClientMatchesRegisteredURLScheme() throws {
     let configURL = try XCTUnwrap(
       Bundle.main.url(forResource: "GoogleService-Info", withExtension: "plist"))
@@ -183,6 +217,24 @@ private final class APIRequestCaptureURLProtocol: URLProtocol, @unchecked Sendab
       url: request.url!, statusCode: 204, httpVersion: "HTTP/1.1", headerFields: nil)!
     client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
     client?.urlProtocolDidFinishLoading(self)
+  }
+  override func stopLoading() {}
+}
+
+private final class CancelledURLProtocol: URLProtocol, @unchecked Sendable {
+  override class func canInit(with request: URLRequest) -> Bool { true }
+  override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+  override func startLoading() {
+    client?.urlProtocol(self, didFailWithError: URLError(.cancelled))
+  }
+  override func stopLoading() {}
+}
+
+private final class TimedOutURLProtocol: URLProtocol, @unchecked Sendable {
+  override class func canInit(with request: URLRequest) -> Bool { true }
+  override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+  override func startLoading() {
+    client?.urlProtocol(self, didFailWithError: URLError(.timedOut))
   }
   override func stopLoading() {}
 }

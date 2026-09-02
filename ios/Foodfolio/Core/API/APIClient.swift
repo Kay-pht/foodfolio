@@ -1,8 +1,12 @@
 import Foundation
+import OSLog
 
 protocol IDTokenProvider: Sendable { func idToken() async throws -> String }
 
 actor APIClient {
+  private static let logger = Logger(
+    subsystem: Bundle.main.bundleIdentifier ?? "com.keyukt.foodfolio", category: "APIClient")
+
   let baseURL: URL
   private let tokenProvider: IDTokenProvider
   private let session: URLSession
@@ -45,7 +49,38 @@ actor APIClient {
     }
     let data: Data
     let response: URLResponse
-    do { (data, response) = try await session.data(for: request) } catch { throw APIError.offline }
+    do {
+      (data, response) = try await session.data(for: request)
+    } catch let error as URLError {
+      let requestPath = url.path
+      if error.code == .cancelled {
+        Self.logger.debug(
+          "Request cancelled method=\(method, privacy: .public) path=\(requestPath, privacy: .public) code=\(error.errorCode, privacy: .public)"
+        )
+        throw CancellationError()
+      }
+
+      Self.logger.error(
+        "Request failed method=\(method, privacy: .public) path=\(requestPath, privacy: .public) code=\(error.errorCode, privacy: .public)"
+      )
+      switch error.code {
+      case .notConnectedToInternet, .networkConnectionLost, .dataNotAllowed,
+        .internationalRoamingOff:
+        throw APIError.offline
+      default:
+        throw APIError.server
+      }
+    } catch is CancellationError {
+      Self.logger.debug(
+        "Request cancelled method=\(method, privacy: .public) path=\(url.path, privacy: .public)"
+      )
+      throw CancellationError()
+    } catch {
+      Self.logger.error(
+        "Request failed method=\(method, privacy: .public) path=\(url.path, privacy: .public) errorType=\(String(describing: type(of: error)), privacy: .public)"
+      )
+      throw APIError.server
+    }
     guard let http = response as? HTTPURLResponse else { throw APIError.server }
     guard (200..<300).contains(http.statusCode) else {
       throw APIError.from(status: http.statusCode, data: data)

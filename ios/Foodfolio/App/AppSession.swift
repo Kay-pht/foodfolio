@@ -72,7 +72,11 @@ import SwiftData
   }
 
   func synchronize() async {
-    do { try await syncService.sync() } catch {
+    do {
+      try await syncService.sync()
+    } catch is CancellationError {
+      return
+    } catch {
       globalError = (error as? APIError)?.userMessage ?? "同期に失敗しました。"
     }
   }
