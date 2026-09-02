@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { appendFile, readFile } from "node:fs/promises";
+import { appendFile } from "node:fs/promises";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
@@ -32,43 +32,50 @@ async function runGit(args) {
 }
 
 export async function classifyDeploymentRange({
-  beforeSha,
-  afterSha,
-  expectedAfterSha,
+  deployedSha,
+  targetSha,
   git = runGit,
 }) {
   if (
-    !GIT_SHA_PATTERN.test(beforeSha) ||
-    !GIT_SHA_PATTERN.test(afterSha) ||
-    afterSha !== expectedAfterSha ||
-    ZERO_SHA_PATTERN.test(beforeSha)
+    !GIT_SHA_PATTERN.test(deployedSha) ||
+    !GIT_SHA_PATTERN.test(targetSha) ||
+    ZERO_SHA_PATTERN.test(deployedSha)
   ) {
-    return { deploy: true, reason: "invalid or mismatched push range" };
+    return { deploy: true, reason: "deployed or target SHA is unavailable" };
   }
 
   const isAncestor = await git([
     "merge-base",
     "--is-ancestor",
-    beforeSha,
-    afterSha,
+    deployedSha,
+    targetSha,
   ]);
   if (isAncestor !== 0) {
-    return { deploy: true, reason: "push range is not a known ancestry path" };
+    return {
+      deploy: true,
+      reason: "deployed SHA is not a known ancestor of target SHA",
+    };
   }
 
   const diff = await git([
     "diff",
     "--quiet",
-    beforeSha,
-    afterSha,
+    deployedSha,
+    targetSha,
     "--",
     ...DEPLOY_PATHS,
   ]);
   if (diff === 0) {
-    return { deploy: false, reason: "push range has no deployable changes" };
+    return {
+      deploy: false,
+      reason: "deployed-to-target range has no deployable changes",
+    };
   }
   if (diff === 1) {
-    return { deploy: true, reason: "push range has deployable changes" };
+    return {
+      deploy: true,
+      reason: "deployed-to-target range has deployable changes",
+    };
   }
   return { deploy: true, reason: `git diff failed with exit code ${diff}` };
 }
@@ -83,23 +90,21 @@ async function writeOutput(deploy) {
 
 async function main() {
   try {
-    const contextPath = process.env.PUSH_CONTEXT_PATH;
-    const expectedAfterSha = process.env.DEPLOY_SHA;
-    if (!contextPath || !expectedAfterSha) {
-      throw new Error("PUSH_CONTEXT_PATH and DEPLOY_SHA are required");
+    const deployedSha = process.env.DEPLOYED_SHA;
+    const targetSha = process.env.DEPLOY_SHA;
+    if (!deployedSha || !targetSha) {
+      throw new Error("DEPLOYED_SHA and DEPLOY_SHA are required");
     }
 
-    const context = JSON.parse(await readFile(contextPath, "utf8"));
     const result = await classifyDeploymentRange({
-      beforeSha: context.before,
-      afterSha: context.after,
-      expectedAfterSha,
+      deployedSha,
+      targetSha,
     });
     console.log(`${result.reason}; deploy=${result.deploy}.`);
     await writeOutput(result.deploy);
   } catch (error) {
     console.warn(
-      `Could not verify the complete push range; deploying safely. ${error instanceof Error ? error.message : String(error)}`,
+      `Could not compare deployed and target SHAs; deploying safely. ${error instanceof Error ? error.message : String(error)}`,
     );
     await writeOutput(true);
   }

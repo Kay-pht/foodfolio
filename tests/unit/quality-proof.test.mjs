@@ -116,35 +116,36 @@ describe("PR Quality proof", () => {
     expect(deployWorkflow).toContain(
       "if: github.event_name == 'workflow_dispatch'",
     );
-    expect(qualityWorkflow).toContain("github.event.before");
-    expect(qualityWorkflow).toContain("main-push-context-${{");
-    expect(deployWorkflow).toContain("Download originating push range");
+    expect(qualityWorkflow).not.toContain("github.event.before");
+    expect(qualityWorkflow).not.toContain("main-push-context-${{");
+    expect(deployWorkflow).toContain("Resolve deployed Cloud Run SHA");
+    expect(deployWorkflow).toContain("DEPLOYED_SHA");
+    expect(deployWorkflow).not.toContain("Download originating push range");
     expect(deployWorkflow).toContain("classify-deployment-range.mjs");
     expect(deployWorkflow).not.toContain("${DEPLOY_SHA}^1");
     expect(deployWorkflow).not.toContain("Verify before deployment");
   });
 
-  it("compares the complete before-to-after push range", async () => {
-    const beforeSha = "a".repeat(40);
-    const afterSha = "c".repeat(40);
+  it("compares the last deployed SHA to the current target", async () => {
+    const deployedSha = "a".repeat(40);
+    const targetSha = "c".repeat(40);
     const git = vi.fn().mockResolvedValueOnce(0).mockResolvedValueOnce(1);
 
     await expect(
       classifyDeploymentRange({
-        beforeSha,
-        afterSha,
-        expectedAfterSha: afterSha,
+        deployedSha,
+        targetSha,
         git,
       }),
     ).resolves.toEqual({
       deploy: true,
-      reason: "push range has deployable changes",
+      reason: "deployed-to-target range has deployable changes",
     });
     expect(git).toHaveBeenNthCalledWith(2, [
       "diff",
       "--quiet",
-      beforeSha,
-      afterSha,
+      deployedSha,
+      targetSha,
       "--",
       "Dockerfile",
       "package.json",
@@ -155,19 +156,47 @@ describe("PR Quality proof", () => {
     ]);
   });
 
-  it("deploys safely when the recorded range does not match the Quality SHA", async () => {
+  it("deploys safely when the deployed SHA cannot be resolved", async () => {
     const git = vi.fn();
     await expect(
       classifyDeploymentRange({
-        beforeSha: "a".repeat(40),
-        afterSha: "b".repeat(40),
-        expectedAfterSha: "c".repeat(40),
+        deployedSha: "",
+        targetSha: "c".repeat(40),
         git,
       }),
     ).resolves.toEqual({
       deploy: true,
-      reason: "invalid or mismatched push range",
+      reason: "deployed or target SHA is unavailable",
     });
     expect(git).not.toHaveBeenCalled();
+  });
+
+  it("skips deployment when deployed and target backend trees match", async () => {
+    const git = vi.fn().mockResolvedValueOnce(0).mockResolvedValueOnce(0);
+    await expect(
+      classifyDeploymentRange({
+        deployedSha: "a".repeat(40),
+        targetSha: "c".repeat(40),
+        git,
+      }),
+    ).resolves.toEqual({
+      deploy: false,
+      reason: "deployed-to-target range has no deployable changes",
+    });
+  });
+
+  it("deploys safely when the deployed SHA is outside the target ancestry", async () => {
+    const git = vi.fn().mockResolvedValueOnce(1);
+    await expect(
+      classifyDeploymentRange({
+        deployedSha: "a".repeat(40),
+        targetSha: "c".repeat(40),
+        git,
+      }),
+    ).resolves.toEqual({
+      deploy: true,
+      reason: "deployed SHA is not a known ancestor of target SHA",
+    });
+    expect(git).toHaveBeenCalledTimes(1);
   });
 });
