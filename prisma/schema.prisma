@@ -35,7 +35,7 @@ enum Genre {
 }
 
 model User {
-  id            String        @id @default(uuid()) @db.Uuid
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   firebaseUid   String        @unique
   createdAt     DateTime      @default(now()) @db.Timestamptz(3)
   updatedAt     DateTime      @updatedAt @db.Timestamptz(3)
@@ -54,7 +54,7 @@ model UserSetting {
 }
 
 model Recipe {
-  id                       String         @id @default(uuid()) @db.Uuid
+  id                       String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId                   String         @db.Uuid
   originalUrl              String         @db.Text
   normalizedUrl            String         @db.Text
@@ -83,7 +83,7 @@ model Recipe {
 }
 
 model Ingredient {
-  id        String  @id @default(uuid()) @db.Uuid
+  id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   recipeId  String  @db.Uuid
   name      String
   amount    String?
@@ -94,7 +94,7 @@ model Ingredient {
 }
 
 model RecipeStep {
-  id        String @id @default(uuid()) @db.Uuid
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   recipeId  String @db.Uuid
   text      String @db.Text
   sortOrder Int
@@ -104,7 +104,7 @@ model RecipeStep {
 }
 
 model Tag {
-  id             String      @id @default(uuid()) @db.Uuid
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId         String      @db.Uuid
   name           String
   normalizedName String
@@ -126,7 +126,7 @@ model RecipeTag {
 }
 
 model DeviceToken {
-  id         String   @id @default(uuid()) @db.Uuid
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId     String   @db.Uuid
   fcmToken   String   @unique @db.Text
   createdAt  DateTime @default(now()) @db.Timestamptz(3)
