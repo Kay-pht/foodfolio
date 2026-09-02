@@ -7,7 +7,6 @@ on:
     types: [completed]
 
 permissions:
-  actions: read
   contents: read
 
 concurrency:
@@ -30,6 +29,9 @@ jobs:
       github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      id-token: write
     outputs:
       deploy: ${{ steps.changes.outputs.deploy }}
       sha: ${{ steps.target.outputs.sha }}
@@ -52,21 +54,51 @@ jobs:
           ref: ${{ steps.target.outputs.sha }}
           fetch-depth: 0
 
-      - name: Download originating push range
+      - name: Authenticate to inspect deployed services
         if: github.event_name == 'workflow_run'
         continue-on-error: true
-        uses: actions/download-artifact@v8
+        uses: google-github-actions/auth@v3
         with:
-          name: main-push-context-${{ github.event.workflow_run.id }}
-          path: ${{ runner.temp }}/main-push-context
-          github-token: ${{ github.token }}
-          run-id: ${{ github.event.workflow_run.id }}
+          project_id: ${{ env.PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud for deployment inspection
+        if: github.event_name == 'workflow_run'
+        continue-on-error: true
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Resolve deployed Cloud Run SHA
+        id: deployed
+        if: github.event_name == 'workflow_run'
+        shell: bash
+        run: |
+          api_image="$(gcloud run services describe "${API_SERVICE}" \
+            --region="${REGION}" --project="${PROJECT_ID}" \
+            --format='value(spec.template.spec.containers[0].image)' 2>/dev/null || true)"
+          worker_image="$(gcloud run services describe "${WORKER_SERVICE}" \
+            --region="${REGION}" --project="${PROJECT_ID}" \
+            --format='value(spec.template.spec.containers[0].image)' 2>/dev/null || true)"
+          image_prefix="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/app:"
+
+          deployed_sha=""
+          if [[ "${api_image}" == "${worker_image}" && "${api_image}" == "${image_prefix}"* ]]; then
+            candidate="${api_image#"${image_prefix}"}"
+            if [[ "${candidate}" =~ ^[0-9a-f]{40}$ ]]; then
+              deployed_sha="${candidate}"
+            fi
+          fi
+
+          if [[ -z "${deployed_sha}" ]]; then
+            echo "::warning::Could not resolve one matching deployed SHA; deployment will not be skipped."
+          fi
+          echo "sha=${deployed_sha}" >> "${GITHUB_OUTPUT}"
 
       - name: Classify changed files
         id: changes
         env:
           DEPLOY_SHA: ${{ steps.target.outputs.sha }}
-          PUSH_CONTEXT_PATH: ${{ runner.temp }}/main-push-context/main-push-context.json
+          DEPLOYED_SHA: ${{ steps.deployed.outputs.sha }}
         shell: bash
         run: |
           if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
