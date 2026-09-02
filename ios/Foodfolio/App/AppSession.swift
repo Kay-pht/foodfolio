@@ -14,6 +14,9 @@ import SwiftData
   let notifications: NotificationService?
   let uiTesting: Bool
   var pendingRecipeID: String?
+  private var synchronizationTask: Task<Void, Never>?
+  private var synchronizeAgain = false
+  private var pendingSyncErrorReporting = false
 
   init(
     context: ModelContext,
@@ -82,15 +85,34 @@ import SwiftData
   }
 
   func synchronize(reportError: Bool = true) async {
-    do {
-      try await syncService.sync()
-    } catch is CancellationError {
+    pendingSyncErrorReporting = pendingSyncErrorReporting || reportError
+    if let synchronizationTask {
+      synchronizeAgain = true
+      await synchronizationTask.value
       return
-    } catch {
-      if reportError {
-        globalError = (error as? APIError)?.userMessage ?? "同期に失敗しました。"
-      }
     }
+
+    let task = Task { @MainActor [weak self] in
+      guard let self else { return }
+      defer { self.synchronizationTask = nil }
+
+      repeat {
+        self.synchronizeAgain = false
+        let shouldReportError = self.pendingSyncErrorReporting
+        self.pendingSyncErrorReporting = false
+        do {
+          try await self.syncService.sync()
+        } catch is CancellationError {
+          // View lifecycle and explicit session cancellation are not synchronization failures.
+        } catch {
+          if shouldReportError {
+            self.globalError = (error as? APIError)?.userMessage ?? "同期に失敗しました。"
+          }
+        }
+      } while self.synchronizeAgain
+    }
+    synchronizationTask = task
+    await task.value
   }
 
   func logout() async throws {
