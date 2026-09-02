@@ -5,7 +5,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
 readonly REPOSITORY_DIR="${SCRIPT_DIR}/.."
-readonly IOS_DIR="${REPOSITORY_DIR}/ios"
 readonly DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
 readonly IOS_EXPECTED_TEST_COUNT="${IOS_EXPECTED_TEST_COUNT:-63}"
 
@@ -16,9 +15,7 @@ fi
 
 export DEVELOPER_DIR
 
-cd "${IOS_DIR}"
-xcrun swift-format lint --recursive --strict \
-  Foodfolio FoodfolioTests FoodfolioIntegrationTests FoodfolioUITests
+bash "${SCRIPT_DIR}/lint-ios.sh"
 
 RESULTS_DIR="$(mktemp -d "${TMPDIR:-/tmp}/foodfolio-verify-ios.XXXXXX")"
 readonly RESULTS_DIR
