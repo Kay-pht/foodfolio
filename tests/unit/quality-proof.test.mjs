@@ -8,6 +8,7 @@ import {
   isReusableQualityRun,
 } from "../../scripts/find-reusable-quality-proof.mjs";
 import { classifyDeploymentRange } from "../../scripts/classify-deployment-range.mjs";
+import { classifyQualityPaths } from "../../scripts/classify-quality-changes.mjs";
 
 const repository = "Kay-pht/foodfolio";
 const validRun = {
@@ -108,7 +109,11 @@ describe("PR Quality proof", () => {
     );
 
     expect(qualityWorkflow).toContain("quality-proof-${{");
+    expect(qualityWorkflow).toContain("Run backend Quality checks");
     expect(qualityWorkflow).toContain("run: npm run verify");
+    expect(qualityWorkflow).toContain("Run iOS lint and format check");
+    expect(qualityWorkflow).toContain("swift:6.3@sha256:");
+    expect(qualityWorkflow).not.toContain("runs-on: macos-");
     expect(deployWorkflow).toContain("workflow_run:");
     expect(deployWorkflow).toContain(
       "github.event.workflow_run.conclusion == 'success'",
@@ -116,7 +121,8 @@ describe("PR Quality proof", () => {
     expect(deployWorkflow).toContain(
       "if: github.event_name == 'workflow_dispatch'",
     );
-    expect(qualityWorkflow).not.toContain("github.event.before");
+    expect(qualityWorkflow).toContain("github.event.before");
+    expect(qualityWorkflow).toContain("classify-quality-changes.mjs");
     expect(qualityWorkflow).not.toContain("main-push-context-${{");
     expect(deployWorkflow).toContain("Resolve deployed Cloud Run SHA");
     expect(deployWorkflow).toContain("DEPLOYED_SHA");
@@ -124,6 +130,51 @@ describe("PR Quality proof", () => {
     expect(deployWorkflow).toContain("classify-deployment-range.mjs");
     expect(deployWorkflow).not.toContain("${DEPLOY_SHA}^1");
     expect(deployWorkflow).not.toContain("Verify before deployment");
+  });
+
+  it("runs only iOS checks for iOS sources and verification scripts", () => {
+    expect(
+      classifyQualityPaths([
+        "ios/Foodfolio/App/FoodfolioApp.swift",
+        "scripts/verify-ios.sh",
+        "scripts/lint-ios.sh",
+      ]),
+    ).toEqual({ backend: false, ios: true });
+  });
+
+  it("runs only backend checks for backend paths", () => {
+    expect(
+      classifyQualityPaths([
+        "src/api/routes.ts",
+        "tests/unit/backend-domain.test.ts",
+        "prisma/schema.prisma",
+        "package.json",
+      ]),
+    ).toEqual({ backend: true, ios: false });
+  });
+
+  it("runs both checks for mixed backend and iOS changes", () => {
+    expect(
+      classifyQualityPaths([
+        "src/api/routes.ts",
+        "ios/Foodfolio/Core/API/APIClient.swift",
+      ]),
+    ).toEqual({ backend: true, ios: true });
+  });
+
+  it("skips code checks for documentation-only changes", () => {
+    expect(
+      classifyQualityPaths(["README.md", "docs/dev-flow.md", "todo.md"]),
+    ).toEqual({ backend: false, ios: false });
+  });
+
+  it("fails safe to backend checks for unknown and shared paths", () => {
+    expect(
+      classifyQualityPaths([
+        ".github/workflows/quality.yml",
+        "new-shared-config.json",
+      ]),
+    ).toEqual({ backend: true, ios: false });
   });
 
   it("compares the last deployed SHA to the current target", async () => {

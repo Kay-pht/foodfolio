@@ -2375,7 +2375,12 @@ UI automationはMVPの主要flowに限定する。
 
 ## 34. CI
 
-Pull Requestでは仮マージ結果に対して最低限以下を実行する。`main` pushでは、
+Pull Requestでは変更ファイルを分類し、Backendまたは共有設定へ影響する変更に限り
+仮マージ結果に対して最低限以下を実行する。未知のパスは安全側でBackend変更として
+扱う。iOS関連の変更では、Ubuntu上のSwift 6.3公式コンテナを使用して
+`swift format lint --recursive --strict`を実行する。CIではmacOS runnerを使用せず、
+iOSのbuild、test、結合テスト、UI E2Eはローカルの`npm run verify:ios`で検証する。
+ドキュメントのみの変更ではコード検証を省略する。`main` pushでは、
 同一repositoryの成功済みPull Request Qualityが同じGit treeを検証した証跡を
 30日間再利用し、treeが一致しない場合、証跡が失効した場合、または証跡を確認
 できない場合に同じ検証を再実行する。
