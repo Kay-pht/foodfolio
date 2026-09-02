@@ -2380,7 +2380,9 @@ Pull Requestでは変更ファイルを分類し、Backendまたは共有設定�
 扱う。iOS関連の変更では、Ubuntu上のSwift 6.3公式コンテナを使用して
 `swift format lint --recursive --strict`を実行する。CIではmacOS runnerを使用せず、
 iOSのbuild、test、結合テスト、UI E2Eはローカルの`npm run verify:ios`で検証する。
-ドキュメントのみの変更ではコード検証を省略する。`main` pushでは、
+Markdownまたは`docs/`だけの変更ではQuality workflow自体を起動しない。Qualityを
+required checkに設定する場合、path filterで起動しないPRが保留扱いにならないよう、
+ruleset側のrequired check設定も合わせて見直す。`main` pushでは、
 同一repositoryの成功済みPull Request Qualityが同じGit treeを検証した証跡を
 30日間再利用し、treeが一致しない場合、証跡が失効した場合、または証跡を確認
 できない場合に同じ検証を再実行する。
