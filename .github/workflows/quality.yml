@@ -14,11 +14,13 @@ permissions:
   contents: read
 
 jobs:
-  backend:
+  checks:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Resolve checked-out tree
         id: tree
@@ -33,20 +35,46 @@ jobs:
           QUALITY_TREE_SHA: ${{ steps.tree.outputs.sha }}
         run: node scripts/find-reusable-quality-proof.mjs
 
-      - uses: actions/setup-node@v7
+      - name: Classify changed files
+        id: changes
         if: steps.proof.outputs.reusable != 'true'
+        env:
+          QUALITY_BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          QUALITY_HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/classify-quality-changes.mjs
+
+      - uses: actions/setup-node@v7
+        if: >-
+          steps.proof.outputs.reusable != 'true' &&
+          steps.changes.outputs.backend == 'true'
         with:
           node-version: 24.18.0
           cache: npm
           package-manager-cache: false
 
       - name: Install dependencies
-        if: steps.proof.outputs.reusable != 'true'
+        if: >-
+          steps.proof.outputs.reusable != 'true' &&
+          steps.changes.outputs.backend == 'true'
         run: npm ci
 
-      - name: Run Quality checks
-        if: steps.proof.outputs.reusable != 'true'
+      - name: Run backend Quality checks
+        if: >-
+          steps.proof.outputs.reusable != 'true' &&
+          steps.changes.outputs.backend == 'true'
         run: npm run verify
+
+      - name: Run iOS lint and format check
+        if: >-
+          steps.proof.outputs.reusable != 'true' &&
+          steps.changes.outputs.ios == 'true'
+        shell: bash
+        run: |
+          docker run --rm \
+            --volume "${GITHUB_WORKSPACE}:/workspace" \
+            --workdir /workspace \
+            swift:6.3@sha256:4e0fc24f0f93a5cf9a91bfcf182534bbc0571d70d757389c04ff1f616c1c460f \
+            bash scripts/lint-ios.sh
 
       - name: Record PR Quality proof
         if: >-
@@ -54,13 +82,23 @@ jobs:
           github.event.pull_request.head.repo.full_name == github.repository
         env:
           QUALITY_TREE_SHA: ${{ steps.tree.outputs.sha }}
+          QUALITY_BACKEND_REQUIRED: ${{ steps.changes.outputs.backend }}
+          QUALITY_IOS_REQUIRED: ${{ steps.changes.outputs.ios }}
         shell: bash
         run: |
           jq -n \
             --arg repository "${GITHUB_REPOSITORY}" \
             --arg run_id "${GITHUB_RUN_ID}" \
             --arg tree_sha "${QUALITY_TREE_SHA}" \
-            '{repository: $repository, runId: $run_id, treeSha: $tree_sha}' \
+            --argjson backend_required "${QUALITY_BACKEND_REQUIRED}" \
+            --argjson ios_required "${QUALITY_IOS_REQUIRED}" \
+            '{
+              repository: $repository,
+              runId: $run_id,
+              treeSha: $tree_sha,
+              backendRequired: $backend_required,
+              iosRequired: $ios_required
+            }' \
             > "${RUNNER_TEMP}/quality-proof.json"
 
       - name: Upload PR Quality proof
