@@ -18,7 +18,7 @@ function normalizePath(path) {
 }
 
 function isDocumentationPath(path) {
-  return path === "todo.md" || path.endsWith(".md") || path.startsWith("docs/");
+  return path.endsWith(".md") || path.startsWith("docs/");
 }
 
 function isIosPath(path) {
