@@ -168,7 +168,12 @@ describe("PR Quality proof", () => {
 
   it("skips code checks for documentation-only changes", () => {
     expect(
-      classifyQualityPaths(["README.md", "docs/dev-flow.md", "todo.md"]),
+      classifyQualityPaths([
+        "README.md",
+        "docs/dev-flow.md",
+        "tasks/todo.md",
+        "tasks/completed.md",
+      ]),
     ).toEqual({ backend: false, ios: false });
   });
 
