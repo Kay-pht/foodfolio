@@ -22,10 +22,8 @@ jobs:
       fail-fast: false
       matrix:
         mode:
-          - baseline
-          - prefer-offline
-          - no-audit
-          - omit-optional
+          - foreground
+          - deny-cpu-features
     steps:
       - uses: actions/checkout@v7
 
@@ -49,17 +47,13 @@ jobs:
         run: |
           set -o pipefail
           case "${DIAGNOSTIC_MODE}" in
-            baseline)
+            foreground)
+              /usr/bin/time -v npm ci --foreground-scripts --timing --loglevel=http
+              ;;
+            deny-cpu-features)
+              npm pkg set 'allowScripts.cpu-features=false' --json
               /usr/bin/time -v npm ci --timing --loglevel=http
-              ;;
-            prefer-offline)
-              /usr/bin/time -v npm ci --prefer-offline --timing --loglevel=http
-              ;;
-            no-audit)
-              /usr/bin/time -v npm ci --no-audit --timing --loglevel=http
-              ;;
-            omit-optional)
-              /usr/bin/time -v npm ci --omit=optional --timing --loglevel=http
+              npm run verify
               ;;
             *)
               echo "Unknown diagnostic mode: ${DIAGNOSTIC_MODE}" >&2
