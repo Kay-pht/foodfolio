@@ -193,13 +193,14 @@ struct RecipeDetailView: View {
         .accessibilityIdentifier("detail.servingsValue")
     case .adjustable(let text, let canDecrease, let canIncrease):
       if let base = recipe.servingsValue {
-        HStack(spacing: 8) {
+        HStack(spacing: 0) {
           Button {
             updateServings(by: -1, base: base)
           } label: {
             Image(systemName: "minus")
               .font(.caption.bold())
-              .frame(width: 26, height: 26)
+              .frame(width: 44, height: 44)
+              .contentShape(Rectangle())
           }
           .buttonStyle(.plain)
           .disabled(!canDecrease)
@@ -216,7 +217,8 @@ struct RecipeDetailView: View {
           } label: {
             Image(systemName: "plus")
               .font(.caption.bold())
-              .frame(width: 26, height: 26)
+              .frame(width: 44, height: 44)
+              .contentShape(Rectangle())
           }
           .buttonStyle(.plain)
           .disabled(!canIncrease)
@@ -224,8 +226,7 @@ struct RecipeDetailView: View {
           .accessibilityIdentifier("detail.servingsPlus")
         }
         .foregroundStyle(FoodfolioTheme.ink)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
+        .padding(.horizontal, 4)
         .glassEffect(.regular, in: Capsule())
       }
     }
