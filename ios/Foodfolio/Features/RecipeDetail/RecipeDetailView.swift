@@ -360,52 +360,276 @@ private struct TagPickerSheet: View {
   let recipe: LocalRecipe
   @State private var name = ""
   @State private var tags: [LocalTag] = []
+  @State private var selectedTagIDs: Set<String> = []
+  @State private var pendingNewTagNames: [String] = []
+  @State private var createdPendingTagIDs: [String: String] = [:]
   @State private var error: String?
+  @State private var isSaving = false
+
+  private var availableTags: [LocalTag] {
+    tags
+      .filter { tag in !recipe.tags.contains(where: { $0.id == tag.id }) }
+      .sorted { $0.name.localizedCompare($1.name) == .orderedAscending }
+  }
+
+  private var trimmedName: String {
+    name.trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+
+  private var hasChanges: Bool {
+    !selectedTagIDs.isEmpty || !pendingNewTagNames.isEmpty
+  }
 
   var body: some View {
     NavigationStack {
       ZStack {
         FoodfolioBackground()
-        List {
-          Section("既存タグ") {
-            ForEach(tags.filter { tag in !recipe.tags.contains(where: { $0.id == tag.id }) }) {
-              tag in
-              Button(tag.name) { attach(tag.id) }
+
+        ScrollView {
+          VStack(alignment: .leading, spacing: 28) {
+            existingTagsSection
+            newTagSection
+
+            if !pendingNewTagNames.isEmpty {
+              pendingTagsSection
+            }
+
+            if let error {
+              Label(error, systemImage: "exclamationmark.circle")
+                .font(.subheadline)
+                .foregroundStyle(.red)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("tag.error")
             }
           }
-          Section("新しいタグ") {
-            TextField("タグ名", text: $name).accessibilityIdentifier("tag.name")
-            Button("追加") { createAndAttach() }
-              .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
-              .accessibilityIdentifier("tag.create")
-          }
-          if let error { Text(error).foregroundStyle(.red) }
+          .padding(.horizontal, 20)
+          .padding(.vertical, 20)
         }
-        .scrollContentBackground(.hidden)
+        .scrollIndicators(.hidden)
       }
       .tint(FoodfolioTheme.terracotta)
       .navigationTitle("タグを追加")
-      .toolbar { Button("閉じる") { dismiss() } }
+      .toolbar {
+        ToolbarItem(placement: .cancellationAction) {
+          Button {
+            dismiss()
+          } label: {
+            Image(systemName: "xmark")
+          }
+          .accessibilityLabel("閉じる")
+          .accessibilityIdentifier("tag.cancel")
+        }
+
+        if hasChanges {
+          ToolbarItem(placement: .confirmationAction) {
+            Button {
+              saveChanges()
+            } label: {
+              if isSaving {
+                ProgressView()
+              } else {
+                Image(systemName: "checkmark")
+              }
+            }
+            .tint(.blue)
+            .disabled(isSaving)
+            .accessibilityLabel("タグを保存")
+            .accessibilityIdentifier("tag.save")
+          }
+        }
+      }
       .onAppear { tags = (try? session.repository.allTags()) ?? [] }
     }
   }
 
-  private func attach(_ id: String) {
-    Task {
-      do {
-        _ = try await session.repository.attach(tagID: id, recipeID: recipe.id)
-        dismiss()
-      } catch { self.error = error.localizedDescription }
+  private var existingTagsSection: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      Text("既存タグ")
+        .font(.headline)
+        .foregroundStyle(FoodfolioTheme.secondaryInk)
+
+      if availableTags.isEmpty {
+        Text("追加できる既存タグはありません")
+          .font(.subheadline)
+          .foregroundStyle(FoodfolioTheme.secondaryInk)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .padding(16)
+          .glassEffect(
+            .regular, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+      } else {
+        VStack(spacing: 0) {
+          ForEach(Array(availableTags.enumerated()), id: \.element.id) { index, tag in
+            Button {
+              toggle(tag.id)
+            } label: {
+              HStack(spacing: 12) {
+                Text(tag.name)
+                  .foregroundStyle(FoodfolioTheme.ink)
+                Spacer(minLength: 12)
+                Image(
+                  systemName: selectedTagIDs.contains(tag.id)
+                    ? "checkmark.circle.fill" : "circle"
+                )
+                .foregroundStyle(
+                  selectedTagIDs.contains(tag.id) ? Color.blue : FoodfolioTheme.secondaryInk
+                )
+              }
+              .padding(.horizontal, 16)
+              .frame(maxWidth: .infinity, minHeight: 52)
+              .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityValue(selectedTagIDs.contains(tag.id) ? "選択中" : "未選択")
+            .accessibilityIdentifier("tag.existing.\(tag.id)")
+
+            if index < availableTags.count - 1 {
+              Divider().overlay(FoodfolioTheme.hairline)
+            }
+          }
+        }
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+      }
     }
   }
 
-  private func createAndAttach() {
+  private var newTagSection: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      Text("新しいタグ")
+        .font(.headline)
+        .foregroundStyle(FoodfolioTheme.secondaryInk)
+
+      TextField("タグ名", text: $name)
+        .padding(.horizontal, 16)
+        .frame(maxWidth: .infinity, minHeight: 52)
+        .glassEffect(
+          .regular, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .submitLabel(.done)
+        .onSubmit(queueNewTag)
+        .accessibilityIdentifier("tag.name")
+
+      Button {
+        queueNewTag()
+      } label: {
+        Text("タグを追加")
+          .font(.body.weight(.semibold))
+          .frame(maxWidth: .infinity, minHeight: 50)
+      }
+      .buttonStyle(.borderedProminent)
+      .tint(FoodfolioTheme.terracotta)
+      .disabled(trimmedName.isEmpty || isSaving)
+      .accessibilityIdentifier("tag.create")
+    }
+  }
+
+  private var pendingTagsSection: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      Text("追加予定")
+        .font(.headline)
+        .foregroundStyle(FoodfolioTheme.secondaryInk)
+
+      VStack(spacing: 0) {
+        ForEach(Array(pendingNewTagNames.enumerated()), id: \.element) { index, pendingName in
+          HStack(spacing: 12) {
+            Text("#\(pendingName)")
+              .foregroundStyle(FoodfolioTheme.ink)
+              .accessibilityIdentifier("tag.pending.\(pendingName)")
+            Spacer(minLength: 12)
+            Button {
+              pendingNewTagNames.removeAll { $0 == pendingName }
+              createdPendingTagIDs[pendingName] = nil
+            } label: {
+              Image(systemName: "xmark.circle.fill")
+                .foregroundStyle(FoodfolioTheme.secondaryInk)
+                .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(pendingName) を追加予定から外す")
+          }
+          .padding(.leading, 16)
+          .padding(.trailing, 4)
+          .frame(minHeight: 52)
+
+          if index < pendingNewTagNames.count - 1 {
+            Divider().overlay(FoodfolioTheme.hairline)
+          }
+        }
+      }
+      .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+  }
+
+  private func toggle(_ id: String) {
+    error = nil
+    if selectedTagIDs.contains(id) {
+      selectedTagIDs.remove(id)
+    } else {
+      selectedTagIDs.insert(id)
+    }
+  }
+
+  private func queueNewTag() {
+    let candidate = trimmedName
+    guard !candidate.isEmpty else { return }
+    error = nil
+
+    if recipe.tags.contains(where: { sameName($0.name, candidate) }) {
+      error = "このタグはすでに付いています。"
+      return
+    }
+
+    if let existing = availableTags.first(where: { sameName($0.name, candidate) }) {
+      selectedTagIDs.insert(existing.id)
+      name = ""
+      return
+    }
+
+    guard !pendingNewTagNames.contains(where: { sameName($0, candidate) }) else {
+      error = "同じタグが追加予定に入っています。"
+      return
+    }
+
+    pendingNewTagNames.append(candidate)
+    name = ""
+  }
+
+  private func saveChanges() {
+    guard hasChanges, !isSaving else { return }
+    isSaving = true
+    error = nil
+    let existingIDs = selectedTagIDs.sorted()
+    let newNames = pendingNewTagNames
+
     Task {
       do {
-        let tag = try await session.repository.createTag(name: name)
-        _ = try await session.repository.attach(tagID: tag.id, recipeID: recipe.id)
+        for id in existingIDs {
+          _ = try await session.repository.attach(tagID: id, recipeID: recipe.id)
+          selectedTagIDs.remove(id)
+        }
+
+        for pendingName in newNames {
+          let tagID: String
+          if let createdID = createdPendingTagIDs[pendingName] {
+            tagID = createdID
+          } else {
+            let tag = try await session.repository.createTag(name: pendingName)
+            tagID = tag.id
+            createdPendingTagIDs[pendingName] = tag.id
+          }
+          _ = try await session.repository.attach(tagID: tagID, recipeID: recipe.id)
+          pendingNewTagNames.removeAll { $0 == pendingName }
+          createdPendingTagIDs[pendingName] = nil
+        }
+
         dismiss()
-      } catch { self.error = error.localizedDescription }
+      } catch {
+        self.error = error.localizedDescription
+        self.isSaving = false
+        self.tags = (try? session.repository.allTags()) ?? self.tags
+      }
     }
+  }
+
+  private func sameName(_ lhs: String, _ rhs: String) -> Bool {
+    lhs.localizedCaseInsensitiveCompare(rhs) == .orderedSame
   }
 }
