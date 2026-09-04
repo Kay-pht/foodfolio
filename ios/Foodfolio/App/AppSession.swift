@@ -89,7 +89,11 @@ final class RecipeSynchronizationCoordinator {
       if arguments.contains("-ui-testing-ai-consent-required") {
         aiConsent.revoke()
       } else {
-        aiConsent.grant()
+        let consentedAt = Date()
+        aiConsent.grant(at: consentedAt)
+        aiConsent.markServerSynchronized(
+          version: AIConsentStore.currentVersion,
+          consentedAt: consentedAt)
       }
     }
     self.aiConsent = aiConsent
@@ -152,7 +156,7 @@ final class RecipeSynchronizationCoordinator {
     guard user != nil else { return }
     do {
       try await syncAIConsentRecord()
-      isAIConsentReadyForAuthenticatedUse = true
+      isAIConsentReadyForAuthenticatedUse = aiConsent.isGranted
       await notifications?.restoreAuthenticatedSession()
     } catch {
       aiConsent.revoke()
@@ -165,7 +169,10 @@ final class RecipeSynchronizationCoordinator {
     if user != nil {
       try await api.sendWithoutResponse(
         "/v1/ai-consent", method: "DELETE", body: Optional<String>.none)
+      aiConsent.revoke()
+      isAIConsentReadyForAuthenticatedUse = false
       await notifications?.unregisterCurrentToken()
+      return
     }
     aiConsent.revoke()
     isAIConsentReadyForAuthenticatedUse = false
@@ -186,10 +193,9 @@ final class RecipeSynchronizationCoordinator {
       return
     }
     do {
-      try await syncAIConsentRecord()
-      isAIConsentReadyForAuthenticatedUse = true
+      guard try await reconcileAIConsentAfterAuthentication() else { return }
     } catch {
-      handleAIConsentSyncFailure()
+      await handleAIConsentSyncFailure()
       return
     }
     await notifications?.requestAfterFirstLogin()
@@ -203,10 +209,9 @@ final class RecipeSynchronizationCoordinator {
       return
     }
     do {
-      try await syncAIConsentRecord()
-      isAIConsentReadyForAuthenticatedUse = true
+      guard try await reconcileAIConsentAfterAuthentication() else { return }
     } catch {
-      handleAIConsentSyncFailure()
+      await handleAIConsentSyncFailure()
       return
     }
     await notifications?.restoreAuthenticatedSession()
@@ -237,22 +242,52 @@ final class RecipeSynchronizationCoordinator {
     history.removeAll()
   }
 
+  private func reconcileAIConsentAfterAuthentication() async throws -> Bool {
+    if aiConsent.needsServerSync {
+      try await syncAIConsentRecord()
+    } else {
+      try await restoreAIConsentRecordFromServer()
+    }
+    isAIConsentReadyForAuthenticatedUse = aiConsent.isGranted
+    return aiConsent.isGranted
+  }
+
   private func syncAIConsentRecord() async throws {
     guard let record = aiConsent.currentRecord else { throw AIConsentError.required }
     struct Body: Encodable, Sendable {
       let version: Int
       let consentedAt: Date
     }
-    let _: AIConsentDTO = try await api.send(
+    let response: AIConsentDTO = try await api.send(
       "/v1/ai-consent", method: "PUT",
       body: Body(version: record.version, consentedAt: record.consentedAt))
+    aiConsent.markServerSynchronized(
+      version: response.aiConsentVersion,
+      consentedAt: response.aiConsentedAt)
   }
 
-  private func handleAIConsentSyncFailure() {
-    try? auth.signOut()
-    refreshUser()
+  private func restoreAIConsentRecordFromServer() async throws {
+    let response: AIConsentDTO = try await api.get("/v1/ai-consent")
+    aiConsent.markServerSynchronized(
+      version: response.aiConsentVersion,
+      consentedAt: response.aiConsentedAt)
+  }
+
+  private func handleAIConsentSyncFailure() async {
     isAIConsentReadyForAuthenticatedUse = false
-    globalError = "AI解析への同意情報を保存できませんでした。通信状況を確認して、もう一度ログインしてください。"
+    await synchronizationCoordinator.cancel()
+    do {
+      try await repository.clearLocalData()
+      syncService.clearMetadata()
+      history.removeAll()
+      try auth.signOut()
+      refreshUser()
+    } catch {
+      globalError =
+        "AI解析への同意情報を確認できず、安全にログアウトできませんでした。通信状況を確認して、もう一度お試しください。"
+      return
+    }
+    globalError = "AI解析への同意情報を確認できませんでした。通信状況を確認して、もう一度ログインしてください。"
   }
 
   private func seedUITestData(context: ModelContext) {
