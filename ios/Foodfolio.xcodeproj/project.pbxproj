@@ -7,11 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		07D2F7D8628BC5D89650EFDB /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 708DA32436D29F42676D6FF4 /* GoogleSignIn */; };
 		0819708633F4F3A8F38E02EF /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 2603D1D8033B2A40B1FE1617 /* GoogleService-Info.plist */; };
 		1528B3FDDB6D8384BB8266A8 /* AmountScaler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FE6D14B82597015DB224712 /* AmountScaler.swift */; };
 		17B7F739A80CE86BCBC092DF /* PersistenceIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CCB34B2AEF6DCBDACF84C60 /* PersistenceIntegrationTests.swift */; };
 		1C773B8600A4BD62D26E22FB /* AccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92038E5247A17CCAA03FF84E /* AccountView.swift */; };
+		211B7980391752CFDB2A2103 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 714D8FFF176E44C7BE411F8D /* PrivacyInfo.xcprivacy */; };
 		217C99BB75354F1370EFAE19 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 878169D781953F40FFC02877 /* AuthService.swift */; };
 		2FA89A7861D79CCCF12AEEF6 /* ModelContainerFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CFD56D317E356B19C633C6C /* ModelContainerFactory.swift */; };
 		3181700E6CF165F9A60077E4 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = B5B2A3FFC3A988B7C855641A /* FirebaseCore */; };
@@ -22,7 +22,7 @@
 		43CC20594DBBC6F5E1B7575E /* CoreLogicTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB7164CA62061513D5F3DFF7 /* CoreLogicTests.swift */; };
 		49798A623643A23D32101C4C /* RecipeDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2637257E026464454AA4D86E /* RecipeDTO.swift */; };
 		4BDE44C25785F99747120F76 /* APIError.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1D47FB9FEFB57914F6677E /* APIError.swift */; };
-		4DCA583EAF39837F26362A58 /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = 5733E485202EFB11BC7A4603 /* FirebaseCrashlytics */; };
+		4DCA583EAF39837F26362A58 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 708DA32436D29F42676D6FF4 /* GoogleSignIn */; };
 		4F03F3DE45321B4815E73986 /* NotificationActivationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7650A5DE07E3569A2715BE56 /* NotificationActivationTests.swift */; };
 		53FDE35531F69C0EBB591925 /* RecipeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF65AD2BEC373F708760CE27 /* RecipeModels.swift */; };
 		56D72CA4CDC8CC33F230B019 /* RecipeDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F887C254F5EECBEBA303261E /* RecipeDetailView.swift */; };
@@ -31,7 +31,6 @@
 		6D86554E3483C8CFE203ABB5 /* RecipeSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16416C01D36C6837DD180225 /* RecipeSyncService.swift */; };
 		719E41E89974E51A5903EDB8 /* RecipeDetailPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EB1961718596AD7B0815E3D /* RecipeDetailPresentation.swift */; };
 		73CC0F300AF6C49F8DB75673 /* RecipeImageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33F49C0D7545FD3FA7B64514 /* RecipeImageStore.swift */; };
-		79B0BDA7ADB92D23F7EF8F15 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = D2F53AC951B5ED98FB3CB690 /* FirebaseAnalytics */; };
 		7AA7237367D974FA4A96A0F5 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1F87C3FD70DC1781AD9FBD /* APIClient.swift */; };
 		7FC56EB02F1FD5FFEB599DF1 /* MVPBoundaryUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76447FF5A3BCD1B25A07391B /* MVPBoundaryUITests.swift */; };
 		95B831F4526E2B3171809E7D /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = B73942D8C8C6C0A048EF2D0C /* FirebaseAuth */; };
@@ -92,6 +91,7 @@
 		44051BF0E339B00667317CE8 /* MajorFlowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MajorFlowUITests.swift; sourceTree = "<group>"; };
 		60BC2D1E912334476503B5C6 /* RecipeSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecipeSearchView.swift; sourceTree = "<group>"; };
 		6CFD56D317E356B19C633C6C /* ModelContainerFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelContainerFactory.swift; sourceTree = "<group>"; };
+		714D8FFF176E44C7BE411F8D /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		76447FF5A3BCD1B25A07391B /* MVPBoundaryUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MVPBoundaryUITests.swift; sourceTree = "<group>"; };
 		7650A5DE07E3569A2715BE56 /* NotificationActivationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationActivationTests.swift; sourceTree = "<group>"; };
 		77E206B9A670C493E5148F90 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
@@ -100,6 +100,7 @@
 		83C825799FA29908BE3DD676 /* FoodfolioIntegrationTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FoodfolioIntegrationTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		878169D781953F40FFC02877 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		92038E5247A17CCAA03FF84E /* AccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountView.swift; sourceTree = "<group>"; };
+		97E393135C6D202AAC694AE1 /* FoodfolioRelease.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FoodfolioRelease.entitlements; sourceTree = "<group>"; };
 		9CCB34B2AEF6DCBDACF84C60 /* PersistenceIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceIntegrationTests.swift; sourceTree = "<group>"; };
 		AA1F87C3FD70DC1781AD9FBD /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		B6B24ECE24D1D8A45D134687 /* FoodfolioUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FoodfolioUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -128,9 +129,7 @@
 				95B831F4526E2B3171809E7D /* FirebaseAuth in Frameworks */,
 				3181700E6CF165F9A60077E4 /* FirebaseCore in Frameworks */,
 				9A745BBFE7C148531EA372B1 /* FirebaseMessaging in Frameworks */,
-				4DCA583EAF39837F26362A58 /* FirebaseCrashlytics in Frameworks */,
-				79B0BDA7ADB92D23F7EF8F15 /* FirebaseAnalytics in Frameworks */,
-				07D2F7D8628BC5D89650EFDB /* GoogleSignIn in Frameworks */,
+				4DCA583EAF39837F26362A58 /* GoogleSignIn in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -196,8 +195,10 @@
 			children = (
 				FE4DD1DC1E7C38733785B6B1 /* Assets.xcassets */,
 				EB46171A22DCA9D26767C67F /* Foodfolio.entitlements */,
+				97E393135C6D202AAC694AE1 /* FoodfolioRelease.entitlements */,
 				2603D1D8033B2A40B1FE1617 /* GoogleService-Info.plist */,
 				2BD0EF851A9D526E55856E7B /* Info.plist */,
+				714D8FFF176E44C7BE411F8D /* PrivacyInfo.xcprivacy */,
 				7057135439151D0F75B05F31 /* App */,
 				D55F4BFFB50410C164E56009 /* Core */,
 				BE405489C53CBFC5116C45E8 /* Features */,
@@ -397,8 +398,6 @@
 				B73942D8C8C6C0A048EF2D0C /* FirebaseAuth */,
 				B5B2A3FFC3A988B7C855641A /* FirebaseCore */,
 				8966E43869CB189C4445F3F6 /* FirebaseMessaging */,
-				5733E485202EFB11BC7A4603 /* FirebaseCrashlytics */,
-				D2F53AC951B5ED98FB3CB690 /* FirebaseAnalytics */,
 				708DA32436D29F42676D6FF4 /* GoogleSignIn */,
 			);
 			productName = Foodfolio;
@@ -470,7 +469,6 @@
 				TargetAttributes = {
 					27296BC20569E3269C37448E = {
 						DevelopmentTeam = DZWXWT5XQ7;
-						ProvisioningStyle = Automatic;
 					};
 					A22FC4ED8E2A5D09336BC247 = {
 						DevelopmentTeam = DZWXWT5XQ7;
@@ -520,6 +518,7 @@
 			files = (
 				A6DD55B569097F863FFC9A55 /* Assets.xcassets in Resources */,
 				0819708633F4F3A8F38E02EF /* GoogleService-Info.plist in Resources */,
+				211B7980391752CFDB2A2103 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -658,7 +657,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -775,7 +774,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -809,8 +808,9 @@
 			buildSettings = {
 				API_BASE_URL = "https://foodfolio-dev-api-m4i6rcorua-as.a.run.app";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = Foodfolio/Foodfolio.entitlements;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_ENTITLEMENTS = Foodfolio/FoodfolioRelease.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Distribution";
+				CODE_SIGN_STYLE = Manual;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Foodfolio/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -818,8 +818,9 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.keyukt.foodfolio;
+				PROVISIONING_PROFILE_SPECIFIER = "Foodfolio App Store Connect";
 				SDKROOT = iphoneos;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};
@@ -838,7 +839,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.keyukt.foodfolio;
 				SDKROOT = iphoneos;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -946,11 +947,6 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		5733E485202EFB11BC7A4603 /* FirebaseCrashlytics */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 287060312AD32779E4D5DB06 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseCrashlytics;
-		};
 		708DA32436D29F42676D6FF4 /* GoogleSignIn */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = F73963D792F0D35A9CEF7FC5 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
@@ -970,11 +966,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 287060312AD32779E4D5DB06 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseAuth;
-		};
-		D2F53AC951B5ED98FB3CB690 /* FirebaseAnalytics */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 287060312AD32779E4D5DB06 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseAnalytics;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
