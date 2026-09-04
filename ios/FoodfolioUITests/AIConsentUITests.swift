@@ -60,4 +60,12 @@ import XCTest
     app.buttons["aiConsent.accept"].tap()
     XCTAssertTrue(app.buttons["home.add"].waitForExistence(timeout: 5))
   }
+
+  func testAuthenticatedRestoreHonorsServerRevocationInsteadOfRegranting() {
+    let app = launch(arguments: ["-ui-testing-server-consent-revoked"])
+
+    XCTAssertTrue(app.staticTexts["aiConsent.title"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.buttons["home.add"].exists)
+    XCTAssertFalse(app.buttons["auth.google"].exists)
+  }
 }
