@@ -108,7 +108,7 @@ struct HomeView: View {
         .animation(.snappy, value: showDrawer)
 
         if showDrawer {
-          DrawerView(show: $showDrawer)
+          DrawerView()
             .frame(width: drawerWidth)
             .transition(.move(edge: .leading))
         }
@@ -173,9 +173,11 @@ struct HomeView: View {
                   .contentShape(Rectangle())
               }
               .buttonStyle(.plain)
+              .frame(maxWidth: .infinity, maxHeight: .infinity)
               .accessibilityLabel("メニューを閉じる")
               .accessibilityIdentifier("drawer.scrim")
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .ignoresSafeArea()
           }
           .transition(.opacity)
@@ -241,8 +243,6 @@ struct RecipeCard: View {
 }
 
 private struct DrawerView: View {
-  @Binding var show: Bool
-
   var body: some View {
     NavigationStack {
       List {
