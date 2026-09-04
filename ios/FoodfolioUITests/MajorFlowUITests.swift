@@ -257,7 +257,7 @@ import XCTest
 
 @MainActor final class MutationAndAccountUITests: FoodfolioUITestCase {
   func testAddTagEditAndDeleteRecipe() {
-    let app = launch()
+    let app = launch(arguments: ["-ui-testing-slow-tag-save"])
     app.buttons["home.add"].tap()
     XCTAssertTrue(app.textFields["add.url"].waitForExistence(timeout: 3))
     app.textFields["add.url"].tap()
@@ -302,16 +302,33 @@ import XCTest
     tagName.tap()
     tagName.typeText("新規タグ")
     app.buttons["tag.create"].tap()
+    let existingPendingRemove = app.buttons["tag.pending.remove.簡単"]
+    let newPendingRemove = app.buttons["tag.pending.remove.新規タグ"]
     XCTAssertTrue(app.staticTexts["tag.pending.新規タグ"].waitForExistence(timeout: 2))
+    XCTAssertTrue(existingPendingRemove.exists)
+    XCTAssertTrue(newPendingRemove.exists)
     XCTAssertTrue(tagName.exists)
     XCTAssertTrue(saveTags.exists)
+    let savingExistingTag = app.descendants(matching: .any)["tag.existing.ui-tag"]
+    let savingTagName = app.descendants(matching: .any)["tag.name"]
+    let savingExistingPendingRemove =
+      app.descendants(matching: .any)["tag.pending.remove.簡単"]
+    let savingNewPendingRemove =
+      app.descendants(matching: .any)["tag.pending.remove.新規タグ"]
 
     saveTags.tap()
+    XCTAssertFalse(savingExistingTag.isEnabled)
+    XCTAssertFalse(savingTagName.isEnabled)
+    XCTAssertFalse(savingExistingPendingRemove.isEnabled)
+    XCTAssertFalse(savingNewPendingRemove.isEnabled)
+    let cancelTags = app.buttons["tag.cancel"]
+    XCTAssertFalse(cancelTags.isEnabled)
+    XCTAssertTrue(cancelTags.waitForNonExistence(timeout: 6))
     let tagHeading = app.staticTexts["detail.tagHeading"]
     let existingAttachedTag = app.staticTexts["#簡単"]
     let createdTag = app.staticTexts["#新規タグ"]
     let addTagButton = app.buttons["detail.addTag"]
-    XCTAssertTrue(createdTag.waitForExistence(timeout: 3))
+    XCTAssertTrue(createdTag.waitForExistence(timeout: 6))
     XCTAssertTrue(existingAttachedTag.exists)
     XCTAssertTrue(tagHeading.exists)
     XCTAssertTrue(addTagButton.exists)
