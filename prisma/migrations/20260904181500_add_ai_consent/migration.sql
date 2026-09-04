@@ -1,0 +1,2 @@
+ALTER TABLE "UserSetting"
+ADD COLUMN "aiConsentedAt" TIMESTAMPTZ(3);
