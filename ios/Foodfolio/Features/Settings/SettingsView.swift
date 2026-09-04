@@ -24,19 +24,6 @@ struct SettingsView: View {
           }
         }
       }
-      Section("AI解析") {
-        if session.aiConsent.isGranted(for: session.user?.uid) {
-          Text("この端末では外部AIへの送信に同意済みです。")
-          Button("AI解析の同意を取り消す") { session.aiConsent.revoke() }
-            .accessibilityIdentifier("settings.revokeAIConsent")
-        } else {
-          Text("次回のレシピ保存時に、送信内容を確認して同意できます。")
-            .accessibilityIdentifier("settings.aiConsentNotGranted")
-        }
-        Text("取り消しは次回以降の保存に適用されます。送信済み・処理中の解析は取り消せません。")
-          .font(.footnote)
-          .foregroundStyle(FoodfolioTheme.secondaryInk)
-      }
       Section("情報") {
         Link("プライバシーポリシー", destination: FoodfolioLinks.privacyPolicy)
           .accessibilityIdentifier("settings.privacyPolicy")
