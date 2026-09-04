@@ -27,9 +27,10 @@
     - [ ] ログアウトとアカウント削除後に端末tokenが解除され、その利用者へ通知されないことを確認する
   - [x] 初回TestFlightで省略するFirebase Analytics / CrashlyticsをiOS targetの依存から外し、Archiveに含まれないことを確認する
   - [ ] プライバシー・法務情報を確定する
-    - [ ] 取得・保存・外部送信するデータを棚卸しする（認証ID・メール、保存URL・レシピ、検索履歴、端末token）
-    - [ ] Firebase、GCP、Neon、Z.ai、YouTube、Apple、Googleへのデータ送信内容と目的を整理する
-    - [ ] データの保存期間、ユーザーによる削除方法、問い合わせ先、安全管理、外部URL解析について記載したプライバシーポリシーを作成する
+    - [x] 取得・保存・外部送信するデータを棚卸しする（認証ID・メール、保存URL・レシピ、検索履歴、端末token）
+    - [x] Firebase、GCP、Neon、Z.ai、YouTube、Apple、Googleへのデータ送信内容と目的を整理する
+    - [x] データの保存期間、ユーザーによる削除方法、問い合わせ先、安全管理、外部URL解析について記載したプライバシーポリシーを作成する
+      - 根拠と残確認は `docs/testflight-preparation.md`。Firebase Hosting公開済み。App Store ConnectへのURL保存、SDKを含むApp Privacy回答、外部AIの同意導線の確認は残る
     - [ ] プライバシーポリシーをHTTPSの公開URLで掲載し、アプリ内とApp Store Connectの双方から到達できるようにする
     - [x] 独自利用規約は作成せず、Apple標準EULAを使用する
     - [ ] App Store ConnectのApp Privacyで、Foodfolio本体と組み込みSDKが収集するデータ、利用目的、ユーザーとの紐付け、トラッキング有無を正しく回答する
@@ -41,11 +42,13 @@
     - [ ] プライバシーポリシーURLとサポートURLをApp Store Connectへ登録する
     - [x] HTTPS通信等の暗号利用を棚卸しし、App Store Connectの輸出コンプライアンス質問へ回答する。免除を宣言できる場合のみInfo.plistへ適切な設定を追加する
   - [ ] TestFlight buildを作成して内部テストする
-    - [x] Release構成で実装部分のテスト、全体テスト、結合テスト、E2E、lint、format check、buildを実行し、`npm run verify` を含む全検証を成功させる
+    - [ ] Release構成で実装部分のテスト、全体テスト、結合テスト、E2E、lint、format check、buildを実行し、`npm run verify` を含む全検証を成功させる
+      - 2026-09-04: `npm run verify` と `npm run verify:ios` は成功。iOSの既存検証scriptはDebugのため、Release構成での全テスト成功とは扱わず未完に修正。Release Archive・export・Apple validationは別途成功
     - [ ] 実機で新規インストール、URL保存、AI解析、同期、検索、Push通知の主要フローを各1回スモークテストする（認証とアカウント削除は上記の最小範囲で別途確認する）
     - [x] XcodeでGeneric iOS Device向けArchiveを作成し、Validate Appで署名、entitlement、アイコン、Privacy Manifestのエラーがないことを確認する
     - [x] ArchiveをApp Store Connectへuploadし、build processing完了後にエラー・警告・Missing Complianceが残っていないことを確認する
     - [ ] App Store Connectで内部テスターグループを作成し、内部テスターの実機でインストール、起動、現在利用するバックエンドへの接続、主要フローをスモークテストする
+      - 2026-09-04: `Foodfolio Internal` 作成、build 2割り当て、既存管理者1名の招待を確認。buildは `IN_BETA_TESTING`、テスターは `INVITED`。インストールと実機検証は未確認
   - [ ] 外部TestFlight審査へ提出できる状態にする
     - [ ] 外部テスターグループを作成し、対象buildと「テストしてほしいこと」を設定する
     - [ ] TestFlight Test InformationとBeta App Review Informationの必須項目をすべて入力する
