@@ -13,12 +13,14 @@ final class AIConsentStore {
   private let key = "aiProcessingConsent"
   private(set) var approvedVersion: Int
   private(set) var consentedAt: Date?
+  private(set) var needsServerSync: Bool
 
   init(defaults: UserDefaults = .standard) {
     self.defaults = defaults
     let saved = defaults.dictionary(forKey: key)
     approvedVersion = saved?["version"] as? Int ?? 0
     consentedAt = saved?["consentedAt"] as? Date
+    needsServerSync = saved?["needsServerSync"] as? Bool ?? false
   }
 
   var isGranted: Bool {
@@ -33,15 +35,40 @@ final class AIConsentStore {
   func grant(at date: Date = Date()) {
     approvedVersion = Self.currentVersion
     consentedAt = date
-    defaults.set(
-      ["version": Self.currentVersion, "consentedAt": date],
-      forKey: key)
+    needsServerSync = true
+    persist()
+  }
+
+  func markServerSynchronized(version: Int?, consentedAt: Date?) {
+    guard version == Self.currentVersion, let consentedAt else {
+      revoke()
+      return
+    }
+    approvedVersion = version
+    self.consentedAt = consentedAt
+    needsServerSync = false
+    persist()
   }
 
   func revoke() {
     approvedVersion = 0
     consentedAt = nil
+    needsServerSync = false
     defaults.removeObject(forKey: key)
+  }
+
+  private func persist() {
+    guard let consentedAt else {
+      defaults.removeObject(forKey: key)
+      return
+    }
+    defaults.set(
+      [
+        "version": approvedVersion,
+        "consentedAt": consentedAt,
+        "needsServerSync": needsServerSync,
+      ],
+      forKey: key)
   }
 }
 
