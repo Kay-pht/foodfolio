@@ -54,11 +54,27 @@
             "recipeAnalysisNotificationEnabled":
               requestBody()["recipeAnalysisNotificationEnabled"] as? Bool ?? true
           ])
+      case ("GET", "/v1/ai-consent"):
+        if ProcessInfo.processInfo.arguments.contains("-ui-testing-server-consent-revoked") {
+          finish(
+            status: 200,
+            json: [
+              "aiConsentVersion": NSNull(),
+              "aiConsentedAt": NSNull(),
+            ])
+        } else {
+          finish(
+            status: 200,
+            json: [
+              "aiConsentVersion": AIConsentStore.currentVersion,
+              "aiConsentedAt": "2026-09-04T09:00:00Z",
+            ])
+        }
       case ("PUT", "/v1/ai-consent"):
         finish(
           status: 200,
           json: [
-            "aiConsentVersion": requestBody()["version"] as? Int ?? 2,
+            "aiConsentVersion": requestBody()["version"] as? Int ?? AIConsentStore.currentVersion,
             "aiConsentedAt": "2026-09-04T09:00:00Z",
           ])
       case ("DELETE", "/v1/ai-consent"):
