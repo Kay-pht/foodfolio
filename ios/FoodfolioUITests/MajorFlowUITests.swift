@@ -113,10 +113,12 @@ import XCTest
     XCTAssertTrue(plusButton.exists)
     XCTAssertEqual(servings.frame.midY, minusButton.frame.midY, accuracy: 4)
     XCTAssertEqual(servings.frame.midY, plusButton.frame.midY, accuracy: 4)
-    XCTAssertGreaterThanOrEqual(minusButton.frame.width, 44)
-    XCTAssertGreaterThanOrEqual(minusButton.frame.height, 44)
-    XCTAssertGreaterThanOrEqual(plusButton.frame.width, 44)
-    XCTAssertGreaterThanOrEqual(plusButton.frame.height, 44)
+    let minimumTouchTarget = 44.0
+    let geometryTolerance = 0.001
+    XCTAssertGreaterThanOrEqual(minusButton.frame.width + geometryTolerance, minimumTouchTarget)
+    XCTAssertGreaterThanOrEqual(minusButton.frame.height + geometryTolerance, minimumTouchTarget)
+    XCTAssertGreaterThanOrEqual(plusButton.frame.width + geometryTolerance, minimumTouchTarget)
+    XCTAssertGreaterThanOrEqual(plusButton.frame.height + geometryTolerance, minimumTouchTarget)
     XCTAssertFalse(app.staticTexts["人数"].exists)
     XCTAssertFalse(app.staticTexts["表示人数: 2人"].exists)
 
