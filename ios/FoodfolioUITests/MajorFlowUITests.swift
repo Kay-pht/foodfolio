@@ -275,15 +275,29 @@ import XCTest
 
     let tagName = app.textFields["tag.name"]
     let existingTag = app.buttons["tag.existing.ui-tag"]
+    let existingPendingTag = app.staticTexts["tag.pending.簡単"]
     let saveTags = app.buttons["tag.save"]
     XCTAssertTrue(tagName.waitForExistence(timeout: 3))
     XCTAssertTrue(app.buttons["tag.cancel"].exists)
     XCTAssertTrue(existingTag.exists)
+    XCTAssertEqual(existingTag.value as? String, "未選択")
     XCTAssertFalse(saveTags.exists)
 
     existingTag.tap()
+    XCTAssertEqual(existingTag.value as? String, "選択中")
+    XCTAssertTrue(existingPendingTag.waitForExistence(timeout: 2))
     XCTAssertTrue(saveTags.waitForExistence(timeout: 2))
     XCTAssertTrue(tagName.exists)
+
+    existingTag.tap()
+    XCTAssertEqual(existingTag.value as? String, "未選択")
+    XCTAssertFalse(existingPendingTag.waitForExistence(timeout: 1))
+    XCTAssertFalse(saveTags.exists)
+
+    existingTag.tap()
+    XCTAssertEqual(existingTag.value as? String, "選択中")
+    XCTAssertTrue(existingPendingTag.waitForExistence(timeout: 2))
+    XCTAssertTrue(saveTags.waitForExistence(timeout: 2))
 
     tagName.tap()
     tagName.typeText("新規タグ")
