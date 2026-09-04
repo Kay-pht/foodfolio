@@ -153,14 +153,16 @@ import XCTest
     XCTAssertTrue(app.switches["settings.analysisNotification"].waitForExistence(timeout: 3))
   }
 
-  func testDrawerKeepsSearchBarVerticalPositionStableAndOmitsIntroCopy() {
+  func testDrawerUsesScrimAndBlocksRecipeNavigation() {
     let app = launch()
     let searchButton = app.buttons["home.search"]
     let drawerButton = app.buttons["home.drawer"]
     let settingsButton = app.buttons["drawer.settings"]
+    let recipeTitle = app.staticTexts["親子丼"]
 
     XCTAssertTrue(searchButton.waitForExistence(timeout: 3))
     XCTAssertTrue(drawerButton.waitForExistence(timeout: 3))
+    XCTAssertTrue(recipeTitle.exists)
     XCTAssertFalse(app.staticTexts["わたしのレシピ"].exists)
     XCTAssertFalse(app.staticTexts["いつもの味を、ここに。"].exists)
     let initialMinY = searchButton.frame.minY
@@ -168,10 +170,20 @@ import XCTest
     drawerButton.tap()
     XCTAssertTrue(settingsButton.waitForExistence(timeout: 3))
     XCTAssertEqual(searchButton.frame.minY, initialMinY, accuracy: 2)
+    XCTAssertFalse(app.buttons["閉じる"].exists)
+    XCTAssertTrue(app.buttons["drawer.scrim"].exists)
 
-    app.buttons["閉じる"].tap()
+    let movedRecipeFrame = recipeTitle.frame
+    let tapX = min(max(movedRecipeFrame.midX, 280), app.frame.maxX - 12)
+    let tapY = min(max(movedRecipeFrame.midY, 80), app.frame.maxY - 12)
+    app.coordinate(
+      withNormalizedOffset: CGVector(dx: tapX / app.frame.width, dy: tapY / app.frame.height)
+    ).tap()
+
     expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: settingsButton)
     waitForExpectations(timeout: 3)
+    XCTAssertFalse(app.staticTexts["detail.title"].exists)
+    XCTAssertTrue(searchButton.exists)
     XCTAssertEqual(searchButton.frame.minY, initialMinY, accuracy: 2)
   }
 
@@ -192,7 +204,12 @@ import XCTest
     XCTAssertEqual(brandButton.frame.midY, drawerIcon.frame.midY, accuracy: 2)
 
     brandButton.tap()
-    XCTAssertTrue(app.buttons["drawer.settings"].waitForExistence(timeout: 3))
+    let settingsButton = app.buttons["drawer.settings"]
+    XCTAssertTrue(settingsButton.waitForExistence(timeout: 3))
+
+    drawerIcon.tap()
+    expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: settingsButton)
+    waitForExpectations(timeout: 3)
   }
 }
 
@@ -240,7 +257,7 @@ import XCTest
 
 @MainActor final class MutationAndAccountUITests: FoodfolioUITestCase {
   func testAddTagEditAndDeleteRecipe() {
-    let app = launch()
+    let app = launch(arguments: ["-ui-testing-slow-tag-save"])
     app.buttons["home.add"].tap()
     XCTAssertTrue(app.textFields["add.url"].waitForExistence(timeout: 3))
     app.textFields["add.url"].tap()
@@ -255,17 +272,68 @@ import XCTest
 
     for _ in 0..<3 where !app.buttons["detail.addTag"].exists { app.swipeUp() }
     app.buttons["detail.addTag"].tap()
-    XCTAssertTrue(app.textFields["tag.name"].waitForExistence(timeout: 3))
-    app.textFields["tag.name"].tap()
-    app.textFields["tag.name"].typeText("新規タグ")
+
+    let tagName = app.textFields["tag.name"]
+    let existingTag = app.buttons["tag.existing.ui-tag"]
+    let existingPendingTag = app.staticTexts["tag.pending.簡単"]
+    let saveTags = app.buttons["tag.save"]
+    XCTAssertTrue(tagName.waitForExistence(timeout: 3))
+    XCTAssertTrue(app.buttons["tag.cancel"].exists)
+    XCTAssertTrue(existingTag.exists)
+    XCTAssertEqual(existingTag.value as? String, "未選択")
+    XCTAssertFalse(saveTags.exists)
+
+    existingTag.tap()
+    XCTAssertEqual(existingTag.value as? String, "選択中")
+    XCTAssertTrue(existingPendingTag.waitForExistence(timeout: 2))
+    XCTAssertTrue(saveTags.waitForExistence(timeout: 2))
+    XCTAssertTrue(tagName.exists)
+
+    existingTag.tap()
+    XCTAssertEqual(existingTag.value as? String, "未選択")
+    XCTAssertFalse(existingPendingTag.waitForExistence(timeout: 1))
+    XCTAssertFalse(saveTags.exists)
+
+    existingTag.tap()
+    XCTAssertEqual(existingTag.value as? String, "選択中")
+    XCTAssertTrue(existingPendingTag.waitForExistence(timeout: 2))
+    XCTAssertTrue(saveTags.waitForExistence(timeout: 2))
+
+    tagName.tap()
+    tagName.typeText("新規タグ")
     app.buttons["tag.create"].tap()
+    let existingPendingRemove = app.buttons["tag.pending.remove.簡単"]
+    let newPendingRemove = app.buttons["tag.pending.remove.新規タグ"]
+    XCTAssertTrue(app.staticTexts["tag.pending.新規タグ"].waitForExistence(timeout: 2))
+    XCTAssertTrue(existingPendingRemove.exists)
+    XCTAssertTrue(newPendingRemove.exists)
+    XCTAssertTrue(tagName.exists)
+    XCTAssertTrue(saveTags.exists)
+    let savingExistingTag = app.descendants(matching: .any)["tag.existing.ui-tag"]
+    let savingTagName = app.descendants(matching: .any)["tag.name"]
+    let savingExistingPendingRemove =
+      app.descendants(matching: .any)["tag.pending.remove.簡単"]
+    let savingNewPendingRemove =
+      app.descendants(matching: .any)["tag.pending.remove.新規タグ"]
+
+    saveTags.tap()
+    XCTAssertFalse(savingExistingTag.isEnabled)
+    XCTAssertFalse(savingTagName.isEnabled)
+    XCTAssertFalse(savingExistingPendingRemove.isEnabled)
+    XCTAssertFalse(savingNewPendingRemove.isEnabled)
+    let cancelTags = app.buttons["tag.cancel"]
+    XCTAssertFalse(cancelTags.isEnabled)
+    XCTAssertTrue(cancelTags.waitForNonExistence(timeout: 6))
     let tagHeading = app.staticTexts["detail.tagHeading"]
+    let existingAttachedTag = app.staticTexts["#簡単"]
     let createdTag = app.staticTexts["#新規タグ"]
     let addTagButton = app.buttons["detail.addTag"]
-    XCTAssertTrue(createdTag.waitForExistence(timeout: 3))
+    XCTAssertTrue(createdTag.waitForExistence(timeout: 6))
+    XCTAssertTrue(existingAttachedTag.exists)
     XCTAssertTrue(tagHeading.exists)
     XCTAssertTrue(addTagButton.exists)
-    XCTAssertGreaterThan(createdTag.frame.minX, tagHeading.frame.maxX)
+    XCTAssertGreaterThan(existingAttachedTag.frame.minX, tagHeading.frame.maxX)
+    XCTAssertGreaterThan(createdTag.frame.minX, existingAttachedTag.frame.maxX)
     XCTAssertGreaterThan(addTagButton.frame.minX, createdTag.frame.maxX)
     XCTAssertEqual(createdTag.frame.midY, tagHeading.frame.midY, accuracy: 3)
     XCTAssertEqual(addTagButton.frame.midY, createdTag.frame.midY, accuracy: 3)
