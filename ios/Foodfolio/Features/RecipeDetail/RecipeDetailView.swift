@@ -503,7 +503,8 @@ private struct TagPickerSheet: View {
         .frame(maxWidth: .infinity, minHeight: 52)
         .glassEffect(
           .regular,
-          in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+          in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+        )
         .submitLabel(.done)
         .onSubmit(queueNewTag)
         .accessibilityIdentifier("tag.name")
