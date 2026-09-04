@@ -24,6 +24,12 @@ struct SettingsView: View {
           }
         }
       }
+      Section("情報") {
+        Link("プライバシーポリシー", destination: FoodfolioLinks.privacyPolicy)
+          .accessibilityIdentifier("settings.privacyPolicy")
+        Link("サポート・お問い合わせ", destination: FoodfolioLinks.support)
+          .accessibilityIdentifier("settings.support")
+      }
       if isLoading { ProgressView() }
       if let error { Text(error).foregroundStyle(.red) }
     }.navigationTitle("設定").task { await load() }
@@ -45,4 +51,9 @@ struct SettingsView: View {
       } catch { self.error = error.localizedDescription }
     }
   }
+}
+
+enum FoodfolioLinks {
+  static let privacyPolicy = URL(string: "https://foodfolio-af28aa.web.app/privacy")!
+  static let support = URL(string: "https://foodfolio-af28aa.web.app/support")!
 }
