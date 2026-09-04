@@ -6,10 +6,11 @@ import XCTest
   func testConsentIsNotGrantedByDefault() {
     let store = AIConsentStore(defaults: UserDefaults(suiteName: UUID().uuidString)!)
     XCTAssertFalse(store.isGranted)
+    XCTAssertFalse(store.needsServerSync)
     XCTAssertNil(store.currentRecord)
   }
 
-  func testConsentPersistsVersionAndTimestamp() {
+  func testExplicitConsentPersistsAsPendingServerSync() {
     let defaults = UserDefaults(suiteName: UUID().uuidString)!
     let consentedAt = Date(timeIntervalSince1970: 1_788_512_400)
     let store = AIConsentStore(defaults: defaults)
@@ -17,8 +18,37 @@ import XCTest
 
     let restored = AIConsentStore(defaults: defaults)
     XCTAssertTrue(restored.isGranted)
+    XCTAssertTrue(restored.needsServerSync)
     XCTAssertEqual(restored.currentRecord?.version, AIConsentStore.currentVersion)
     XCTAssertEqual(restored.currentRecord?.consentedAt, consentedAt)
+  }
+
+  func testServerSynchronizationClearsPendingFlagAndUsesServerTimestamp() {
+    let defaults = UserDefaults(suiteName: UUID().uuidString)!
+    let localDate = Date(timeIntervalSince1970: 1_788_512_400)
+    let serverDate = localDate.addingTimeInterval(30)
+    let store = AIConsentStore(defaults: defaults)
+    store.grant(at: localDate)
+
+    store.markServerSynchronized(
+      version: AIConsentStore.currentVersion,
+      consentedAt: serverDate)
+
+    let restored = AIConsentStore(defaults: defaults)
+    XCTAssertTrue(restored.isGranted)
+    XCTAssertFalse(restored.needsServerSync)
+    XCTAssertEqual(restored.currentRecord?.consentedAt, serverDate)
+  }
+
+  func testMissingServerConsentRevokesStaleLocalConsent() {
+    let store = AIConsentStore(defaults: UserDefaults(suiteName: UUID().uuidString)!)
+    store.grant()
+
+    store.markServerSynchronized(version: nil, consentedAt: nil)
+
+    XCTAssertFalse(store.isGranted)
+    XCTAssertFalse(store.needsServerSync)
+    XCTAssertNil(store.currentRecord)
   }
 
   func testOldDisclosureVersionNeedsNewConsent() {
@@ -36,6 +66,7 @@ import XCTest
     store.revoke()
 
     XCTAssertFalse(store.isGranted)
+    XCTAssertFalse(store.needsServerSync)
     XCTAssertFalse(AIConsentStore(defaults: defaults).isGranted)
     XCTAssertNil(defaults.object(forKey: "aiProcessingConsent"))
   }
