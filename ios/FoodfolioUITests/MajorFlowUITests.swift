@@ -288,6 +288,8 @@ import XCTest
     app.buttons["drawer.settings"].tap()
     let toggle = app.switches["settings.analysisNotification"]
     XCTAssertTrue(toggle.waitForExistence(timeout: 3))
+    XCTAssertTrue(app.descendants(matching: .any)["settings.privacyPolicy"].exists)
+    XCTAssertTrue(app.descendants(matching: .any)["settings.support"].exists)
     expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: toggle)
     waitForExpectations(timeout: 3)
     XCTAssertEqual(toggle.value as? String, "オン")

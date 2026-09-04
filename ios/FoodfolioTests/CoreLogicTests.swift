@@ -200,6 +200,15 @@ final class CoreLogicTests: XCTestCase {
     let schemes = urlTypes.flatMap { $0["CFBundleURLSchemes"] as? [String] ?? [] }
     XCTAssertTrue(schemes.contains(reversedClientID))
   }
+
+  func testPublicInformationLinksUseFirebaseHostingHTTPSURLs() {
+    for url in [FoodfolioLinks.privacyPolicy, FoodfolioLinks.support] {
+      XCTAssertEqual(url.scheme, "https")
+      XCTAssertEqual(url.host, "foodfolio-af28aa.web.app")
+    }
+    XCTAssertEqual(FoodfolioLinks.privacyPolicy.path, "/privacy")
+    XCTAssertEqual(FoodfolioLinks.support.path, "/support")
+  }
 }
 
 private struct CoreLogicStaticTokenProvider: IDTokenProvider {
