@@ -37,7 +37,10 @@ export function registerTagBatchRoutes(
 
       const body = asObject(request.body);
       const tagIds = [...new Set(requireStringArray(body.tagIds, "tagIds"))];
-      const rawNewTagNames = requireStringArray(body.newTagNames, "newTagNames");
+      const rawNewTagNames = requireStringArray(
+        body.newTagNames,
+        "newTagNames",
+      );
       const normalizedNewTags = new Map<
         string,
         { name: string; normalizedName: string }
@@ -94,7 +97,9 @@ export function registerTagBatchRoutes(
             ? await tx.tag.findMany({
                 where: {
                   userId: request.appUser.id,
-                  normalizedName: { in: newTags.map((tag) => tag.normalizedName) },
+                  normalizedName: {
+                    in: newTags.map((tag) => tag.normalizedName),
+                  },
                 },
                 select: { id: true },
               })
