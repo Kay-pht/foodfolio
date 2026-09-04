@@ -13,7 +13,7 @@ struct APIErrorEnvelope: Decodable {
 enum APIError: Error, Equatable {
   case unauthenticated, invalidURL
   case duplicateRecipe(String?)
-  case analysisInProgress, notFound, validation, offline, server, decoding
+  case analysisInProgress, aiConsentRequired, notFound, validation, offline, server, decoding
 
   static func from(status: Int, data: Data) -> APIError {
     let payload = try? JSONDecoder().decode(APIErrorEnvelope.self, from: data).error
@@ -22,6 +22,7 @@ enum APIError: Error, Equatable {
     case "INVALID_URL": return .invalidURL
     case "DUPLICATE_RECIPE": return .duplicateRecipe(payload?.details?["recipeId"])
     case "RECIPE_ANALYSIS_IN_PROGRESS": return .analysisInProgress
+    case "AI_CONSENT_REQUIRED": return .aiConsentRequired
     case "NOT_FOUND": return .notFound
     case "VALIDATION_ERROR", "INVALID_REQUEST": return .validation
     default: return status == 401 ? .unauthenticated : .server
@@ -34,6 +35,7 @@ enum APIError: Error, Equatable {
     case .invalidURL: "有効なURLを入力してください。"
     case .duplicateRecipe: "このレシピはすでに保存されています。"
     case .analysisInProgress: "解析中は編集できません。"
+    case .aiConsentRequired: "AI解析への同意を確認してください。"
     case .notFound: "対象が見つかりませんでした。"
     case .validation: "入力内容を確認してください。"
     case .offline: "この操作にはインターネット接続が必要です。"
