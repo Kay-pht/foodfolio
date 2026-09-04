@@ -407,6 +407,7 @@ private struct TagPickerSheet: View {
           }
           .padding(.horizontal, 20)
           .padding(.vertical, 20)
+          .disabled(isSaving)
         }
         .scrollIndicators(.hidden)
       }
@@ -419,6 +420,7 @@ private struct TagPickerSheet: View {
           } label: {
             Image(systemName: "xmark")
           }
+          .disabled(isSaving)
           .accessibilityLabel("閉じる")
           .accessibilityIdentifier("tag.cancel")
         }
@@ -579,7 +581,9 @@ private struct TagPickerSheet: View {
           .frame(width: 44, height: 44)
       }
       .buttonStyle(.plain)
+      .disabled(isSaving)
       .accessibilityLabel("\(name) を追加予定から外す")
+      .accessibilityIdentifier("tag.pending.remove.\(name)")
     }
     .padding(.leading, 16)
     .padding(.trailing, 4)
@@ -587,6 +591,7 @@ private struct TagPickerSheet: View {
   }
 
   private func toggle(_ id: String) {
+    guard !isSaving else { return }
     error = nil
     if selectedTagIDs.contains(id) {
       selectedTagIDs.remove(id)
@@ -596,6 +601,7 @@ private struct TagPickerSheet: View {
   }
 
   private func queueNewTag() {
+    guard !isSaving else { return }
     let candidate = trimmedName
     guard !candidate.isEmpty else { return }
     error = nil
