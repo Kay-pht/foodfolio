@@ -233,7 +233,6 @@ private struct DrawerView: View {
       }
       .scrollContentBackground(.hidden)
       .background(FoodfolioTheme.paper)
-      .navigationTitle("メニュー")
       .navigationBarTitleDisplayMode(.inline)
       .toolbar { Button("閉じる") { show = false } }
     }
