@@ -7,6 +7,7 @@ import type {
 } from "../infrastructure/auth/auth-verifier.js";
 import type { AnalysisTaskQueue } from "../infrastructure/tasks/task-queue.js";
 import { registerRoutes } from "./routes.js";
+import { registerTagBatchRoutes } from "./tag-batch-routes.js";
 
 export interface ApiDependencies {
   prisma: PrismaClient;
@@ -67,6 +68,7 @@ export function buildApi(deps: ApiDependencies): FastifyInstance {
   app.get("/healthz", async () => ({ status: "ok" }));
   app.get("/health", async () => ({ status: "ok" }));
   registerRoutes(app, deps);
+  registerTagBatchRoutes(app, deps);
   return app;
 }
 
