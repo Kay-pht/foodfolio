@@ -55,11 +55,7 @@ export function buildApi(deps: ApiDependencies): FastifyInstance {
       select: { aiConsentedAt: true },
     });
     if (!setting?.aiConsentedAt)
-      throw new AppError(
-        403,
-        "AI_CONSENT_REQUIRED",
-        "AI consent is required",
-      );
+      throw new AppError(403, "AI_CONSENT_REQUIRED", "AI consent is required");
   });
 
   app.setErrorHandler((error, request, reply) => {
