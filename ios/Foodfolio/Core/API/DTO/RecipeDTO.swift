@@ -40,3 +40,7 @@ struct SyncResponse: Codable, Sendable {
 }
 struct RecipeIDsResponse: Codable, Sendable { let recipeIds: [String] }
 struct SettingDTO: Codable, Sendable { let recipeAnalysisNotificationEnabled: Bool }
+struct AIConsentDTO: Codable, Sendable {
+  let aiConsentVersion: Int
+  let aiConsentedAt: Date
+}

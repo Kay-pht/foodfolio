@@ -5,7 +5,8 @@ import XCTest
 
 @MainActor final class AIConsentIntegrationTests: XCTestCase {
   private var modelContainer: ModelContainer?
-  func testRecipeSubmissionIsBlockedUntilConsentIsGranted() async throws {
+
+  func testRecipeSubmissionIsBlockedUntilPreLoginConsentIsAccepted() async throws {
     let session = try makeSession()
     do {
       _ = try await session.addRecipe(url: "https://example.com/new-recipe")
@@ -13,34 +14,38 @@ import XCTest
     } catch { XCTAssertEqual(error as? AIConsentError, .required) }
     XCTAssertNil(try session.repository.recipe(id: "ui-added-recipe"))
 
-    XCTAssertTrue(session.grantAIConsent(for: "ui-user"))
+    try await session.acceptAIConsent()
+    XCTAssertTrue(session.aiConsent.isGranted)
+    XCTAssertTrue(session.isAIConsentReadyForAuthenticatedUse)
     let recipe = try await session.addRecipe(url: "https://example.com/new-recipe")
     XCTAssertEqual(recipe.id, "ui-added-recipe")
   }
 
-  func testAccountChangeDoesNotReuseOrGrantPreviousUsersConsent() async throws {
+  func testRevocationBlocksTheAppUntilConsentIsAcceptedAgain() async throws {
     let session = try makeSession()
-    XCTAssertTrue(session.grantAIConsent(for: "ui-user"))
-    session.user = AuthenticatedUser(uid: "other-user", email: nil, providers: ["password"])
-    XCTAssertFalse(session.grantAIConsent(for: "ui-user"))
+    try await session.acceptAIConsent()
+    try await session.revokeAIConsent()
+
+    XCTAssertFalse(session.aiConsent.isGranted)
+    XCTAssertFalse(session.isAIConsentReadyForAuthenticatedUse)
     do {
       _ = try await session.addRecipe(url: "https://example.com/new-recipe")
-      XCTFail("Another account must consent independently")
+      XCTFail("Submission must be blocked after revocation")
     } catch { XCTAssertEqual(error as? AIConsentError, .required) }
-    XCTAssertNil(try session.repository.recipe(id: "ui-added-recipe"))
+
+    try await session.acceptAIConsent()
+    XCTAssertTrue(session.aiConsent.isGranted)
+    XCTAssertTrue(session.isAIConsentReadyForAuthenticatedUse)
   }
 
-  func testLogoutRemovesConsentAndBlocksFurtherSubmission() async throws {
+  func testLogoutRemovesDeviceConsent() async throws {
     let session = try makeSession()
-    XCTAssertTrue(session.grantAIConsent(for: "ui-user"))
+    try await session.acceptAIConsent()
     try await session.logout()
+
     XCTAssertNil(session.user)
-    XCTAssertFalse(session.aiConsent.isGranted(for: "ui-user"))
-    XCTAssertFalse(session.grantAIConsent(for: "ui-user"))
-    do {
-      _ = try await session.addRecipe(url: "https://example.com/new-recipe")
-      XCTFail("Signed-out submission must be blocked")
-    } catch { XCTAssertEqual(error as? AIConsentError, .required) }
+    XCTAssertFalse(session.aiConsent.isGranted)
+    XCTAssertFalse(session.isAIConsentReadyForAuthenticatedUse)
   }
 
   private func makeSession() throws -> AppSession {

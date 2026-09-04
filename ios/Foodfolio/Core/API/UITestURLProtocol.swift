@@ -54,6 +54,15 @@
             "recipeAnalysisNotificationEnabled":
               requestBody()["recipeAnalysisNotificationEnabled"] as? Bool ?? true
           ])
+      case ("PUT", "/v1/ai-consent"):
+        finish(
+          status: 200,
+          json: [
+            "aiConsentVersion": requestBody()["version"] as? Int ?? AIConsentStore.currentVersion,
+            "aiConsentedAt": "2026-09-04T09:00:00Z",
+          ])
+      case ("DELETE", "/v1/ai-consent"):
+        finish(status: 204)
       case ("DELETE", "/v1/me"):
         finish(status: 204)
       default:

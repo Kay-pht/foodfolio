@@ -1,36 +1,46 @@
 import Foundation
 import Observation
 
+struct AIConsentRecord: Equatable {
+  let version: Int
+  let consentedAt: Date
+}
+
 @MainActor @Observable
 final class AIConsentStore {
-  static let currentVersion = 1
+  static let currentVersion = 2
   private let defaults: UserDefaults
   private let key = "aiProcessingConsent"
-  private var approvedUserID: String?
-  private var approvedVersion: Int
+  private(set) var approvedVersion: Int
+  private(set) var consentedAt: Date?
 
   init(defaults: UserDefaults = .standard) {
     self.defaults = defaults
     let saved = defaults.dictionary(forKey: key)
-    approvedUserID = saved?["userID"] as? String
     approvedVersion = saved?["version"] as? Int ?? 0
+    consentedAt = saved?["consentedAt"] as? Date
   }
 
-  func isGranted(for userID: String?) -> Bool {
-    guard let userID, !userID.isEmpty else { return false }
-    return approvedUserID == userID && approvedVersion == Self.currentVersion
+  var isGranted: Bool {
+    approvedVersion == Self.currentVersion && consentedAt != nil
   }
 
-  func grant(for userID: String) {
-    guard !userID.isEmpty else { return }
-    approvedUserID = userID
+  var currentRecord: AIConsentRecord? {
+    guard isGranted, let consentedAt else { return nil }
+    return AIConsentRecord(version: approvedVersion, consentedAt: consentedAt)
+  }
+
+  func grant(at date: Date = Date()) {
     approvedVersion = Self.currentVersion
-    defaults.set(["userID": userID, "version": Self.currentVersion], forKey: key)
+    consentedAt = date
+    defaults.set(
+      ["version": Self.currentVersion, "consentedAt": date],
+      forKey: key)
   }
 
   func revoke() {
-    approvedUserID = nil
     approvedVersion = 0
+    consentedAt = nil
     defaults.removeObject(forKey: key)
   }
 }
@@ -39,6 +49,6 @@ enum AIConsentError: LocalizedError, Equatable {
   case required
 
   var errorDescription: String? {
-    "AI解析を開始するには、外部サービスへの情報送信への同意が必要です。"
+    "Foodfolioを利用するには、AI解析のための情報送信への同意が必要です。"
   }
 }
