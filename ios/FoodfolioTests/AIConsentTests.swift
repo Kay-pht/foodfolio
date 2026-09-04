@@ -5,40 +5,46 @@ import XCTest
 @MainActor final class AIConsentTests: XCTestCase {
   func testConsentIsNotGrantedByDefault() {
     let store = AIConsentStore(defaults: UserDefaults(suiteName: UUID().uuidString)!)
-    XCTAssertFalse(store.isGranted(for: "user-a"))
-    XCTAssertFalse(store.isGranted(for: nil))
-    XCTAssertFalse(store.isGranted(for: ""))
+    XCTAssertFalse(store.isGranted)
+    XCTAssertNil(store.currentRecord)
   }
 
-  func testConsentPersistsOnlyForTheSameAccount() {
+  func testConsentPersistsVersionAndTimestamp() {
     let defaults = UserDefaults(suiteName: UUID().uuidString)!
+    let consentedAt = Date(timeIntervalSince1970: 1_788_512_400)
     let store = AIConsentStore(defaults: defaults)
-    store.grant(for: "user-a")
+    store.grant(at: consentedAt)
+
     let restored = AIConsentStore(defaults: defaults)
-    XCTAssertTrue(restored.isGranted(for: "user-a"))
-    XCTAssertFalse(restored.isGranted(for: "user-b"))
-    XCTAssertFalse(restored.isGranted(for: nil))
+    XCTAssertTrue(restored.isGranted)
+    XCTAssertEqual(restored.currentRecord?.version, AIConsentStore.currentVersion)
+    XCTAssertEqual(restored.currentRecord?.consentedAt, consentedAt)
   }
 
   func testOldDisclosureVersionNeedsNewConsent() {
     let defaults = UserDefaults(suiteName: UUID().uuidString)!
-    defaults.set(["userID": "user-a", "version": 0], forKey: "aiProcessingConsent")
-    XCTAssertFalse(AIConsentStore(defaults: defaults).isGranted(for: "user-a"))
+    defaults.set(
+      ["version": AIConsentStore.currentVersion - 1, "consentedAt": Date()],
+      forKey: "aiProcessingConsent")
+    XCTAssertFalse(AIConsentStore(defaults: defaults).isGranted)
   }
 
   func testRevocationRemovesPersistedConsent() {
     let defaults = UserDefaults(suiteName: UUID().uuidString)!
     let store = AIConsentStore(defaults: defaults)
-    store.grant(for: "user-a")
+    store.grant()
     store.revoke()
-    XCTAssertFalse(store.isGranted(for: "user-a"))
-    XCTAssertFalse(AIConsentStore(defaults: defaults).isGranted(for: "user-a"))
+
+    XCTAssertFalse(store.isGranted)
+    XCTAssertFalse(AIConsentStore(defaults: defaults).isGranted)
     XCTAssertNil(defaults.object(forKey: "aiProcessingConsent"))
   }
 
-  func testEmptyIdentityCannotGrantConsent() {
-    let store = AIConsentStore(defaults: UserDefaults(suiteName: UUID().uuidString)!)
-    store.grant(for: "")
-    XCTAssertFalse(store.isGranted(for: ""))
+  func testLegacyAccountScopedConsentIsNotAcceptedWithoutTimestamp() {
+    let defaults = UserDefaults(suiteName: UUID().uuidString)!
+    defaults.set(
+      ["userID": "legacy-user", "version": AIConsentStore.currentVersion],
+      forKey: "aiProcessingConsent")
+    XCTAssertFalse(AIConsentStore(defaults: defaults).isGranted)
   }
 }

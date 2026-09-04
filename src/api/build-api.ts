@@ -6,6 +6,7 @@ import type {
   FirebaseUserManager,
 } from "../infrastructure/auth/auth-verifier.js";
 import type { AnalysisTaskQueue } from "../infrastructure/tasks/task-queue.js";
+import { registerAIConsentRoutes } from "./ai-consent-routes.js";
 import { registerRoutes } from "./routes.js";
 import { registerTagBatchRoutes } from "./tag-batch-routes.js";
 
@@ -67,6 +68,7 @@ export function buildApi(deps: ApiDependencies): FastifyInstance {
   });
   app.get("/healthz", async () => ({ status: "ok" }));
   app.get("/health", async () => ({ status: "ok" }));
+  registerAIConsentRoutes(app, deps);
   registerRoutes(app, deps);
   registerTagBatchRoutes(app, deps);
   return app;
