@@ -372,6 +372,10 @@ private struct TagPickerSheet: View {
       .sorted { $0.name.localizedCompare($1.name) == .orderedAscending }
   }
 
+  private var selectedExistingTags: [LocalTag] {
+    availableTags.filter { selectedTagIDs.contains($0.id) }
+  }
+
   private var trimmedName: String {
     name.trimmingCharacters(in: .whitespacesAndNewlines)
   }
@@ -390,7 +394,7 @@ private struct TagPickerSheet: View {
             existingTagsSection
             newTagSection
 
-            if !pendingNewTagNames.isEmpty {
+            if hasChanges {
               pendingTagsSection
             }
 
@@ -457,37 +461,42 @@ private struct TagPickerSheet: View {
           .glassEffect(
             .regular, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
       } else {
-        VStack(spacing: 0) {
-          ForEach(Array(availableTags.enumerated()), id: \.element.id) { index, tag in
+        TagFlowLayout(horizontalSpacing: 8, verticalSpacing: 10) {
+          ForEach(availableTags) { tag in
+            let isSelected = selectedTagIDs.contains(tag.id)
             Button {
               toggle(tag.id)
             } label: {
-              HStack(spacing: 12) {
+              HStack(spacing: 7) {
                 Text(tag.name)
-                  .foregroundStyle(FoodfolioTheme.ink)
-                Spacer(minLength: 12)
-                Image(
-                  systemName: selectedTagIDs.contains(tag.id)
-                    ? "checkmark.circle.fill" : "circle"
-                )
-                .foregroundStyle(
-                  selectedTagIDs.contains(tag.id) ? Color.blue : FoodfolioTheme.secondaryInk
-                )
+                  .lineLimit(1)
+                Image(systemName: isSelected ? "checkmark" : "plus")
+                  .font(.caption.bold())
               }
-              .padding(.horizontal, 16)
-              .frame(maxWidth: .infinity, minHeight: 52)
-              .contentShape(Rectangle())
+              .font(.subheadline.weight(.semibold))
+              .foregroundStyle(isSelected ? Color.white : FoodfolioTheme.ink)
+              .padding(.leading, 14)
+              .padding(.trailing, 12)
+              .frame(minHeight: 44)
+              .background(
+                isSelected ? FoodfolioTheme.terracotta : FoodfolioTheme.paper,
+                in: Capsule()
+              )
+              .overlay {
+                Capsule()
+                  .stroke(
+                    isSelected ? FoodfolioTheme.terracotta : FoodfolioTheme.hairline,
+                    lineWidth: 1
+                  )
+              }
+              .contentShape(Capsule())
             }
             .buttonStyle(.plain)
-            .accessibilityValue(selectedTagIDs.contains(tag.id) ? "選択中" : "未選択")
+            .accessibilityValue(isSelected ? "選択中" : "未選択")
             .accessibilityIdentifier("tag.existing.\(tag.id)")
-
-            if index < availableTags.count - 1 {
-              Divider().overlay(FoodfolioTheme.hairline)
-            }
           }
         }
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .frame(maxWidth: .infinity, alignment: .leading)
       }
     }
   }
@@ -530,26 +539,23 @@ private struct TagPickerSheet: View {
         .foregroundStyle(FoodfolioTheme.secondaryInk)
 
       VStack(spacing: 0) {
-        ForEach(Array(pendingNewTagNames.enumerated()), id: \.element) { index, pendingName in
-          HStack(spacing: 12) {
-            Text("#\(pendingName)")
-              .foregroundStyle(FoodfolioTheme.ink)
-              .accessibilityIdentifier("tag.pending.\(pendingName)")
-            Spacer(minLength: 12)
-            Button {
-              pendingNewTagNames.removeAll { $0 == pendingName }
-              createdPendingTagIDs[pendingName] = nil
-            } label: {
-              Image(systemName: "xmark.circle.fill")
-                .foregroundStyle(FoodfolioTheme.secondaryInk)
-                .frame(width: 44, height: 44)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("\(pendingName) を追加予定から外す")
+        ForEach(Array(selectedExistingTags.enumerated()), id: \.element.id) { index, tag in
+          pendingTagRow(name: tag.name) {
+            selectedTagIDs.remove(tag.id)
+            error = nil
           }
-          .padding(.leading, 16)
-          .padding(.trailing, 4)
-          .frame(minHeight: 52)
+
+          if index < selectedExistingTags.count - 1 || !pendingNewTagNames.isEmpty {
+            Divider().overlay(FoodfolioTheme.hairline)
+          }
+        }
+
+        ForEach(Array(pendingNewTagNames.enumerated()), id: \.element) { index, pendingName in
+          pendingTagRow(name: pendingName) {
+            pendingNewTagNames.removeAll { $0 == pendingName }
+            createdPendingTagIDs[pendingName] = nil
+            error = nil
+          }
 
           if index < pendingNewTagNames.count - 1 {
             Divider().overlay(FoodfolioTheme.hairline)
@@ -558,6 +564,28 @@ private struct TagPickerSheet: View {
       }
       .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
+  }
+
+  private func pendingTagRow(
+    name: String,
+    remove: @escaping () -> Void
+  ) -> some View {
+    HStack(spacing: 12) {
+      Text("#\(name)")
+        .foregroundStyle(FoodfolioTheme.ink)
+        .accessibilityIdentifier("tag.pending.\(name)")
+      Spacer(minLength: 12)
+      Button(action: remove) {
+        Image(systemName: "xmark.circle.fill")
+          .foregroundStyle(FoodfolioTheme.secondaryInk)
+          .frame(width: 44, height: 44)
+      }
+      .buttonStyle(.plain)
+      .accessibilityLabel("\(name) を追加予定から外す")
+    }
+    .padding(.leading, 16)
+    .padding(.trailing, 4)
+    .frame(minHeight: 52)
   }
 
   private func toggle(_ id: String) {
@@ -633,5 +661,80 @@ private struct TagPickerSheet: View {
 
   private func sameName(_ lhs: String, _ rhs: String) -> Bool {
     lhs.localizedCaseInsensitiveCompare(rhs) == .orderedSame
+  }
+}
+
+private struct TagFlowLayout: Layout {
+  let horizontalSpacing: CGFloat
+  let verticalSpacing: CGFloat
+
+  init(horizontalSpacing: CGFloat = 8, verticalSpacing: CGFloat = 10) {
+    self.horizontalSpacing = horizontalSpacing
+    self.verticalSpacing = verticalSpacing
+  }
+
+  func sizeThatFits(
+    proposal: ProposedViewSize,
+    subviews: Subviews,
+    cache: inout ()
+  ) -> CGSize {
+    let availableWidth = proposal.width ?? .infinity
+    let subviewProposal = ProposedViewSize(
+      width: availableWidth.isFinite ? availableWidth : nil,
+      height: nil
+    )
+    var rowWidth: CGFloat = 0
+    var rowHeight: CGFloat = 0
+    var measuredWidth: CGFloat = 0
+    var measuredHeight: CGFloat = 0
+
+    for subview in subviews {
+      let size = subview.sizeThatFits(subviewProposal)
+      let proposedRowWidth =
+        rowWidth == 0 ? size.width : rowWidth + horizontalSpacing + size.width
+
+      if rowWidth > 0 && proposedRowWidth > availableWidth {
+        measuredWidth = max(measuredWidth, rowWidth)
+        measuredHeight += rowHeight + verticalSpacing
+        rowWidth = size.width
+        rowHeight = size.height
+      } else {
+        rowWidth = proposedRowWidth
+        rowHeight = max(rowHeight, size.height)
+      }
+    }
+
+    measuredWidth = max(measuredWidth, rowWidth)
+    measuredHeight += rowHeight
+    return CGSize(width: proposal.width ?? measuredWidth, height: measuredHeight)
+  }
+
+  func placeSubviews(
+    in bounds: CGRect,
+    proposal: ProposedViewSize,
+    subviews: Subviews,
+    cache: inout ()
+  ) {
+    let subviewProposal = ProposedViewSize(width: bounds.width, height: nil)
+    var x = bounds.minX
+    var y = bounds.minY
+    var rowHeight: CGFloat = 0
+
+    for subview in subviews {
+      let size = subview.sizeThatFits(subviewProposal)
+      if x > bounds.minX && x + size.width > bounds.maxX {
+        x = bounds.minX
+        y += rowHeight + verticalSpacing
+        rowHeight = 0
+      }
+
+      subview.place(
+        at: CGPoint(x: x, y: y),
+        anchor: .topLeading,
+        proposal: ProposedViewSize(width: size.width, height: size.height)
+      )
+      x += size.width + horizontalSpacing
+      rowHeight = max(rowHeight, size.height)
+    }
   }
 }
