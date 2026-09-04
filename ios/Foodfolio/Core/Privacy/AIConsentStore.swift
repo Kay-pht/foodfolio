@@ -18,9 +18,19 @@ final class AIConsentStore {
   init(defaults: UserDefaults = .standard) {
     self.defaults = defaults
     let saved = defaults.dictionary(forKey: key)
-    approvedVersion = saved?["version"] as? Int ?? 0
-    consentedAt = saved?["consentedAt"] as? Date
-    needsServerSync = saved?["needsServerSync"] as? Bool ?? false
+    let savedVersion = saved?["version"] as? Int ?? 0
+    let savedConsentedAt = saved?["consentedAt"] as? Date
+    let wasServerSynchronized = saved?["serverSynchronized"] as? Bool ?? false
+
+    if savedVersion == Self.currentVersion, let savedConsentedAt, wasServerSynchronized {
+      approvedVersion = savedVersion
+      consentedAt = savedConsentedAt
+    } else {
+      approvedVersion = 0
+      consentedAt = nil
+      if saved != nil { defaults.removeObject(forKey: key) }
+    }
+    needsServerSync = false
   }
 
   var isGranted: Bool {
@@ -36,7 +46,7 @@ final class AIConsentStore {
     approvedVersion = Self.currentVersion
     consentedAt = date
     needsServerSync = true
-    persist()
+    persist(serverSynchronized: false)
   }
 
   func markServerSynchronized(version: Int?, consentedAt: Date?) {
@@ -47,7 +57,7 @@ final class AIConsentStore {
     approvedVersion = version
     self.consentedAt = consentedAt
     needsServerSync = false
-    persist()
+    persist(serverSynchronized: true)
   }
 
   func revoke() {
@@ -57,7 +67,7 @@ final class AIConsentStore {
     defaults.removeObject(forKey: key)
   }
 
-  private func persist() {
+  private func persist(serverSynchronized: Bool) {
     guard let consentedAt else {
       defaults.removeObject(forKey: key)
       return
@@ -66,7 +76,7 @@ final class AIConsentStore {
       [
         "version": approvedVersion,
         "consentedAt": consentedAt,
-        "needsServerSync": needsServerSync,
+        "serverSynchronized": serverSynchronized,
       ],
       forKey: key)
   }
