@@ -13,6 +13,19 @@ export function registerAIConsentRoutes(
 ): void {
   const authAndUser = [app.authenticate, app.resolveUser];
 
+  app.get(
+    "/v1/ai-consent",
+    { preHandler: authAndUser },
+    async (request) =>
+      deps.prisma.userSetting.findUniqueOrThrow({
+        where: { userId: request.appUser.id },
+        select: {
+          aiConsentVersion: true,
+          aiConsentedAt: true,
+        },
+      }),
+  );
+
   app.put(
     "/v1/ai-consent",
     { preHandler: authAndUser },
