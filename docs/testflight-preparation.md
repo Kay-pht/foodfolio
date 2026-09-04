@@ -78,7 +78,15 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 - 実装ファイル: `AIConsentStore.swift`、`AIConsentView.swift`、`AddRecipeView.swift`、`SettingsView.swift`、`AppSession.swift`。同意の初期状態・保存・ユーザー切替・文面バージョン・撤回、保存処理との結合、拒否と撤回のUI E2Eを追加。
 - 実装コミットは `91eb225`。バックエンドのunit 74・integration 21・E2E 14と全体検証、iOSの81件のテストと検証を成功確認した。GitHubへのpush・CI検証・外部審査提出は行っていない。実機・外部情報の確認が残るため、TestFlight準備の親チェックは未完了のままにする。
 
-## 入力文面の控え（認証情報を除く）
+## 同意画面の簡素化（未配布）
+
+- ユーザーの指定により、同意画面の本文を「外部AIサービス」へ統一し、元コンテンツに含まれる個人情報の送信についての独立した説明と、同意の取り消し・保存済みレシピ閲覧についての説明を削除した。送信対象の説明、コンテンツ利用上の注意、送信先・情報の取り扱いへのリンク、同意・拒否ボタンは残した。
+- 設定画面のAI解析セクション（同意状態・取り消しボタン・補足文）を削除した。同意の保存、同意前の送信防止、アカウント切り替え時の分離、ログアウト・アカウント削除時の同意消去は変更していない。送信先や用途を変更するものではないため、既存の同意バージョンは変更していない。
+- [Apple 5.1.1(ii)](https://developer.apple.com/app-store/review/guidelines/#data-collection-and-storage) は容易にアクセスできる同意撤回手段を求めている。専用の撤回操作を削除する審査上の懸念をユーザーへ説明したうえで、削除の指定を受けている。ログアウト等による消去だけで要件を満たすとは判定せず、外部審査前の未解決事項として残す。
+- この変更はローカル実装のみ。配布済みbuild 3、App Store Connectの文面、公開プライバシーポリシーには反映していない。下記の文面はbuild 3時点の控えであり、新しいビルドを配布する際は同意・撤回に関する記述を更新する。
+- 変更部分のUI E2E 2件を成功確認後、`npm run verify`（unit 74・integration 21・E2E 14、Prisma、lint、format check、build）と `npm run verify:ios`（81件、失敗0・skip0、Swift lint/format check、Debug build）を再実行して成功。初回の画面テスト失敗は、設定から戻ると開いたままになるメニューをテストが誤って閉じていたためで、テストの画面操作を修正した。実機確認・Release再配布・CIの成功を示すものではなく、リリース準備のチェックは更新していない。
+
+## 入力文面の控え（build 3時点・認証情報を除く）
 
 ### Beta App Description
 
