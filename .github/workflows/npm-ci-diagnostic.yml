@@ -25,6 +25,7 @@ jobs:
           - baseline
           - prefer-offline
           - no-audit
+          - omit-optional
     steps:
       - uses: actions/checkout@v7
 
@@ -56,6 +57,9 @@ jobs:
               ;;
             no-audit)
               /usr/bin/time -v npm ci --no-audit --timing --loglevel=http
+              ;;
+            omit-optional)
+              /usr/bin/time -v npm ci --omit=optional --timing --loglevel=http
               ;;
             *)
               echo "Unknown diagnostic mode: ${DIAGNOSTIC_MODE}" >&2
