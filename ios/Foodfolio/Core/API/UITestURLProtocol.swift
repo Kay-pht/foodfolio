@@ -32,6 +32,14 @@
         finish(status: 204)
       case ("POST", "/v1/tags"):
         finish(status: 201, json: tag())
+      case ("POST", "/v1/recipes/ui-added-recipe/tags/batch"):
+        let body = requestBody()
+        let existingTagIDs = body["tagIds"] as? [String] ?? []
+        let newTagNames = body["newTagNames"] as? [String] ?? []
+        var attachedTags: [[String: Any]] = []
+        if existingTagIDs.contains("ui-tag") { attachedTags.append(existingTag()) }
+        if !newTagNames.isEmpty { attachedTags.append(tag()) }
+        finish(status: 200, json: recipe(title: "追加したレシピ", tags: attachedTags))
       case ("POST", "/v1/recipes/ui-added-recipe/tags"):
         let tagID = requestBody()["tagId"] as? String
         let attachedTags = tagID == "ui-tag" ? [existingTag()] : [existingTag(), tag()]
