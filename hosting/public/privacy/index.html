@@ -29,9 +29,7 @@
         <li>
           利用者が保存・編集する情報：レシピ元URL、タイトル、画像URL、分量、調理時間、ジャンル、材料、手順、タグ
         </li>
-        <li>
-          AI解析への同意情報：同意した説明文のバージョン、同意日時
-        </li>
+        <li>AI解析への同意情報：同意した説明文のバージョン、同意日時</li>
         <li>
           通知情報：FCM・APNs端末トークン、アプリのインストールID、レシピ解析通知の設定
         </li>
@@ -65,7 +63,9 @@
           service：端末トークン、アプリのインストールID、通知内容
         </li>
         <li>Google Cloud：API処理、非同期処理、一時ファイル、アクセスログ</li>
-        <li>Neon：利用者ID、レシピ、タグ、通知設定、AI解析への同意情報、端末トークン</li>
+        <li>
+          Neon：利用者ID、レシピ、タグ、通知設定、AI解析への同意情報、端末トークン
+        </li>
         <li>Z.ai：レシピ抽出に必要な元ページの文章や動画、関連メタデータ</li>
         <li>
           YouTubeおよびTikTok：利用者が指定した公開URLの識別子や公開メタデータ
@@ -75,7 +75,13 @@
         元ページの解析時は当サービスのサーバーから対象サイトへアクセスします。画像の表示や元ページを開く操作では、端末から外部サイトへ直接アクセスし、IPアドレス等の通常の通信情報が送信されます。各外部サービスでの情報の取り扱いは、それぞれの提供者の規約・プライバシーポリシーにも従います。
       </p>
       <p>
-        Z.aiのAPI Servicesについて、同社は企業・開発者がAPIへ送信したUser Contentを、明示的な同意がない限りサービスの開発・改善には利用しないとしています。Foodfolioは、そのようなモデルの学習・改善利用への追加同意を行いません。最新の取り扱いは<a href="https://docs.z.ai/legal-agreement/terms-of-use">Z.ai Terms of Use</a>および<a href="https://docs.z.ai/legal-agreement/privacy-policy">Z.ai Privacy Policy</a>をご確認ください。
+        Z.aiのAPI Servicesについて、同社は企業・開発者がAPIへ送信したUser
+        Contentを、明示的な同意がない限りサービスの開発・改善には利用しないとしています。Foodfolioは、そのようなモデルの学習・改善利用への追加同意を行いません。最新の取り扱いは<a
+          href="https://docs.z.ai/legal-agreement/terms-of-use"
+          >Z.ai Terms of Use</a
+        >および<a href="https://docs.z.ai/legal-agreement/privacy-policy"
+          >Z.ai Privacy Policy</a
+        >をご確認ください。
       </p>
       <p>
         認証・通知SDKは、端末・OS・アプリのバージョン等の動作情報を扱います。Firebase
