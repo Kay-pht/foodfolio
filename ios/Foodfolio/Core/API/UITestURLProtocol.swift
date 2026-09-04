@@ -58,26 +58,16 @@
         if ProcessInfo.processInfo.arguments.contains("-ui-testing-ai-consent-sync-failure") {
           finish(status: 503, json: error("SERVICE_UNAVAILABLE"))
         } else if ProcessInfo.processInfo.arguments.contains("-ui-testing-server-consent-revoked") {
-          finish(
-            status: 200,
-            json: [
-              "aiConsentVersion": NSNull(),
-              "aiConsentedAt": NSNull(),
-            ])
+          finish(status: 200, json: ["aiConsentedAt": NSNull()])
         } else {
-          finish(
-            status: 200,
-            json: [
-              "aiConsentVersion": AIConsentStore.currentVersion,
-              "aiConsentedAt": "2026-09-04T09:00:00Z",
-            ])
+          finish(status: 200, json: ["aiConsentedAt": "2026-09-04T09:00:00Z"])
         }
       case ("PUT", "/v1/ai-consent"):
         finish(
           status: 200,
           json: [
-            "aiConsentVersion": requestBody()["version"] as? Int ?? AIConsentStore.currentVersion,
-            "aiConsentedAt": "2026-09-04T09:00:00Z",
+            "aiConsentedAt": requestBody()["consentedAt"] as? String
+              ?? "2026-09-04T09:00:00Z"
           ])
       case ("DELETE", "/v1/ai-consent"):
         finish(status: 204)

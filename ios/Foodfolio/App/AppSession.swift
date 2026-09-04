@@ -91,9 +91,7 @@ final class RecipeSynchronizationCoordinator {
       } else {
         let consentedAt = Date()
         aiConsent.grant(at: consentedAt)
-        aiConsent.markServerSynchronized(
-          version: AIConsentStore.currentVersion,
-          consentedAt: consentedAt)
+        aiConsent.markServerSynchronized(consentedAt: consentedAt)
       }
     }
     self.aiConsent = aiConsent
@@ -263,22 +261,17 @@ final class RecipeSynchronizationCoordinator {
   private func syncAIConsentRecord() async throws {
     guard let record = aiConsent.currentRecord else { throw AIConsentError.required }
     struct Body: Encodable, Sendable {
-      let version: Int
       let consentedAt: Date
     }
     let response: AIConsentDTO = try await api.send(
       "/v1/ai-consent", method: "PUT",
-      body: Body(version: record.version, consentedAt: record.consentedAt))
-    aiConsent.markServerSynchronized(
-      version: response.aiConsentVersion,
-      consentedAt: response.aiConsentedAt)
+      body: Body(consentedAt: record.consentedAt))
+    aiConsent.markServerSynchronized(consentedAt: response.aiConsentedAt)
   }
 
   private func restoreAIConsentRecordFromServer() async throws {
     let response: AIConsentDTO = try await api.get("/v1/ai-consent")
-    aiConsent.markServerSynchronized(
-      version: response.aiConsentVersion,
-      consentedAt: response.aiConsentedAt)
+    aiConsent.markServerSynchronized(consentedAt: response.aiConsentedAt)
   }
 
   private func handleAIConsentSyncFailure() async {

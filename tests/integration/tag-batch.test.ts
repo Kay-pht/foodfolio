@@ -1,5 +1,4 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { currentAIConsentVersion } from "../../src/api/ai-consent-routes.js";
 import { buildApi } from "../../src/api/build-api.js";
 import type {
   AuthVerifier,
@@ -42,10 +41,7 @@ describe("batch tag assignment", () => {
       method: "PUT",
       url: "/v1/ai-consent",
       headers: userHeaders,
-      payload: {
-        version: currentAIConsentVersion,
-        consentedAt: "2026-09-04T10:45:00.000Z",
-      },
+      payload: { consentedAt: "2026-09-04T10:45:00.000Z" },
     });
     expect(consent.statusCode).toBe(200);
 

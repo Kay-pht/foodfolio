@@ -1,6 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildApi } from "../../src/api/build-api.js";
-import { currentAIConsentVersion } from "../../src/api/ai-consent-routes.js";
 import type {
   AuthVerifier,
   FirebaseUserManager,
@@ -48,23 +47,17 @@ describe("AI consent API", () => {
       headers,
     });
     expect(beforeGrant.statusCode).toBe(200);
-    expect(beforeGrant.json()).toEqual({
-      aiConsentVersion: null,
-      aiConsentedAt: null,
-    });
+    expect(beforeGrant.json()).toEqual({ aiConsentedAt: null });
 
     const consentedAt = "2026-09-04T09:10:11.000Z";
     const granted = await app.inject({
       method: "PUT",
       url: "/v1/ai-consent",
       headers,
-      payload: { version: currentAIConsentVersion, consentedAt },
+      payload: { consentedAt },
     });
     expect(granted.statusCode).toBe(200);
-    expect(granted.json()).toEqual({
-      aiConsentVersion: currentAIConsentVersion,
-      aiConsentedAt: consentedAt,
-    });
+    expect(granted.json()).toEqual({ aiConsentedAt: consentedAt });
 
     const restored = await app.inject({
       method: "GET",
@@ -77,7 +70,6 @@ describe("AI consent API", () => {
       where: { firebaseUid: "ai-consent-user" },
       include: { setting: true },
     });
-    expect(user.setting?.aiConsentVersion).toBe(currentAIConsentVersion);
     expect(user.setting?.aiConsentedAt?.toISOString()).toBe(consentedAt);
 
     const revoked = await app.inject({
@@ -90,33 +82,31 @@ describe("AI consent API", () => {
     const setting = await context.prisma.userSetting.findUniqueOrThrow({
       where: { userId: user.id },
     });
-    expect(setting.aiConsentVersion).toBeNull();
     expect(setting.aiConsentedAt).toBeNull();
     await app.close();
   });
 
-  it("rejects stale consent versions", async () => {
+  it("rejects missing or invalid consent timestamps", async () => {
     const app = buildApi({
       prisma: context.prisma,
       authVerifier: auth,
       firebaseUsers,
       taskQueue,
     });
-    const response = await app.inject({
-      method: "PUT",
-      url: "/v1/ai-consent",
-      headers: { authorization: "Bearer stale-ai-consent-user" },
-      payload: {
-        version: currentAIConsentVersion - 1,
-        consentedAt: "2026-09-04T09:10:11.000Z",
-      },
-    });
-    expect(response.statusCode).toBe(422);
-    expect(response.json().error.code).toBe("INVALID_AI_CONSENT_VERSION");
+    for (const payload of [{}, { consentedAt: "not-a-date" }]) {
+      const response = await app.inject({
+        method: "PUT",
+        url: "/v1/ai-consent",
+        headers: { authorization: "Bearer invalid-ai-consent-user" },
+        payload,
+      });
+      expect(response.statusCode).toBe(422);
+      expect(response.json().error.code).toBe("INVALID_AI_CONSENT_TIMESTAMP");
+    }
     await app.close();
   });
 
-  it("blocks recipe submission until current consent exists and after revocation", async () => {
+  it("blocks recipe submission until consent exists and after revocation", async () => {
     const app = buildApi({
       prisma: context.prisma,
       authVerifier: auth,
@@ -142,10 +132,7 @@ describe("AI consent API", () => {
           method: "PUT",
           url: "/v1/ai-consent",
           headers: userHeaders,
-          payload: {
-            version: currentAIConsentVersion,
-            consentedAt: "2026-09-04T09:20:00.000Z",
-          },
+          payload: { consentedAt: "2026-09-04T09:20:00.000Z" },
         })
       ).statusCode,
     ).toBe(200);

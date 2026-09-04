@@ -33,9 +33,7 @@ import XCTest
     let store = AIConsentStore(defaults: defaults)
     store.grant(at: localDate)
 
-    store.markServerSynchronized(
-      version: AIConsentStore.currentVersion,
-      consentedAt: serverDate)
+    store.markServerSynchronized(consentedAt: serverDate)
 
     let restored = AIConsentStore(defaults: defaults)
     XCTAssertTrue(restored.isGranted)
@@ -47,23 +45,11 @@ import XCTest
     let store = AIConsentStore(defaults: UserDefaults(suiteName: UUID().uuidString)!)
     store.grant()
 
-    store.markServerSynchronized(version: nil, consentedAt: nil)
+    store.markServerSynchronized(consentedAt: nil)
 
     XCTAssertFalse(store.isGranted)
     XCTAssertFalse(store.needsServerSync)
     XCTAssertNil(store.currentRecord)
-  }
-
-  func testOldDisclosureVersionNeedsNewConsent() {
-    let defaults = UserDefaults(suiteName: UUID().uuidString)!
-    defaults.set(
-      [
-        "version": AIConsentStore.currentVersion - 1,
-        "consentedAt": Date(),
-        "serverSynchronized": true,
-      ],
-      forKey: "aiProcessingConsent")
-    XCTAssertFalse(AIConsentStore(defaults: defaults).isGranted)
   }
 
   func testRevocationRemovesPersistedConsent() {
@@ -83,7 +69,6 @@ import XCTest
     defaults.set(
       [
         "userID": "legacy-user",
-        "version": AIConsentStore.currentVersion,
         "serverSynchronized": true,
       ],
       forKey: "aiProcessingConsent")
