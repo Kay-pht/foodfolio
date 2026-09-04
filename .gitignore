@@ -7,6 +7,8 @@
 node_modules/
 dist/
 coverage/
+.firebase/
+firebase-debug.log*
 
 # PoC raw evidence can contain full third-party page/API responses.
 poc/artifacts/

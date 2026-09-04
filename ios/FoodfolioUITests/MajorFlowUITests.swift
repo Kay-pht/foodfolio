@@ -227,6 +227,10 @@ import XCTest
     app.textFields["add.url"].tap()
     app.textFields["add.url"].typeText("https://example.com/new-recipe")
     app.buttons["add.save"].tap()
+    let accept = app.buttons["aiConsent.accept"]
+    XCTAssertTrue(accept.waitForExistence(timeout: 3))
+    for _ in 0..<4 where !accept.isHittable { app.swipeUp() }
+    accept.tap()
     XCTAssertTrue(app.staticTexts["追加したレシピ"].waitForExistence(timeout: 3))
     app.staticTexts["追加したレシピ"].tap()
 
@@ -288,6 +292,8 @@ import XCTest
     app.buttons["drawer.settings"].tap()
     let toggle = app.switches["settings.analysisNotification"]
     XCTAssertTrue(toggle.waitForExistence(timeout: 3))
+    XCTAssertTrue(app.descendants(matching: .any)["settings.privacyPolicy"].exists)
+    XCTAssertTrue(app.descendants(matching: .any)["settings.support"].exists)
     expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: toggle)
     waitForExpectations(timeout: 3)
     XCTAssertEqual(toggle.value as? String, "オン")
