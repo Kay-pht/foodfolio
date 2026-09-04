@@ -63,6 +63,19 @@ final class RecipeRepository {
     return try await api.send("/v1/tags", method: "POST", body: Body(name: name))
   }
 
+  func addTags(existingTagIDs: [String], newTagNames: [String], recipeID: String)
+    async throws -> LocalRecipe
+  {
+    struct Body: Encodable, Sendable {
+      let tagIds: [String]
+      let newTagNames: [String]
+    }
+    let dto: RecipeDTO = try await api.send(
+      "/v1/recipes/\(recipeID)/tags/batch", method: "POST",
+      body: Body(tagIds: existingTagIDs, newTagNames: newTagNames))
+    return try upsert(dto)
+  }
+
   func attach(tagID: String, recipeID: String) async throws -> LocalRecipe {
     struct Body: Encodable, Sendable { let tagId: String }
     let dto: RecipeDTO = try await api.send(
