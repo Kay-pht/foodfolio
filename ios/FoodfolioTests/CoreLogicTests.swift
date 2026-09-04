@@ -209,6 +209,12 @@ final class CoreLogicTests: XCTestCase {
     XCTAssertEqual(FoodfolioLinks.privacyPolicy.path, "/privacy")
     XCTAssertEqual(FoodfolioLinks.support.path, "/support")
   }
+
+  func testAppUsesLightAppearanceUntilDarkModeIsSupported() {
+    XCTAssertEqual(
+      Bundle.main.object(forInfoDictionaryKey: "UIUserInterfaceStyle") as? String,
+      "Light")
+  }
 }
 
 private struct CoreLogicStaticTokenProvider: IDTokenProvider {
