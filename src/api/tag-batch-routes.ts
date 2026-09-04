@@ -71,23 +71,30 @@ export function registerTagBatchRoutes(
         if (existingTags.length !== tagIds.length)
           throw new AppError(404, "NOT_FOUND", "Tag was not found");
 
-        const createdTagIds: string[] = [];
-        for (const normalized of normalizedNewTags.values()) {
-          const tag = await tx.tag.upsert({
-            where: {
-              userId_normalizedName: {
-                userId: request.appUser.id,
-                normalizedName: normalized.normalizedName,
-              },
-            },
-            update: {},
-            create: { userId: request.appUser.id, ...normalized },
-            select: { id: true },
+        const newTags = [...normalizedNewTags.values()];
+        if (newTags.length > 0) {
+          await tx.tag.createMany({
+            data: newTags.map((tag) => ({
+              userId: request.appUser.id,
+              ...tag,
+            })),
+            skipDuplicates: true,
           });
-          createdTagIds.push(tag.id);
         }
+        const createdTags =
+          newTags.length > 0
+            ? await tx.tag.findMany({
+                where: {
+                  userId: request.appUser.id,
+                  normalizedName: { in: newTags.map((tag) => tag.normalizedName) },
+                },
+                select: { id: true },
+              })
+            : [];
 
-        const allTagIds = [...new Set([...tagIds, ...createdTagIds])];
+        const allTagIds = [
+          ...new Set([...tagIds, ...createdTags.map((tag) => tag.id)]),
+        ];
         if (allTagIds.length > 0) {
           await tx.recipeTag.createMany({
             data: allTagIds.map((tagId) => ({ recipeId, tagId })),
