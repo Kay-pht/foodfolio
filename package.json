@@ -42,7 +42,7 @@
     "deploy:hosting": "GOOGLE_CLOUD_QUOTA_PROJECT=foodfolio-af28aa npx --yes firebase-tools@15.29.0 deploy --only hosting --project foodfolio-af28aa",
     "test": "npm run test:unit && npm run test:integration && npm run test:e2e",
     "verify:ios": "bash scripts/verify-ios.sh",
-    "verify": "prettier --write src/api/tag-batch-routes.ts tests/integration/tag-batch.test.ts && git diff -- src/api/tag-batch-routes.ts tests/integration/tag-batch.test.ts && exit 1"
+    "verify": "npm run prisma:generate && npm run prisma:validate && npm run test && npm run lint && npm run format:check && npm run build"
   },
   "dependencies": {
     "@google-cloud/storage": "^8.0.1",
