@@ -10,20 +10,23 @@ import XCTest
     XCTAssertNil(store.currentRecord)
   }
 
-  func testExplicitConsentPersistsAsPendingServerSync() {
+  func testExplicitConsentIsPendingOnlyForCurrentAppRun() {
     let defaults = UserDefaults(suiteName: UUID().uuidString)!
     let consentedAt = Date(timeIntervalSince1970: 1_788_512_400)
     let store = AIConsentStore(defaults: defaults)
     store.grant(at: consentedAt)
 
+    XCTAssertTrue(store.isGranted)
+    XCTAssertTrue(store.needsServerSync)
+    XCTAssertEqual(store.currentRecord?.consentedAt, consentedAt)
+
     let restored = AIConsentStore(defaults: defaults)
-    XCTAssertTrue(restored.isGranted)
-    XCTAssertTrue(restored.needsServerSync)
-    XCTAssertEqual(restored.currentRecord?.version, AIConsentStore.currentVersion)
-    XCTAssertEqual(restored.currentRecord?.consentedAt, consentedAt)
+    XCTAssertFalse(restored.isGranted)
+    XCTAssertFalse(restored.needsServerSync)
+    XCTAssertNil(restored.currentRecord)
   }
 
-  func testServerSynchronizationClearsPendingFlagAndUsesServerTimestamp() {
+  func testServerSynchronizationPersistsConfirmedConsentAndUsesServerTimestamp() {
     let defaults = UserDefaults(suiteName: UUID().uuidString)!
     let localDate = Date(timeIntervalSince1970: 1_788_512_400)
     let serverDate = localDate.addingTimeInterval(30)
@@ -54,7 +57,11 @@ import XCTest
   func testOldDisclosureVersionNeedsNewConsent() {
     let defaults = UserDefaults(suiteName: UUID().uuidString)!
     defaults.set(
-      ["version": AIConsentStore.currentVersion - 1, "consentedAt": Date()],
+      [
+        "version": AIConsentStore.currentVersion - 1,
+        "consentedAt": Date(),
+        "serverSynchronized": true,
+      ],
       forKey: "aiProcessingConsent")
     XCTAssertFalse(AIConsentStore(defaults: defaults).isGranted)
   }
@@ -74,7 +81,11 @@ import XCTest
   func testLegacyAccountScopedConsentIsNotAcceptedWithoutTimestamp() {
     let defaults = UserDefaults(suiteName: UUID().uuidString)!
     defaults.set(
-      ["userID": "legacy-user", "version": AIConsentStore.currentVersion],
+      [
+        "userID": "legacy-user",
+        "version": AIConsentStore.currentVersion,
+        "serverSynchronized": true,
+      ],
       forKey: "aiProcessingConsent")
     XCTAssertFalse(AIConsentStore(defaults: defaults).isGranted)
   }
