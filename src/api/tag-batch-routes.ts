@@ -13,7 +13,11 @@ const requireStringArray = (value: unknown, name: string): string[] => {
     throw new AppError(422, "VALIDATION_ERROR", `${name} must be an array`);
   return value.map((item) => {
     if (typeof item !== "string" || !item.trim())
-      throw new AppError(422, "VALIDATION_ERROR", `${name} must contain strings`);
+      throw new AppError(
+        422,
+        "VALIDATION_ERROR",
+        `${name} must contain strings`,
+      );
     return item.trim();
   });
 };
@@ -52,7 +56,11 @@ export function registerTagBatchRoutes(
       }
 
       if (tagIds.length === 0 && normalizedNewTags.size === 0)
-        throw new AppError(400, "INVALID_REQUEST", "At least one tag is required");
+        throw new AppError(
+          400,
+          "INVALID_REQUEST",
+          "At least one tag is required",
+        );
 
       const ownedRecipe = await deps.prisma.recipe.findFirst({
         where: { id: recipeId, userId: request.appUser.id },
