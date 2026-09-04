@@ -68,4 +68,12 @@ import XCTest
     XCTAssertFalse(app.buttons["home.add"].exists)
     XCTAssertFalse(app.buttons["auth.google"].exists)
   }
+
+  func testConsentSyncFailureClearsCachedRecipesBeforeReturningToLogin() {
+    let app = launch(arguments: ["-ui-testing-ai-consent-sync-failure"])
+
+    XCTAssertTrue(app.buttons["auth.google"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.staticTexts["親子丼"].exists)
+    XCTAssertFalse(app.buttons["home.add"].exists)
+  }
 }
