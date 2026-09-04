@@ -13,59 +13,52 @@ export function registerAIConsentRoutes(
 ): void {
   const authAndUser = [app.authenticate, app.resolveUser];
 
-  app.get(
-    "/v1/ai-consent",
-    { preHandler: authAndUser },
-    async (request) =>
-      deps.prisma.userSetting.findUniqueOrThrow({
-        where: { userId: request.appUser.id },
-        select: {
-          aiConsentVersion: true,
-          aiConsentedAt: true,
-        },
-      }),
+  app.get("/v1/ai-consent", { preHandler: authAndUser }, async (request) =>
+    deps.prisma.userSetting.findUniqueOrThrow({
+      where: { userId: request.appUser.id },
+      select: {
+        aiConsentVersion: true,
+        aiConsentedAt: true,
+      },
+    }),
   );
 
-  app.put(
-    "/v1/ai-consent",
-    { preHandler: authAndUser },
-    async (request) => {
-      const body = asObject(request.body);
-      const version = body.version;
-      const consentedAtRaw = body.consentedAt;
-      if (version !== currentAIConsentVersion)
-        throw new AppError(
-          422,
-          "INVALID_AI_CONSENT_VERSION",
-          "AI consent version is not current",
-        );
-      if (typeof consentedAtRaw !== "string")
-        throw new AppError(
-          422,
-          "INVALID_AI_CONSENT_TIMESTAMP",
-          "AI consent timestamp is required",
-        );
-      const consentedAt = new Date(consentedAtRaw);
-      if (Number.isNaN(consentedAt.getTime()))
-        throw new AppError(
-          422,
-          "INVALID_AI_CONSENT_TIMESTAMP",
-          "AI consent timestamp is invalid",
-        );
+  app.put("/v1/ai-consent", { preHandler: authAndUser }, async (request) => {
+    const body = asObject(request.body);
+    const version = body.version;
+    const consentedAtRaw = body.consentedAt;
+    if (version !== currentAIConsentVersion)
+      throw new AppError(
+        422,
+        "INVALID_AI_CONSENT_VERSION",
+        "AI consent version is not current",
+      );
+    if (typeof consentedAtRaw !== "string")
+      throw new AppError(
+        422,
+        "INVALID_AI_CONSENT_TIMESTAMP",
+        "AI consent timestamp is required",
+      );
+    const consentedAt = new Date(consentedAtRaw);
+    if (Number.isNaN(consentedAt.getTime()))
+      throw new AppError(
+        422,
+        "INVALID_AI_CONSENT_TIMESTAMP",
+        "AI consent timestamp is invalid",
+      );
 
-      return deps.prisma.userSetting.update({
-        where: { userId: request.appUser.id },
-        data: {
-          aiConsentVersion: version,
-          aiConsentedAt: consentedAt,
-        },
-        select: {
-          aiConsentVersion: true,
-          aiConsentedAt: true,
-        },
-      });
-    },
-  );
+    return deps.prisma.userSetting.update({
+      where: { userId: request.appUser.id },
+      data: {
+        aiConsentVersion: version,
+        aiConsentedAt: consentedAt,
+      },
+      select: {
+        aiConsentVersion: true,
+        aiConsentedAt: true,
+      },
+    });
+  });
 
   app.delete(
     "/v1/ai-consent",
