@@ -64,6 +64,7 @@ final class RecipeSynchronizationCoordinator {
   let repository: RecipeRepository
   let syncService: RecipeSyncService
   let history: SearchHistoryStore
+  let aiConsent: AIConsentStore
   let images: RecipeImageStore
   let notifications: NotificationService?
   let uiTesting: Bool
@@ -72,7 +73,8 @@ final class RecipeSynchronizationCoordinator {
 
   init(
     context: ModelContext,
-    uiTesting: Bool = ProcessInfo.processInfo.arguments.contains("-ui-testing")
+    uiTesting: Bool = ProcessInfo.processInfo.arguments.contains("-ui-testing"),
+    aiConsentStore: AIConsentStore? = nil
   ) throws {
     self.uiTesting = uiTesting
     let loggedOut = ProcessInfo.processInfo.arguments.contains("-ui-testing-logged-out")
@@ -80,6 +82,9 @@ final class RecipeSynchronizationCoordinator {
       uiTesting ? UITestAuthService(loggedOut: loggedOut) : FirebaseAuthService()
     self.auth = auth
     self.user = auth.currentUser
+    let aiConsent = aiConsentStore ?? AIConsentStore()
+    if uiTesting && aiConsentStore == nil { aiConsent.revoke() }
+    self.aiConsent = aiConsent
     let configuredBaseURL =
       uiTesting
       ? "https://ui-test.foodfolio.invalid"
@@ -132,6 +137,17 @@ final class RecipeSynchronizationCoordinator {
 
   func refreshUser() { user = auth.currentUser }
 
+  func grantAIConsent(for expectedUserID: String) -> Bool {
+    guard !expectedUserID.isEmpty, user?.uid == expectedUserID else { return false }
+    aiConsent.grant(for: expectedUserID)
+    return true
+  }
+
+  func addRecipe(url: String) async throws -> LocalRecipe {
+    guard aiConsent.isGranted(for: user?.uid) else { throw AIConsentError.required }
+    return try await repository.add(url: url)
+  }
+
   func didAuthenticate() async {
     refreshUser()
     await notifications?.requestAfterFirstLogin()
@@ -156,6 +172,7 @@ final class RecipeSynchronizationCoordinator {
   }
 
   func clearLocalSessionData() async throws {
+    aiConsent.revoke()
     await synchronizationCoordinator.cancel()
     try await repository.clearLocalData()
     syncService.clearMetadata()
