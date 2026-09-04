@@ -1,5 +1,4 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { currentAIConsentVersion } from "../../src/api/ai-consent-routes.js";
 import { buildApi } from "../../src/api/build-api.js";
 import type {
   AuthVerifier,
@@ -29,10 +28,7 @@ const grantAIConsent = async (
     method: "PUT",
     url: "/v1/ai-consent",
     headers: userHeaders,
-    payload: {
-      version: currentAIConsentVersion,
-      consentedAt: "2026-09-04T09:10:11.000Z",
-    },
+    payload: { consentedAt: "2026-09-04T09:10:11.000Z" },
   });
   expect(response.statusCode).toBe(200);
 };

@@ -6,10 +6,7 @@ import type {
   FirebaseUserManager,
 } from "../infrastructure/auth/auth-verifier.js";
 import type { AnalysisTaskQueue } from "../infrastructure/tasks/task-queue.js";
-import {
-  currentAIConsentVersion,
-  registerAIConsentRoutes,
-} from "./ai-consent-routes.js";
+import { registerAIConsentRoutes } from "./ai-consent-routes.js";
 import { registerRoutes } from "./routes.js";
 import { registerTagBatchRoutes } from "./tag-batch-routes.js";
 
@@ -55,16 +52,13 @@ export function buildApi(deps: ApiDependencies): FastifyInstance {
   app.decorate("requireAIConsent", async (request: FastifyRequest) => {
     const setting = await deps.prisma.userSetting.findUnique({
       where: { userId: request.appUser.id },
-      select: { aiConsentVersion: true, aiConsentedAt: true },
+      select: { aiConsentedAt: true },
     });
-    if (
-      setting?.aiConsentVersion !== currentAIConsentVersion ||
-      !setting.aiConsentedAt
-    )
+    if (!setting?.aiConsentedAt)
       throw new AppError(
         403,
         "AI_CONSENT_REQUIRED",
-        "Current AI consent is required",
+        "AI consent is required",
       );
   });
 

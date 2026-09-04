@@ -4,7 +4,6 @@ import type {
   FirebaseUserManager,
 } from "../../src/infrastructure/auth/auth-verifier.js";
 import type { AnalysisTaskQueue } from "../../src/infrastructure/tasks/task-queue.js";
-import { currentAIConsentVersion } from "../../src/api/ai-consent-routes.js";
 import { buildApi } from "../../src/api/build-api.js";
 import {
   startPostgres,
@@ -37,10 +36,7 @@ const grantAIConsent = async (
     method: "PUT",
     url: "/v1/ai-consent",
     headers,
-    payload: {
-      version: currentAIConsentVersion,
-      consentedAt: "2026-09-04T09:10:11.000Z",
-    },
+    payload: { consentedAt: "2026-09-04T09:10:11.000Z" },
   });
   expect(response.statusCode).toBe(200);
 };
