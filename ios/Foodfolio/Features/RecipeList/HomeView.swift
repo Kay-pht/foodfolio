@@ -31,6 +31,7 @@ struct HomeView: View {
   @State private var showAdd = false
   @State private var showDrawer = false
 
+  private let drawerWidth: CGFloat = 260
   private let columns = [
     GridItem(.flexible(), spacing: 12, alignment: .top),
     GridItem(.flexible(), spacing: 12, alignment: .top),
@@ -103,12 +104,12 @@ struct HomeView: View {
             .scrollIndicators(.hidden)
           }
         }
-        .offset(x: showDrawer ? 260 : 0)
+        .offset(x: showDrawer ? drawerWidth : 0)
         .animation(.snappy, value: showDrawer)
 
         if showDrawer {
           DrawerView(show: $showDrawer)
-            .frame(width: 260)
+            .frame(width: drawerWidth)
             .transition(.move(edge: .leading))
         }
       }
@@ -157,6 +158,30 @@ struct HomeView: View {
         .accessibilityLabel("レシピを追加")
         .accessibilityIdentifier("home.add")
       }
+      .overlay {
+        if showDrawer {
+          GeometryReader { proxy in
+            HStack(spacing: 0) {
+              Color.clear
+                .frame(width: min(drawerWidth, proxy.size.width))
+                .allowsHitTesting(false)
+
+              Button {
+                showDrawer = false
+              } label: {
+                Color.black.opacity(0.18)
+                  .contentShape(Rectangle())
+              }
+              .buttonStyle(.plain)
+              .accessibilityLabel("メニューを閉じる")
+              .accessibilityIdentifier("drawer.scrim")
+            }
+            .ignoresSafeArea()
+          }
+          .transition(.opacity)
+        }
+      }
+      .animation(.snappy, value: showDrawer)
       .sheet(isPresented: $showAdd) { AddRecipeView() }
       .refreshable { await session.synchronize() }
       .task { if !session.uiTesting { await session.synchronize() } }
@@ -234,7 +259,6 @@ private struct DrawerView: View {
       .scrollContentBackground(.hidden)
       .background(FoodfolioTheme.paper)
       .navigationBarTitleDisplayMode(.inline)
-      .toolbar { Button("閉じる") { show = false } }
     }
     .tint(FoodfolioTheme.terracotta)
   }
