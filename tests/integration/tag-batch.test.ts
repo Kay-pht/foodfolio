@@ -66,9 +66,9 @@ describe("batch tag assignment", () => {
     expect(
       new Set(batch.json().tags.map((tag: { name: string }) => tag.name)),
     ).toEqual(new Set(["簡単", "作り置き"]));
-    expect(
-      await context.prisma.recipeTag.count({ where: { recipeId } }),
-    ).toBe(2);
+    expect(await context.prisma.recipeTag.count({ where: { recipeId } })).toBe(
+      2,
+    );
     await app.close();
   });
 });
