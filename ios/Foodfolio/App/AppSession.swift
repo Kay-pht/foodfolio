@@ -182,7 +182,13 @@ final class RecipeSynchronizationCoordinator {
     guard user != nil, aiConsent.isGranted, isAIConsentReadyForAuthenticatedUse else {
       throw AIConsentError.required
     }
-    return try await repository.add(url: url)
+    do {
+      return try await repository.add(url: url)
+    } catch APIError.aiConsentRequired {
+      aiConsent.revoke()
+      isAIConsentReadyForAuthenticatedUse = false
+      throw AIConsentError.required
+    }
   }
 
   func didAuthenticate() async {
@@ -192,6 +198,7 @@ final class RecipeSynchronizationCoordinator {
       isAIConsentReadyForAuthenticatedUse = false
       return
     }
+    globalError = nil
     do {
       guard try await reconcileAIConsentAfterAuthentication() else { return }
     } catch {
@@ -208,6 +215,7 @@ final class RecipeSynchronizationCoordinator {
       isAIConsentReadyForAuthenticatedUse = false
       return
     }
+    globalError = nil
     do {
       guard try await reconcileAIConsentAfterAuthentication() else { return }
     } catch {
