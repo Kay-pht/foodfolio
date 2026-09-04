@@ -113,8 +113,26 @@ import XCTest
     XCTAssertTrue(plusButton.exists)
     XCTAssertEqual(servings.frame.midY, minusButton.frame.midY, accuracy: 4)
     XCTAssertEqual(servings.frame.midY, plusButton.frame.midY, accuracy: 4)
+    let minimumTouchTarget = 44.0
+    let geometryTolerance = 0.001
+    XCTAssertGreaterThanOrEqual(minusButton.frame.width + geometryTolerance, minimumTouchTarget)
+    XCTAssertGreaterThanOrEqual(minusButton.frame.height + geometryTolerance, minimumTouchTarget)
+    XCTAssertGreaterThanOrEqual(plusButton.frame.width + geometryTolerance, minimumTouchTarget)
+    XCTAssertGreaterThanOrEqual(plusButton.frame.height + geometryTolerance, minimumTouchTarget)
     XCTAssertFalse(app.staticTexts["人数"].exists)
     XCTAssertFalse(app.staticTexts["表示人数: 2人"].exists)
+
+    minusButton.tap()
+    expectation(for: NSPredicate(format: "label == %@", "1人分"), evaluatedWith: servings)
+    expectation(
+      for: NSPredicate(format: "label == %@", "1人分"), evaluatedWith: materialsServings)
+    waitForExpectations(timeout: 2)
+
+    plusButton.tap()
+    expectation(for: NSPredicate(format: "label == %@", "2人分"), evaluatedWith: servings)
+    expectation(
+      for: NSPredicate(format: "label == %@", "2人分"), evaluatedWith: materialsServings)
+    waitForExpectations(timeout: 2)
 
     plusButton.tap()
     expectation(for: NSPredicate(format: "label == %@", "3人分"), evaluatedWith: servings)
@@ -130,6 +148,7 @@ import XCTest
     app.buttons["home.drawer"].tap()
     XCTAssertTrue(app.buttons["drawer.settings"].waitForExistence(timeout: 3))
     XCTAssertTrue(app.buttons["drawer.account"].exists)
+    XCTAssertFalse(app.staticTexts["メニュー"].exists)
     app.buttons["drawer.settings"].tap()
     XCTAssertTrue(app.switches["settings.analysisNotification"].waitForExistence(timeout: 3))
   }

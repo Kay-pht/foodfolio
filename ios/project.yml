@@ -41,6 +41,7 @@ targets:
           UISceneConfigurations: {}
         UIApplicationSupportsIndirectInputEvents: true
         UILaunchScreen: {}
+        UIUserInterfaceStyle: Light
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.keyukt.foodfolio
