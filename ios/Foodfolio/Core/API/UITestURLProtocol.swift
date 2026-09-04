@@ -32,8 +32,17 @@
         finish(status: 204)
       case ("POST", "/v1/tags"):
         finish(status: 201, json: tag())
+      case ("POST", "/v1/recipes/ui-added-recipe/tags/batch"):
+        if ProcessInfo.processInfo.arguments.contains("-ui-testing-slow-tag-save") {
+          Thread.sleep(forTimeInterval: 3)
+        }
+        finish(
+          status: 200,
+          json: recipe(title: "追加したレシピ", tags: [existingTag(), tag()]))
       case ("POST", "/v1/recipes/ui-added-recipe/tags"):
-        finish(status: 200, json: recipe(title: "追加したレシピ", tags: [tag()]))
+        let tagID = requestBody()["tagId"] as? String
+        let attachedTags = tagID == "ui-tag" ? [existingTag()] : [existingTag(), tag()]
+        finish(status: 200, json: recipe(title: "追加したレシピ", tags: attachedTags))
       case ("DELETE", "/v1/recipes/ui-added-recipe/tags/ui-new-tag"):
         finish(status: 204)
       case ("GET", "/v1/settings"):
@@ -88,6 +97,14 @@
         "tags": tags,
         "createdAt": "2026-08-28T00:00:00Z",
         "updatedAt": "2026-08-28T00:00:01Z",
+      ]
+    }
+
+    private func existingTag() -> [String: Any] {
+      [
+        "id": "ui-tag",
+        "name": "簡単",
+        "createdAt": "2026-08-27T00:00:00Z",
       ]
     }
 
