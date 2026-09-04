@@ -14,8 +14,8 @@ packages:
 settings:
   base:
     SWIFT_VERSION: "6.0"
-    CURRENT_PROJECT_VERSION: 1
-    MARKETING_VERSION: 0.1.0
+    CURRENT_PROJECT_VERSION: 4
+    MARKETING_VERSION: 1.0
     DEVELOPMENT_TEAM: DZWXWT5XQ7
     CODE_SIGN_STYLE: Automatic
 targets:
@@ -31,6 +31,7 @@ targets:
         CFBundleDisplayName: Foodfolio
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        ITSAppUsesNonExemptEncryption: false
         CFBundleURLTypes:
           - CFBundleTypeRole: Editor
             CFBundleURLSchemes:
@@ -43,9 +44,17 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.keyukt.foodfolio
-        CODE_SIGN_ENTITLEMENTS: Foodfolio/Foodfolio.entitlements
         GENERATE_INFOPLIST_FILE: NO
         API_BASE_URL: https://foodfolio-dev-api-m4i6rcorua-as.a.run.app
+        TARGETED_DEVICE_FAMILY: "1"
+      configs:
+        Debug:
+          CODE_SIGN_ENTITLEMENTS: Foodfolio/Foodfolio.entitlements
+        Release:
+          CODE_SIGN_ENTITLEMENTS: Foodfolio/FoodfolioRelease.entitlements
+          CODE_SIGN_IDENTITY: Apple Distribution
+          CODE_SIGN_STYLE: Manual
+          PROVISIONING_PROFILE_SPECIFIER: Foodfolio App Store Connect
     dependencies:
       - package: Firebase
         product: FirebaseAuth
@@ -53,10 +62,6 @@ targets:
         product: FirebaseCore
       - package: Firebase
         product: FirebaseMessaging
-      - package: Firebase
-        product: FirebaseCrashlytics
-      - package: Firebase
-        product: FirebaseAnalytics
       - package: GoogleSignIn
         product: GoogleSignIn
   FoodfolioTests:

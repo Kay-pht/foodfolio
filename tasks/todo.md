@@ -13,10 +13,10 @@
     - [x] Apple DeveloperのTeam IDを確認し、Xcodeの署名用アカウントを登録する（ユーザー作業）
     - [x] App Store Connectに、アプリ名 `Foodfolio - あなたのレシピ帳`、Bundle ID `com.keyukt.foodfolio`、SKU、主言語を設定したアプリレコードを作成する（ユーザー作業）
     - [x] App ID `com.keyukt.foodfolio` でSign in with AppleとPush Notificationsを有効化する（ユーザー作業）
-    - [ ] XcodeのReleaseビルドをFoodfolioのTeamとDistribution用プロビジョニングで署名できる状態にする
+    - [x] XcodeのReleaseビルドをFoodfolioのTeamとDistribution用プロビジョニングで署名できる状態にする
   - [ ] TestFlight用の認証を設定・検証する
-    - [ ] Firebase iOS AppのBundle ID、`GoogleService-Info.plist`、URL SchemeがReleaseビルドと一致することを確認する
-    - [ ] Apple / Google / メール認証とアカウント削除の主要分岐を自動テストする
+    - [x] Firebase iOS AppのBundle ID、`GoogleService-Info.plist`、URL SchemeがReleaseビルドと一致することを確認する
+    - [x] Apple / Google / メール認証とアカウント削除の主要分岐を自動テストする
     - [ ] Release相当の実機ビルドでApple / Google / メールの正常系を各1回確認する
     - [ ] Release相当の実機ビルドで、Apple token失効とFoodfolio側データ削除を含むアカウント削除を1回確認する
   - [ ] TestFlight用のPush通知を設定・検証する
@@ -25,27 +25,30 @@
     - [ ] 実機で解析成功通知と解析失敗通知を受信し、通知タップで対象レシピが開くことを確認する
     - [ ] アプリ内の解析通知がOFFの場合は成功・失敗の両方を通知せず、ONの場合は両方を通知することを確認する
     - [ ] ログアウトとアカウント削除後に端末tokenが解除され、その利用者へ通知されないことを確認する
-  - [ ] 初回TestFlightで省略するFirebase Analytics / CrashlyticsをiOS targetの依存から外し、Archiveに含まれないことを確認する
+  - [x] 初回TestFlightで省略するFirebase Analytics / CrashlyticsをiOS targetの依存から外し、Archiveに含まれないことを確認する
   - [ ] プライバシー・法務情報を確定する
-    - [ ] 取得・保存・外部送信するデータを棚卸しする（認証ID・メール、保存URL・レシピ、検索履歴、端末token）
-    - [ ] Firebase、GCP、Neon、Z.ai、YouTube、Apple、Googleへのデータ送信内容と目的を整理する
-    - [ ] データの保存期間、ユーザーによる削除方法、問い合わせ先、安全管理、外部URL解析について記載したプライバシーポリシーを作成する
+    - [x] 取得・保存・外部送信するデータを棚卸しする（認証ID・メール、保存URL・レシピ、検索履歴、端末token）
+    - [x] Firebase、GCP、Neon、Z.ai、YouTube、Apple、Googleへのデータ送信内容と目的を整理する
+    - [x] データの保存期間、ユーザーによる削除方法、問い合わせ先、安全管理、外部URL解析について記載したプライバシーポリシーを作成する
+      - 根拠と残確認は `docs/testflight-preparation.md`。Firebase Hosting公開済み。App Store ConnectへのURL保存、SDKを含むApp Privacy回答、外部AIの同意導線の確認は残る
     - [ ] プライバシーポリシーをHTTPSの公開URLで掲載し、アプリ内とApp Store Connectの双方から到達できるようにする
     - [x] 独自利用規約は作成せず、Apple標準EULAを使用する
     - [ ] App Store ConnectのApp Privacyで、Foodfolio本体と組み込みSDKが収集するデータ、利用目的、ユーザーとの紐付け、トラッキング有無を正しく回答する
     - [ ] XcodeのPrivacy Reportと使用APIを確認し、Foodfolio本体に必要な `PrivacyInfo.xcprivacy` を作成してArchiveに含める
   - [ ] アプリの配布用表示とメタデータを用意する
-    - [ ] 正式なApp Iconを全必須サイズでAssetsへ登録し、Archive検証で欠落警告がないことを確認する
-    - [ ] アプリ名 `Foodfolio`、version、build number、Minimum Deployment Target、対応端末を確定する
+    - [x] 正式なApp Iconを全必須サイズでAssetsへ登録し、Archive検証で欠落警告がないことを確認する
+    - [x] アプリ名 `Foodfolio`、version、build number、Minimum Deployment Target、対応端末を確定する
     - [ ] 外部TestFlightで必須のBeta App Description、Feedback Email、What to Test、審査連絡先、ログイン方法、審査用アカウントまたは登録手順だけを最小限の文面で用意する
     - [ ] プライバシーポリシーURLとサポートURLをApp Store Connectへ登録する
-    - [ ] HTTPS通信等の暗号利用を棚卸しし、App Store Connectの輸出コンプライアンス質問へ回答する。免除を宣言できる場合のみInfo.plistへ適切な設定を追加する
+    - [x] HTTPS通信等の暗号利用を棚卸しし、App Store Connectの輸出コンプライアンス質問へ回答する。免除を宣言できる場合のみInfo.plistへ適切な設定を追加する
   - [ ] TestFlight buildを作成して内部テストする
     - [ ] Release構成で実装部分のテスト、全体テスト、結合テスト、E2E、lint、format check、buildを実行し、`npm run verify` を含む全検証を成功させる
+      - 2026-09-04: `npm run verify` と `npm run verify:ios` は成功。iOSの既存検証scriptはDebugのため、Release構成での全テスト成功とは扱わず未完に修正。Release Archive・export・Apple validationは別途成功
     - [ ] 実機で新規インストール、URL保存、AI解析、同期、検索、Push通知の主要フローを各1回スモークテストする（認証とアカウント削除は上記の最小範囲で別途確認する）
-    - [ ] XcodeでGeneric iOS Device向けArchiveを作成し、Validate Appで署名、entitlement、アイコン、Privacy Manifestのエラーがないことを確認する
-    - [ ] ArchiveをApp Store Connectへuploadし、build processing完了後にエラー・警告・Missing Complianceが残っていないことを確認する
+    - [x] XcodeでGeneric iOS Device向けArchiveを作成し、Validate Appで署名、entitlement、アイコン、Privacy Manifestのエラーがないことを確認する
+    - [x] ArchiveをApp Store Connectへuploadし、build processing完了後にエラー・警告・Missing Complianceが残っていないことを確認する
     - [ ] App Store Connectで内部テスターグループを作成し、内部テスターの実機でインストール、起動、現在利用するバックエンドへの接続、主要フローをスモークテストする
+      - 2026-09-04: `Foodfolio Internal` 作成、build 2割り当て、既存管理者1名の招待を確認。buildは `IN_BETA_TESTING`、テスターは `INVITED`。インストールと実機検証は未確認
   - [ ] 外部TestFlight審査へ提出できる状態にする
     - [ ] 外部テスターグループを作成し、対象buildと「テストしてほしいこと」を設定する
     - [ ] TestFlight Test InformationとBeta App Review Informationの必須項目をすべて入力する
@@ -61,3 +64,8 @@
 - [ ] 言語対応
 - [ ] 共有時にこのアプリにリンクをシェアする
 - [ ] 材料の量がたまに表示されなくなる
+- [ ] ダークモード時のタグのプラスボタンが白光してて見えない
+- [ ] ダークモード時のuiがおかしい（タグの追加フォームとか）
+- [ ] 人数を減らす側のボタンの反応がない。小さすぎるのか？
+- [ ] メニュー表示不要
+- [ ] サイドバーを開いた際に戻った際に閉じるボタンはいらない。メイン画面をちょっと暗くして、そっち全体のどこでも触ったらサイドバーを閉じるようにしたい。そして、たとえメイン画面のレシピリストの特定の一つのレシピ箇所を触ったとしてもメニュー詳細を開くのではなくて、サイドバーを閉じるようにしてほしい
