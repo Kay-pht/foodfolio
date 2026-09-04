@@ -362,7 +362,6 @@ private struct TagPickerSheet: View {
   @State private var tags: [LocalTag] = []
   @State private var selectedTagIDs: Set<String> = []
   @State private var pendingNewTagNames: [String] = []
-  @State private var createdPendingTagIDs: [String: String] = [:]
   @State private var error: String?
   @State private var isSaving = false
 
@@ -553,7 +552,6 @@ private struct TagPickerSheet: View {
         ForEach(Array(pendingNewTagNames.enumerated()), id: \.element) { index, pendingName in
           pendingTagRow(name: pendingName) {
             pendingNewTagNames.removeAll { $0 == pendingName }
-            createdPendingTagIDs[pendingName] = nil
             error = nil
           }
 
@@ -631,25 +629,10 @@ private struct TagPickerSheet: View {
 
     Task {
       do {
-        for id in existingIDs {
-          _ = try await session.repository.attach(tagID: id, recipeID: recipe.id)
-          selectedTagIDs.remove(id)
-        }
-
-        for pendingName in newNames {
-          let tagID: String
-          if let createdID = createdPendingTagIDs[pendingName] {
-            tagID = createdID
-          } else {
-            let tag = try await session.repository.createTag(name: pendingName)
-            tagID = tag.id
-            createdPendingTagIDs[pendingName] = tag.id
-          }
-          _ = try await session.repository.attach(tagID: tagID, recipeID: recipe.id)
-          pendingNewTagNames.removeAll { $0 == pendingName }
-          createdPendingTagIDs[pendingName] = nil
-        }
-
+        _ = try await session.repository.addTags(
+          existingTagIDs: existingIDs, newTagNames: newNames, recipeID: recipe.id)
+        selectedTagIDs.removeAll()
+        pendingNewTagNames.removeAll()
         dismiss()
       } catch {
         self.error = error.localizedDescription
