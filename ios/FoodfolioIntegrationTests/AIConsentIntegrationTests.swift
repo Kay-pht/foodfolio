@@ -38,13 +38,13 @@ import XCTest
     XCTAssertTrue(session.isAIConsentReadyForAuthenticatedUse)
   }
 
-  func testLogoutRemovesDeviceConsent() async throws {
+  func testLogoutPreservesDeviceConsentButEndsAuthenticatedReadiness() async throws {
     let session = try makeSession()
     try await session.acceptAIConsent()
     try await session.logout()
 
     XCTAssertNil(session.user)
-    XCTAssertFalse(session.aiConsent.isGranted)
+    XCTAssertTrue(session.aiConsent.isGranted)
     XCTAssertFalse(session.isAIConsentReadyForAuthenticatedUse)
   }
 

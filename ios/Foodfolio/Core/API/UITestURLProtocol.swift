@@ -58,7 +58,7 @@
         finish(
           status: 200,
           json: [
-            "aiConsentVersion": requestBody()["version"] as? Int ?? AIConsentStore.currentVersion,
+            "aiConsentVersion": requestBody()["version"] as? Int ?? 2,
             "aiConsentedAt": "2026-09-04T09:00:00Z",
           ])
       case ("DELETE", "/v1/ai-consent"):

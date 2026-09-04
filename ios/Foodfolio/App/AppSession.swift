@@ -221,7 +221,11 @@ final class RecipeSynchronizationCoordinator {
     await notifications?.unregisterCurrentToken()
     try auth.signOut()
     refreshUser()
-    try await clearLocalSessionData()
+    isAIConsentReadyForAuthenticatedUse = false
+    await synchronizationCoordinator.cancel()
+    try await repository.clearLocalData()
+    syncService.clearMetadata()
+    history.removeAll()
   }
 
   func clearLocalSessionData() async throws {
