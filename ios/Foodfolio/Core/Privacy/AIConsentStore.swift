@@ -1,37 +1,72 @@
 import Foundation
 import Observation
 
+struct AIConsentRecord: Equatable {
+  let consentedAt: Date
+}
+
 @MainActor @Observable
 final class AIConsentStore {
-  static let currentVersion = 1
   private let defaults: UserDefaults
   private let key = "aiProcessingConsent"
-  private var approvedUserID: String?
-  private var approvedVersion: Int
+  private(set) var consentedAt: Date?
+  private(set) var needsServerSync: Bool
 
   init(defaults: UserDefaults = .standard) {
     self.defaults = defaults
     let saved = defaults.dictionary(forKey: key)
-    approvedUserID = saved?["userID"] as? String
-    approvedVersion = saved?["version"] as? Int ?? 0
+    let savedConsentedAt = saved?["consentedAt"] as? Date
+    let wasServerSynchronized = saved?["serverSynchronized"] as? Bool ?? false
+
+    if let savedConsentedAt, wasServerSynchronized {
+      consentedAt = savedConsentedAt
+    } else {
+      consentedAt = nil
+      if saved != nil { defaults.removeObject(forKey: key) }
+    }
+    needsServerSync = false
   }
 
-  func isGranted(for userID: String?) -> Bool {
-    guard let userID, !userID.isEmpty else { return false }
-    return approvedUserID == userID && approvedVersion == Self.currentVersion
+  var isGranted: Bool { consentedAt != nil }
+
+  var currentRecord: AIConsentRecord? {
+    guard let consentedAt else { return nil }
+    return AIConsentRecord(consentedAt: consentedAt)
   }
 
-  func grant(for userID: String) {
-    guard !userID.isEmpty else { return }
-    approvedUserID = userID
-    approvedVersion = Self.currentVersion
-    defaults.set(["userID": userID, "version": Self.currentVersion], forKey: key)
+  func grant(at date: Date = Date()) {
+    consentedAt = date
+    needsServerSync = true
+    persist(serverSynchronized: false)
+  }
+
+  func markServerSynchronized(consentedAt: Date?) {
+    guard let consentedAt else {
+      revoke()
+      return
+    }
+    self.consentedAt = consentedAt
+    needsServerSync = false
+    persist(serverSynchronized: true)
   }
 
   func revoke() {
-    approvedUserID = nil
-    approvedVersion = 0
+    consentedAt = nil
+    needsServerSync = false
     defaults.removeObject(forKey: key)
+  }
+
+  private func persist(serverSynchronized: Bool) {
+    guard let consentedAt else {
+      defaults.removeObject(forKey: key)
+      return
+    }
+    defaults.set(
+      [
+        "consentedAt": consentedAt,
+        "serverSynchronized": serverSynchronized,
+      ],
+      forKey: key)
   }
 }
 
@@ -39,6 +74,6 @@ enum AIConsentError: LocalizedError, Equatable {
   case required
 
   var errorDescription: String? {
-    "AI解析を開始するには、外部サービスへの情報送信への同意が必要です。"
+    "Foodfolioを利用するには、AI解析のための情報送信への同意が必要です。"
   }
 }

@@ -20,6 +20,18 @@ const auth: AuthVerifier = {
 const noOpFirebase: FirebaseUserManager = { deleteUser: async () => {} };
 const noOpQueue: AnalysisTaskQueue = { enqueueRecipeAnalysis: async () => {} };
 const headers = (user: string) => ({ authorization: `Bearer ${user}` });
+const grantAIConsent = async (
+  app: ReturnType<typeof buildApi>,
+  userHeaders: { authorization: string },
+) => {
+  const response = await app.inject({
+    method: "PUT",
+    url: "/v1/ai-consent",
+    headers: userHeaders,
+    payload: { consentedAt: "2026-09-04T09:10:11.000Z" },
+  });
+  expect(response.statusCode).toBe(200);
+};
 
 describe("MVP critical API integration", () => {
   let context: PostgresTestContext;
@@ -69,10 +81,12 @@ describe("MVP critical API integration", () => {
       firebaseUsers: noOpFirebase,
       taskQueue: noOpQueue,
     });
+    const ownerHeaders = headers("owner-user");
+    await grantAIConsent(app, ownerHeaders);
     const created = await app.inject({
       method: "POST",
       url: "/v1/recipes",
-      headers: headers("owner-user"),
+      headers: ownerHeaders,
       payload: { url: "https://example.com/private-recipe" },
     });
     const id = created.json().id as string;
@@ -108,6 +122,7 @@ describe("MVP critical API integration", () => {
       taskQueue: noOpQueue,
     });
     const userHeaders = headers("analysis-state-user");
+    await grantAIConsent(app, userHeaders);
     for (const [status, expected] of [
       ["pending", 409],
       ["processing", 409],
@@ -151,10 +166,12 @@ describe("MVP critical API integration", () => {
       firebaseUsers: noOpFirebase,
       taskQueue,
     });
+    const userHeaders = headers("enqueue-user");
+    await grantAIConsent(app, userHeaders);
     const response = await app.inject({
       method: "POST",
       url: "/v1/recipes",
-      headers: headers("enqueue-user"),
+      headers: userHeaders,
       payload: { url: "https://example.com/queue-failure" },
     });
     expect(response.statusCode).toBe(201);
@@ -339,6 +356,7 @@ describe("MVP critical API integration", () => {
       taskQueue: noOpQueue,
     });
     const userHeaders = headers("validation-user");
+    await grantAIConsent(app, userHeaders);
     const created = await app.inject({
       method: "POST",
       url: "/v1/recipes",

@@ -59,6 +59,7 @@ final class RecipeSynchronizationCoordinator {
 @MainActor @Observable final class AppSession {
   var user: AuthenticatedUser?
   var globalError: String?
+  var isAIConsentReadyForAuthenticatedUse = false
   let auth: AuthService
   let api: APIClient
   let repository: RecipeRepository
@@ -77,14 +78,25 @@ final class RecipeSynchronizationCoordinator {
     aiConsentStore: AIConsentStore? = nil
   ) throws {
     self.uiTesting = uiTesting
-    let loggedOut = ProcessInfo.processInfo.arguments.contains("-ui-testing-logged-out")
+    let arguments = ProcessInfo.processInfo.arguments
+    let loggedOut = arguments.contains("-ui-testing-logged-out")
     let auth: AuthService =
       uiTesting ? UITestAuthService(loggedOut: loggedOut) : FirebaseAuthService()
     self.auth = auth
     self.user = auth.currentUser
     let aiConsent = aiConsentStore ?? AIConsentStore()
-    if uiTesting && aiConsentStore == nil { aiConsent.revoke() }
+    if uiTesting && aiConsentStore == nil {
+      if arguments.contains("-ui-testing-ai-consent-required") {
+        aiConsent.revoke()
+      } else {
+        let consentedAt = Date()
+        aiConsent.grant(at: consentedAt)
+        aiConsent.markServerSynchronized(consentedAt: consentedAt)
+      }
+    }
     self.aiConsent = aiConsent
+    self.isAIConsentReadyForAuthenticatedUse =
+      uiTesting && auth.currentUser != nil && aiConsent.isGranted
     let configuredBaseURL =
       uiTesting
       ? "https://ui-test.foodfolio.invalid"
@@ -137,25 +149,77 @@ final class RecipeSynchronizationCoordinator {
 
   func refreshUser() { user = auth.currentUser }
 
-  func grantAIConsent(for expectedUserID: String) -> Bool {
-    guard !expectedUserID.isEmpty, user?.uid == expectedUserID else { return false }
-    aiConsent.grant(for: expectedUserID)
-    return true
+  func acceptAIConsent() async throws {
+    aiConsent.grant()
+    guard user != nil else { return }
+    do {
+      try await syncAIConsentRecord()
+      isAIConsentReadyForAuthenticatedUse = aiConsent.isGranted
+      await notifications?.restoreAuthenticatedSession()
+    } catch {
+      aiConsent.revoke()
+      isAIConsentReadyForAuthenticatedUse = false
+      throw error
+    }
+  }
+
+  func revokeAIConsent() async throws {
+    if user != nil {
+      try await api.sendWithoutResponse(
+        "/v1/ai-consent", method: "DELETE", body: Optional<String>.none)
+      aiConsent.revoke()
+      isAIConsentReadyForAuthenticatedUse = false
+      await notifications?.unregisterCurrentToken()
+      return
+    }
+    aiConsent.revoke()
+    isAIConsentReadyForAuthenticatedUse = false
   }
 
   func addRecipe(url: String) async throws -> LocalRecipe {
-    guard aiConsent.isGranted(for: user?.uid) else { throw AIConsentError.required }
-    return try await repository.add(url: url)
+    guard user != nil, aiConsent.isGranted, isAIConsentReadyForAuthenticatedUse else {
+      throw AIConsentError.required
+    }
+    do {
+      return try await repository.add(url: url)
+    } catch APIError.aiConsentRequired {
+      aiConsent.revoke()
+      isAIConsentReadyForAuthenticatedUse = false
+      throw AIConsentError.required
+    }
   }
 
   func didAuthenticate() async {
     refreshUser()
+    guard user != nil else { return }
+    guard aiConsent.isGranted else {
+      isAIConsentReadyForAuthenticatedUse = false
+      return
+    }
+    globalError = nil
+    do {
+      guard try await reconcileAIConsentAfterAuthentication() else { return }
+    } catch {
+      await handleAIConsentSyncFailure()
+      return
+    }
     await notifications?.requestAfterFirstLogin()
     await synchronize()
   }
 
   func restoreAuthenticatedSession() async {
     guard user != nil else { return }
+    guard aiConsent.isGranted else {
+      isAIConsentReadyForAuthenticatedUse = false
+      return
+    }
+    globalError = nil
+    do {
+      guard try await reconcileAIConsentAfterAuthentication() else { return }
+    } catch {
+      await handleAIConsentSyncFailure()
+      return
+    }
     await notifications?.restoreAuthenticatedSession()
   }
 
@@ -168,15 +232,63 @@ final class RecipeSynchronizationCoordinator {
     await notifications?.unregisterCurrentToken()
     try auth.signOut()
     refreshUser()
-    try await clearLocalSessionData()
-  }
-
-  func clearLocalSessionData() async throws {
-    aiConsent.revoke()
+    isAIConsentReadyForAuthenticatedUse = false
     await synchronizationCoordinator.cancel()
     try await repository.clearLocalData()
     syncService.clearMetadata()
     history.removeAll()
+  }
+
+  func clearLocalSessionData() async throws {
+    aiConsent.revoke()
+    isAIConsentReadyForAuthenticatedUse = false
+    await synchronizationCoordinator.cancel()
+    try await repository.clearLocalData()
+    syncService.clearMetadata()
+    history.removeAll()
+  }
+
+  private func reconcileAIConsentAfterAuthentication() async throws -> Bool {
+    if aiConsent.needsServerSync {
+      try await syncAIConsentRecord()
+    } else {
+      try await restoreAIConsentRecordFromServer()
+    }
+    isAIConsentReadyForAuthenticatedUse = aiConsent.isGranted
+    return aiConsent.isGranted
+  }
+
+  private func syncAIConsentRecord() async throws {
+    guard let record = aiConsent.currentRecord else { throw AIConsentError.required }
+    struct Body: Encodable, Sendable {
+      let consentedAt: Date
+    }
+    let response: AIConsentDTO = try await api.send(
+      "/v1/ai-consent", method: "PUT",
+      body: Body(consentedAt: record.consentedAt))
+    aiConsent.markServerSynchronized(consentedAt: response.aiConsentedAt)
+  }
+
+  private func restoreAIConsentRecordFromServer() async throws {
+    let response: AIConsentDTO = try await api.get("/v1/ai-consent")
+    aiConsent.markServerSynchronized(consentedAt: response.aiConsentedAt)
+  }
+
+  private func handleAIConsentSyncFailure() async {
+    isAIConsentReadyForAuthenticatedUse = false
+    await synchronizationCoordinator.cancel()
+    do {
+      try await repository.clearLocalData()
+      syncService.clearMetadata()
+      history.removeAll()
+      try auth.signOut()
+      refreshUser()
+    } catch {
+      globalError =
+        "AI解析への同意情報を確認できず、安全にログアウトできませんでした。通信状況を確認して、もう一度お試しください。"
+      return
+    }
+    globalError = "AI解析への同意情報を確認できませんでした。通信状況を確認して、もう一度ログインしてください。"
   }
 
   private func seedUITestData(context: ModelContext) {

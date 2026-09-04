@@ -5,40 +5,73 @@ import XCTest
 @MainActor final class AIConsentTests: XCTestCase {
   func testConsentIsNotGrantedByDefault() {
     let store = AIConsentStore(defaults: UserDefaults(suiteName: UUID().uuidString)!)
-    XCTAssertFalse(store.isGranted(for: "user-a"))
-    XCTAssertFalse(store.isGranted(for: nil))
-    XCTAssertFalse(store.isGranted(for: ""))
+    XCTAssertFalse(store.isGranted)
+    XCTAssertFalse(store.needsServerSync)
+    XCTAssertNil(store.currentRecord)
   }
 
-  func testConsentPersistsOnlyForTheSameAccount() {
+  func testExplicitConsentIsPendingOnlyForCurrentAppRun() {
     let defaults = UserDefaults(suiteName: UUID().uuidString)!
+    let consentedAt = Date(timeIntervalSince1970: 1_788_512_400)
     let store = AIConsentStore(defaults: defaults)
-    store.grant(for: "user-a")
+    store.grant(at: consentedAt)
+
+    XCTAssertTrue(store.isGranted)
+    XCTAssertTrue(store.needsServerSync)
+    XCTAssertEqual(store.currentRecord?.consentedAt, consentedAt)
+
     let restored = AIConsentStore(defaults: defaults)
-    XCTAssertTrue(restored.isGranted(for: "user-a"))
-    XCTAssertFalse(restored.isGranted(for: "user-b"))
-    XCTAssertFalse(restored.isGranted(for: nil))
+    XCTAssertFalse(restored.isGranted)
+    XCTAssertFalse(restored.needsServerSync)
+    XCTAssertNil(restored.currentRecord)
   }
 
-  func testOldDisclosureVersionNeedsNewConsent() {
+  func testServerSynchronizationPersistsConfirmedConsentAndUsesServerTimestamp() {
     let defaults = UserDefaults(suiteName: UUID().uuidString)!
-    defaults.set(["userID": "user-a", "version": 0], forKey: "aiProcessingConsent")
-    XCTAssertFalse(AIConsentStore(defaults: defaults).isGranted(for: "user-a"))
+    let localDate = Date(timeIntervalSince1970: 1_788_512_400)
+    let serverDate = localDate.addingTimeInterval(30)
+    let store = AIConsentStore(defaults: defaults)
+    store.grant(at: localDate)
+
+    store.markServerSynchronized(consentedAt: serverDate)
+
+    let restored = AIConsentStore(defaults: defaults)
+    XCTAssertTrue(restored.isGranted)
+    XCTAssertFalse(restored.needsServerSync)
+    XCTAssertEqual(restored.currentRecord?.consentedAt, serverDate)
+  }
+
+  func testMissingServerConsentRevokesStaleLocalConsent() {
+    let store = AIConsentStore(defaults: UserDefaults(suiteName: UUID().uuidString)!)
+    store.grant()
+
+    store.markServerSynchronized(consentedAt: nil)
+
+    XCTAssertFalse(store.isGranted)
+    XCTAssertFalse(store.needsServerSync)
+    XCTAssertNil(store.currentRecord)
   }
 
   func testRevocationRemovesPersistedConsent() {
     let defaults = UserDefaults(suiteName: UUID().uuidString)!
     let store = AIConsentStore(defaults: defaults)
-    store.grant(for: "user-a")
+    store.grant()
     store.revoke()
-    XCTAssertFalse(store.isGranted(for: "user-a"))
-    XCTAssertFalse(AIConsentStore(defaults: defaults).isGranted(for: "user-a"))
+
+    XCTAssertFalse(store.isGranted)
+    XCTAssertFalse(store.needsServerSync)
+    XCTAssertFalse(AIConsentStore(defaults: defaults).isGranted)
     XCTAssertNil(defaults.object(forKey: "aiProcessingConsent"))
   }
 
-  func testEmptyIdentityCannotGrantConsent() {
-    let store = AIConsentStore(defaults: UserDefaults(suiteName: UUID().uuidString)!)
-    store.grant(for: "")
-    XCTAssertFalse(store.isGranted(for: ""))
+  func testLegacyAccountScopedConsentIsNotAcceptedWithoutTimestamp() {
+    let defaults = UserDefaults(suiteName: UUID().uuidString)!
+    defaults.set(
+      [
+        "userID": "legacy-user",
+        "serverSynchronized": true,
+      ],
+      forKey: "aiProcessingConsent")
+    XCTAssertFalse(AIConsentStore(defaults: defaults).isGranted)
   }
 }
