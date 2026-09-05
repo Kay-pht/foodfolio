@@ -40,6 +40,7 @@ final class SharedURLParserTests: XCTestCase {
 
     XCTAssertEqual(confirmedURL, url)
     XCTAssertTrue(gate.isConfirmed)
+    XCTAssertNil(gate.confirm())
   }
 
   func testShareCreationGateCannotConfirmWithoutURL() {
