@@ -11,6 +11,30 @@ struct AuthenticatedUser: Equatable, Sendable {
   let providers: [String]
 }
 
+enum SharedAuthentication {
+  static let accessGroup = "group.com.keyukt.foodfolio"
+
+  @MainActor
+  static func configure() async throws {
+    let auth = Auth.auth()
+    let existingUser = auth.currentUser
+    let storedSharedUser = try auth.getStoredUser(forAccessGroup: accessGroup)
+    try auth.useUserAccessGroup(accessGroup)
+
+    guard storedSharedUser == nil, let existingUser else { return }
+    try await withCheckedThrowingContinuation {
+      (continuation: CheckedContinuation<Void, Error>) in
+      auth.updateCurrentUser(existingUser) { error in
+        if let error {
+          continuation.resume(throwing: error)
+        } else {
+          continuation.resume()
+        }
+      }
+    }
+  }
+}
+
 @MainActor protocol AuthService: AnyObject {
   var currentUser: AuthenticatedUser? { get }
   func signIn(email: String, password: String) async throws

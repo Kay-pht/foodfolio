@@ -65,6 +65,45 @@ targets:
         product: FirebaseMessaging
       - package: GoogleSignIn
         product: GoogleSignIn
+      - target: FoodfolioShareExtension
+        embed: true
+  FoodfolioShareExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: FoodfolioShareExtension
+      - path: Foodfolio/Core/Sharing/SharedURLParser.swift
+    info:
+      path: FoodfolioShareExtension/Info.plist
+      properties:
+        API_BASE_URL: $(API_BASE_URL)
+        CFBundleDisplayName: Foodfolio
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsText: true
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.keyukt.foodfolio.ShareExtension
+        GENERATE_INFOPLIST_FILE: NO
+        API_BASE_URL: https://foodfolio-dev-api-m4i6rcorua-as.a.run.app
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_ENTITLEMENTS: FoodfolioShareExtension/FoodfolioShareExtension.entitlements
+      configs:
+        Release:
+          CODE_SIGN_IDENTITY: Apple Distribution
+          CODE_SIGN_STYLE: Manual
+          PROVISIONING_PROFILE_SPECIFIER: Foodfolio Share Extension App Store Connect
+    dependencies:
+      - package: Firebase
+        product: FirebaseAuth
+      - package: Firebase
+        product: FirebaseCore
   FoodfolioTests:
     type: bundle.unit-test
     platform: iOS
@@ -101,6 +140,7 @@ schemes:
     build:
       targets:
         Foodfolio: all
+        FoodfolioShareExtension: all
         FoodfolioTests: [test]
         FoodfolioIntegrationTests: [test]
         FoodfolioUITests: [test]
