@@ -130,6 +130,7 @@ enum SharedAIConsent {
   }
 }
 
+@MainActor
 enum SharedURLExtractor {
   static func firstURL(from inputItems: [Any]) async throws -> URL? {
     for case let item as NSExtensionItem in inputItems {
