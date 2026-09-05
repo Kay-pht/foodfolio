@@ -2,7 +2,8 @@ import Foundation
 
 enum SharedURLParser {
   static func firstHTTPURL(in text: String) -> URL? {
-    guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else {
+    guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+    else {
       return nil
     }
     let range = NSRange(text.startIndex..<text.endIndex, in: text)
