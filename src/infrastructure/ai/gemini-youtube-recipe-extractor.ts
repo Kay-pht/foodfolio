@@ -157,7 +157,12 @@ export function mapYoutubeGeminiEvidence(
   ]) {
     const name = ingredient.name.trim();
     const key = name.normalize("NFKC").replaceAll(/\s/gu, "");
-    if (name && !ingredientByName.has(key))
+    if (!name) continue;
+    const existing = ingredientByName.get(key);
+    if (
+      !existing ||
+      (!existing.amountText?.trim() && ingredient.amountText?.trim())
+    )
       ingredientByName.set(key, ingredient);
   }
 

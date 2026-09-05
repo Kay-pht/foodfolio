@@ -132,6 +132,56 @@ describe("GeminiYoutubeRecipeExtractor", () => {
     ).toEqual({ value: null, raw: "8個分" });
   });
 
+  it("prefers an explicit amount over an earlier unknown duplicate", () => {
+    expect(
+      mapYoutubeGeminiEvidence(
+        evidence({
+          ingredients: [
+            {
+              name: "油",
+              amountText: null,
+              evidenceText: "材料欄に油の分量記載なし",
+              evidenceSource: "description_materials",
+            },
+          ],
+          procedureOnlyIngredients: [
+            {
+              name: "油",
+              amountText: "大さじ1",
+              evidenceText: "油を大さじ1入れる",
+              evidenceSource: "description_steps",
+            },
+          ],
+        }),
+      ).ingredients,
+    ).toEqual([{ name: "油", amount: "大さじ1" }]);
+  });
+
+  it("keeps the first explicit amount when a duplicate also has an amount", () => {
+    expect(
+      mapYoutubeGeminiEvidence(
+        evidence({
+          ingredients: [
+            {
+              name: "油",
+              amountText: "小さじ2",
+              evidenceText: "材料欄に油 小さじ2",
+              evidenceSource: "description_materials",
+            },
+          ],
+          procedureOnlyIngredients: [
+            {
+              name: "油",
+              amountText: "大さじ1",
+              evidenceText: "動画では油を大さじ1と説明",
+              evidenceSource: "video_audio",
+            },
+          ],
+        }),
+      ).ingredients,
+    ).toEqual([{ name: "油", amount: "小さじ2" }]);
+  });
+
   it("does not turn an ingredient count into servings", () => {
     expect(
       mapYoutubeGeminiEvidence(
