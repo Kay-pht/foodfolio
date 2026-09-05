@@ -369,10 +369,12 @@ Worker endpointは一般公開APIとして利用せず、Cloud Tasksから認証
 
 PoCの固定5 fixtureと5実URL×3回のE2E結果に基づき、MVPの標準AIを以下に確定する。
 
-- Provider: Z.ai
-- Model: `glm-5.3-flash`
+- 標準Provider: Z.ai
+- 標準Model: `glm-5.3-flash`
 - API: Chat Completions JSON mode
 - Backend側でRecipe Schema validationを必須とする
+
+YouTubeだけは、YouTube Data APIで取得した説明欄に材料と複数工程が明確にある場合は標準Z.ai経路を使い、不十分または判定不能の場合に限ってGemini `gemini-3.5-flash-lite`へ公開動画URLと説明欄を同じ1リクエストで渡す。Geminiの根拠付き中間Schemaを決定論的にRecipe Schemaへ変換し、材料・手順が空の結果は保存しない。このfallbackは`YOUTUBE_GEMINI_FALLBACK_ENABLED`で既定無効とする。
 
 Gemini 3.5 Flash-Lite Free Tierも同じ5 fixtureで比較したが、人数範囲を根拠なく平均化した1件があり、Hallucination 0件の基準を満たさなかった。OpenAIとDeepSeekはZ.aiが全基準を満たしたため、追加課金を避けて未実施とした。
 
@@ -543,6 +545,8 @@ AI入力 / imageUrlへ変換
 - YouTube oEmbedを説明文取得の主経路として利用すること
 
 Data APIへ変更後も、AIへ渡す中心情報は動画タイトルと動画説明欄であり、代表画像は`snippet.thumbnails`から取得する。
+
+説明欄の材料行と複数工程を決定論的に確認できる場合は動画を送らずZ.aiで解析する。どちらかが不足するか判定不能の場合だけ、設定で許可されていれば公開YouTube URLと説明欄をGemini `gemini-3.5-flash-lite`へ同時に渡す。説明欄全文やGemini生応答は通常ログへ残さず、実際に使ったproviderだけをRecipe内部記録と構造化ログへ残す。この内部記録は公開Recipe APIへ追加しない。
 
 取得時間についてGoogleによる応答時間保証は確認できないため、旧方式と同等以上であるとは事前に断定しない。`YOUTUBE_API_KEY`を設定した実URL再PoCでData API requestのelapsed timeを記録する。
 
