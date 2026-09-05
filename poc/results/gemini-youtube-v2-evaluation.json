@@ -1,0 +1,499 @@
+{
+  "beforeFile": "gemini-youtube-stability-2026-09-05T02-25-45.812Z.json",
+  "afterFile": "gemini-youtube-stability-2026-09-05T02-43-45.827Z.json",
+  "scope": "Targeted comparison, missing ingredient is distinct from null amount",
+  "calls": 9,
+  "stopped": false,
+  "allSuccessful": true,
+  "comparison": [
+    {
+      "label": "salt",
+      "id": "youtube-0to72EbNg8A",
+      "before": [
+        [
+          {
+            "name": "塩",
+            "amount": null
+          }
+        ],
+        [
+          {
+            "name": "塩",
+            "amount": "適量"
+          }
+        ],
+        [
+          {
+            "name": "塩",
+            "amount": null
+          }
+        ]
+      ],
+      "after": [
+        [
+          {
+            "name": "塩、こしょう",
+            "amount": "下ごしらえ用"
+          }
+        ],
+        [
+          {
+            "name": "塩",
+            "amount": "適量"
+          }
+        ],
+        [
+          {
+            "name": "塩、こしょう",
+            "amount": "下ごしらえ用"
+          }
+        ]
+      ]
+    },
+    {
+      "label": "pepper",
+      "id": "youtube-0to72EbNg8A",
+      "before": [
+        [
+          {
+            "name": "こしょう",
+            "amount": null
+          }
+        ],
+        [
+          {
+            "name": "こしょう",
+            "amount": "適量"
+          }
+        ],
+        [
+          {
+            "name": "こしょう",
+            "amount": null
+          }
+        ]
+      ],
+      "after": [
+        [
+          {
+            "name": "塩、こしょう",
+            "amount": "下ごしらえ用"
+          }
+        ],
+        [
+          {
+            "name": "こしょう",
+            "amount": "適量"
+          }
+        ],
+        [
+          {
+            "name": "塩、こしょう",
+            "amount": "下ごしらえ用"
+          }
+        ]
+      ]
+    },
+    {
+      "label": "oil",
+      "id": "youtube-iKAx33FFOjg",
+      "before": [
+        [
+          {
+            "name": "油",
+            "amount": "適量"
+          }
+        ],
+        [
+          {
+            "name": "油",
+            "amount": "適量"
+          }
+        ],
+        [
+          {
+            "name": "油",
+            "amount": null
+          }
+        ]
+      ],
+      "after": [
+        [],
+        [],
+        []
+      ]
+    },
+    {
+      "label": "sauce",
+      "id": "youtube-SRwvUL-s-eo",
+      "before": [
+        [
+          {
+            "name": "赤ワインソース",
+            "amount": "適量"
+          }
+        ],
+        [
+          {
+            "name": "赤ワインソース",
+            "amount": null
+          }
+        ],
+        [
+          {
+            "name": "赤ワインソース",
+            "amount": null
+          }
+        ]
+      ],
+      "after": [
+        [],
+        [
+          {
+            "name": "赤ワインソース",
+            "amount": null
+          }
+        ],
+        [
+          {
+            "name": "赤ワインソース",
+            "amount": null
+          }
+        ]
+      ]
+    },
+    {
+      "label": "ketchup",
+      "id": "youtube-SRwvUL-s-eo",
+      "before": [
+        [],
+        [],
+        []
+      ],
+      "after": [
+        [
+          {
+            "name": "ケチャップ",
+            "amount": "好みで"
+          }
+        ],
+        [
+          {
+            "name": "ケチャップ",
+            "amount": "好みで"
+          }
+        ],
+        [
+          {
+            "name": "ケチャップ",
+            "amount": "好みで"
+          }
+        ]
+      ]
+    },
+    {
+      "label": "water",
+      "id": "youtube-SRwvUL-s-eo",
+      "before": [
+        [
+          {
+            "name": "水",
+            "amount": "50cc"
+          }
+        ],
+        [
+          {
+            "name": "水",
+            "amount": "50cc"
+          }
+        ],
+        [
+          {
+            "name": "水",
+            "amount": "50cc"
+          }
+        ]
+      ],
+      "after": [
+        [
+          {
+            "name": "水",
+            "amount": "５０cc"
+          }
+        ],
+        [
+          {
+            "name": "水",
+            "amount": "５０cc"
+          }
+        ],
+        [
+          {
+            "name": "水",
+            "amount": "５０cc"
+          }
+        ]
+      ]
+    },
+    {
+      "label": "wine",
+      "id": "youtube-SRwvUL-s-eo",
+      "before": [
+        [
+          {
+            "name": "ワイン",
+            "amount": "少々"
+          }
+        ],
+        [
+          {
+            "name": "ワイン",
+            "amount": "少々"
+          }
+        ],
+        [
+          {
+            "name": "ワイン",
+            "amount": "少々"
+          }
+        ]
+      ],
+      "after": [
+        [
+          {
+            "name": "ワイン",
+            "amount": "少々"
+          }
+        ],
+        [
+          {
+            "name": "ワイン",
+            "amount": "少々"
+          }
+        ],
+        [
+          {
+            "name": "ワイン",
+            "amount": "少々"
+          }
+        ]
+      ]
+    },
+    {
+      "label": "egg",
+      "id": "youtube-iKAx33FFOjg",
+      "before": [
+        [
+          {
+            "name": "卵",
+            "amount": "2個"
+          }
+        ],
+        [
+          {
+            "name": "卵",
+            "amount": "2個"
+          }
+        ],
+        [
+          {
+            "name": "卵",
+            "amount": "2個"
+          }
+        ]
+      ],
+      "after": [
+        [
+          {
+            "name": "卵",
+            "amount": "2個"
+          }
+        ],
+        [
+          {
+            "name": "卵",
+            "amount": "2個"
+          }
+        ],
+        [
+          {
+            "name": "卵",
+            "amount": "2個"
+          }
+        ]
+      ]
+    },
+    {
+      "label": "creamCheese",
+      "id": "youtube-iKAx33FFOjg",
+      "before": [
+        [
+          {
+            "name": "クリームチーズ",
+            "amount": "適量"
+          }
+        ],
+        [
+          {
+            "name": "クリームチーズ",
+            "amount": "適量"
+          }
+        ],
+        [
+          {
+            "name": "クリームチーズ",
+            "amount": "適量"
+          }
+        ]
+      ],
+      "after": [
+        [
+          {
+            "name": "クリームチーズ",
+            "amount": "適量"
+          }
+        ],
+        [
+          {
+            "name": "クリームチーズ",
+            "amount": "適量"
+          }
+        ],
+        [
+          {
+            "name": "クリームチーズ",
+            "amount": "適量"
+          }
+        ]
+      ]
+    }
+  ],
+  "servings": [
+    {
+      "id": "youtube-0to72EbNg8A",
+      "before": [
+        {
+          "value": 4,
+          "raw": "4人前"
+        },
+        {
+          "value": 4,
+          "raw": "4人前"
+        },
+        {
+          "value": 4,
+          "raw": "4人前"
+        }
+      ],
+      "after": [
+        {
+          "value": 4,
+          "raw": "4人前"
+        },
+        {
+          "value": 4,
+          "raw": "4人前"
+        },
+        {
+          "value": 4,
+          "raw": "4人前"
+        }
+      ]
+    },
+    {
+      "id": "youtube-iKAx33FFOjg",
+      "before": [
+        {
+          "value": null,
+          "raw": null
+        },
+        {
+          "value": null,
+          "raw": null
+        },
+        {
+          "value": null,
+          "raw": null
+        }
+      ],
+      "after": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "id": "youtube-SRwvUL-s-eo",
+      "before": [
+        {
+          "value": null,
+          "raw": "8個分"
+        },
+        {
+          "value": null,
+          "raw": null
+        },
+        null
+      ],
+      "after": [
+        null,
+        null,
+        null
+      ]
+    }
+  ],
+  "cookingTimes": [
+    {
+      "id": "youtube-0to72EbNg8A",
+      "before": [
+        20,
+        20,
+        20
+      ],
+      "after": [
+        20,
+        20,
+        20
+      ]
+    },
+    {
+      "id": "youtube-iKAx33FFOjg",
+      "before": [
+        15,
+        15,
+        15
+      ],
+      "after": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "id": "youtube-SRwvUL-s-eo",
+      "before": [
+        null,
+        null,
+        null
+      ],
+      "after": [
+        null,
+        null,
+        null
+      ]
+    }
+  ],
+  "inputTokens": 469524,
+  "outputTokens": 4476,
+  "elapsedMs": [
+    4198,
+    4257,
+    4271,
+    3964,
+    3706,
+    3530,
+    4248,
+    3684,
+    3790
+  ]
+}

@@ -1,0 +1,176 @@
+{
+  "source": "poc/results/gemini-youtube-stability-2026-09-05T02-25-45.812Z.json",
+  "scope": "Targeted regression checks only; not full semantic accuracy",
+  "calls": 9,
+  "successes": 9,
+  "inputTokens": 466905,
+  "outputTokens": 4658,
+  "elapsedMs": 36263,
+  "groups": [
+    {
+      "id": "youtube-0to72EbNg8A",
+      "checks": [
+        {
+          "name": "片栗粉",
+          "expectedAmount": "大さじ1",
+          "passes": [
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "name": "水",
+          "expectedAmount": "大さじ2",
+          "passes": [
+            true,
+            true,
+            true
+          ]
+        }
+      ],
+      "ingredientNameSetsIdentical": true,
+      "normalizedIngredientVariants": 2,
+      "servings": [
+        {
+          "value": 4,
+          "raw": "4人前"
+        },
+        {
+          "value": 4,
+          "raw": "4人前"
+        },
+        {
+          "value": 4,
+          "raw": "4人前"
+        }
+      ],
+      "cookingTimeMinutes": [
+        20,
+        20,
+        20
+      ]
+    },
+    {
+      "id": "youtube-iKAx33FFOjg",
+      "checks": [
+        {
+          "name": "卵",
+          "expectedAmount": "2個",
+          "passes": [
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "name": "クリームチーズ",
+          "expectedAmount": "適量",
+          "passes": [
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "name": "油",
+          "expectedAmount": "presence only",
+          "passes": [
+            true,
+            true,
+            true
+          ]
+        }
+      ],
+      "ingredientNameSetsIdentical": true,
+      "normalizedIngredientVariants": 2,
+      "servings": [
+        {
+          "value": null,
+          "raw": null
+        },
+        {
+          "value": null,
+          "raw": null
+        },
+        {
+          "value": null,
+          "raw": null
+        }
+      ],
+      "cookingTimeMinutes": [
+        15,
+        15,
+        15
+      ]
+    },
+    {
+      "id": "youtube-SRwvUL-s-eo",
+      "checks": [
+        {
+          "name": "玉ねぎ",
+          "expectedAmount": "1個",
+          "passes": [
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "name": "水",
+          "expectedAmount": "50cc",
+          "passes": [
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "name": "ワイン",
+          "expectedAmount": "少々",
+          "passes": [
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "name": "赤ワインソース",
+          "expectedAmount": "presence only",
+          "passes": [
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "name": "ケチャップ",
+          "expectedAmount": "presence only",
+          "passes": [
+            false,
+            false,
+            false
+          ]
+        }
+      ],
+      "ingredientNameSetsIdentical": true,
+      "normalizedIngredientVariants": 2,
+      "servings": [
+        {
+          "value": null,
+          "raw": "8個分"
+        },
+        {
+          "value": null,
+          "raw": null
+        },
+        null
+      ],
+      "cookingTimeMinutes": [
+        null,
+        null,
+        null
+      ]
+    }
+  ]
+}
