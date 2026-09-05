@@ -20,6 +20,7 @@ locals {
   secret_ids = toset([
     "foodfolio-dev-database-url",
     "foodfolio-dev-database-direct-url",
+    "foodfolio-dev-gemini-api-key",
     "foodfolio-dev-zai-api-key",
     "foodfolio-dev-youtube-api-key",
   ])
@@ -218,6 +219,10 @@ resource "google_cloud_run_v2_service" "worker" {
         value = "true"
       }
       env {
+        name  = "YOUTUBE_GEMINI_FALLBACK_ENABLED"
+        value = "true"
+      }
+      env {
         name  = "TIKTOK_VIDEO_BUCKET"
         value = google_storage_bucket.tiktok_video_fallback.name
       }
@@ -243,6 +248,15 @@ resource "google_cloud_run_v2_service" "worker" {
         value_source {
           secret_key_ref {
             secret  = google_secret_manager_secret.app["foodfolio-dev-zai-api-key"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "GEMINI_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.app["foodfolio-dev-gemini-api-key"].secret_id
             version = "latest"
           }
         }
