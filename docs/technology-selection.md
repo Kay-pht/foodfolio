@@ -546,7 +546,7 @@ AI入力 / imageUrlへ変換
 
 Data APIへ変更後も、AIへ渡す中心情報は動画タイトルと動画説明欄であり、代表画像は`snippet.thumbnails`から取得する。
 
-説明欄の材料行と複数工程を決定論的に確認できる場合は動画を送らずZ.aiで解析する。どちらかが不足するか判定不能の場合だけ、設定で許可されていれば公開YouTube URLと説明欄をGemini `gemini-3.5-flash-lite`へ同時に渡す。説明欄全文やGemini生応答は通常ログへ残さず、実際に使ったproviderだけをRecipe内部記録と構造化ログへ残す。この内部記録は公開Recipe APIへ追加しない。
+説明欄の材料行と複数工程を決定論的に確認できる場合は動画を送らずZ.aiで解析する。どちらかが不足するか判定不能の場合だけ、設定で許可されていれば公開YouTube URLと説明欄をGemini `gemini-3.5-flash-lite`へ同時に渡す。Gemini呼び出しは1レシピにつき1回に固定し、timeout、HTTP 429、HTTP 5xxを含む失敗でもCloud Tasksから再試行しない。説明欄全文やGemini生応答は通常ログへ残さず、実際に使ったproviderだけをRecipe内部記録と構造化ログへ残す。この内部記録は公開Recipe APIへ追加しない。
 
 取得時間についてGoogleによる応答時間保証は確認できないため、旧方式と同等以上であるとは事前に断定しない。`YOUTUBE_API_KEY`を設定した実URL再PoCでData API requestのelapsed timeを記録する。
 

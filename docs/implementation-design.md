@@ -1103,12 +1103,13 @@ YouTube Data API title / description
    ├─ YOUTUBE_GEMINI_FALLBACK_ENABLED=false → 解析失敗
    └─ true → 公開動画URL＋説明欄をGemini 3.5 Flash-Liteへ1回入力
               ├─ Schema適合、ingredients・steps非空、finishReason=STOP → 保存
-              └─ 通信・Envelope・JSON・Schema・finishReason・非空条件の失敗 → 解析失敗
+              └─ 通信・Envelope・JSON・Schema・finishReason・非空条件の失敗
+                   → retryable=falseで解析失敗、Cloud Tasks再試行なし
 ```
 
 Gemini出力は、説明欄材料一覧由来と手順・動画だけに登場する材料を分け、各材料に名前、分量原文、短い使用根拠、根拠元を持つ中間Schemaとする。決定論的後処理で両配列を統合し、使用根拠があり分量未記載なら`適量`にする。説明欄と動画の矛盾は説明欄を優先し、一般知識から材料・数値を補わない。`4人分`は`servings.value=4`、`8個分`等の個数は`servings.raw`だけを保存し、材料個数は出来上がり量へ転用しない。
 
-説明欄と動画内の命令は信頼しない。API key、Authorization header、説明欄全文、生のGemini responseを通常ログへ出さない。1解析内でGeminiを複数回呼ぶ照合処理や、Z.aiとGeminiを往復する処理は追加しない。
+説明欄と動画内の命令は信頼しない。API key、Authorization header、説明欄全文、生のGemini responseを通常ログへ出さない。Gemini呼び出しは1レシピにつき1回に固定し、timeout、HTTP 429、HTTP 5xxを含む失敗でも再試行しない。これらは`retryable=false`の解析失敗として記録し、Workerは成功応答を返してCloud Tasksの再配送を終了する。1解析内でGeminiを複数回呼ぶ照合処理や、Z.aiとGeminiを往復する処理も追加しない。
 
 ### 14.2 TikTok動画フォールバック
 
@@ -1406,6 +1407,8 @@ pending / processing -> 処理対象
 - JSON parse失敗
 - Schema validation失敗
 - 一時的DB / network障害
+
+ただし、14.1のYouTube Geminiフォールバックは、1レシピにつきGeminiを1回だけ呼ぶ制約を優先する例外とする。Geminiのtimeout、HTTP 429、HTTP 5xx、JSON・Schema不正を含む全失敗は`retryable=false`とし、Cloud Tasksで再試行しない。ここでの`retryable=false`は障害原因が恒久的という意味ではなく、この1回制約に基づいて当該レシピの処理を終了することを表す。
 
 ### 17.7 permanent error
 
