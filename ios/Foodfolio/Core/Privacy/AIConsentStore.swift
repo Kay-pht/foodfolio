@@ -7,14 +7,33 @@ struct AIConsentRecord: Equatable {
 
 @MainActor @Observable
 final class AIConsentStore {
+  static let appGroupIdentifier = "group.com.keyukt.foodfolio"
+  private static let consentKey = "aiProcessingConsent"
+
   private let defaults: UserDefaults
-  private let key = "aiProcessingConsent"
+  private let legacyDefaults: UserDefaults?
   private(set) var consentedAt: Date?
   private(set) var needsServerSync: Bool
 
-  init(defaults: UserDefaults = .standard) {
-    self.defaults = defaults
-    let saved = defaults.dictionary(forKey: key)
+  init(defaults: UserDefaults? = nil) {
+    if let defaults {
+      self.defaults = defaults
+      self.legacyDefaults = nil
+    } else if let sharedDefaults = UserDefaults(suiteName: Self.appGroupIdentifier) {
+      self.defaults = sharedDefaults
+      self.legacyDefaults = .standard
+      if sharedDefaults.object(forKey: Self.consentKey) == nil,
+        let legacyValue = UserDefaults.standard.object(forKey: Self.consentKey)
+      {
+        sharedDefaults.set(legacyValue, forKey: Self.consentKey)
+        UserDefaults.standard.removeObject(forKey: Self.consentKey)
+      }
+    } else {
+      self.defaults = .standard
+      self.legacyDefaults = nil
+    }
+
+    let saved = self.defaults.dictionary(forKey: Self.consentKey)
     let savedConsentedAt = saved?["consentedAt"] as? Date
     let wasServerSynchronized = saved?["serverSynchronized"] as? Bool ?? false
 
@@ -22,7 +41,7 @@ final class AIConsentStore {
       consentedAt = savedConsentedAt
     } else {
       consentedAt = nil
-      if saved != nil { defaults.removeObject(forKey: key) }
+      if saved != nil { self.defaults.removeObject(forKey: Self.consentKey) }
     }
     needsServerSync = false
   }
@@ -53,12 +72,13 @@ final class AIConsentStore {
   func revoke() {
     consentedAt = nil
     needsServerSync = false
-    defaults.removeObject(forKey: key)
+    defaults.removeObject(forKey: Self.consentKey)
+    legacyDefaults?.removeObject(forKey: Self.consentKey)
   }
 
   private func persist(serverSynchronized: Bool) {
     guard let consentedAt else {
-      defaults.removeObject(forKey: key)
+      defaults.removeObject(forKey: Self.consentKey)
       return
     }
     defaults.set(
@@ -66,7 +86,7 @@ final class AIConsentStore {
         "consentedAt": consentedAt,
         "serverSynchronized": serverSynchronized,
       ],
-      forKey: key)
+      forKey: Self.consentKey)
   }
 }
 

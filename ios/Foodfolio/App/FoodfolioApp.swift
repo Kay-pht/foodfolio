@@ -54,11 +54,13 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
   @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
   private let container: ModelContainer
   @State private var session: AppSession
+  private let mockMode: Bool
 
   init() {
     let uiTesting = ProcessInfo.processInfo.arguments.contains("-ui-testing")
     let testHost = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     let mockMode = uiTesting || testHost
+    self.mockMode = mockMode
     if !mockMode, FirebaseApp.app() == nil,
       Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist") != nil
     {
@@ -77,7 +79,17 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
       AIConsentRootView()
         .environment(session)
         .onOpenURL { url in _ = GIDSignIn.sharedInstance.handle(url) }
-        .task { await session.restoreAuthenticatedSession() }
+        .task {
+          if !mockMode {
+            do {
+              try await SharedAuthentication.configure()
+              session.refreshUser()
+            } catch {
+              session.globalError = "共有機能の認証状態を初期化できませんでした。"
+            }
+          }
+          await session.restoreAuthenticatedSession()
+        }
     }.modelContainer(container)
   }
 }
