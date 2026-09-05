@@ -32,6 +32,7 @@ const recipeExtractor: RecipeExtractor = {
       ingredients: [{ name: "鶏肉", amount: "200g" }],
       steps: ["煮る"],
     },
+    provider: "zai",
     providerRequestId: "provider-1",
     inputTokens: 100,
     outputTokens: 50,
@@ -111,9 +112,69 @@ describe("API/Worker application E2E", () => {
       recipe.updatedAt.getTime(),
     );
     expect(updated.title).toBe("親子丼");
+    expect(updated.analysisProvider).toBe("zai");
     expect(updated.ingredients[0]?.name).toBe("鶏肉");
     expect(notifications.completed).toEqual([recipe.id]);
     await worker.close();
+  });
+
+  it("persists and logs Gemini when the YouTube video fallback produced the result", async () => {
+    const user = await context.prisma.user.create({
+      data: {
+        firebaseUid: "youtube-gemini-provider-user",
+        setting: { create: {} },
+      },
+    });
+    const recipe = await context.prisma.recipe.create({
+      data: {
+        userId: user.id,
+        originalUrl: "https://www.youtube.com/watch?v=0to72EbNg8A",
+        normalizedUrl: "https://www.youtube.com/watch?v=0to72EbNg8A",
+        sourceType: "youtube",
+      },
+    });
+    const log = vi.fn();
+    const service = new RecipeAnalysisService({
+      prisma: context.prisma,
+      sourceExtractor: {
+        extract: async () => ({
+          sourceType: "youtube",
+          resolvedUrl: "https://www.youtube.com/watch?v=0to72EbNg8A",
+          imageUrl: null,
+          textForAi: "TITLE\n親子丼",
+          youtubeDescription: "",
+        }),
+      },
+      recipeExtractor: {
+        extract: async () => {
+          const result = await recipeExtractor.extract(
+            await sourceExtractor.extract(new URL("https://example.com")),
+          );
+          return {
+            ...result,
+            provider: "gemini" as const,
+            providerRequestId: "gemini-request",
+          };
+        },
+      },
+      notifications: new FakeNotifications(),
+      maxAttempts: 3,
+    });
+
+    await expect(service.process(recipe.id, 1, log)).resolves.toEqual({
+      retry: false,
+    });
+    const updated = await context.prisma.recipe.findUniqueOrThrow({
+      where: { id: recipe.id },
+    });
+    expect(updated.analysisProvider).toBe("gemini");
+    expect(log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: "gemini",
+        videoFallbackUsed: true,
+      }),
+      "recipe analysis completed",
+    );
   });
 
   it("retries transient failure, marks final failure, and respects notification OFF", async () => {
@@ -339,6 +400,7 @@ describe("API/Worker application E2E", () => {
           ingredients: [],
           steps: [],
         },
+        provider: "zai",
         providerRequestId: "title-request",
         inputTokens: 3,
         outputTokens: 4,
@@ -354,6 +416,7 @@ describe("API/Worker application E2E", () => {
         ingredients: [{ name: "パスタ", amount: "100g" }],
         steps: ["パスタを茹でる"],
       },
+      provider: "zai",
       providerRequestId: "video-request",
       inputTokens: 30,
       outputTokens: 40,
@@ -428,6 +491,7 @@ describe("API/Worker application E2E", () => {
               ingredients: [{ name: "パスタ", amount: "100g" }],
               steps: ["茹でる"],
             },
+            provider: "zai",
             providerRequestId: "title-request",
             inputTokens: 3,
             outputTokens: 4,
@@ -498,6 +562,7 @@ describe("API/Worker application E2E", () => {
               ingredients: [],
               steps: [],
             },
+            provider: "zai",
             providerRequestId: "video-request",
             inputTokens: 3,
             outputTokens: 4,
@@ -563,6 +628,7 @@ describe("API/Worker application E2E", () => {
               ingredients: [],
               steps: [],
             },
+            provider: "zai",
             providerRequestId: "title-request",
             inputTokens: 3,
             outputTokens: 4,
