@@ -19,3 +19,23 @@ enum SharedURLParser {
     return scheme == "http" || scheme == "https"
   }
 }
+
+struct ShareCreationGate {
+  private(set) var sharedURL: URL?
+  private(set) var isConfirmed = false
+
+  mutating func prepare(url: URL) {
+    sharedURL = url
+    isConfirmed = false
+  }
+
+  mutating func confirm() -> URL? {
+    guard let sharedURL else { return nil }
+    isConfirmed = true
+    return sharedURL
+  }
+
+  mutating func resetConfirmation() {
+    isConfirmed = false
+  }
+}
