@@ -17,4 +17,4 @@ readonly -a formatter
 
 cd "${IOS_DIR}"
 "${formatter[@]}" lint --recursive --strict \
-  Foodfolio FoodfolioTests FoodfolioIntegrationTests FoodfolioUITests
+  Foodfolio FoodfolioShareExtension FoodfolioTests FoodfolioIntegrationTests FoodfolioUITests
