@@ -28,6 +28,7 @@ const successResult = (title: string) => ({
     ingredients: [{ name: title, amount: "1個" }],
     steps: [title],
   },
+  provider: "zai",
   providerRequestId: title,
   inputTokens: 1,
   outputTokens: 1,
