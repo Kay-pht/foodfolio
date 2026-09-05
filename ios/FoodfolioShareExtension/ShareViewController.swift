@@ -60,6 +60,7 @@ final class ShareViewController: SLComposeServiceViewController {
   @objc private func createRecipe() {
     guard !isSubmittingOrFinished else { return }
     guard let url = creationGate.confirm() else { return }
+    state = .submitting
 
     Task { @MainActor in
       await saveSharedRecipe(url: url)
@@ -76,7 +77,6 @@ final class ShareViewController: SLComposeServiceViewController {
   }
 
   private func saveSharedRecipe(url: URL) async {
-    state = .submitting
     do {
       guard SharedAIConsent.isGranted else {
         throw ShareExtensionError.aiConsentRequired
