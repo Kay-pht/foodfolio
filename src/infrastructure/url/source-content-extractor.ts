@@ -220,6 +220,7 @@ export class ProductionSourceContentExtractor implements SourceContentExtractor 
       resolvedUrl: `https://www.youtube.com/watch?v=${videoId}`,
       imageUrl,
       textForAi: text,
+      youtubeTitle: snippet.title ?? null,
       youtubeDescription: snippet.description ?? "",
     };
   }
