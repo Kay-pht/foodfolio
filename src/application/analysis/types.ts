@@ -5,6 +5,7 @@ export interface SourceContent {
   resolvedUrl: string;
   imageUrl: string | null;
   textForAi: string | null;
+  youtubeTitle?: string | null;
   youtubeDescription?: string | null;
 }
 export interface ExtractedRecipe {

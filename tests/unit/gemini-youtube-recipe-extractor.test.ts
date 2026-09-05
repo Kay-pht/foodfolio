@@ -11,6 +11,7 @@ const source = {
   resolvedUrl: "https://www.youtube.com/watch?v=0to72EbNg8A",
   imageUrl: null,
   textForAi: "TITLE\nハンバーグ",
+  youtubeTitle: "YouTubeのハンバーグ動画",
   youtubeDescription: "材料情報なし",
 };
 
@@ -77,6 +78,7 @@ describe("GeminiYoutubeRecipeExtractor", () => {
           },
         });
         expect(JSON.stringify(request)).toContain(source.youtubeDescription);
+        expect(JSON.stringify(request)).toContain(source.youtubeTitle);
         return geminiResponse({
           candidates: [
             {
@@ -95,7 +97,7 @@ describe("GeminiYoutubeRecipeExtractor", () => {
 
     await expect(extractor.extract(source)).resolves.toEqual({
       recipe: {
-        title: "ハンバーグ",
+        title: "YouTubeのハンバーグ動画",
         servings: { value: 4, raw: "4人分" },
         cookingTimeMinutes: null,
         genre: "主菜",
@@ -103,7 +105,7 @@ describe("GeminiYoutubeRecipeExtractor", () => {
           { name: "ケチャップ", amount: "好みで" },
           { name: "塩", amount: "少々" },
           { name: "水", amount: "50cc" },
-          { name: "サラダ油", amount: "適量" },
+          { name: "サラダ油", amount: null },
         ],
         steps: ["材料を混ぜる", "油をひいて焼く"],
       },
@@ -155,6 +157,24 @@ describe("GeminiYoutubeRecipeExtractor", () => {
         }),
       ).ingredients,
     ).toEqual([{ name: "油", amount: "大さじ1" }]);
+  });
+
+  it("preserves an explicitly stated suitable amount", () => {
+    expect(
+      mapYoutubeGeminiEvidence(
+        evidence({
+          ingredients: [
+            {
+              name: "塩",
+              amountText: "適量",
+              evidenceText: "塩は適量",
+              evidenceSource: "description_materials",
+            },
+          ],
+          procedureOnlyIngredients: [],
+        }),
+      ).ingredients,
+    ).toEqual([{ name: "塩", amount: "適量" }]);
   });
 
   it("keeps the first explicit amount when a duplicate also has an amount", () => {
@@ -320,6 +340,8 @@ describe("GeminiYoutubeRecipeExtractor", () => {
   });
 
   it("builds a request even when the description is empty", () => {
-    expect(buildYoutubeGeminiRequest(source.resolvedUrl, "")).toBeTruthy();
+    expect(
+      buildYoutubeGeminiRequest(source.resolvedUrl, source.youtubeTitle, ""),
+    ).toBeTruthy();
   });
 });
