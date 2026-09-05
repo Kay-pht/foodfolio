@@ -18,7 +18,7 @@
 | --- | --- | --- |
 | 認証UID・メール・氏名等 | Firebase Authentication、Apple/Google認証。本人確認。NeonのUserにはFirebase UID等を保存し、メール・氏名列は持たない | `ios/Foodfolio/Core/Auth/AuthService.swift`、`prisma/schema.prisma` |
 | URL・レシピ・タグ | API、Cloud Tasks、Neon、端末のSwiftData。解析、保存、同期、表示 | `src/api/routes.ts`、`prisma/schema.prisma` |
-| 元ページの本文・動画・メタデータ | 元サイト、YouTube/TikTok、必要時の一時ストレージ、Z.ai。レシピ抽出 | `src/infrastructure/url/source-content-extractor.ts`、`src/infrastructure/ai/zai-recipe-extractor.ts` |
+| 元ページの本文・動画・メタデータ | 元サイト、YouTube/TikTok、必要時の一時ストレージ、Z.ai、YouTube説明欄が不十分な場合のGemini。レシピ抽出 | `src/infrastructure/url/source-content-extractor.ts`、`src/infrastructure/ai/zai-recipe-extractor.ts`、`src/infrastructure/ai/gemini-youtube-recipe-extractor.ts` |
 | FCM/APNs token・インストールID | Firebase Messaging/APNs、Foodfolio API・Neon。解析通知。Neon上では利用者に紐付く | `ios/Foodfolio/Core/Notifications/NotificationService.swift`、`prisma/schema.prisma` |
 | 検索履歴 | 端末内のみ。サーバーへ送らない | `ios/Foodfolio/Core/Persistence/SearchHistoryStore.swift` |
 | 画像・元サイト通信 | 画像表示時は端末から画像配信元へ直接通信。サーバーだけが通信する構成ではない | `ios/Foodfolio/Core/Images/RecipeImageStore.swift` |
@@ -29,7 +29,7 @@
 - APIのアカウント削除はFirebaseユーザーとNeonの利用者・関連データを削除する。リレーションはcascade。iOSは操作した端末のローカルデータを消去する。別端末のキャッシュや提供者のバックアップまで即時に消えるとは宣言しない。
 - Google Cloud `_Default` の通常ログ保持設定は30日と確認済み。すべての監査ログ・外部サービスに共通する保持期間ではない。
 - TikTok一時動画は処理後に削除する。GCSは作成1日経過を条件にlifecycle削除、soft delete無効。lifecycleは非同期なので「1日以内の完全削除」とは宣言しない（`infra/terraform/main.tf`）。
-- サーバーのZ.aiリクエストには認証UID・メールを明示的に渡さない。ただし元ページ・動画中の個人情報が除去される実装ではない。
+- サーバーのZ.ai / Geminiリクエストには認証UID・メールを明示的に渡さない。ただし元ページ・動画中の個人情報が除去される実装ではない。
 
 ### Archive内のSDK申告
 
