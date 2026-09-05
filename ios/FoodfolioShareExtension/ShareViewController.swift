@@ -1,5 +1,6 @@
 import FirebaseAuth
 import FirebaseCore
+import Foundation
 import Social
 import UniformTypeIdentifiers
 
@@ -40,7 +41,9 @@ final class ShareViewController: SLComposeServiceViewController {
 
   private func saveSharedRecipe() async {
     do {
-      guard let url = try await SharedURLExtractor.firstURL(from: extensionContext?.inputItems ?? []) else {
+      guard
+        let url = try await SharedURLExtractor.firstURL(from: extensionContext?.inputItems ?? [])
+      else {
         throw ShareExtensionError.urlNotFound
       }
       guard SharedAIConsent.isGranted else {
@@ -56,7 +59,8 @@ final class ShareViewController: SLComposeServiceViewController {
       try? await Task.sleep(for: .milliseconds(700))
       extensionContext?.completeRequest(returningItems: nil)
     } catch {
-      state = .failure((error as? LocalizedError)?.errorDescription ?? "レシピの追加に失敗しました。")
+      let fallback = "レシピの追加に失敗しました。"
+      state = .failure((error as? LocalizedError)?.errorDescription ?? fallback)
     }
   }
 
@@ -150,7 +154,9 @@ enum SharedURLExtractor {
     return nil
   }
 
-  private static func load(_ provider: NSItemProvider, typeIdentifier: String) async throws -> NSSecureCoding? {
+  private static func load(_ provider: NSItemProvider, typeIdentifier: String) async throws
+    -> NSSecureCoding?
+  {
     try await withCheckedThrowingContinuation { continuation in
       provider.loadItem(forTypeIdentifier: typeIdentifier, options: nil) { item, error in
         if let error {
@@ -168,11 +174,12 @@ enum SharedRecipeAPI {
 
   static func add(url: URL, token: String) async throws {
     guard let baseURLString = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String,
-      let baseURL = URL(string: baseURLString)
+      let baseURL = URL(string: baseURLString),
+      let endpoint = URL(string: "/v1/recipes", relativeTo: baseURL)
     else {
       throw ShareExtensionError.invalidResponse
     }
-    var request = URLRequest(url: baseURL.appending(path: "/v1/recipes"))
+    var request = URLRequest(url: endpoint)
     request.httpMethod = "POST"
     request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
