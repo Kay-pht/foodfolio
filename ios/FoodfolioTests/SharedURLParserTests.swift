@@ -20,4 +20,33 @@ final class SharedURLParserTests: XCTestCase {
     XCTAssertTrue(SharedURLParser.isHTTPURL(URL(string: "http://example.com")!))
     XCTAssertTrue(SharedURLParser.isHTTPURL(URL(string: "https://example.com")!))
   }
+
+  func testShareCreationGateDoesNotConfirmWhenURLIsPrepared() {
+    let url = URL(string: "https://example.com/recipe")!
+    var gate = ShareCreationGate()
+
+    gate.prepare(url: url)
+
+    XCTAssertEqual(gate.sharedURL, url)
+    XCTAssertFalse(gate.isConfirmed)
+  }
+
+  func testShareCreationGateRequiresExplicitConfirmation() {
+    let url = URL(string: "https://example.com/recipe")!
+    var gate = ShareCreationGate()
+    gate.prepare(url: url)
+
+    let confirmedURL = gate.confirm()
+
+    XCTAssertEqual(confirmedURL, url)
+    XCTAssertTrue(gate.isConfirmed)
+    XCTAssertNil(gate.confirm())
+  }
+
+  func testShareCreationGateCannotConfirmWithoutURL() {
+    var gate = ShareCreationGate()
+
+    XCTAssertNil(gate.confirm())
+    XCTAssertFalse(gate.isConfirmed)
+  }
 }
