@@ -30,7 +30,7 @@ struct ShareCreationGate {
   }
 
   mutating func confirm() -> URL? {
-    guard let sharedURL else { return nil }
+    guard !isConfirmed, let sharedURL else { return nil }
     isConfirmed = true
     return sharedURL
   }
