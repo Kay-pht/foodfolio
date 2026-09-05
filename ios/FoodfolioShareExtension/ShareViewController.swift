@@ -16,7 +16,7 @@ final class ShareViewController: SLComposeServiceViewController {
   private var state: State = .loading {
     didSet { updateUI() }
   }
-  private var sharedURL: URL?
+  private var creationGate = ShareCreationGate()
 
   override func viewDidLoad() {
     super.viewDidLoad()
@@ -49,7 +49,7 @@ final class ShareViewController: SLComposeServiceViewController {
       else {
         throw ShareExtensionError.urlNotFound
       }
-      sharedURL = url
+      creationGate.prepare(url: url)
       state = .ready(url)
     } catch {
       let fallback = "URLを取得できませんでした。"
@@ -58,8 +58,8 @@ final class ShareViewController: SLComposeServiceViewController {
   }
 
   @objc private func createRecipe() {
-    guard let url = sharedURL else { return }
     guard !isSubmittingOrFinished else { return }
+    guard let url = creationGate.confirm() else { return }
 
     Task { @MainActor in
       await saveSharedRecipe(url: url)
@@ -89,6 +89,7 @@ final class ShareViewController: SLComposeServiceViewController {
       try await SharedRecipeAPI.add(url: url, token: token)
       state = .success
     } catch {
+      creationGate.resetConfirmation()
       let fallback = "レシピの追加に失敗しました。"
       state = .failure((error as? LocalizedError)?.errorDescription ?? fallback)
     }
@@ -144,7 +145,7 @@ final class ShareViewController: SLComposeServiceViewController {
     case .failure(let message):
       textView.text = message
       navigationItem.leftBarButtonItem?.isEnabled = true
-      if sharedURL == nil {
+      if creationGate.sharedURL == nil {
         navigationItem.rightBarButtonItem = nil
       } else {
         setCreateButton(title: "再試行", isEnabled: true)
