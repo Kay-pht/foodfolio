@@ -22,6 +22,7 @@ const extraction = {
     ingredients: [{ name: "パスタ", amount: "100g" }],
     steps: ["茹でる"],
   },
+  provider: "zai",
   providerRequestId: "video-request",
   inputTokens: 10,
   outputTokens: 20,
