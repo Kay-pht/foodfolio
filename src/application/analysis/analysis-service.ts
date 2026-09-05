@@ -146,6 +146,9 @@ export class RecipeAnalysisService {
         },
         data: {
           analysisStatus: final ? "failed" : "pending",
+          ...(analysisError.provider
+            ? { analysisProvider: analysisError.provider }
+            : {}),
           processingRunId: null,
           processingLeaseExpiresAt: null,
           ...(final ? { title } : {}),
@@ -159,6 +162,7 @@ export class RecipeAnalysisService {
           analysisStatus: final ? "failed" : "pending",
           analysisAttempt: attempt,
           errorCode: analysisError.code,
+          provider: analysisError.provider,
         },
         "recipe analysis failed",
       );

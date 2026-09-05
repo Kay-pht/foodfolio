@@ -195,7 +195,7 @@ describe("API/Worker application E2E", () => {
     const notifications = new FakeNotifications();
     const failingAi: RecipeExtractor = {
       extract: async () => {
-        throw new AnalysisError("AI_TIMEOUT", true, "timeout");
+        throw new AnalysisError("AI_TIMEOUT", true, "timeout", "zai");
       },
     };
     const worker = buildWorker(
@@ -228,13 +228,11 @@ describe("API/Worker application E2E", () => {
       payload: { recipeId: recipe.id },
     });
     expect(final.statusCode).toBe(204);
-    expect(
-      (
-        await context.prisma.recipe.findUniqueOrThrow({
-          where: { id: recipe.id },
-        })
-      ).analysisStatus,
-    ).toBe("failed");
+    const failedRecipe = await context.prisma.recipe.findUniqueOrThrow({
+      where: { id: recipe.id },
+    });
+    expect(failedRecipe.analysisStatus).toBe("failed");
+    expect(failedRecipe.analysisProvider).toBe("zai");
     expect(notifications.failed).toEqual([]);
     await worker.close();
   });

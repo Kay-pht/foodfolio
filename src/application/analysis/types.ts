@@ -73,6 +73,7 @@ export class AnalysisError extends Error {
     public readonly code: string,
     public readonly retryable: boolean,
     message: string,
+    public readonly provider?: "zai" | "gemini",
   ) {
     super(message);
     this.name = "AnalysisError";

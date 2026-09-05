@@ -28,8 +28,8 @@ describe("assessYoutubeDescription", () => {
     ],
     [
       "links and promotion",
-      "チャンネル登録はこちら\nhttps://example.com\n商品はこちら\nhttps://example.com/item",
-      "ingredients_missing",
+      "材料\n豚肉 200g\n白菜 1個\n作り方\n1. 白菜を切る\n2. 豚肉を炒める\nチャンネル登録はこちら\nhttps://example.com\n商品はこちら\nhttps://example.com/item",
+      "promotion_or_links",
     ],
     [
       "video reference required",

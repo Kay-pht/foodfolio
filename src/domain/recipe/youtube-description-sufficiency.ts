@@ -5,6 +5,7 @@ export type YoutubeDescriptionSufficiency =
       reason:
         | "empty"
         | "video_reference_required"
+        | "promotion_or_links"
         | "ingredients_missing"
         | "steps_missing";
     };
@@ -22,6 +23,8 @@ const COOKING_ACTION =
   /(?:切|刻|むく|剥|洗|混ぜ|和え|加え|入れ|炒め|焼|煮|茹|ゆで|蒸|揚げ|炊|温め|冷や|漬け|盛|かけ|絡め|こね|成形|裏返|取り出|火にかけ|heat|mix|add|cook|bake|boil|fry|serve)/iu;
 const VIDEO_REFERENCE_REQUIRED =
   /(?:詳しくは|続きは|作り方は|手順は).{0,16}(?:動画|映像)(?:で|を|へ|に)|(?:動画|映像)(?:を|で).{0,12}(?:ご覧|確認|チェック)|(?:see|watch)\s+(?:the\s+)?video/iu;
+const PROMOTION =
+  /(?:チャンネル登録|フォロー|商品はこちら|購入はこちら|オンラインショップ|キャンペーン|スポンサー|subscribe|follow me|shop now)/iu;
 
 function linesInSection(lines: string[], heading: RegExp): string[] {
   const start = lines.findIndex((line) => heading.test(line));
@@ -68,6 +71,15 @@ export function assessYoutubeDescription(
   );
   if (stepLines.length < 2)
     return { sufficient: false, reason: "steps_missing" };
+
+  const promotionOrLinkLines = lines.filter(
+    (line) => /https?:\/\//iu.test(line) || PROMOTION.test(line),
+  );
+  if (
+    promotionOrLinkLines.length >= 3 &&
+    promotionOrLinkLines.length >= ingredientLines.length + stepLines.length
+  )
+    return { sufficient: false, reason: "promotion_or_links" };
 
   return { sufficient: true, reason: "ingredients_and_steps" };
 }
