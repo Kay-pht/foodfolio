@@ -5,6 +5,7 @@ export interface SourceContent {
   resolvedUrl: string;
   imageUrl: string | null;
   textForAi: string | null;
+  youtubeDescription?: string | null;
 }
 export interface ExtractedRecipe {
   title: string | null;
@@ -20,6 +21,7 @@ export interface SourceContentExtractor {
 }
 export interface RecipeExtractionResult {
   recipe: ExtractedRecipe;
+  provider: "zai" | "gemini";
   providerRequestId: string | null;
   inputTokens: number;
   outputTokens: number;
@@ -71,6 +73,7 @@ export class AnalysisError extends Error {
     public readonly code: string,
     public readonly retryable: boolean,
     message: string,
+    public readonly provider?: "zai" | "gemini",
   ) {
     super(message);
     this.name = "AnalysisError";

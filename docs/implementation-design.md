@@ -353,6 +353,7 @@ Recipe
 - cookingTimeMinutes: integer NULL
 - genre: enum NULL
 - analysisStatus: enum NOT NULL DEFAULT pending
+- analysisProvider: enum(zai, gemini) NULL
 - createdAt: datetime NOT NULL
 - updatedAt: datetime NOT NULL
 ```
@@ -1089,7 +1090,28 @@ YouTubeではページHTML、`ytInitialPlayerResponse`、oEmbedを説明文取�
 
 認証回避、非公開コンテンツ取得、動画・画像本体の無断downloadは行わない。TikTok動画フォールバックは書面許可を確認した環境だけで有効化する。dev環境は書面許可を確認済みのため有効とする。
 
-### 14.1 TikTok動画フォールバック
+### 14.1 YouTube説明欄優先・動画フォールバック
+
+YouTube Data APIで取得した説明欄は、外部AIを使わない純粋関数で十分性を判定する。「十分」は、対象料理の範囲に分量表現を伴う材料行が2件以上あり、かつ調理動作を伴う工程行が2件以上ある場合に限定する。装飾記号付き・全角括弧付きの材料見出しと、見出しのない番号付き工程も同じ構造として扱う。対象料理に材料と工程が明記されていれば、「動画を見ながら」等の補助的な案内だけでは不十分にしない。空、概要だけ、材料だけ、工程だけ、リンク・宣伝中心、本文だけでは工程を確認できない「詳しくは動画で」等の動画参照、または区切りを確実に判定できない説明欄は不十分とする。別料理や後続セクションの動画参照・宣伝を対象料理へ適用しない。判定不能は十分側へ倒さない。
+
+```text
+YouTube Data API title / description
+↓
+説明欄の決定論的十分性判定
+├─ 十分 → 説明欄をZ.ai glm-5.3-flashで1回解析
+└─ 不十分・判定不能
+   ├─ YOUTUBE_GEMINI_FALLBACK_ENABLED=false → 解析失敗
+   └─ true → 公開動画URL＋説明欄をGemini 3.5 Flash-Liteへ1回入力
+              ├─ Schema適合、ingredients・steps非空、finishReason=STOP → 保存
+              └─ 通信・Envelope・JSON・Schema・finishReason・非空条件の失敗
+                   → retryable=falseで解析失敗、Cloud Tasks再試行なし
+```
+
+Gemini出力は、説明欄材料一覧由来と手順・動画だけに登場する材料を分け、各材料に名前、分量原文、短い使用根拠、根拠元を持つ中間Schemaとする。決定論的後処理で両配列を統合し、使用根拠があり分量未記載なら`適量`にする。説明欄と動画の矛盾は説明欄を優先し、一般知識から材料・数値を補わない。`4人分`は`servings.value=4`、`8個分`等の個数は`servings.raw`だけを保存し、材料個数は出来上がり量へ転用しない。
+
+説明欄と動画内の命令は信頼しない。API key、Authorization header、説明欄全文、生のGemini responseを通常ログへ出さない。Gemini呼び出しは1レシピにつき1回に固定し、timeout、HTTP 429、HTTP 5xxを含む失敗でも再試行しない。これらは`retryable=false`の解析失敗として記録し、Workerは成功応答を返してCloud Tasksの再配送を終了する。1解析内でGeminiを複数回呼ぶ照合処理や、Z.aiとGeminiを往復する処理も追加しない。
+
+### 14.2 TikTok動画フォールバック
 
 処理順は以下に固定する。
 
@@ -1114,7 +1136,7 @@ GLM-5.3-Flashでテキスト解析
 - 動画、署名URL、yt-dlpの生出力は通常ログへ記録しない
 - テストは自作または利用許可済み動画を使用する
 
-### 14.2 SourceContent
+### 14.3 SourceContent
 
 Worker内部では概念上以下へ変換する。
 
@@ -1124,12 +1146,13 @@ interface SourceContent {
   resolvedUrl: string;
   imageUrl: string | null;
   textForAi: string | null;
+  youtubeDescription?: string | null;
 }
 ```
 
 `textForAi` はAI呼び出し後に破棄し、DBへ保存しない。
 
-### 14.3 画像取得失敗
+### 14.4 画像取得失敗
 
 画像取得失敗だけではAI解析失敗にしない。
 
@@ -1145,13 +1168,17 @@ imageUrl = null
 
 ### 15.1 Provider / Model
 
-MVP標準：
+MVP標準はZ.aiとし、YouTube説明欄が不十分な場合だけGeminiを使用する：
 
 ```text
 Provider: Z.ai
 Model: glm-5.3-flash
 API: Chat Completions
 Response format: JSON object
+
+YouTube fallback Provider: Gemini
+YouTube fallback Model: gemini-3.5-flash-lite
+YouTube fallback API: generateContent with JSON Schema
 ```
 
 ### 15.2 PoC設定を本番初期値とする
@@ -1380,6 +1407,8 @@ pending / processing -> 処理対象
 - JSON parse失敗
 - Schema validation失敗
 - 一時的DB / network障害
+
+ただし、14.1のYouTube Geminiフォールバックは、1レシピにつきGeminiを1回だけ呼ぶ制約を優先する例外とする。Geminiのtimeout、HTTP 429、HTTP 5xx、JSON・Schema不正を含む全失敗は`retryable=false`とし、Cloud Tasksで再試行しない。ここでの`retryable=false`は障害原因が恒久的という意味ではなく、この1回制約に基づいて当該レシピの処理を終了することを表す。
 
 ### 17.7 permanent error
 
@@ -2254,6 +2283,8 @@ CLOUD_TASKS_QUEUE
 WORKER_URL
 ZAI_API_KEY
 YOUTUBE_API_KEY
+GEMINI_API_KEY
+YOUTUBE_GEMINI_FALLBACK_ENABLED=false
 AI_MODEL=glm-5.3-flash
 MAX_ANALYSIS_ATTEMPTS=3
 TIKTOK_VIDEO_FALLBACK_ENABLED=true # dev。新規環境の既定値はfalse
@@ -2264,7 +2295,7 @@ YT_DLP_PATH=/usr/local/bin/yt-dlp
 
 `MAX_ANALYSIS_ATTEMPTS` はCloud Tasks Queueのretry設定とWorkerの最終試行判定で同じ値を使用する。
 
-`ZAI_API_KEY` / `YOUTUBE_API_KEY` / DB接続情報はSecret ManagerからCloud Runへ渡す。
+`ZAI_API_KEY` / `YOUTUBE_API_KEY` / `GEMINI_API_KEY` / DB接続情報はSecret ManagerからCloud Runへ渡す。`YOUTUBE_GEMINI_FALLBACK_ENABLED`は既定で`false`とし、`true`でも実際にGeminiが必要になるまでAPI keyは使用しない。fallbackが必要な時点でkeyが未設定なら、識別可能な設定エラーとして解析を失敗させる。
 
 `TIKTOK_VIDEO_FALLBACK_ENABLED`は書面許可を確認した環境だけで`true`とする。dev環境は許可確認済みのため有効化する。`TIKTOK_VIDEO_BUCKET`は公開アクセス禁止の一時保存専用bucket名であり、動画本体や署名URLをDBへ保存しない。
 

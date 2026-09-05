@@ -23,6 +23,11 @@ enum AnalysisStatus {
   failed
 }
 
+enum AiProvider {
+  zai
+  gemini
+}
+
 enum Genre {
   mainDish   @map("主菜")
   sideDish   @map("副菜")
@@ -67,6 +72,7 @@ model Recipe {
   cookingTimeMinutes       Int?
   genre                    Genre?
   analysisStatus           AnalysisStatus @default(pending)
+  analysisProvider         AiProvider?
   processingRunId          String?        @db.Uuid
   processingLeaseExpiresAt DateTime?      @db.Timestamptz(3)
   createdAt                DateTime       @default(now()) @db.Timestamptz(3)

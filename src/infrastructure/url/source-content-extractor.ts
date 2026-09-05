@@ -95,6 +95,7 @@ export class ProductionSourceContentExtractor implements SourceContentExtractor 
   constructor(
     private readonly http: SafeHttpClient,
     private readonly youtubeApiKey: string,
+    private readonly fetchImpl: typeof fetch = fetch,
   ) {}
   async extract(url: URL): Promise<SourceContent> {
     const sourceType = sourceTypeForUrl(url);
@@ -165,7 +166,9 @@ export class ProductionSourceContentExtractor implements SourceContentExtractor 
     }).toString();
     let response: Response;
     try {
-      response = await fetch(endpoint, { signal: AbortSignal.timeout(30_000) });
+      response = await this.fetchImpl(endpoint, {
+        signal: AbortSignal.timeout(30_000),
+      });
     } catch {
       throw new AnalysisError(
         "SOURCE_FETCH_TIMEOUT",
@@ -207,14 +210,6 @@ export class ProductionSourceContentExtractor implements SourceContentExtractor 
     ]
       .join("\n\n")
       .slice(0, MAX_AI_CHARS);
-    if (
-      !/(材料|作り方|手順|recipe|ingredients?|instructions?|調理)/i.test(text)
-    )
-      throw new AnalysisError(
-        "SOURCE_CONTENT_UNAVAILABLE",
-        false,
-        "YouTube description has no recipe content",
-      );
     const thumbnails = snippet.thumbnails ?? {};
     const imageUrl =
       ["maxres", "standard", "high", "medium", "default"]
@@ -225,6 +220,7 @@ export class ProductionSourceContentExtractor implements SourceContentExtractor 
       resolvedUrl: `https://www.youtube.com/watch?v=${videoId}`,
       imageUrl,
       textForAi: text,
+      youtubeDescription: snippet.description ?? "",
     };
   }
 }
