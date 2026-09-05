@@ -63,6 +63,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
       Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist") != nil
     {
       FirebaseApp.configure()
+      do {
+        try SharedAuthentication.configure()
+      } catch {
+        assertionFailure("Unable to configure shared Firebase Auth: \(error.localizedDescription)")
+      }
     }
     do {
       let container = try ModelContainerFactory.make(inMemory: mockMode)

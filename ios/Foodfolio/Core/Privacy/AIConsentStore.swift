@@ -7,14 +7,18 @@ struct AIConsentRecord: Equatable {
 
 @MainActor @Observable
 final class AIConsentStore {
+  static let appGroupIdentifier = "group.com.keyukt.foodfolio"
   private let defaults: UserDefaults
   private let key = "aiProcessingConsent"
   private(set) var consentedAt: Date?
   private(set) var needsServerSync: Bool
 
-  init(defaults: UserDefaults = .standard) {
-    self.defaults = defaults
-    let saved = defaults.dictionary(forKey: key)
+  init(defaults: UserDefaults? = nil) {
+    self.defaults =
+      defaults
+      ?? UserDefaults(suiteName: Self.appGroupIdentifier)
+      ?? .standard
+    let saved = self.defaults.dictionary(forKey: key)
     let savedConsentedAt = saved?["consentedAt"] as? Date
     let wasServerSynchronized = saved?["serverSynchronized"] as? Bool ?? false
 
@@ -22,7 +26,7 @@ final class AIConsentStore {
       consentedAt = savedConsentedAt
     } else {
       consentedAt = nil
-      if saved != nil { defaults.removeObject(forKey: key) }
+      if saved != nil { self.defaults.removeObject(forKey: key) }
     }
     needsServerSync = false
   }

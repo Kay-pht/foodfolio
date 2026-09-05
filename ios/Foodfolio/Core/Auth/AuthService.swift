@@ -11,6 +11,25 @@ struct AuthenticatedUser: Equatable, Sendable {
   let providers: [String]
 }
 
+enum SharedAuthentication {
+  static let accessGroup = "group.com.keyukt.foodfolio"
+
+  @MainActor
+  static func configure() throws {
+    let auth = Auth.auth()
+    let existingUser = auth.currentUser
+    let storedSharedUser = try auth.getStoredUser(forAccessGroup: accessGroup)
+    try auth.useUserAccessGroup(accessGroup)
+
+    guard storedSharedUser == nil, let existingUser else { return }
+    auth.updateCurrentUser(existingUser) { error in
+      if let error {
+        assertionFailure("Unable to migrate Firebase Auth to shared storage: \(error.localizedDescription)")
+      }
+    }
+  }
+}
+
 @MainActor protocol AuthService: AnyObject {
   var currentUser: AuthenticatedUser? { get }
   func signIn(email: String, password: String) async throws
