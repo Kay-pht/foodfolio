@@ -6,8 +6,155 @@ import {
   verifyFreeBilling,
   youtubeRequest,
 } from "../../poc/ai-extraction/gemini-youtube.js";
+import {
+  callYoutubeEvidence,
+  inspectYoutubeEvidenceResponse,
+  mapEvidenceRecipe,
+  youtubeEvidenceRequest,
+  type YoutubeEvidenceRecipe,
+} from "../../poc/ai-extraction/gemini-youtube-evidence.js";
 
 describe("Gemini YouTube free-only PoC", () => {
+  it("maps evidenced unknown quantities to 適量 and preserves source wording", () => {
+    const evidence: YoutubeEvidenceRecipe = {
+      title: "伊達巻",
+      servings: {
+        raw: "8個分",
+        kind: "count",
+        value: 8,
+        evidenceText: "8個分",
+        evidenceSource: "description_materials",
+      },
+      cookingTimeMinutes: null,
+      genre: "主菜",
+      ingredients: [
+        {
+          name: "油",
+          amountText: null,
+          evidenceText: "フライパンに油を塗る",
+          evidenceSource: "description_steps",
+        },
+        {
+          name: "ケチャップ",
+          amountText: "好みで",
+          evidenceText: "ケチャップ　好みで",
+          evidenceSource: "description_materials",
+        },
+        {
+          name: "ワイン",
+          amountText: "少々",
+          evidenceText: "ワイン　少々",
+          evidenceSource: "description_materials",
+        },
+      ],
+      procedureOnlyIngredients: [],
+      steps: ["焼く"],
+    };
+    expect(mapEvidenceRecipe(evidence)).toMatchObject({
+      servings: { value: null, raw: "8個分" },
+      ingredients: [
+        { name: "油", amount: "適量" },
+        { name: "ケチャップ", amount: "好みで" },
+        { name: "ワイン", amount: "少々" },
+      ],
+    });
+  });
+
+  it("merges procedure-only ingredients and rejects ingredient counts as servings", () => {
+    const evidence: YoutubeEvidenceRecipe = {
+      title: "伊達巻",
+      servings: {
+        raw: "2個",
+        kind: "count",
+        value: 2,
+        evidenceText: "卵 2個",
+        evidenceSource: "description_materials",
+      },
+      cookingTimeMinutes: null,
+      genre: null,
+      ingredients: [
+        {
+          name: "卵",
+          amountText: "2個",
+          evidenceText: "卵 2個",
+          evidenceSource: "description_materials",
+        },
+      ],
+      procedureOnlyIngredients: [
+        {
+          name: "油",
+          amountText: null,
+          evidenceText: "フライパンに油を塗る",
+          evidenceSource: "description_steps",
+        },
+      ],
+      steps: ["焼く"],
+    };
+    expect(mapEvidenceRecipe(evidence)).toMatchObject({
+      servings: null,
+      ingredients: [
+        { name: "卵", amount: "2個" },
+        { name: "油", amount: "適量" },
+      ],
+    });
+  });
+
+  it("requests evidence per ingredient in the same video and description call", async () => {
+    const body = youtubeEvidenceRequest(
+      "https://www.youtube.com/watch?v=0to72EbNg8A",
+      "油を塗る\nケチャップ 好みで",
+    );
+    expect(body.contents[0]?.parts).toHaveLength(3);
+    expect(body.contents[0]?.parts[1]?.text).toContain(
+      "amountTextがnullでも使用根拠があれば材料を残してください",
+    );
+    expect(body.contents[0]?.parts[1]?.text).toContain("任意材料");
+    expect(
+      body.generationConfig.responseJsonSchema.properties.ingredients.items
+        .required,
+    ).toContain("evidenceText");
+    expect(body.contents[0]?.parts[1]?.text).toContain(
+      "procedureOnlyIngredients",
+    );
+
+    const request = vi.fn<typeof fetch>().mockResolvedValue(Response.json({}));
+    await callYoutubeEvidence(
+      "https://www.youtube.com/watch?v=0to72EbNg8A",
+      "油を塗る",
+      "fake",
+      request,
+    );
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(String(request.mock.calls[0]?.[1]?.body))).toEqual(
+      youtubeEvidenceRequest(
+        "https://www.youtube.com/watch?v=0to72EbNg8A",
+        "油を塗る",
+      ),
+    );
+  });
+
+  it("rejects intermediate output without ingredient evidence", () => {
+    const invalid = {
+      title: "料理",
+      servings: null,
+      cookingTimeMinutes: null,
+      genre: null,
+      ingredients: [{ name: "油", amountText: null }],
+      procedureOnlyIngredients: [],
+      steps: ["焼く"],
+    };
+    expect(
+      inspectYoutubeEvidenceResponse({
+        candidates: [
+          {
+            finishReason: "STOP",
+            content: { parts: [{ text: JSON.stringify(invalid) }] },
+          },
+        ],
+      }),
+    ).toMatchObject({ schemaValid: false, nonemptyEvidence: false });
+  });
+
   it("v2 retains optional ingredients and distinguishes explicit quantities from estimates without altering schema or source", async () => {
     const description = "ケチャップ 好みで\n油を塗る\n6個分";
     const old = youtubeRequest(

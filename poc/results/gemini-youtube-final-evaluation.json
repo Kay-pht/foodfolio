@@ -1,0 +1,68 @@
+{
+  "sourceRunId": "2026-09-05T03-14-24.958Z",
+  "verdict": "partial_pass",
+  "transportAndStructure": {
+    "successfulCalls": 9,
+    "totalCalls": 9,
+    "http200": 9,
+    "finishReasonStop": 9,
+    "schemaValid": 9,
+    "nonemptyEvidence": 9
+  },
+  "acceptanceCriteria": [
+    {
+      "criterion": "ケチャップを3回とも保持",
+      "passed": true,
+      "observed": "3/3、amount=好みで"
+    },
+    {
+      "criterion": "油を3回とも保持",
+      "passed": true,
+      "observed": "3/3、根拠は説明欄手順、amount=適量"
+    },
+    {
+      "criterion": "ソースを3回とも保持",
+      "passed": false,
+      "observed": "1/3。手順本文には3/3で赤ワインソースが存在"
+    },
+    {
+      "criterion": "水とワインを3回とも保持",
+      "passed": true,
+      "observed": "各3/3、水=50cc、ワイン=少々"
+    },
+    {
+      "criterion": "明示された好みで・適量・少々を保持",
+      "passed": true,
+      "observed": "ケチャップ=好みで、クリームチーズ=適量、ワイン等=少々を各3/3"
+    },
+    {
+      "criterion": "量がない油をnullではなく適量にする",
+      "passed": true,
+      "observed": "3/3で決定論的マッパーが適量へ変換"
+    },
+    {
+      "criterion": "数値が明示された材料の値を変えない",
+      "passed": true,
+      "observed": "確認対象の卵2個、水50cc、主要な材料一覧の数値は3/3で維持"
+    },
+    {
+      "criterion": "8個を人数として扱わない",
+      "passed": true,
+      "observed": "取得2/3、いずれもraw=8個かつvalue=null。残り1回はservings=null"
+    },
+    {
+      "criterion": "各動画の材料名集合が3回一致",
+      "passed": false,
+      "observed": "豚バラ白菜と伊達巻は一致。ハンバーグは赤ワインソースの欠落により不一致"
+    }
+  ],
+  "usage": {
+    "inputTokens": 468543,
+    "outputTokens": 7498,
+    "elapsedMs": {
+      "minimum": 4364,
+      "maximum": 8331,
+      "average": 5889.22
+    }
+  }
+}
