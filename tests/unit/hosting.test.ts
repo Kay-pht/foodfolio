@@ -39,6 +39,8 @@ describe("public information hosting", () => {
     );
     expect(privacy.text()).toContain("Neon");
     expect(privacy.text()).toContain("Z.ai");
+    expect(privacy.text().replace(/\s+/g, " ")).toContain("Google Gemini");
+    expect(privacy.text()).toContain("公開YouTube動画とそのURL、説明欄");
     expect(support('a[href="mailto:kei.patheng@gmail.com"]').length).toBe(1);
   });
 
