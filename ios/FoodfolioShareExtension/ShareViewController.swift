@@ -7,6 +7,8 @@ import UniformTypeIdentifiers
 final class ShareViewController: SLComposeServiceViewController {
   private enum State {
     case loading
+    case ready(URL)
+    case submitting
     case success
     case failure(String)
   }
@@ -14,38 +16,68 @@ final class ShareViewController: SLComposeServiceViewController {
   private var state: State = .loading {
     didSet { updateUI() }
   }
-  private var didStart = false
+  private var sharedURL: URL?
 
   override func viewDidLoad() {
     super.viewDidLoad()
     title = "Foodfolio"
-    placeholder = "レシピを追加中…"
+    placeholder = "共有するレシピURLを確認してください"
     textView.isEditable = false
-    textView.text = "レシピを追加中…"
-    navigationItem.leftBarButtonItem = nil
-    navigationItem.rightBarButtonItem = nil
-  }
+    configureNavigationItems()
+    updateUI()
 
-  override func viewDidAppear(_ animated: Bool) {
-    super.viewDidAppear(animated)
-    guard !didStart else { return }
-    didStart = true
     Task { @MainActor in
-      await saveSharedRecipe()
+      await loadSharedURL()
     }
   }
 
-  override func isContentValid() -> Bool { true }
+  override func isContentValid() -> Bool {
+    if case .ready = state {
+      return true
+    }
+    return false
+  }
 
-  override func didSelectPost() {}
+  override func didSelectPost() {
+    createRecipe()
+  }
 
-  private func saveSharedRecipe() async {
+  private func loadSharedURL() async {
     do {
       guard
         let url = try await SharedURLExtractor.firstURL(from: extensionContext?.inputItems ?? [])
       else {
         throw ShareExtensionError.urlNotFound
       }
+      sharedURL = url
+      state = .ready(url)
+    } catch {
+      let fallback = "URLを取得できませんでした。"
+      state = .failure((error as? LocalizedError)?.errorDescription ?? fallback)
+    }
+  }
+
+  @objc private func createRecipe() {
+    guard let url = sharedURL else { return }
+    guard !isSubmittingOrFinished else { return }
+
+    Task { @MainActor in
+      await saveSharedRecipe(url: url)
+    }
+  }
+
+  private var isSubmittingOrFinished: Bool {
+    switch state {
+    case .submitting, .success:
+      true
+    case .loading, .ready, .failure:
+      false
+    }
+  }
+
+  private func saveSharedRecipe(url: URL) async {
+    state = .submitting
+    do {
       guard SharedAIConsent.isGranted else {
         throw ShareExtensionError.aiConsentRequired
       }
@@ -56,8 +88,6 @@ final class ShareViewController: SLComposeServiceViewController {
       let token = try await user.getIDToken()
       try await SharedRecipeAPI.add(url: url, token: token)
       state = .success
-      try? await Task.sleep(for: .milliseconds(700))
-      extensionContext?.completeRequest(returningItems: nil)
     } catch {
       let fallback = "レシピの追加に失敗しました。"
       state = .failure((error as? LocalizedError)?.errorDescription ?? fallback)
@@ -76,19 +106,60 @@ final class ShareViewController: SLComposeServiceViewController {
     try Auth.auth().useUserAccessGroup("group.com.keyukt.foodfolio")
   }
 
+  private func configureNavigationItems() {
+    navigationItem.leftBarButtonItem = UIBarButtonItem(
+      title: "キャンセル",
+      style: .plain,
+      target: self,
+      action: #selector(closeExtension))
+    navigationItem.rightBarButtonItem = UIBarButtonItem(
+      title: "作成",
+      style: .done,
+      target: self,
+      action: #selector(createRecipe))
+  }
+
   private func updateUI() {
     switch state {
     case .loading:
-      textView.text = "レシピを追加中…"
+      textView.text = "共有するURLを確認しています…"
+      navigationItem.leftBarButtonItem?.isEnabled = true
+      setCreateButton(title: "作成", isEnabled: false)
+    case .ready(let url):
+      textView.text = url.absoluteString
+      navigationItem.leftBarButtonItem?.isEnabled = true
+      setCreateButton(title: "作成", isEnabled: true)
+    case .submitting:
+      textView.text = "レシピを作成しています…"
+      navigationItem.leftBarButtonItem?.isEnabled = false
+      setCreateButton(title: "作成中…", isEnabled: false)
     case .success:
-      textView.text = "追加しました"
-    case .failure(let message):
-      textView.text = message
-      navigationItem.leftBarButtonItem = UIBarButtonItem(
-        barButtonSystemItem: .close,
+      textView.text = "Foodfolioにレシピを追加しました。"
+      navigationItem.leftBarButtonItem = nil
+      navigationItem.rightBarButtonItem = UIBarButtonItem(
+        title: "閉じる",
+        style: .done,
         target: self,
         action: #selector(closeExtension))
+    case .failure(let message):
+      textView.text = message
+      navigationItem.leftBarButtonItem?.isEnabled = true
+      if sharedURL == nil {
+        navigationItem.rightBarButtonItem = nil
+      } else {
+        setCreateButton(title: "再試行", isEnabled: true)
+      }
     }
+  }
+
+  private func setCreateButton(title: String, isEnabled: Bool) {
+    let button = UIBarButtonItem(
+      title: title,
+      style: .done,
+      target: self,
+      action: #selector(createRecipe))
+    button.isEnabled = isEnabled
+    navigationItem.rightBarButtonItem = button
   }
 
   @objc private func closeExtension() {
