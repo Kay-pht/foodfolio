@@ -48,7 +48,7 @@
     - [x] XcodeでGeneric iOS Device向けArchiveを作成し、Validate Appで署名、entitlement、アイコン、Privacy Manifestのエラーがないことを確認する
     - [x] ArchiveをApp Store Connectへuploadし、build processing完了後にエラー・警告・Missing Complianceが残っていないことを確認する
     - [ ] App Store Connectで内部テスターグループを作成し、内部テスターの実機でインストール、起動、現在利用するバックエンドへの接続、主要フローをスモークテストする
-      - 2026-09-04: `Foodfolio Internal` 作成、build 2割り当て、既存管理者1名の招待を確認。buildは `IN_BETA_TESTING`、テスターは `INVITED`。インストールと実機検証は未確認
+      - 2026-09-05: 既存の `Foodfolio Internal` にbuild 5を割り当て、`IN_BETA_TESTING` をAPIで再確認。既存管理者1名によるbuild 5のインストールと実機検証は未確認
   - [ ] 外部TestFlight審査へ提出できる状態にする
     - [ ] 外部テスターグループを作成し、対象buildと「テストしてほしいこと」を設定する
     - [ ] TestFlight Test InformationとBeta App Review Informationの必須項目をすべて入力する

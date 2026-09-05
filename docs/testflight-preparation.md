@@ -1,6 +1,6 @@
 # TestFlight準備の確認記録
 
-確認日: 2026-09-04。自動テスト、署名済みArchive、Apple側の処理状態、実機確認は別の証跡として扱う。
+確認日: 2026-09-05。自動テスト、署名済みArchive、Apple側の処理状態、実機確認は別の証跡として扱う。
 
 ## 公開ページ
 
@@ -48,24 +48,25 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 
 ## 配布と検証
 
-- version `1.0`、build `3`、iPhone、iOS `26.0` 以上。接続先は既存のFoodfolio dev API。
-- Distribution署名、`aps-environment=production`、Sign in with Apple、`get-task-allow=false`、`ITSAppUsesNonExemptEncryption=false` をArchiveで確認。
-- `npm run verify`: unit 74、integration 21、E2E 14、およびPrisma、lint、format、build成功。
-- `npm run verify:ios`: build 3の実装で81件成功、失敗0、skip0。変更部分のunit・integration・UI E2Eを含み、SwiftLint・SwiftFormat check・Debug buildも成功。
+- version `1.0`、build `5`、iPhone、iOS `26.0` 以上。接続先は既存のFoodfolio dev API。
+- Distribution署名、本体の `aps-environment=production` とSign in with Apple、本体・Share Extension共通のApp Group `group.com.keyukt.foodfolio`、`get-task-allow=false`、`ITSAppUsesNonExemptEncryption=false` をArchiveで確認。
+- `npm run verify`: unit 137、integration 25、E2E 27、およびPrisma、lint、format、build成功。
+- `npm run verify:ios`: build 5の実装で88件成功、失敗0、skip0。変更部分のunit・integration・UI E2Eを含み、SwiftLint・SwiftFormat check・Debug buildも成功。
 - iOS自動テストはscheme既定のDebug。Releaseの署名付きArchive・export・Apple validationは別に成功。Release実機の認証・Push・主要フローは未確認。
 - build 2 (`bc3cca8b-6824-4ffc-bac0-708c6862325c`): Archive / export / `altool --validate-app` / upload成功。Apple processingは `VALID`、内部は `IN_BETA_TESTING`、外部は `READY_FOR_BETA_SUBMISSION`。
 - build 3 (`cb9cbeec-da15-4e08-b2a1-79b1a86ef79e`): AI送信同意を追加し、Archive / export / `altool --validate-app` / upload成功。Apple processingは `VALID`、内部は `IN_BETA_TESTING`、外部は `READY_FOR_BETA_SUBMISSION`。既存の内部グループに追加し、build 2の配布とテスターの所属を維持した。What to Testはbuild 3用の日本語文面を保存・再取得確認済み。build 3の実機インストール・動作確認は未確認。
-- 内部グループ `Foodfolio Internal` を作成し、既存App Store Connect管理者1名を登録。全build自動配布、Mac、Vision、公開リンクは使用しない。
+- build 5 (`aaf7a5b6-645c-4cc1-aa39-c9c5f9cffef5`): Share ExtensionとApp Group対応を含む。新しい本体・Share Extension用Provisioning ProfileでArchiveし、export / Apple validation / upload成功。Apple processingは `VALID`、内部は `IN_BETA_TESTING`、外部は `READY_FOR_BETA_SUBMISSION`。既存の内部グループに追加済みで、What to Testの日本語文面も保存・再取得確認済み。build 5の実機インストール・動作確認は未確認。
+- 内部グループ `Foodfolio Internal` に既存App Store Connect管理者1名を登録。build 2〜5の4件を割り当て、Mac、Vision、公開リンクは使用しない。
 - 同グループにbuild 2を割り当て、What to Testを日本語で保存済み。招待無効エラーの申告後に招待を再送し、APIの `INSTALLED` とユーザーのインストール成功報告を確認。起動・認証・Push等の実機確認は別途必要。
 - App Store Connect APIキーでグループ・内部テスターの作成は成功。Beta App DescriptionとSupport URLの保存は403（キーの権限不足）。キーは変更しない。
 - ChromeのTest Information、Support URL、Privacy Policy URLは入力済み・未保存。URLのSaveと審査提出は別操作。
 
 ## 外部審査前に残る確認
 
-1. 内部TestFlightでbuild 3へ更新し、Apple/Google/メール認証、URL保存・解析・同期・検索、Push成功/失敗、通知OFF、ログアウト、Apple token失効を含むアカウント削除を実機確認する。
+1. 内部TestFlightでbuild 5へ更新し、共有シートからのURL保存、Apple/Google/メール認証、アプリ内でのURL保存・解析・同期・検索、Push成功/失敗、通知OFF、ログアウト、Apple token失効を含むアカウント削除を実機確認する。
 2. 作成済みの審査専用ログインアカウントをTest Informationへ設定する。メール・パスワードによるサインイン、現在のAPIの設定取得・レシピ一覧取得はHTTP 200、レシピ0件を確認。既存アカウントと分離し、認証情報はMacの所有者限定ファイルに保存している。リポジトリや会話にはパスワードを記載しない。
 3. 入力済みのURL・テスト情報をユーザーが保存する。App Privacyの回答・公開はまだ行っていない。
-4. build 3で追加した同意導線を実機確認する。[Apple 5.1.2(i)](https://developer.apple.com/app-store/review/guidelines/#data-use-and-sharing) は第三者AIを含む個人データ共有前の説明と許可を要求する。元ページ中の個人情報を自動除去する仕組みではなく、同意画面の追加だけで審査承認・コンテンツ利用許諾が保証されるとは扱わない。
+4. build 5の認証前同意、認証後のサーバー同期、設定からの同意撤回と再同意を実機確認する。[Apple 5.1.2(i)](https://developer.apple.com/app-store/review/guidelines/#data-use-and-sharing) は第三者AIを含む個人データ共有前の説明と許可を要求する。元ページ中の個人情報を自動除去する仕組みではなく、同意画面の追加だけで審査承認・コンテンツ利用許諾が保証されるとは扱わない。
 5. 外部動画のダウンロード・解析について、提供元の利用許諾と公開対象の範囲を確認する。許可済みURLでの技術検証だけでは一般利用の許諾は証明できない（[Apple 5.2](https://developer.apple.com/app-store/review/guidelines/#intellectual-property)）。
 6. 外部グループ・What to Test・必須情報を揃えた後、審査提出はユーザーが行う。今回は外部審査・一般公開リリースを行わない。
 
@@ -78,28 +79,28 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 - 実装ファイル: `AIConsentStore.swift`、`AIConsentView.swift`、`AddRecipeView.swift`、`SettingsView.swift`、`AppSession.swift`。同意の初期状態・保存・ユーザー切替・文面バージョン・撤回、保存処理との結合、拒否と撤回のUI E2Eを追加。
 - 実装コミットは `91eb225`。バックエンドのunit 74・integration 21・E2E 14と全体検証、iOSの81件のテストと検証を成功確認した。GitHubへのpush・CI検証・外部審査提出は行っていない。実機・外部情報の確認が残るため、TestFlight準備の親チェックは未完了のままにする。
 
-## 同意画面の簡素化（未配布）
+## 同意画面の簡素化（履歴）
 
 - ユーザーの指定により、同意画面の本文を「外部AIサービス」へ統一し、元コンテンツに含まれる個人情報の送信についての独立した説明と、同意の取り消し・保存済みレシピ閲覧についての説明を削除した。送信対象の説明、コンテンツ利用上の注意、送信先・情報の取り扱いへのリンク、同意・拒否ボタンは残した。
 - 設定画面のAI解析セクション（同意状態・取り消しボタン・補足文）を削除した。同意の保存、同意前の送信防止、アカウント切り替え時の分離、ログアウト・アカウント削除時の同意消去は変更していない。送信先や用途を変更するものではないため、既存の同意バージョンは変更していない。
 - [Apple 5.1.1(ii)](https://developer.apple.com/app-store/review/guidelines/#data-collection-and-storage) は容易にアクセスできる同意撤回手段を求めている。専用の撤回操作を削除する審査上の懸念をユーザーへ説明したうえで、削除の指定を受けている。ログアウト等による消去だけで要件を満たすとは判定せず、外部審査前の未解決事項として残す。
-- この変更はローカル実装のみ。配布済みbuild 3、App Store Connectの文面、公開プライバシーポリシーには反映していない。下記の文面はbuild 3時点の控えであり、新しいビルドを配布する際は同意・撤回に関する記述を更新する。
+- この簡素化は当時のローカル実装の記録。その後、認証前の同意画面、サーバー側の同意記録、設定画面からの撤回を追加し、build 5へ反映した。現在の仕様はコードとbuild 5の記録を優先する。
 - 変更部分のUI E2E 2件を成功確認後、`npm run verify`（unit 74・integration 21・E2E 14、Prisma、lint、format check、build）と `npm run verify:ios`（81件、失敗0・skip0、Swift lint/format check、Debug build）を再実行して成功。初回の画面テスト失敗は、設定から戻ると開いたままになるメニューをテストが誤って閉じていたためで、テストの画面操作を修正した。実機確認・Release再配布・CIの成功を示すものではなく、リリース準備のチェックは更新していない。
 
-## 入力文面の控え（build 3時点・認証情報を除く）
+## 入力文面の控え（認証情報を除く）
 
 ### Beta App Description
 
 Foodfolioは、公開されているレシピのURLを保存し、材料や作り方を整理して、自分のレシピ帳として検索・編集できるアプリです。Webページや対応する動画の内容をAIで解析し、完了時にPush通知でお知らせします。解析結果は必ず元のレシピと照らし合わせて確認してください。初期テスト版のため、データや機能が変更される場合があります。
 
-### What to Test
+### What to Test（build 5、保存・再取得確認済み）
 
-iOS 26以降のiPhoneでご確認ください。build 3では、初回のレシピ保存前にZ.aiへの送信内容を説明する同意画面を追加しました。拒否した場合に保存されないこと、同意後の保存、設定での同意撤回後に再び確認されることをご確認ください。あわせて、ログイン、AI解析後の材料・手順の表示、検索・編集・同期、解析結果のPush通知、プライバシー／サポートリンクをご確認ください。不具合は再現手順と画面を添えてTestFlightのフィードバックからお知らせください。パスワード等の秘密情報は送らないでください。
+build 5では、iOSの共有シートからレシピURLをFoodfolioへ保存できるようになりました。認証前のAI解析同意とサーバー同期、タグ編集、YouTube説明不足時の動画解析も改善しています。共有シートからの保存、ログイン、URL保存とAI解析、タグの追加・編集、検索・同期、Push通知をご確認ください。不具合は再現手順と画面を添えてTestFlightのフィードバックからお知らせください。
 
 ### Review Notes
 
-Foodfolio is a Japanese recipe organizer for iPhone running iOS 26 or later. Sign-in is required. On the first screen, select the email sign-in option and log in with the review account entered above. Apple and Google sign-in are also supported.
+Foodfolio is a Japanese recipe organizer for iPhone running iOS 26 or later. Before sign-in, the app explains that recipe URLs and information needed for analysis are sent to external AI services and requests consent. After consenting, select the email sign-in option and log in with the review account entered above. Apple and Google sign-in are also supported.
 
-Save a public recipe URL using the add button. Before the first save, the app explains the source content sent to Z.ai and requests explicit consent. Declining does not submit the recipe. Consent can be withdrawn in Settings, and is requested again before a subsequent save. The app analyzes the source content using the external AI service, then displays the ingredients and instructions. Please verify AI-generated results against the original source. Enable notifications to receive analysis-completion alerts. Recipes can be searched and edited. Account deletion is available in the Account screen.
+Save a public recipe URL using the add button or share a URL to Foodfolio from the iOS share sheet. Declining AI consent prevents use of the app. Consent can be withdrawn in Settings and is requested again before the app can be used. The app analyzes the source content using external AI services, then displays the ingredients and instructions. Please verify AI-generated results against the original source. Enable notifications to receive analysis-completion alerts. Recipes can be searched and edited. Account deletion is available in the Account screen.
 
 This beta uses the current Foodfolio backend environment. No purchase or subscription is required.
