@@ -33,6 +33,7 @@ describe("ProductionSourceContentExtractor YouTube metadata", () => {
       sourceType: "youtube",
       resolvedUrl: "https://www.youtube.com/watch?v=0to72EbNg8A",
       textForAi: "TITLE\n概要だけの料理動画\n\nDESCRIPTION\n",
+      youtubeTitle: "概要だけの料理動画",
       youtubeDescription: "",
     });
     expect(fetchImpl).toHaveBeenCalledOnce();
