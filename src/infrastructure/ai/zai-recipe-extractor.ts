@@ -26,6 +26,7 @@ export class ZaiRecipeExtractor
         "SOURCE_CONTENT_UNAVAILABLE",
         false,
         "Source text is empty",
+        "zai",
       );
     return this.request({
       role: "user",
@@ -88,21 +89,33 @@ export class ZaiRecipeExtractor
         }),
       });
     } catch {
-      throw new AnalysisError("AI_TIMEOUT", true, "AI request timed out");
+      throw new AnalysisError(
+        "AI_TIMEOUT",
+        true,
+        "AI request timed out",
+        "zai",
+      );
     }
     if (response.status === 429)
-      throw new AnalysisError("AI_RATE_LIMITED", true, "AI rate limited");
+      throw new AnalysisError(
+        "AI_RATE_LIMITED",
+        true,
+        "AI rate limited",
+        "zai",
+      );
     if (response.status >= 500)
       throw new AnalysisError(
         "AI_PROVIDER_ERROR",
         true,
         "AI provider unavailable",
+        "zai",
       );
     if (!response.ok)
       throw new AnalysisError(
         "AI_PROVIDER_ERROR",
         false,
         "AI provider rejected request",
+        "zai",
       );
     const value = (await response.json()) as Record<string, unknown>;
     const choices = Array.isArray(value.choices) ? value.choices : [];
@@ -113,6 +126,7 @@ export class ZaiRecipeExtractor
         "AI_INVALID_JSON",
         true,
         "AI response content is missing",
+        "zai",
       );
     let recipe: unknown;
     try {
@@ -122,6 +136,7 @@ export class ZaiRecipeExtractor
         "AI_INVALID_JSON",
         true,
         "AI response is not JSON",
+        "zai",
       );
     }
     if (!validate(recipe))
@@ -129,6 +144,7 @@ export class ZaiRecipeExtractor
         "AI_SCHEMA_INVALID",
         true,
         "AI response did not match schema",
+        "zai",
       );
     const usage = value.usage as Record<string, unknown> | undefined;
     return {

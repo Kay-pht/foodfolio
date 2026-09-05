@@ -148,6 +148,22 @@ describe("GeminiYoutubeRecipeExtractor", () => {
     ).toBeNull();
   });
 
+  it("keeps a people range raw without inventing one value", () => {
+    expect(
+      mapYoutubeGeminiEvidence(
+        evidence({
+          servings: {
+            raw: "1〜2人分",
+            kind: "range",
+            value: null,
+            evidenceText: "1〜2人分",
+            evidenceSource: "description_materials",
+          },
+        }),
+      ).servings,
+    ).toEqual({ value: null, raw: "1〜2人分" });
+  });
+
   it.each([400, 404, 429, 503])(
     "fails without retry on HTTP %s",
     async (status) => {

@@ -165,6 +165,11 @@ export function mapYoutubeGeminiEvidence(
   const peopleMatch = rawServings?.match(
     /^(\d+(?:\.\d+)?)\s*(?:人前|人分|名分)$/u,
   );
+  const peopleRange =
+    rawServings !== null &&
+    /^\d+(?:\.\d+)?\s*(?:〜|～|-|~)\s*\d+(?:\.\d+)?\s*(?:人前|人分|名分)$/u.test(
+      rawServings,
+    );
   const countServing =
     rawServings !== null &&
     /(?:個分|枚分|本分|個でき|枚でき|本でき|個完成|枚完成|本完成)/u.test(
@@ -172,9 +177,11 @@ export function mapYoutubeGeminiEvidence(
     );
   const servings = peopleMatch
     ? { value: Number(peopleMatch[1]), raw: rawServings }
-    : countServing
+    : peopleRange
       ? { value: null, raw: rawServings }
-      : null;
+      : countServing
+        ? { value: null, raw: rawServings }
+        : null;
 
   return {
     title: evidence.title?.trim() || null,
@@ -228,6 +235,7 @@ export class GeminiYoutubeRecipeExtractor implements RecipeExtractor {
         "YOUTUBE_GEMINI_TIMEOUT",
         false,
         "Gemini YouTube request timed out",
+        "gemini",
       );
     }
     if (!response.ok)
@@ -235,6 +243,7 @@ export class GeminiYoutubeRecipeExtractor implements RecipeExtractor {
         `YOUTUBE_GEMINI_HTTP_${response.status}`,
         false,
         "Gemini YouTube request failed",
+        "gemini",
       );
 
     let raw: unknown;
@@ -245,6 +254,7 @@ export class GeminiYoutubeRecipeExtractor implements RecipeExtractor {
         "YOUTUBE_GEMINI_INVALID_JSON",
         false,
         "Gemini response was not JSON",
+        "gemini",
       );
     }
     const envelope = raw as {
@@ -263,6 +273,7 @@ export class GeminiYoutubeRecipeExtractor implements RecipeExtractor {
         "YOUTUBE_GEMINI_SAFETY_BLOCKED",
         false,
         "Gemini blocked the YouTube input",
+        "gemini",
       );
     const candidate = envelope.candidates?.[0];
     if (!candidate?.content?.parts)
@@ -270,6 +281,7 @@ export class GeminiYoutubeRecipeExtractor implements RecipeExtractor {
         "YOUTUBE_GEMINI_ENVELOPE_INVALID",
         false,
         "Gemini response envelope was invalid",
+        "gemini",
       );
     if (candidate.finishReason !== "STOP")
       throw new AnalysisError(
@@ -280,6 +292,7 @@ export class GeminiYoutubeRecipeExtractor implements RecipeExtractor {
             : "YOUTUBE_GEMINI_FINISH_REASON_INVALID",
         false,
         "Gemini did not finish normally",
+        "gemini",
       );
     const output = candidate.content.parts
       .filter((part) => !part.thought)
@@ -293,6 +306,7 @@ export class GeminiYoutubeRecipeExtractor implements RecipeExtractor {
         "YOUTUBE_GEMINI_INVALID_JSON",
         false,
         "Gemini output was not JSON",
+        "gemini",
       );
     }
     if (!validateEvidence(evidence))
@@ -300,6 +314,7 @@ export class GeminiYoutubeRecipeExtractor implements RecipeExtractor {
         "YOUTUBE_GEMINI_SCHEMA_INVALID",
         false,
         "Gemini output did not match the evidence schema",
+        "gemini",
       );
     const recipe = mapYoutubeGeminiEvidence(
       evidence as YoutubeGeminiEvidenceRecipe,
@@ -309,6 +324,7 @@ export class GeminiYoutubeRecipeExtractor implements RecipeExtractor {
         "YOUTUBE_GEMINI_RECIPE_INCOMPLETE",
         false,
         "Gemini output did not contain ingredients and steps",
+        "gemini",
       );
     return {
       recipe,

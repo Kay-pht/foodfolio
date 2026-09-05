@@ -28,6 +28,7 @@ export class YoutubeAwareRecipeExtractor implements RecipeExtractor {
           "AI_RECIPE_INCOMPLETE",
           true,
           "YouTube description extraction did not contain ingredients and steps",
+          "zai",
         );
       return result;
     }
