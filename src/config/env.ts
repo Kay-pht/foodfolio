@@ -22,9 +22,11 @@ export interface AppConfig {
   taskInvokerServiceAccount: string;
   zaiApiKey: string;
   youtubeApiKey: string;
+  geminiApiKey: string;
   aiModel: string;
   maxAnalysisAttempts: number;
   tiktokVideoFallbackEnabled: boolean;
+  youtubeGeminiFallbackEnabled: boolean;
   tiktokVideoBucket: string;
   tiktokVideoMaxAttempts: number;
   ytDlpPath: string;
@@ -42,6 +44,10 @@ export function loadConfig(role: AppRole, source = process.env): AppConfig {
   const tiktokVideoFallbackEnabled = parseBoolean(
     "TIKTOK_VIDEO_FALLBACK_ENABLED",
     source.TIKTOK_VIDEO_FALLBACK_ENABLED ?? "false",
+  );
+  const youtubeGeminiFallbackEnabled = parseBoolean(
+    "YOUTUBE_GEMINI_FALLBACK_ENABLED",
+    source.YOUTUBE_GEMINI_FALLBACK_ENABLED ?? "false",
   );
   const tiktokVideoBucket = source.TIKTOK_VIDEO_BUCKET?.trim() ?? "";
   if (tiktokVideoFallbackEnabled && !tiktokVideoBucket)
@@ -67,9 +73,11 @@ export function loadConfig(role: AppRole, source = process.env): AppConfig {
     taskInvokerServiceAccount: source.TASK_INVOKER_SERVICE_ACCOUNT ?? "",
     zaiApiKey: source.ZAI_API_KEY ?? "",
     youtubeApiKey: source.YOUTUBE_API_KEY ?? "",
+    geminiApiKey: source.GEMINI_API_KEY ?? "",
     aiModel: source.AI_MODEL ?? "glm-5.3-flash",
     maxAnalysisAttempts,
     tiktokVideoFallbackEnabled,
+    youtubeGeminiFallbackEnabled,
     tiktokVideoBucket,
     tiktokVideoMaxAttempts,
     ytDlpPath: source.YT_DLP_PATH ?? "/usr/local/bin/yt-dlp",

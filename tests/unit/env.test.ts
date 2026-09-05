@@ -49,3 +49,32 @@ describe("TikTok video fallback environment", () => {
     ).toThrow("TIKTOK_VIDEO_MAX_ATTEMPTS must be an integer from 1 to 5");
   });
 });
+
+describe("YouTube Gemini fallback environment", () => {
+  it("is disabled by default", () => {
+    const config = loadConfig("worker", workerEnvironment);
+
+    expect(config.youtubeGeminiFallbackEnabled).toBe(false);
+    expect(config.geminiApiKey).toBe("");
+  });
+
+  it("loads the enable flag and API key without exposing them elsewhere", () => {
+    const config = loadConfig("worker", {
+      ...workerEnvironment,
+      YOUTUBE_GEMINI_FALLBACK_ENABLED: "true",
+      GEMINI_API_KEY: "test-gemini-key",
+    });
+
+    expect(config.youtubeGeminiFallbackEnabled).toBe(true);
+    expect(config.geminiApiKey).toBe("test-gemini-key");
+  });
+
+  it("rejects an invalid enable flag", () => {
+    expect(() =>
+      loadConfig("worker", {
+        ...workerEnvironment,
+        YOUTUBE_GEMINI_FALLBACK_ENABLED: "yes",
+      }),
+    ).toThrow("YOUTUBE_GEMINI_FALLBACK_ENABLED must be true or false");
+  });
+});
