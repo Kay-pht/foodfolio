@@ -61,6 +61,7 @@ export async function extractYoutubeForPoc(
   } | null;
   return {
     recipe: inspected.recipe as ExtractedRecipe,
+    provider: "gemini",
     providerRequestId: null,
     inputTokens: usage?.promptTokenCount ?? 0,
     outputTokens:
