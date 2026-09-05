@@ -135,17 +135,13 @@ enum SharedURLExtractor {
     for case let item as NSExtensionItem in inputItems {
       for provider in item.attachments ?? [] {
         if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier),
-          let value = try await load(provider, typeIdentifier: UTType.url.identifier)
+          let url = try await loadURL(from: provider)
         {
-          if let url = value as? URL, SharedURLParser.isHTTPURL(url) { return url }
-          if let string = value as? String, let url = SharedURLParser.firstHTTPURL(in: string) {
-            return url
-          }
+          return url
         }
         if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier),
-          let value = try await load(provider, typeIdentifier: UTType.plainText.identifier),
-          let string = value as? String,
-          let url = SharedURLParser.firstHTTPURL(in: string)
+          let text = try await loadText(from: provider),
+          let url = SharedURLParser.firstHTTPURL(in: text)
         {
           return url
         }
@@ -154,15 +150,30 @@ enum SharedURLExtractor {
     return nil
   }
 
-  private static func load(_ provider: NSItemProvider, typeIdentifier: String) async throws
-    -> NSSecureCoding?
-  {
+  private static func loadURL(from provider: NSItemProvider) async throws -> URL? {
     try await withCheckedThrowingContinuation { continuation in
-      provider.loadItem(forTypeIdentifier: typeIdentifier, options: nil) { item, error in
+      provider.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { item, error in
+        if let error {
+          continuation.resume(throwing: error)
+        } else if let url = item as? URL, SharedURLParser.isHTTPURL(url) {
+          continuation.resume(returning: url)
+        } else if let text = item as? String {
+          continuation.resume(returning: SharedURLParser.firstHTTPURL(in: text))
+        } else {
+          continuation.resume(returning: nil)
+        }
+      }
+    }
+  }
+
+  private static func loadText(from provider: NSItemProvider) async throws -> String? {
+    try await withCheckedThrowingContinuation { continuation in
+      provider.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) {
+        item, error in
         if let error {
           continuation.resume(throwing: error)
         } else {
-          continuation.resume(returning: item)
+          continuation.resume(returning: item as? String)
         }
       }
     }
