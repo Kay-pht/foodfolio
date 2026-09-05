@@ -100,6 +100,7 @@ export class RecipeAnalysisService {
             servingsRaw: result.recipe.servings?.raw ?? null,
             cookingTimeMinutes: result.recipe.cookingTimeMinutes,
             genre: genreFromLabel(result.recipe.genre),
+            analysisProvider: result.provider,
             analysisStatus: "completed",
             processingRunId: null,
             processingLeaseExpiresAt: null,
@@ -114,7 +115,7 @@ export class RecipeAnalysisService {
           recipeId,
           analysisStatus: "completed",
           analysisAttempt: attempt,
-          provider: "zai",
+          provider: result.provider,
           providerRequestId: result.providerRequestId,
           latencyMs: result.latencyMs,
           inputTokens: result.inputTokens,
@@ -170,11 +171,14 @@ export class RecipeAnalysisService {
   private async extractRecipe(
     source: SourceContent,
   ): Promise<{ result: RecipeExtractionResult; videoFallbackUsed: boolean }> {
-    if (source.sourceType !== "tiktok")
+    if (source.sourceType !== "tiktok") {
+      const result = await this.deps.recipeExtractor.extract(source);
       return {
-        result: await this.deps.recipeExtractor.extract(source),
-        videoFallbackUsed: false,
+        result,
+        videoFallbackUsed:
+          source.sourceType === "youtube" && result.provider === "gemini",
       };
+    }
 
     const textResult = source.textForAi
       ? await this.deps.recipeExtractor.extract(source)
