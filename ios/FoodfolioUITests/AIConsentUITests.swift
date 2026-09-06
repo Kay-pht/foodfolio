@@ -61,19 +61,33 @@ import XCTest
     XCTAssertTrue(app.buttons["home.add"].waitForExistence(timeout: 5))
   }
 
-  func testAuthenticatedRestoreHonorsServerRevocationInsteadOfRegranting() {
+  func testAuthenticatedRestoreUsesLocalConsentWithoutServerLookup() {
     let app = launch(arguments: ["-ui-testing-server-consent-revoked"])
 
-    XCTAssertTrue(app.staticTexts["aiConsent.title"].waitForExistence(timeout: 5))
-    XCTAssertFalse(app.buttons["home.add"].exists)
+    XCTAssertTrue(app.buttons["home.add"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.staticTexts["aiConsent.title"].waitForExistence(timeout: 2))
     XCTAssertFalse(app.buttons["auth.google"].exists)
   }
 
-  func testConsentSyncFailureClearsCachedRecipesBeforeReturningToLogin() {
-    let app = launch(arguments: ["-ui-testing-ai-consent-sync-failure"])
+  func testTransientConsentSyncFailureKeepsSessionAndCachedRecipesUntilRetrySucceeds() {
+    let app = launch(
+      arguments: [
+        "-ui-testing-logged-out",
+        "-ui-testing-ai-consent-required",
+        "-ui-testing-ai-consent-put-failure-once",
+      ])
 
-    XCTAssertTrue(app.buttons["auth.google"].waitForExistence(timeout: 5))
-    XCTAssertFalse(app.staticTexts["親子丼"].exists)
-    XCTAssertFalse(app.buttons["home.add"].exists)
+    XCTAssertTrue(app.buttons["aiConsent.accept"].waitForExistence(timeout: 5))
+    app.buttons["aiConsent.accept"].tap()
+    XCTAssertTrue(app.buttons["auth.google"].waitForExistence(timeout: 3))
+
+    app.buttons["auth.google"].tap()
+    XCTAssertTrue(app.staticTexts["aiConsent.title"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["aiConsent.error"].waitForExistence(timeout: 3))
+    XCTAssertFalse(app.buttons["auth.google"].exists)
+
+    app.buttons["aiConsent.accept"].tap()
+    XCTAssertTrue(app.buttons["home.add"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["親子丼"].waitForExistence(timeout: 3))
   }
 }
