@@ -30,19 +30,6 @@ const taskQueue: AnalysisTaskQueue = {
 };
 const waitForClockTick = () => new Promise((resolve) => setTimeout(resolve, 5));
 
-const grantAIConsent = async (
-  app: ReturnType<typeof buildApi>,
-  headers: { authorization: string },
-) => {
-  const response = await app.inject({
-    method: "PUT",
-    url: "/v1/ai-consent",
-    headers,
-    payload: { consentedAt: "2026-09-04T09:10:11.000Z" },
-  });
-  expect(response.statusCode).toBe(200);
-};
-
 describe("Backend + PostgreSQL integration", () => {
   let context: PostgresTestContext;
   beforeAll(async () => {
@@ -65,7 +52,6 @@ describe("Backend + PostgreSQL integration", () => {
       status: "ok",
     });
     const headers = { authorization: "Bearer user-a" };
-    await grantAIConsent(app, headers);
     const create = await app.inject({
       method: "POST",
       url: "/v1/recipes",

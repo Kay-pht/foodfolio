@@ -14,6 +14,15 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
     - [ ] TestFlight内部テスト — 対象version/build: 未定
   - 備考: build `1.0 (5)` の作成後にmainへ入ったiOS変更のため、現在配布中のbuild 5には含まれない
 
+- [ ] `REL-20260906-03` AI解析専用の同意機能を廃止する
+  - 内容: Z.ai / Geminiの解析requestへFoodfolio利用者のUser ID、Firebase UID、メール、認証Token、端末Token等を送らない現行境界に合わせ、認証前同意画面、同意store、同意API、Recipe作成gate、Share Extension判定、DBの同意日時、撤回UIを削除する。AI Providerの利用と送信対象はプライバシーポリシーで開示する
+  - PR: 未作成
+  - main反映: 未反映
+  - 必要な反映先:
+    - [ ] TestFlight内部テスト — 対象version/build: 未定
+    - [ ] Cloud Run（現在利用中のdev） — 対象version/revision: 未定
+  - 備考: `aiConsentedAt`をdropするmigrationを先にユーザーが適用してからBackendを反映する。更新したプライバシーポリシーはFirebase Hostingへの反映も必要
+
 ## 追加時の書式
 
 <!--
