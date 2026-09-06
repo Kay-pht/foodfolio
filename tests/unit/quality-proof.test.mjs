@@ -114,6 +114,12 @@ describe("PR Quality proof", () => {
     expect(qualityWorkflow).toContain("Run iOS lint and format check");
     expect(qualityWorkflow).toContain("swift:6.3@sha256:");
     expect(qualityWorkflow).not.toContain("runs-on: macos-");
+    expect(qualityWorkflow).toContain(
+      "types: [opened, synchronize, reopened, ready_for_review]",
+    );
+    expect(qualityWorkflow).toContain(
+      "github.event.pull_request.draft == false",
+    );
     expect(qualityWorkflow).toContain("paths-ignore:");
     expect(qualityWorkflow).toContain('- "*.md"');
     expect(qualityWorkflow).toContain('- "**/*.md"');
