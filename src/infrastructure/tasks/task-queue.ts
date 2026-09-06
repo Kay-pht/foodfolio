@@ -1,3 +1,4 @@
+import { setTimeout as delay } from "node:timers/promises";
 import { CloudTasksClient } from "@google-cloud/tasks";
 
 export interface AnalysisTaskQueue {
@@ -60,10 +61,7 @@ export class LocalHttpAnalysisQueue implements AnalysisTaskQueue {
     dependencies: LocalQueueDependencies = {},
   ) {
     this.fetchImpl = dependencies.fetch ?? fetch;
-    this.sleep =
-      dependencies.sleep ??
-      ((milliseconds) =>
-        new Promise((resolve) => setTimeout(resolve, milliseconds)));
+    this.sleep = dependencies.sleep ?? delay;
     this.onError =
       dependencies.onError ??
       ((error, recipeId) =>
@@ -84,7 +82,11 @@ export class LocalHttpAnalysisQueue implements AnalysisTaskQueue {
     const workerUrl = this.config.workerUrl.replace(/\/$/, "");
     const retryDelayMs = this.config.retryDelayMs ?? 250;
 
-    for (let retryCount = 0; retryCount < this.config.maxAttempts; retryCount += 1) {
+    for (
+      let retryCount = 0;
+      retryCount < this.config.maxAttempts;
+      retryCount += 1
+    ) {
       let response: Response;
       try {
         response = await this.fetchImpl(
