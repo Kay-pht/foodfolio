@@ -56,7 +56,9 @@ describe("LocalHttpAnalysisQueue", () => {
       { fetch: fetchImpl, onError },
     );
 
-    await expect(queue.enqueueRecipeAnalysis("recipe-1")).resolves.toBeUndefined();
+    await expect(
+      queue.enqueueRecipeAnalysis("recipe-1"),
+    ).resolves.toBeUndefined();
     await Promise.resolve();
 
     expect(fetchImpl).toHaveBeenCalledTimes(1);
@@ -73,15 +75,13 @@ describe("LocalHttpAnalysisQueue", () => {
       resolveSecondCall = resolve;
     });
     const requestInits: Array<RequestInit | undefined> = [];
-    const fetchImpl = vi.fn(
-      async (...args: Parameters<typeof fetch>) => {
-        requestInits.push(args[1]);
-        callCount += 1;
-        if (callCount === 1) return new Response(null, { status: 503 });
-        resolveSecondCall?.();
-        return new Response(null, { status: 204 });
-      },
-    );
+    const fetchImpl = vi.fn(async (...args: Parameters<typeof fetch>) => {
+      requestInits.push(args[1]);
+      callCount += 1;
+      if (callCount === 1) return new Response(null, { status: 503 });
+      resolveSecondCall?.();
+      return new Response(null, { status: 204 });
+    });
     const sleep = vi.fn(async () => undefined);
     const queue = new LocalHttpAnalysisQueue(
       {
