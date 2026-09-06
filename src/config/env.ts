@@ -105,9 +105,7 @@ export function loadConfig(role: AppRole, source = process.env): AppConfig {
 
 function parseAnalysisQueueDriver(value: string): AnalysisQueueDriver {
   if (value === "cloud-tasks" || value === "local-http") return value;
-  throw new Error(
-    "ANALYSIS_QUEUE_DRIVER must be cloud-tasks or local-http",
-  );
+  throw new Error("ANALYSIS_QUEUE_DRIVER must be cloud-tasks or local-http");
 }
 
 function parseNotificationDriver(value: string): NotificationDriver {
