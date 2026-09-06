@@ -7,17 +7,13 @@ struct AIConsentRootView: View {
 
   var body: some View {
     Group {
-      if !session.aiConsent.isGranted {
+      if !session.aiConsent.isGranted
+        || (session.user != nil && !session.isAIConsentReadyForAuthenticatedUse)
+      {
         AIConsentView(
           isWorking: isAccepting,
-          error: error,
+          error: error ?? session.globalError,
           onAccept: accept)
-      } else if session.user != nil && !session.isAIConsentReadyForAuthenticatedUse {
-        ZStack {
-          FoodfolioBackground()
-          ProgressView("AI解析の利用設定を確認しています…")
-            .foregroundStyle(FoodfolioTheme.secondaryInk)
-        }
       } else {
         RootView()
       }
@@ -28,6 +24,7 @@ struct AIConsentRootView: View {
     guard !isAccepting else { return }
     isAccepting = true
     error = nil
+    session.globalError = nil
     Task {
       do {
         try await session.acceptAIConsent()
