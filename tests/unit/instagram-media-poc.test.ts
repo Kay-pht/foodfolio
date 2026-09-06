@@ -35,7 +35,7 @@ describe("Instagram media PoC manifest parser", () => {
     ).toBe("image");
   });
 
-  it("prefers a combined video format over a larger video-only DASH format", () => {
+  it("prefers a combined video format over video-only and audio-only formats", () => {
     const parsed = parseYtDlpInstagramJson({
       formats: [
         {
@@ -43,6 +43,10 @@ describe("Instagram media PoC manifest parser", () => {
           width: 1080,
           height: 1920,
           acodec: "none",
+        },
+        {
+          url: "https://cdn.example/audio-only.m4a",
+          vcodec: "none",
         },
         {
           url: "https://cdn.example/combined.mp4",
