@@ -40,7 +40,12 @@ describe("public information hosting", () => {
     expect(privacy.text()).toContain("Neon");
     expect(privacy.text()).toContain("Z.ai");
     expect(privacy.text().replace(/\s+/g, " ")).toContain("Google Gemini");
-    expect(privacy.text()).toContain("公開YouTube動画とそのURL、説明欄");
+    expect(privacy.text()).toContain(
+      "公開YouTube動画とそのURL、タイトル、説明欄",
+    );
+    expect(privacy.text()).toContain(
+      "Foodfolioの利用者ID、Firebase UID、メールアドレス、氏名、認証Token、FCM・APNs端末Token、アプリのインストールIDを含めません",
+    );
     expect(support('a[href="mailto:kei.patheng@gmail.com"]').length).toBe(1);
   });
 
