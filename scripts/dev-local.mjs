@@ -1,8 +1,8 @@
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
+import { fileURLToPath, URL } from "node:url";
 import { parse } from "dotenv";
 
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
