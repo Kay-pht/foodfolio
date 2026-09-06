@@ -2,6 +2,8 @@
   import Foundation
 
   final class UITestURLProtocol: URLProtocol {
+    nonisolated(unsafe) private static var didFailAIConsentPutOnce = false
+
     override class func canInit(with request: URLRequest) -> Bool {
       request.url?.host == "ui-test.foodfolio.invalid"
     }
@@ -63,6 +65,13 @@
           finish(status: 200, json: ["aiConsentedAt": "2026-09-04T09:00:00Z"])
         }
       case ("PUT", "/v1/ai-consent"):
+        if ProcessInfo.processInfo.arguments.contains("-ui-testing-ai-consent-put-failure-once"),
+          !Self.didFailAIConsentPutOnce
+        {
+          Self.didFailAIConsentPutOnce = true
+          finish(status: 503, json: error("SERVICE_UNAVAILABLE"))
+          return
+        }
         finish(
           status: 200,
           json: [
