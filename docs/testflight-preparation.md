@@ -1,39 +1,57 @@
 # TestFlight準備の確認記録
 
-確認日: 2026-09-05。自動テスト、署名済みArchive、Apple側の処理状態、実機確認は別の証跡として扱う。
+最終更新日: 2026-09-06。自動テスト、署名済みArchive、Apple側の処理状態、実機確認は別の証跡として扱う。
 
 ## 公開ページ
 
 - [情報ページ](https://foodfolio-af28aa.web.app/)
 - [プライバシーポリシー](https://foodfolio-af28aa.web.app/privacy)
 - [サポート](https://foodfolio-af28aa.web.app/support)
-- Firebase Hostingの既存サイト `foodfolio-af28aa` に静的HTML/CSSのみを配置。Cloud Runのコンテナ・設定は変更しない。
-- 設定は `firebase.json`、公開ファイルは `hosting/public/`。更新コマンドは `npm run deploy:hosting`。対象プロジェクトとADCのquota projectをコマンドで明示する。
-- iOS設定画面からポリシー・サポートを開くリンクはbuild 2に含まれる。
-- 公開メールはユーザー承認済みの `kei.patheng@gmail.com`。審査用電話番号は公開ページやリポジトリに保存しない。
+- Firebase Hostingの既存サイト `foodfolio-af28aa` に静的HTML/CSSのみを配置する。
+- 設定は `firebase.json`、公開ファイルは `hosting/public/`。更新コマンドは `npm run deploy:hosting`。
+- iOS設定画面からポリシー・サポートを開ける。
+- 公開メールは `kei.patheng@gmail.com`。審査用認証情報はリポジトリへ保存しない。
 
 ## データ棚卸し
 
 | データ | 保存・送信先と目的 | 主な実装根拠 |
 | --- | --- | --- |
-| 認証UID・メール・氏名等 | Firebase Authentication、Apple/Google認証。本人確認。NeonのUserにはFirebase UID等を保存し、メール・氏名列は持たない | `ios/Foodfolio/Core/Auth/AuthService.swift`、`prisma/schema.prisma` |
+| 認証UID・メール・氏名等 | Firebase Authentication、Apple/Google認証。本人確認。NeonのUserにはFirebase UIDを保存し、メール・氏名列は持たない | `ios/Foodfolio/Core/Auth/AuthService.swift`、`prisma/schema.prisma` |
 | URL・レシピ・タグ | API、Cloud Tasks、Neon、端末のSwiftData。解析、保存、同期、表示 | `src/api/routes.ts`、`prisma/schema.prisma` |
 | 元ページの本文・動画・メタデータ | 元サイト、YouTube/TikTok、必要時の一時ストレージ、Z.ai、YouTube説明欄が不十分な場合のGemini。レシピ抽出 | `src/infrastructure/url/source-content-extractor.ts`、`src/infrastructure/ai/zai-recipe-extractor.ts`、`src/infrastructure/ai/gemini-youtube-recipe-extractor.ts` |
 | FCM/APNs token・インストールID | Firebase Messaging/APNs、Foodfolio API・Neon。解析通知。Neon上では利用者に紐付く | `ios/Foodfolio/Core/Notifications/NotificationService.swift`、`prisma/schema.prisma` |
 | 検索履歴 | 端末内のみ。サーバーへ送らない | `ios/Foodfolio/Core/Persistence/SearchHistoryStore.swift` |
-| 画像・元サイト通信 | 画像表示時は端末から画像配信元へ直接通信。サーバーだけが通信する構成ではない | `ios/Foodfolio/Core/Images/RecipeImageStore.swift` |
+| 画像・元サイト通信 | 画像表示時は端末から画像配信元へ直接通信 | `ios/Foodfolio/Core/Images/RecipeImageStore.swift` |
 | リクエスト・診断情報 | Cloud Run/Logging、各SDK提供者。障害調査・不正防止・SDK品質維持 | `src/api/build-api.ts`、Archive内SDKのPrivacy Manifest |
+
+### AI Providerへの送信境界
+
+現行実装では、Z.ai / GeminiのAI解析リクエストへFoodfolio利用者を識別するアカウント情報を含めない。
+
+AI Providerへ送らないもの:
+
+- Foodfolio DBのUser ID
+- Firebase UID
+- メールアドレス・氏名
+- Firebase ID Token
+- FCM / APNs token
+- アプリのインストールID
+
+AI Providerへ送るものは、レシピ抽出に必要な元ページ本文、公開URL、公開動画、タイトル、説明欄、関連メタデータ等である。`RecipeAnalysisService`はRecipe所有者の `userId` をDB所有権・通知処理に使うが、AI Adapterへ渡す `SourceContent` には含めない。
+
+このデータ境界に基づき、現行仕様ではAI利用だけを対象にした専用同意状態、認証前同意gate、同意API、同意撤回を設けない。外部AIの利用と送信対象はプライバシーポリシーで開示する。詳細は `docs/ai-data-handling.md` を参照する。
+
+元ページや公開動画自体に投稿者名等が含まれる可能性はあり、現行実装は元コンテンツ中の個人情報をAI送信前に完全除去するものではない。AI入力のデータ最小化と外部コンテンツの利用許諾は、Foodfolio利用者のアカウント識別情報をAIへ送らないこととは別の論点として扱う。
 
 ### 保存と削除の範囲
 
-- APIのアカウント削除はFirebaseユーザーとNeonの利用者・関連データを削除する。リレーションはcascade。iOSは操作した端末のローカルデータを消去する。別端末のキャッシュや提供者のバックアップまで即時に消えるとは宣言しない。
-- Google Cloud `_Default` の通常ログ保持設定は30日と確認済み。すべての監査ログ・外部サービスに共通する保持期間ではない。
-- TikTok一時動画は処理後に削除する。GCSは作成1日経過を条件にlifecycle削除、soft delete無効。lifecycleは非同期なので「1日以内の完全削除」とは宣言しない（`infra/terraform/main.tf`）。
-- サーバーのZ.ai / Geminiリクエストには認証UID・メールを明示的に渡さない。ただし元ページ・動画中の個人情報が除去される実装ではない。
+- APIのアカウント削除はFirebaseユーザーとNeonの利用者・関連データを削除する。iOSは操作した端末のローカルデータを消去する。
+- Google Cloud `_Default` の通常ログ保持設定は30日。監査ログ、バックアップ、外部サービスの保持期間は各提供者の方針に従う。
+- TikTok一時動画は処理後に削除する。GCSは作成1日経過を条件にlifecycle削除、soft delete無効。lifecycleは非同期なので「1日以内の完全削除」とは宣言しない。
 
-### Archive内のSDK申告
+## Archive内のSDK申告
 
-build 2の実物の `PrivacyInfo.xcprivacy` を確認した。これはXcode Organizerの集約Privacy Reportの生成・確認を代替したと扱わない。
+build 2の実物の `PrivacyInfo.xcprivacy` を確認済み。Xcode Organizerの集約Privacy Reportの生成・確認を代替したとは扱わない。
 
 | 対象 | 収集カテゴリの申告 |
 | --- | --- |
@@ -42,50 +60,28 @@ build 2の実物の `PrivacyInfo.xcprivacy` を確認した。これはXcode Org
 | Firebase Messaging | 端末ID、その他データ、その他診断データ。アプリ独自に保存するFCM tokenは利用者に紐付くため本体にも申告 |
 | GoogleSignIn | 氏名、メール、電話番号、その他データ、おおよその位置、ユーザーID、端末ID、その他利用状況。機能・Analytics目的を含む |
 
-Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analytics目的のデータ収集がゼロであることは同義ではない。GoogleSignInのSDK申告と実際に要求する認証scopeを照合し、App Privacy回答を確定する。電話番号やGPSを入力・取得するアプリ機能はないが、SDKの申告を無視しない。
+Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analytics目的のデータ収集がゼロであることは同義ではない。GoogleSignInのSDK申告と実際に要求する認証scopeを照合し、App Privacy回答を確定する。
 
 公式確認先: [Firebaseの情報開示](https://firebase.google.com/docs/ios/app-store-data-collection)、[Google Sign-Inの情報開示](https://developers.google.com/identity/sign-in/ios/app-privacy)。
 
-## 配布と検証
+## 既存TestFlight配布履歴
 
 - version `1.0`、build `5`、iPhone、iOS `26.0` 以上。接続先は既存のFoodfolio dev API。
-- Distribution署名、本体の `aps-environment=production` とSign in with Apple、本体・Share Extension共通のApp Group `group.com.keyukt.foodfolio`、`get-task-allow=false`、`ITSAppUsesNonExemptEncryption=false` をArchiveで確認。
-- `npm run verify`: unit 137、integration 25、E2E 27、およびPrisma、lint、format、build成功。
-- `npm run verify:ios`: build 5の実装で88件成功、失敗0、skip0。変更部分のunit・integration・UI E2Eを含み、SwiftLint・SwiftFormat check・Debug buildも成功。
-- iOS自動テストはscheme既定のDebug。Releaseの署名付きArchive・export・Apple validationは別に成功。Release実機の認証・Push・主要フローは未確認。
-- build 2 (`bc3cca8b-6824-4ffc-bac0-708c6862325c`): Archive / export / `altool --validate-app` / upload成功。Apple processingは `VALID`、内部は `IN_BETA_TESTING`、外部は `READY_FOR_BETA_SUBMISSION`。
-- build 3 (`cb9cbeec-da15-4e08-b2a1-79b1a86ef79e`): AI送信同意を追加し、Archive / export / `altool --validate-app` / upload成功。Apple processingは `VALID`、内部は `IN_BETA_TESTING`、外部は `READY_FOR_BETA_SUBMISSION`。既存の内部グループに追加し、build 2の配布とテスターの所属を維持した。What to Testはbuild 3用の日本語文面を保存・再取得確認済み。build 3の実機インストール・動作確認は未確認。
-- build 5 (`aaf7a5b6-645c-4cc1-aa39-c9c5f9cffef5`): Share ExtensionとApp Group対応を含む。新しい本体・Share Extension用Provisioning ProfileでArchiveし、export / Apple validation / upload成功。Apple processingは `VALID`、内部は `IN_BETA_TESTING`、外部は `READY_FOR_BETA_SUBMISSION`。既存の内部グループに追加済みで、What to Testの日本語文面も保存・再取得確認済み。build 5の実機インストール・動作確認は未確認。
-- 内部グループ `Foodfolio Internal` に既存App Store Connect管理者1名を登録。build 2〜5の4件を割り当て、Mac、Vision、公開リンクは使用しない。
-- 同グループにbuild 2を割り当て、What to Testを日本語で保存済み。招待無効エラーの申告後に招待を再送し、APIの `INSTALLED` とユーザーのインストール成功報告を確認。起動・認証・Push等の実機確認は別途必要。
-- App Store Connect APIキーでグループ・内部テスターの作成は成功。Beta App DescriptionとSupport URLの保存は403（キーの権限不足）。キーは変更しない。
-- ChromeのTest Information、Support URL、Privacy Policy URLは入力済み・未保存。URLのSaveと審査提出は別操作。
+- build 2 (`bc3cca8b-6824-4ffc-bac0-708c6862325c`): Archive / export / Apple validation / upload成功。
+- build 3 (`cb9cbeec-da15-4e08-b2a1-79b1a86ef79e`): 当時の判断に基づくAI送信同意を含むbuild。Archive / export / Apple validation / upload成功。
+- build 5 (`aaf7a5b6-645c-4cc1-aa39-c9c5f9cffef5`): Share ExtensionとApp Group対応、および当時のAI同意実装を含む。Apple processing `VALID`、内部 `IN_BETA_TESTING`、外部 `READY_FOR_BETA_SUBMISSION` を確認済み。
+- build 3 / 5に含まれるAI同意実装は配布履歴として残るが、現在のソース仕様では廃止対象であり、次回buildでは利用しない。
+- 内部グループ `Foodfolio Internal` に既存App Store Connect管理者1名を登録済み。
 
 ## 外部審査前に残る確認
 
-1. 内部TestFlightでbuild 5へ更新し、共有シートからのURL保存、Apple/Google/メール認証、アプリ内でのURL保存・解析・同期・検索、Push成功/失敗、通知OFF、ログアウト、Apple token失効を含むアカウント削除を実機確認する。
-2. 作成済みの審査専用ログインアカウントをTest Informationへ設定する。メール・パスワードによるサインイン、現在のAPIの設定取得・レシピ一覧取得はHTTP 200、レシピ0件を確認。既存アカウントと分離し、認証情報はMacの所有者限定ファイルに保存している。リポジトリや会話にはパスワードを記載しない。
-3. 入力済みのURL・テスト情報をユーザーが保存する。App Privacyの回答・公開はまだ行っていない。
-4. build 5の認証前同意、認証後のサーバー同期、設定からの同意撤回と再同意を実機確認する。[Apple 5.1.2(i)](https://developer.apple.com/app-store/review/guidelines/#data-use-and-sharing) は第三者AIを含む個人データ共有前の説明と許可を要求する。元ページ中の個人情報を自動除去する仕組みではなく、同意画面の追加だけで審査承認・コンテンツ利用許諾が保証されるとは扱わない。
-5. 外部動画のダウンロード・解析について、提供元の利用許諾と公開対象の範囲を確認する。許可済みURLでの技術検証だけでは一般利用の許諾は証明できない（[Apple 5.2](https://developer.apple.com/app-store/review/guidelines/#intellectual-property)）。
-6. 外部グループ・What to Test・必須情報を揃えた後、審査提出はユーザーが行う。今回は外部審査・一般公開リリースを行わない。
-
-## build 3のAI送信同意
-
-- 初回保存の前にZ.ai、送信する元ページの本文・動画・メタデータ、元コンテンツに含まれ得る個人情報について説明し、明示的な同意を求める。拒否した場合は保存APIを呼ばず、編集入力へ戻る。
-- 同意はFirebase UID・説明文のバージョンとともに、この端末のUserDefaultsに保存する。別アカウントや将来の説明文バージョンでは流用しない。
-- 設定から同意を撤回でき、ログアウト・アカウント削除時のローカルデータ消去でも同意を消去する。撤回は以後の保存に適用され、送信済み・処理中の解析は取り消さない。
-- `AppSession.addRecipe` で同意を検査してから既存APIへ送る。API・Worker・DBの契約は変更していないため、これはbuild 3のクライアント上の制御であり、旧build 2や直接のAPI呼び出しをサーバーで遮断する実装ではない。
-- 実装ファイル: `AIConsentStore.swift`、`AIConsentView.swift`、`AddRecipeView.swift`、`SettingsView.swift`、`AppSession.swift`。同意の初期状態・保存・ユーザー切替・文面バージョン・撤回、保存処理との結合、拒否と撤回のUI E2Eを追加。
-- 実装コミットは `91eb225`。バックエンドのunit 74・integration 21・E2E 14と全体検証、iOSの81件のテストと検証を成功確認した。GitHubへのpush・CI検証・外部審査提出は行っていない。実機・外部情報の確認が残るため、TestFlight準備の親チェックは未完了のままにする。
-
-## 同意画面の簡素化（履歴）
-
-- ユーザーの指定により、同意画面の本文を「外部AIサービス」へ統一し、元コンテンツに含まれる個人情報の送信についての独立した説明と、同意の取り消し・保存済みレシピ閲覧についての説明を削除した。送信対象の説明、コンテンツ利用上の注意、送信先・情報の取り扱いへのリンク、同意・拒否ボタンは残した。
-- 設定画面のAI解析セクション（同意状態・取り消しボタン・補足文）を削除した。同意の保存、同意前の送信防止、アカウント切り替え時の分離、ログアウト・アカウント削除時の同意消去は変更していない。送信先や用途を変更するものではないため、既存の同意バージョンは変更していない。
-- [Apple 5.1.1(ii)](https://developer.apple.com/app-store/review/guidelines/#data-collection-and-storage) は容易にアクセスできる同意撤回手段を求めている。専用の撤回操作を削除する審査上の懸念をユーザーへ説明したうえで、削除の指定を受けている。ログアウト等による消去だけで要件を満たすとは判定せず、外部審査前の未解決事項として残す。
-- この簡素化は当時のローカル実装の記録。その後、認証前の同意画面、サーバー側の同意記録、設定画面からの撤回を追加し、build 5へ反映した。現在の仕様はコードとbuild 5の記録を優先する。
-- 変更部分のUI E2E 2件を成功確認後、`npm run verify`（unit 74・integration 21・E2E 14、Prisma、lint、format check、build）と `npm run verify:ios`（81件、失敗0・skip0、Swift lint/format check、Debug build）を再実行して成功。初回の画面テスト失敗は、設定から戻ると開いたままになるメニューをテストが誤って閉じていたためで、テストの画面操作を修正した。実機確認・Release再配布・CIの成功を示すものではなく、リリース準備のチェックは更新していない。
+1. AI同意機能を削除した次回TestFlight buildで、新規起動時に不要な同意画面が出ず、ログイン後にURL保存・AI解析・同期・検索・Push通知・Share Extensionが動作することを実機確認する。
+2. DBへ `aiConsentedAt` drop migrationを適用してから、同意APIを削除したBackendを対象環境へ反映する。migration適用自体はユーザー作業とし、アプリ起動時には実行しない。
+3. 更新したプライバシーポリシーをFirebase Hostingへ反映し、App Store ConnectのPrivacy Policy URLから最新内容へ到達できることを確認する。
+4. App Store ConnectのApp Privacyを、Foodfolio本体と組み込みSDKが実際に扱うデータ、利用目的、ユーザーとの紐付け、tracking有無に合わせて回答・公開する。
+5. 作成済みの審査専用ログインアカウントをTest Informationへ設定する。認証情報はリポジトリへ記載しない。
+6. 外部動画のダウンロード・解析について、提供元の利用許諾と公開対象の範囲を確認する。AI同意の有無とは別に扱う。
+7. 外部グループ・What to Test・必須情報を揃えた後にTestFlight App Reviewへ提出する。
 
 ## 入力文面の控え（認証情報を除く）
 
@@ -93,14 +89,14 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 
 Foodfolioは、公開されているレシピのURLを保存し、材料や作り方を整理して、自分のレシピ帳として検索・編集できるアプリです。Webページや対応する動画の内容をAIで解析し、完了時にPush通知でお知らせします。解析結果は必ず元のレシピと照らし合わせて確認してください。初期テスト版のため、データや機能が変更される場合があります。
 
-### What to Test（build 5、保存・再取得確認済み）
+### What to Test（次回build用）
 
-build 5では、iOSの共有シートからレシピURLをFoodfolioへ保存できるようになりました。認証前のAI解析同意とサーバー同期、タグ編集、YouTube説明不足時の動画解析も改善しています。共有シートからの保存、ログイン、URL保存とAI解析、タグの追加・編集、検索・同期、Push通知をご確認ください。不具合は再現手順と画面を添えてTestFlightのフィードバックからお知らせください。
+新しいbuildでは、不要だったAI解析専用の同意画面と同意状態管理を削除しています。起動・ログイン、アプリ内または共有シートからのURL保存、AI解析、タグの追加・編集、検索・同期、Push通知をご確認ください。AI解析は公開レシピ元コンテンツを外部AIサービスで処理しますが、FoodfolioのユーザーIDやメールアドレス等をAI解析リクエストへ含めません。
 
 ### Review Notes
 
-Foodfolio is a Japanese recipe organizer for iPhone running iOS 26 or later. Before sign-in, the app explains that recipe URLs and information needed for analysis are sent to external AI services and requests consent. After consenting, select the email sign-in option and log in with the review account entered above. Apple and Google sign-in are also supported.
+Foodfolio is a Japanese recipe organizer for iPhone running iOS 26 or later. Sign in with the review account using the email sign-in option. Apple and Google sign-in are also supported.
 
-Save a public recipe URL using the add button or share a URL to Foodfolio from the iOS share sheet. Declining AI consent prevents use of the app. Consent can be withdrawn in Settings and is requested again before the app can be used. The app analyzes the source content using external AI services, then displays the ingredients and instructions. Please verify AI-generated results against the original source. Enable notifications to receive analysis-completion alerts. Recipes can be searched and edited. Account deletion is available in the Account screen.
+Save a public recipe URL using the add button or share a URL to Foodfolio from the iOS share sheet. The app analyzes the public source content using external AI services and then displays the extracted ingredients and instructions. Foodfolio account identifiers such as the app user ID, Firebase UID, email address, authentication token, and push-notification token are not included in the Z.ai or Google Gemini analysis requests. The source page or public video itself may contain publisher information. Please verify AI-generated results against the original source.
 
-This beta uses the current Foodfolio backend environment. No purchase or subscription is required.
+Enable notifications to receive analysis-completion alerts. Recipes can be searched and edited. Account deletion is available in the Account screen. No purchase or subscription is required.

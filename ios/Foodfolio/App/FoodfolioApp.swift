@@ -76,7 +76,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 
   var body: some Scene {
     WindowGroup {
-      AIConsentRootView()
+      RootView()
         .environment(session)
         .onOpenURL { url in _ = GIDSignIn.sharedInstance.handle(url) }
         .task {
