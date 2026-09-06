@@ -1,9 +1,15 @@
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { clearInterval, setInterval } from "node:timers";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, URL } from "node:url";
 import { parse } from "dotenv";
+import {
+  assertLocalDatabase,
+  mergeLocalEnvironment,
+  RECOVER_STALE_LOCAL_ANALYSES_SQL,
+} from "./dev-local-support.mjs";
 
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 const environmentPath = resolve(
@@ -18,10 +24,10 @@ if (!existsSync(environmentPath)) {
   process.exit(1);
 }
 
-const environment = {
-  ...parse(readFileSync(environmentPath)),
-  ...process.env,
-};
+const environment = mergeLocalEnvironment(
+  process.env,
+  parse(readFileSync(environmentPath)),
+);
 
 const defaults = {
   APP_ENV: "local",
@@ -44,6 +50,9 @@ if (missing.length > 0) {
   console.error(`Missing local environment variables: ${missing.join(", ")}`);
   process.exit(1);
 }
+
+assertLocalDatabase("DATABASE_URL", environment.DATABASE_URL);
+assertLocalDatabase("DATABASE_DIRECT_URL", environment.DATABASE_DIRECT_URL);
 
 run("docker", ["compose", "up", "-d", "postgres"]);
 
@@ -77,6 +86,9 @@ if (!postgresReady) {
 
 run("npm", ["run", "prisma:generate"]);
 run("npm", ["run", "prisma:migrate:deploy"]);
+if (environment.ANALYSIS_QUEUE_DRIVER === "local-http") {
+  recoverStaleLocalAnalyses();
+}
 
 const processes = [
   {
@@ -97,10 +109,22 @@ const processes = [
   },
 ];
 
+const recoveryInterval =
+  environment.ANALYSIS_QUEUE_DRIVER === "local-http"
+    ? setInterval(() => {
+        try {
+          recoverStaleLocalAnalyses();
+        } catch (error) {
+          console.error("Failed to recover stale local recipe analyses", error);
+        }
+      }, 30_000)
+    : undefined;
+
 let stopping = false;
 function stop(exitCode) {
   if (stopping) return;
   stopping = true;
+  if (recoveryInterval) clearInterval(recoveryInterval);
   process.exitCode = exitCode;
   for (const { child } of processes) {
     if (!child.killed) child.kill("SIGTERM");
@@ -130,6 +154,43 @@ await Promise.all(
       new Promise((resolveClose) => child.once("close", resolveClose)),
   ),
 );
+if (recoveryInterval) clearInterval(recoveryInterval);
+
+function recoverStaleLocalAnalyses() {
+  const result = spawnSync(
+    "docker",
+    [
+      "compose",
+      "exec",
+      "-T",
+      "postgres",
+      "psql",
+      "-U",
+      "foodfolio",
+      "-d",
+      "foodfolio",
+      "-Atq",
+      "-c",
+      RECOVER_STALE_LOCAL_ANALYSES_SQL,
+    ],
+    {
+      cwd: repositoryRoot,
+      env: environment,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "inherit"],
+    },
+  );
+  if (result.error) throw result.error;
+  if (result.status !== 0)
+    throw new Error(`Local analysis recovery exited with ${result.status}`);
+
+  const recoveredCount = Number(result.stdout.trim());
+  if (recoveredCount > 0) {
+    console.warn(
+      `Marked ${recoveredCount} stale local recipe analyses as failed.`,
+    );
+  }
+}
 
 function run(command, args) {
   const result = spawnSync(command, args, {

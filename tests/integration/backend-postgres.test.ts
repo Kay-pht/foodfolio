@@ -1,4 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { RECOVER_STALE_LOCAL_ANALYSES_SQL } from "../../scripts/dev-local-support.mjs";
 import type {
   AuthVerifier,
   FirebaseUserManager,
@@ -226,5 +228,54 @@ describe("Backend + PostgreSQL integration", () => {
     ).toBe(0);
     expect(deletedUsers.filter((uid) => uid === "delete-user")).toHaveLength(2);
     await app.close();
+  });
+
+  it("fails expired local analyses without changing active leases", async () => {
+    const user = await context.prisma.user.create({
+      data: { firebaseUid: "local-analysis-recovery" },
+    });
+    const expired = await context.prisma.recipe.create({
+      data: {
+        userId: user.id,
+        originalUrl: "https://example.com/expired-local-analysis",
+        normalizedUrl: "https://example.com/expired-local-analysis",
+        sourceType: "web",
+        analysisStatus: "processing",
+        processingRunId: randomUUID(),
+        processingLeaseExpiresAt: new Date(Date.now() - 60_000),
+      },
+    });
+    const active = await context.prisma.recipe.create({
+      data: {
+        userId: user.id,
+        originalUrl: "https://example.com/active-local-analysis",
+        normalizedUrl: "https://example.com/active-local-analysis",
+        sourceType: "web",
+        analysisStatus: "processing",
+        processingRunId: randomUUID(),
+        processingLeaseExpiresAt: new Date(Date.now() + 600_000),
+      },
+    });
+
+    const [{ count }] = await context.prisma.$queryRawUnsafe<
+      Array<{ count: bigint }>
+    >(RECOVER_STALE_LOCAL_ANALYSES_SQL);
+
+    expect(Number(count)).toBe(1);
+    await expect(
+      context.prisma.recipe.findUniqueOrThrow({ where: { id: expired.id } }),
+    ).resolves.toMatchObject({
+      analysisStatus: "failed",
+      title: "解析に失敗したレシピ",
+      processingRunId: null,
+      processingLeaseExpiresAt: null,
+    });
+    await expect(
+      context.prisma.recipe.findUniqueOrThrow({ where: { id: active.id } }),
+    ).resolves.toMatchObject({
+      analysisStatus: "processing",
+      processingRunId: expect.any(String),
+      processingLeaseExpiresAt: expect.any(Date),
+    });
   });
 });
