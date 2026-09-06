@@ -55,10 +55,15 @@ function pickBestRecord(
     .filter((value): value is UnknownRecord => value !== null)
     .filter((value) => asString(value.url) !== null);
   const preferred = preferCombinedVideo
-    ? candidates.filter((value) => value.acodec !== "none")
+    ? candidates.filter(
+        (value) => value.acodec !== "none" && value.vcodec !== "none",
+      )
     : candidates;
-  return (preferred.length ? preferred : candidates)
-    .sort((a, b) => dimensionsScore(b) - dimensionsScore(a))[0] ?? null;
+  return (
+    (preferred.length ? preferred : candidates).sort(
+      (a, b) => dimensionsScore(b) - dimensionsScore(a),
+    )[0] ?? null
+  );
 }
 
 function headersFrom(value: unknown): Record<string, string> {
@@ -71,7 +76,10 @@ function headersFrom(value: unknown): Record<string, string> {
   );
 }
 
-function mediaAssetFromEntry(entry: UnknownRecord, index: number): MediaAsset | null {
+function mediaAssetFromEntry(
+  entry: UnknownRecord,
+  index: number,
+): MediaAsset | null {
   const format = pickBestRecord(entry.formats, true);
   if (format) {
     return {
@@ -132,7 +140,8 @@ export function classifyInstagramMedia(
   url: string,
   parsed: ParsedInstagramMedia,
 ): ExpectedInstagramCase | "unknown" {
-  if (parsed.assets.length === 0 || parsed.unavailableEntryCount > 0) return "unknown";
+  if (parsed.assets.length === 0 || parsed.unavailableEntryCount > 0)
+    return "unknown";
   const kinds = parsed.assets.map((asset) => asset.kind);
   const allImages = kinds.every((kind) => kind === "image");
   const allVideos = kinds.every((kind) => kind === "video");
@@ -160,7 +169,9 @@ export function validatePocCases(value: unknown): PocCase[] {
   const cases = value.map((item, index) => {
     const record = asRecord(item);
     const id = asString(record?.id);
-    const expectedKind = asString(record?.expectedKind) as ExpectedInstagramCase | null;
+    const expectedKind = asString(
+      record?.expectedKind,
+    ) as ExpectedInstagramCase | null;
     const url = asString(record?.url);
     if (!id || !expectedKind || !allowed.has(expectedKind) || !url)
       throw new Error(`invalid case at index ${index}`);
@@ -168,7 +179,12 @@ export function validatePocCases(value: unknown): PocCase[] {
     const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
     if (parsed.protocol !== "https:" || host !== "instagram.com")
       throw new Error(`case ${id} must use a public HTTPS Instagram URL`);
-    return { id, expectedKind, url, source: asString(record?.source) ?? undefined };
+    return {
+      id,
+      expectedKind,
+      url,
+      source: asString(record?.source) ?? undefined,
+    };
   });
   if (new Set(cases.map((item) => item.id)).size !== cases.length)
     throw new Error("case ids must be unique");
