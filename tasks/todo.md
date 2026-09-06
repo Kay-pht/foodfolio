@@ -30,7 +30,7 @@
     - [x] 取得・保存・外部送信するデータを棚卸しする（認証ID・メール、保存URL・レシピ、検索履歴、端末token）
     - [x] Firebase、GCP、Neon、Z.ai、YouTube、Apple、Googleへのデータ送信内容と目的を整理する
     - [x] データの保存期間、ユーザーによる削除方法、問い合わせ先、安全管理、外部URL解析について記載したプライバシーポリシーを作成する
-      - 根拠と残確認は `docs/testflight-preparation.md`。Firebase Hosting公開済み。App Store ConnectへのURL保存、SDKを含むApp Privacy回答、外部AIの同意導線の確認は残る
+      - 根拠と残確認は `docs/testflight-preparation.md` と `docs/ai-data-handling.md`。Firebase Hostingへの更新反映、App Store ConnectへのURL保存、SDKを含むApp Privacy回答は残る。現行AI requestにはFoodfolio利用者識別情報を含めないためAI専用同意導線は要件としない
     - [ ] プライバシーポリシーをHTTPSの公開URLで掲載し、アプリ内とApp Store Connectの双方から到達できるようにする
     - [x] 独自利用規約は作成せず、Apple標準EULAを使用する
     - [ ] App Store ConnectのApp Privacyで、Foodfolio本体と組み込みSDKが収集するデータ、利用目的、ユーザーとの紐付け、トラッキング有無を正しく回答する

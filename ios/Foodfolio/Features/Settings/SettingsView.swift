@@ -7,8 +7,6 @@ struct SettingsView: View {
   @State private var enabled = true
   @State private var osStatus: UNAuthorizationStatus = .notDetermined
   @State private var isLoading = true
-  @State private var isRevokingAIConsent = false
-  @State private var showsAIConsentRevocationConfirmation = false
   @State private var error: String?
 
   var body: some View {
@@ -28,43 +26,17 @@ struct SettingsView: View {
         }
       }
 
-      Section("AI解析・データ利用") {
-        HStack {
-          Text("AI解析への同意")
-          Spacer()
-          Text(session.aiConsent.isGranted ? "同意済み" : "未同意")
-            .foregroundStyle(.secondary)
-            .accessibilityIdentifier("settings.aiConsentStatus")
-        }
-
-        Text("同意を撤回すると、再度同意するまでFoodfolioを利用できません。")
-          .font(.footnote)
-          .foregroundStyle(.secondary)
-
-        Button("AI解析への同意を撤回", role: .destructive) {
-          showsAIConsentRevocationConfirmation = true
-        }
-        .disabled(isRevokingAIConsent || !session.aiConsent.isGranted)
-        .accessibilityIdentifier("settings.revokeAIConsent")
-      }
-
       Section("情報") {
         Link("プライバシーポリシー", destination: FoodfolioLinks.privacyPolicy)
           .accessibilityIdentifier("settings.privacyPolicy")
         Link("サポート・お問い合わせ", destination: FoodfolioLinks.support)
           .accessibilityIdentifier("settings.support")
       }
-      if isLoading || isRevokingAIConsent { ProgressView() }
+      if isLoading { ProgressView() }
       if let error { Text(error).foregroundStyle(.red) }
     }
     .navigationTitle("設定")
     .task { await load() }
-    .alert("AI解析への同意を撤回しますか？", isPresented: $showsAIConsentRevocationConfirmation) {
-      Button("キャンセル", role: .cancel) {}
-      Button("同意を撤回", role: .destructive) { revokeAIConsent() }
-    } message: {
-      Text("同意を撤回するとFoodfolioを利用できなくなります。再度同意するまでレシピの閲覧を含むアプリの機能は利用できません。")
-    }
   }
 
   private func load() async {
@@ -83,19 +55,6 @@ struct SettingsView: View {
         let _: SettingDTO = try await session.api.send(
           "/v1/settings", method: "PATCH", body: Body(recipeAnalysisNotificationEnabled: value))
       } catch { self.error = error.localizedDescription }
-    }
-  }
-
-  private func revokeAIConsent() {
-    isRevokingAIConsent = true
-    error = nil
-    Task {
-      do {
-        try await session.revokeAIConsent()
-      } catch {
-        self.error = "同意を撤回できませんでした。通信状況を確認して、もう一度お試しください。"
-      }
-      isRevokingAIConsent = false
     }
   }
 }

@@ -37,13 +37,6 @@ describe("batch tag assignment", () => {
       taskQueue: noOpQueue,
     });
     const userHeaders = headers("batch-tag-user");
-    const consent = await app.inject({
-      method: "PUT",
-      url: "/v1/ai-consent",
-      headers: userHeaders,
-      payload: { consentedAt: "2026-09-04T10:45:00.000Z" },
-    });
-    expect(consent.statusCode).toBe(200);
 
     const recipeResponse = await app.inject({
       method: "POST",
