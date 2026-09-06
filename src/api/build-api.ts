@@ -6,7 +6,6 @@ import type {
   FirebaseUserManager,
 } from "../infrastructure/auth/auth-verifier.js";
 import type { AnalysisTaskQueue } from "../infrastructure/tasks/task-queue.js";
-import { registerAIConsentRoutes } from "./ai-consent-routes.js";
 import { registerRoutes } from "./routes.js";
 import { registerTagBatchRoutes } from "./tag-batch-routes.js";
 
@@ -49,14 +48,6 @@ export function buildApi(deps: ApiDependencies): FastifyInstance {
       create: { firebaseUid: request.firebaseUid, setting: { create: {} } },
     });
   });
-  app.decorate("requireAIConsent", async (request: FastifyRequest) => {
-    const setting = await deps.prisma.userSetting.findUnique({
-      where: { userId: request.appUser.id },
-      select: { aiConsentedAt: true },
-    });
-    if (!setting?.aiConsentedAt)
-      throw new AppError(403, "AI_CONSENT_REQUIRED", "AI consent is required");
-  });
 
   app.setErrorHandler((error, request, reply) => {
     const appError =
@@ -76,19 +67,6 @@ export function buildApi(deps: ApiDependencies): FastifyInstance {
   });
   app.get("/healthz", async () => ({ status: "ok" }));
   app.get("/health", async () => ({ status: "ok" }));
-  registerAIConsentRoutes(app, deps);
-  app.addHook("onRoute", (routeOptions) => {
-    const methods = Array.isArray(routeOptions.method)
-      ? routeOptions.method
-      : [routeOptions.method];
-    if (routeOptions.url !== "/v1/recipes" || !methods.includes("POST")) return;
-    const preHandlers = routeOptions.preHandler
-      ? Array.isArray(routeOptions.preHandler)
-        ? routeOptions.preHandler
-        : [routeOptions.preHandler]
-      : [];
-    routeOptions.preHandler = [...preHandlers, app.requireAIConsent];
-  });
   registerRoutes(app, deps);
   registerTagBatchRoutes(app, deps);
   return app;
@@ -98,6 +76,5 @@ declare module "fastify" {
   interface FastifyInstance {
     authenticate(request: FastifyRequest): Promise<void>;
     resolveUser(request: FastifyRequest): Promise<void>;
-    requireAIConsent(request: FastifyRequest): Promise<void>;
   }
 }

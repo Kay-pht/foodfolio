@@ -78,9 +78,6 @@ final class ShareViewController: SLComposeServiceViewController {
 
   private func saveSharedRecipe(url: URL) async {
     do {
-      guard SharedAIConsent.isGranted else {
-        throw ShareExtensionError.aiConsentRequired
-      }
       try configureFirebaseIfNeeded()
       guard let user = Auth.auth().currentUser else {
         throw ShareExtensionError.loginRequired
@@ -171,7 +168,6 @@ final class ShareViewController: SLComposeServiceViewController {
 enum ShareExtensionError: LocalizedError {
   case urlNotFound
   case loginRequired
-  case aiConsentRequired
   case configurationMissing
   case invalidResponse
 
@@ -181,24 +177,11 @@ enum ShareExtensionError: LocalizedError {
       "URLを取得できませんでした。"
     case .loginRequired:
       "Foodfolioアプリでログインしてください。"
-    case .aiConsentRequired:
-      "FoodfolioアプリでAI解析への同意を行ってください。"
     case .configurationMissing:
       "Foodfolioの共有機能を初期化できませんでした。"
     case .invalidResponse:
       "レシピの追加に失敗しました。"
     }
-  }
-}
-
-enum SharedAIConsent {
-  static var isGranted: Bool {
-    guard let defaults = UserDefaults(suiteName: "group.com.keyukt.foodfolio"),
-      let saved = defaults.dictionary(forKey: "aiProcessingConsent"),
-      saved["consentedAt"] as? Date != nil,
-      saved["serverSynchronized"] as? Bool == true
-    else { return false }
-    return true
   }
 }
 
