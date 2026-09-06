@@ -5,6 +5,25 @@
 
 ## 2026-09-06
 
+- [x] `REL-20260906-01` 共有シートでURL確認後に作成し、二重送信を防止する
+  - 内容: Foodfolioを共有先に選んだだけでは保存せず、URL表示後の「作成」で送信する。成功表示は「閉じる」まで維持し、送信中の連打も拒否する
+  - PR: [#53](https://github.com/Kay-pht/foodfolio/pull/53)
+  - main反映: `b3377032ce9cc59fc0f0a602d209e09802fb58e9`
+  - 必要な反映先:
+    - [x] TestFlight内部テスト — 反映日: `2026-09-06`、version: `1.0 (6)`、Build ID: `0edb524b-20d2-4589-9fa5-320e26d62165`、group: `Foodfolio Internal`
+  - 配布build source: `197253683d13ec8e2ce017f62a63cfbcb3c19999`
+
+- [x] `REL-20260906-03` AI解析専用の同意機能を廃止する
+  - 内容: Z.ai / Geminiの解析requestへFoodfolio利用者のUser ID、Firebase UID、メール、認証Token、端末Token等を送らない現行境界に合わせ、認証前同意画面、同意store、同意API、Recipe作成gate、Share Extension判定、DBの同意日時、撤回UIを削除する。AI Providerの利用と送信対象はプライバシーポリシーで開示する
+  - PR: [#60](https://github.com/Kay-pht/foodfolio/pull/60)、[#61](https://github.com/Kay-pht/foodfolio/pull/61)、[#62](https://github.com/Kay-pht/foodfolio/pull/62)
+  - main反映: `254c08791a2f11692b3d41bd2a5a6f2d3756b785`
+  - 必要な反映先:
+    - [x] TestFlight内部テスト — 反映日: `2026-09-06`、version: `1.0 (6)`、Build ID: `0edb524b-20d2-4589-9fa5-320e26d62165`、group: `Foodfolio Internal`
+    - [x] Cloud Run（現在利用中のdev） — 反映日: `2026-09-06`、version: `254c08791a2f11692b3d41bd2a5a6f2d3756b785`、API `foodfolio-dev-api-00017-ntq` / Worker `foodfolio-dev-worker-00020-qgs`、traffic 100%
+    - [x] Firebase Hosting — 反映日: `2026-09-06`、URL: `https://foodfolio-af28aa.web.app/privacy`
+  - 配布build source: `197253683d13ec8e2ce017f62a63cfbcb3c19999`
+  - 備考: `aiConsentedAt` columnは旧Backend revisionへのrollback可能性がなくなった後、独立したmigrationで削除する
+
 - [x] `REL-20260906-02` YouTube解析で元タイトルと未取得分量を保持する
   - 内容: YouTube Data APIで取得したタイトルを保存し、取得できなかった材料の分量を `null` のまま保持する。元データにある「適量」は維持する
   - PR: [#55](https://github.com/Kay-pht/foodfolio/pull/55)
