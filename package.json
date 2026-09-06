@@ -38,6 +38,8 @@
     "poc:gemini-url": "tsx poc/ai-extraction/run-gemini-url-context.ts",
     "poc:e2e": "tsx poc/end-to-end/run.ts",
     "poc:tiktok-video": "bash poc/tiktok-video/run.sh",
+    "poc:instagram-media": "tsx poc/instagram-media/run.ts",
+    "poc:instagram-media:docker": "bash poc/instagram-media/run-docker.sh",
     "ios:push:simulator": "bash scripts/push-simulator-notification.sh",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",

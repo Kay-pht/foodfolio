@@ -1,0 +1,32 @@
+[
+  {
+    "id": "reel",
+    "expectedKind": "reel",
+    "url": "https://www.instagram.com/reel/Chunk8-jurw/",
+    "source": "yt-dlp public regression sample"
+  },
+  {
+    "id": "video-post",
+    "expectedKind": "video",
+    "url": "https://www.instagram.com/p/aye83DjauH/",
+    "source": "yt-dlp public regression sample"
+  },
+  {
+    "id": "single-image",
+    "expectedKind": "image",
+    "url": "https://www.instagram.com/p/DV50JOdjR-P/",
+    "source": "yt-dlp issue #16328 public sample"
+  },
+  {
+    "id": "image-carousel",
+    "expectedKind": "image-carousel",
+    "url": "https://www.instagram.com/p/DaBUYYOjNgA/",
+    "source": "yt-dlp issue #17077 public sample"
+  },
+  {
+    "id": "mixed-carousel",
+    "expectedKind": "mixed-carousel",
+    "url": "https://www.instagram.com/p/CtXtwOop1W5/",
+    "source": "yt-dlp issue #7569 public sample"
+  }
+]
