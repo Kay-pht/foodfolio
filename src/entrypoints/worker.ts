@@ -7,6 +7,7 @@ import { ZaiRecipeExtractor } from "../infrastructure/ai/zai-recipe-extractor.js
 import { GeminiYoutubeRecipeExtractor } from "../infrastructure/ai/gemini-youtube-recipe-extractor.js";
 import { getPrisma } from "../infrastructure/db/prisma.js";
 import { FirebaseNotificationSender } from "../infrastructure/notifications/firebase-notification-sender.js";
+import { NoopNotificationSender } from "../infrastructure/notifications/noop-notification-sender.js";
 import { GcsTemporaryVideoStore } from "../infrastructure/tiktok/gcs-temporary-video-store.js";
 import { ProductionTikTokVideoRecipeFallback } from "../infrastructure/tiktok/tiktok-video-recipe-fallback.js";
 import { YtDlpTikTokVideoDownloader } from "../infrastructure/tiktok/yt-dlp-video-downloader.js";
@@ -37,6 +38,10 @@ const tiktokVideoFallback = config.tiktokVideoFallbackEnabled
       recipeExtractor,
     )
   : null;
+const notifications =
+  config.notificationDriver === "noop"
+    ? new NoopNotificationSender()
+    : new FirebaseNotificationSender();
 const service = new RecipeAnalysisService({
   prisma: getPrisma(),
   sourceExtractor: new ProductionSourceContentExtractor(
@@ -45,7 +50,7 @@ const service = new RecipeAnalysisService({
   ),
   recipeExtractor: routedRecipeExtractor,
   ...(tiktokVideoFallback ? { tiktokVideoFallback } : {}),
-  notifications: new FirebaseNotificationSender(),
+  notifications,
   maxAttempts: config.maxAnalysisAttempts,
 });
 await buildWorker(service).listen({ host: "0.0.0.0", port: config.port });
