@@ -43,6 +43,7 @@ interface CaseResult {
   success: boolean;
   error: string | null;
   diagnostic: string | null;
+  attempts: number;
 }
 
 function parseArgs(argv: string[]): { casesPath: string } {
@@ -182,6 +183,28 @@ async function downloadAsset(
   }
 }
 
+function failedCase(
+  item: PocCase,
+  attempts: number,
+  diagnostic: string | null,
+): CaseResult {
+  return {
+    id: item.id,
+    url: item.url,
+    expectedKind: item.expectedKind,
+    actualKind: "unknown",
+    ...(item.source ? { source: item.source } : {}),
+    metadataOk: false,
+    assetCount: 0,
+    unavailableEntryCount: 0,
+    downloads: [],
+    success: false,
+    error: `yt-dlp metadata extraction failed after ${attempts} attempt(s)`,
+    diagnostic,
+    attempts,
+  };
+}
+
 async function runCase(
   item: PocCase,
   outputRoot: string,
@@ -191,6 +214,7 @@ async function runCase(
   const caseDirectory = join(outputRoot, item.id);
   await mkdir(caseDirectory, { recursive: true });
   let lastDiagnostic: string | null = null;
+  let lastPartialResult: CaseResult | null = null;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const command = await runCommand(
@@ -206,6 +230,7 @@ async function runCase(
       DEFAULT_TIMEOUT_MS,
     );
     lastDiagnostic = safeDiagnostic(command.stderr);
+
     if (command.code === 0 && command.stdout.trim()) {
       try {
         const raw = JSON.parse(command.stdout) as unknown;
@@ -223,7 +248,7 @@ async function runCase(
           parsed.unavailableEntryCount === 0 &&
           parsed.assets.length > 0 &&
           downloads.every((download) => download.ok);
-        return {
+        const result: CaseResult = {
           id: item.id,
           url: item.url,
           expectedKind: item.expectedKind,
@@ -238,7 +263,10 @@ async function runCase(
             ? null
             : "metadata was readable but did not satisfy the expected media/download conditions",
           diagnostic: lastDiagnostic,
+          attempts: attempt,
         };
+        if (success) return result;
+        lastPartialResult = result;
       } catch (error) {
         lastDiagnostic = error instanceof Error ? error.message : String(error);
       }
@@ -247,20 +275,9 @@ async function runCase(
     if (attempt < maxAttempts) await delay(Math.min(attempt * 2, 10) * 1000);
   }
 
-  return {
-    id: item.id,
-    url: item.url,
-    expectedKind: item.expectedKind,
-    actualKind: "unknown",
-    ...(item.source ? { source: item.source } : {}),
-    metadataOk: false,
-    assetCount: 0,
-    unavailableEntryCount: 0,
-    downloads: [],
-    success: false,
-    error: `yt-dlp metadata extraction failed after ${maxAttempts} attempt(s)`,
-    diagnostic: lastDiagnostic,
-  };
+  return (
+    lastPartialResult ?? failedCase(item, maxAttempts, lastDiagnostic)
+  );
 }
 
 function markdownReport(
@@ -275,11 +292,11 @@ function markdownReport(
     `- max attempts per case: ${maxAttempts}`,
     `- successful cases: ${results.filter((result) => result.success).length}/${results.length}`,
     "",
-    "| Case | Expected | Actual | Assets | Downloads | Result |",
-    "| --- | --- | --- | ---: | ---: | --- |",
+    "| Case | Expected | Actual | Assets | Downloads | Attempts | Result |",
+    "| --- | --- | --- | ---: | ---: | ---: | --- |",
     ...results.map(
       (result) =>
-        `| ${result.id} | ${result.expectedKind} | ${result.actualKind} | ${result.assetCount} | ${result.downloads.filter((download) => download.ok).length}/${result.downloads.length} | ${result.success ? "PASS" : "FAIL"} |`,
+        `| ${result.id} | ${result.expectedKind} | ${result.actualKind} | ${result.assetCount} | ${result.downloads.filter((download) => download.ok).length}/${result.downloads.length} | ${result.attempts} | ${result.success ? "PASS" : "FAIL"} |`,
     ),
     "",
     "## Diagnostics",
@@ -288,6 +305,7 @@ function markdownReport(
   for (const result of results) {
     lines.push(`### ${result.id}`, "");
     lines.push(result.error ? `- error: ${result.error}` : "- error: none");
+    lines.push(`- attempts: ${result.attempts}`);
     lines.push(`- unavailable entries: ${result.unavailableEntryCount}`);
     if (result.diagnostic)
       lines.push("", "```text", result.diagnostic, "```");
@@ -332,7 +350,7 @@ async function main(): Promise<void> {
     const result = await runCase(item, outputRoot, ytDlp, maxAttempts);
     results.push(result);
     console.log(
-      `${result.success ? "PASS" : "FAIL"}: actual=${result.actualKind}, assets=${result.assetCount}, downloads=${result.downloads.filter((download) => download.ok).length}/${result.downloads.length}`,
+      `${result.success ? "PASS" : "FAIL"}: actual=${result.actualKind}, assets=${result.assetCount}, downloads=${result.downloads.filter((download) => download.ok).length}/${result.downloads.length}, attempts=${result.attempts}`,
     );
   }
 
