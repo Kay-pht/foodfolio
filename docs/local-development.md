@@ -50,10 +50,15 @@ npm run dev:local
 1. `postgres:18-alpine` をDocker Composeで起動する
 2. PostgreSQLのreadyを待つ
 3. Prisma Clientを生成し、既存migrationをローカルDBへ適用する
-4. Workerを `127.0.0.1:8081` 用の `PORT=8081` で起動する
-5. APIを `127.0.0.1:8080` 用の `PORT=8080` で起動する
+4. リース期限を過ぎた `processing` のレシピを `failed` へ変更する
+5. Workerを `127.0.0.1:8081` 用の `PORT=8081` で起動する
+6. APIを `127.0.0.1:8080` 用の `PORT=8080` で起動する
 
 API / Worker自体は既存のFastify entrypointをそのまま利用する。ローカル時だけ `ANALYSIS_QUEUE_DRIVER=local-http` と `NOTIFICATION_DRIVER=noop` を使う。
+
+`.env.local` は同名のシェル環境変数より優先される。`npm run dev:local` はmigration前に `DATABASE_URL` と `DATABASE_DIRECT_URL` を検証し、接続先がlocalhostのPostgreSQL 5432、ユーザーとdatabaseがともに `foodfolio` でなければ停止する。この制限はローカル起動スクリプトだけに適用され、CI/CDが直接実行する `npm run prisma:migrate:deploy` には適用されない。
+
+ローカルHTTP queueはメモリ上にあるため、解析中にAPIまたはWorkerが再起動すると配送中のタスクが失われる場合がある。`dev:local` は30秒ごとに期限切れの解析リースを確認し、該当するレシピを `failed` にして削除・再登録できる状態へ戻す。有効なリースは、実行中のWorkerと競合しないよう変更しない。
 
 PostgreSQLコンテナを停止するときは次を使う。
 
