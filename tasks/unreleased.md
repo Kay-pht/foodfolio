@@ -21,7 +21,7 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
   - 必要な反映先:
     - [ ] TestFlight内部テスト — 対象version/build: 未定
     - [ ] Cloud Run（現在利用中のdev） — 対象version/revision: 未定
-  - 備考: `aiConsentedAt`をdropするmigrationを先にユーザーが適用してからBackendを反映する。更新したプライバシーポリシーはFirebase Hostingへの反映も必要
+  - 備考: 旧iOS buildは互換対象外。稼働中の旧Backendを壊さないため、このリリースではDB columnを残したまま同意依存のないBackendを先に反映し、その後に新iOSだけを利用する。`aiConsentedAt`のdropは旧Backend revisionへrollbackしないことを確認した後の独立したmigrationで行う。更新したプライバシーポリシーはFirebase Hostingへの反映も必要
 
 ## 追加時の書式
 
