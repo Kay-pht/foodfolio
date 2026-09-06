@@ -107,4 +107,28 @@ describe("LocalHttpAnalysisQueue", () => {
       }),
     );
   });
+
+  it("does not retry non-retryable worker responses", async () => {
+    let resolveFailure: (() => void) | undefined;
+    const failure = new Promise<void>((resolve) => {
+      resolveFailure = resolve;
+    });
+    const fetchImpl = vi.fn(async () => new Response(null, { status: 400 }));
+    const sleep = vi.fn(async () => undefined);
+    const onError = vi.fn(() => resolveFailure?.());
+    const queue = new LocalHttpAnalysisQueue(
+      {
+        workerUrl: "http://127.0.0.1:8081",
+        maxAttempts: 3,
+      },
+      { fetch: fetchImpl, sleep, onError },
+    );
+
+    await queue.enqueueRecipeAnalysis("recipe-3");
+    await failure;
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledTimes(1);
+  });
 });

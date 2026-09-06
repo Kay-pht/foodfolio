@@ -85,8 +85,9 @@ export class LocalHttpAnalysisQueue implements AnalysisTaskQueue {
     const retryDelayMs = this.config.retryDelayMs ?? 250;
 
     for (let retryCount = 0; retryCount < this.config.maxAttempts; retryCount += 1) {
+      let response: Response;
       try {
-        const response = await this.fetchImpl(
+        response = await this.fetchImpl(
           `${workerUrl}/internal/tasks/recipe-analysis`,
           {
             method: "POST",
@@ -98,19 +99,22 @@ export class LocalHttpAnalysisQueue implements AnalysisTaskQueue {
             signal: AbortSignal.timeout(600_000),
           },
         );
-        if (response.ok) return;
-        if (response.status < 500) {
-          throw new Error(
-            `Local worker rejected recipe analysis with HTTP ${response.status}`,
-          );
-        }
-        if (retryCount === this.config.maxAttempts - 1) {
-          throw new Error(
-            `Local worker failed recipe analysis after ${this.config.maxAttempts} attempts with HTTP ${response.status}`,
-          );
-        }
       } catch (error) {
         if (retryCount === this.config.maxAttempts - 1) throw error;
+        await this.sleep(retryDelayMs * 2 ** retryCount);
+        continue;
+      }
+
+      if (response.ok) return;
+      if (response.status < 500) {
+        throw new Error(
+          `Local worker rejected recipe analysis with HTTP ${response.status}`,
+        );
+      }
+      if (retryCount === this.config.maxAttempts - 1) {
+        throw new Error(
+          `Local worker failed recipe analysis after ${this.config.maxAttempts} attempts with HTTP ${response.status}`,
+        );
       }
 
       await this.sleep(retryDelayMs * 2 ** retryCount);
