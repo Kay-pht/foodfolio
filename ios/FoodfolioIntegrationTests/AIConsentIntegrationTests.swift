@@ -48,11 +48,29 @@ import XCTest
     XCTAssertFalse(session.isAIConsentReadyForAuthenticatedUse)
   }
 
-  private func makeSession() throws -> AppSession {
+  func testAuthenticatedRestoreTrustsSynchronizedLocalConsentWithoutServerRefresh() async throws {
+    let defaults = UserDefaults(suiteName: UUID().uuidString)!
+    let consentedAt = Date(timeIntervalSince1970: 1_700_000_000)
+    let store = AIConsentStore(defaults: defaults)
+    store.grant(at: consentedAt)
+    store.markServerSynchronized(consentedAt: consentedAt)
+    let session = try makeSession(aiConsentStore: store)
+
+    XCTAssertTrue(session.isAIConsentReadyForAuthenticatedUse)
+    await session.restoreAuthenticatedSession()
+
+    XCTAssertTrue(session.aiConsent.isGranted)
+    XCTAssertFalse(session.aiConsent.needsServerSync)
+    XCTAssertEqual(session.aiConsent.currentRecord?.consentedAt, consentedAt)
+    XCTAssertTrue(session.isAIConsentReadyForAuthenticatedUse)
+  }
+
+  private func makeSession(aiConsentStore: AIConsentStore? = nil) throws -> AppSession {
     let container = try ModelContainerFactory.make(inMemory: true)
     modelContainer = container
     return try AppSession(
       context: container.mainContext, uiTesting: true,
-      aiConsentStore: AIConsentStore(defaults: UserDefaults(suiteName: UUID().uuidString)!))
+      aiConsentStore: aiConsentStore
+        ?? AIConsentStore(defaults: UserDefaults(suiteName: UUID().uuidString)!))
   }
 }
