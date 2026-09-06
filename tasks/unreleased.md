@@ -16,7 +16,7 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
 
 - [ ] `REL-20260906-03` AI解析専用の同意機能を廃止する
   - 内容: Z.ai / Geminiの解析requestへFoodfolio利用者のUser ID、Firebase UID、メール、認証Token、端末Token等を送らない現行境界に合わせ、認証前同意画面、同意store、同意API、Recipe作成gate、Share Extension判定、DBの同意日時、撤回UIを削除する。AI Providerの利用と送信対象はプライバシーポリシーで開示する
-  - PR: 未作成
+  - PR: [#60](https://github.com/Kay-pht/foodfolio/pull/60)
   - main反映: 未反映
   - 必要な反映先:
     - [ ] TestFlight内部テスト — 対象version/build: 未定
