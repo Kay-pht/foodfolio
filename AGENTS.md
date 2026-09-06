@@ -95,6 +95,16 @@ Apple Developer Program加入、規約同意、MFA、App Store Connectの新規�
 - 一部だけ完了した場合、検証が失敗した場合、または外部確認が残っている場合はチェックを入れない。
 - 対応する項目が存在しない場合は、無関係な項目を更新しない。新しい項目の追加先が不明な場合はユーザーに確認する。
 
+### 配布状況の管理
+
+- 利用者の操作または実行環境の挙動が変わる変更は、PR作成前に `tasks/unreleased.md` へ追加する。PR作成後はPRリンク、mainへmerge後はmerge commitを追記する。
+- CI、テスト、ドキュメント、開発専用ツールだけの変更は、配布物や稼働環境の挙動を変えない限り配布状況の対象にしない。
+- 各項目には必要な反映先を明記する。反映先は変更内容に応じてTestFlight内部テスト、App Store本番、対象のCloud Run環境から選び、不要な反映先を形式的に追加しない。
+- TestFlightは対象buildが内部テスターグループへ割り当てられた時点、App Store本番は公開を確認した時点、Cloud Runは対象revisionへのデプロイ成功とtrafficを確認した時点で反映済みとする。実機確認はこの移動条件に含めず、必要な検証を `tasks/todo.md` などで別に管理する。
+- 必要な反映先をすべて証跡付きで確認した項目だけを `tasks/released.md` へ移す。一部だけ反映済みの場合は `tasks/unreleased.md` に残し、反映済みの行だけチェックする。
+- 反映日は日本時間（JST）の `YYYY-MM-DD` で記録する。iOSは `version (build)` とApp Store ConnectのBuild ID、Cloud RunはGit SHA、service名、revision名を記録する。
+- 初期TestFlightが現在のdevバックエンドを利用している間も、iOS buildへの反映とCloud Runへの反映を別々の反映先として扱う。
+
 ## 完了報告
 
 - 変更した内容とファイルを簡潔に示す。
