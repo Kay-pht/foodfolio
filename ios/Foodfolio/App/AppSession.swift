@@ -96,7 +96,7 @@ final class RecipeSynchronizationCoordinator {
     }
     self.aiConsent = aiConsent
     self.isAIConsentReadyForAuthenticatedUse =
-      uiTesting && auth.currentUser != nil && aiConsent.isGranted
+      auth.currentUser != nil && aiConsent.isGranted && !aiConsent.needsServerSync
     let configuredBaseURL =
       uiTesting
       ? "https://ui-test.foodfolio.invalid"
@@ -155,9 +155,9 @@ final class RecipeSynchronizationCoordinator {
     do {
       try await syncAIConsentRecord()
       isAIConsentReadyForAuthenticatedUse = aiConsent.isGranted
+      globalError = nil
       await notifications?.restoreAuthenticatedSession()
     } catch {
-      aiConsent.revoke()
       isAIConsentReadyForAuthenticatedUse = false
       throw error
     }
@@ -198,9 +198,11 @@ final class RecipeSynchronizationCoordinator {
     }
     globalError = nil
     do {
-      guard try await reconcileAIConsentAfterAuthentication() else { return }
+      guard try await prepareAIConsentAfterAuthentication() else { return }
     } catch {
-      await handleAIConsentSyncFailure()
+      isAIConsentReadyForAuthenticatedUse = false
+      globalError =
+        "AI解析への同意情報を保存できませんでした。通信状況を確認して、もう一度お試しください。"
       return
     }
     await notifications?.requestAfterFirstLogin()
@@ -209,17 +211,11 @@ final class RecipeSynchronizationCoordinator {
 
   func restoreAuthenticatedSession() async {
     guard user != nil else { return }
-    guard aiConsent.isGranted else {
+    guard aiConsent.isGranted, !aiConsent.needsServerSync else {
       isAIConsentReadyForAuthenticatedUse = false
       return
     }
-    globalError = nil
-    do {
-      guard try await reconcileAIConsentAfterAuthentication() else { return }
-    } catch {
-      await handleAIConsentSyncFailure()
-      return
-    }
+    isAIConsentReadyForAuthenticatedUse = true
     await notifications?.restoreAuthenticatedSession()
   }
 
@@ -248,14 +244,12 @@ final class RecipeSynchronizationCoordinator {
     history.removeAll()
   }
 
-  private func reconcileAIConsentAfterAuthentication() async throws -> Bool {
+  private func prepareAIConsentAfterAuthentication() async throws -> Bool {
     if aiConsent.needsServerSync {
       try await syncAIConsentRecord()
-    } else {
-      try await restoreAIConsentRecordFromServer()
     }
-    isAIConsentReadyForAuthenticatedUse = aiConsent.isGranted
-    return aiConsent.isGranted
+    isAIConsentReadyForAuthenticatedUse = aiConsent.isGranted && !aiConsent.needsServerSync
+    return isAIConsentReadyForAuthenticatedUse
   }
 
   private func syncAIConsentRecord() async throws {
@@ -267,28 +261,6 @@ final class RecipeSynchronizationCoordinator {
       "/v1/ai-consent", method: "PUT",
       body: Body(consentedAt: record.consentedAt))
     aiConsent.markServerSynchronized(consentedAt: response.aiConsentedAt)
-  }
-
-  private func restoreAIConsentRecordFromServer() async throws {
-    let response: AIConsentDTO = try await api.get("/v1/ai-consent")
-    aiConsent.markServerSynchronized(consentedAt: response.aiConsentedAt)
-  }
-
-  private func handleAIConsentSyncFailure() async {
-    isAIConsentReadyForAuthenticatedUse = false
-    await synchronizationCoordinator.cancel()
-    do {
-      try await repository.clearLocalData()
-      syncService.clearMetadata()
-      history.removeAll()
-      try auth.signOut()
-      refreshUser()
-    } catch {
-      globalError =
-        "AI解析への同意情報を確認できず、安全にログアウトできませんでした。通信状況を確認して、もう一度お試しください。"
-      return
-    }
-    globalError = "AI解析への同意情報を確認できませんでした。通信状況を確認して、もう一度ログインしてください。"
   }
 
   private func seedUITestData(context: ModelContext) {
