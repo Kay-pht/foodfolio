@@ -72,17 +72,14 @@ describe("LocalHttpAnalysisQueue", () => {
     const secondCall = new Promise<void>((resolve) => {
       resolveSecondCall = resolve;
     });
-    const fetchImpl = vi.fn(
-      async (
-        _input: Parameters<typeof fetch>[0],
-        _init?: Parameters<typeof fetch>[1],
-      ) => {
-        callCount += 1;
-        if (callCount === 1) return new Response(null, { status: 503 });
-        resolveSecondCall?.();
-        return new Response(null, { status: 204 });
-      },
-    );
+    const requestInits: Array<RequestInit | undefined> = [];
+    const fetchImpl = vi.fn(async (...args: Parameters<typeof fetch>) => {
+      requestInits.push(args[1]);
+      callCount += 1;
+      if (callCount === 1) return new Response(null, { status: 503 });
+      resolveSecondCall?.();
+      return new Response(null, { status: 204 });
+    });
     const sleep = vi.fn(async () => undefined);
     const queue = new LocalHttpAnalysisQueue(
       {
@@ -97,14 +94,14 @@ describe("LocalHttpAnalysisQueue", () => {
 
     expect(fetchImpl).toHaveBeenCalledTimes(2);
     expect(sleep).toHaveBeenCalledWith(250);
-    expect(fetchImpl.mock.calls[0]?.[1]).toEqual(
+    expect(requestInits[0]).toEqual(
       expect.objectContaining({
         headers: expect.objectContaining({
           "x-cloudtasks-taskretrycount": "0",
         }),
       }),
     );
-    expect(fetchImpl.mock.calls[1]?.[1]).toEqual(
+    expect(requestInits[1]).toEqual(
       expect.objectContaining({
         headers: expect.objectContaining({
           "x-cloudtasks-taskretrycount": "1",
