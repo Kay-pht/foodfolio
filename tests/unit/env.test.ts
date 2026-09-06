@@ -7,6 +7,55 @@ const workerEnvironment = {
   YOUTUBE_API_KEY: "test-youtube-key",
 };
 
+const cloudApiEnvironment = {
+  DATABASE_URL: "postgresql://localhost/foodfolio",
+  WORKER_URL: "https://worker.example",
+  GCP_PROJECT_ID: "project",
+  CLOUD_TASKS_LOCATION: "region",
+  CLOUD_TASKS_QUEUE: "queue",
+  TASK_INVOKER_SERVICE_ACCOUNT: "worker@example.iam.gserviceaccount.com",
+};
+
+describe("backend environment drivers", () => {
+  it("keeps Cloud Tasks and Firebase notifications as the defaults", () => {
+    const apiConfig = loadConfig("api", cloudApiEnvironment);
+    const workerConfig = loadConfig("worker", workerEnvironment);
+
+    expect(apiConfig.analysisQueueDriver).toBe("cloud-tasks");
+    expect(workerConfig.notificationDriver).toBe("firebase");
+  });
+
+  it("allows the local HTTP queue without Cloud Tasks configuration", () => {
+    const config = loadConfig("api", {
+      DATABASE_URL: "postgresql://localhost/foodfolio",
+      WORKER_URL: "http://127.0.0.1:8081",
+      ANALYSIS_QUEUE_DRIVER: "local-http",
+    });
+
+    expect(config.analysisQueueDriver).toBe("local-http");
+    expect(config.gcpProjectId).toBe("");
+  });
+
+  it("allows notifications to be disabled for local workers", () => {
+    const config = loadConfig("worker", {
+      ...workerEnvironment,
+      NOTIFICATION_DRIVER: "noop",
+    });
+
+    expect(config.notificationDriver).toBe("noop");
+  });
+
+  it("rejects unsupported local driver values", () => {
+    expect(() =>
+      loadConfig("api", {
+        DATABASE_URL: "postgresql://localhost/foodfolio",
+        WORKER_URL: "http://127.0.0.1:8081",
+        ANALYSIS_QUEUE_DRIVER: "memory",
+      }),
+    ).toThrow("ANALYSIS_QUEUE_DRIVER must be cloud-tasks or local-http");
+  });
+});
+
 describe("TikTok video fallback environment", () => {
   it("is disabled by default and uses five total download attempts", () => {
     const config = loadConfig("worker", workerEnvironment);

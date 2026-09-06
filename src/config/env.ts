@@ -1,16 +1,18 @@
 const REQUIRED_BY_ROLE = {
-  api: [
-    "DATABASE_URL",
-    "GCP_PROJECT_ID",
-    "CLOUD_TASKS_LOCATION",
-    "CLOUD_TASKS_QUEUE",
-    "WORKER_URL",
-    "TASK_INVOKER_SERVICE_ACCOUNT",
-  ],
+  api: ["DATABASE_URL", "WORKER_URL"],
   worker: ["DATABASE_URL", "ZAI_API_KEY", "YOUTUBE_API_KEY"],
 } as const;
 
+const CLOUD_TASKS_REQUIRED = [
+  "GCP_PROJECT_ID",
+  "CLOUD_TASKS_LOCATION",
+  "CLOUD_TASKS_QUEUE",
+  "TASK_INVOKER_SERVICE_ACCOUNT",
+] as const;
+
 export type AppRole = keyof typeof REQUIRED_BY_ROLE;
+export type AnalysisQueueDriver = "cloud-tasks" | "local-http";
+export type NotificationDriver = "firebase" | "noop";
 
 export interface AppConfig {
   appEnv: string;
@@ -20,6 +22,8 @@ export interface AppConfig {
   cloudTasksQueue: string;
   workerUrl: string;
   taskInvokerServiceAccount: string;
+  analysisQueueDriver: AnalysisQueueDriver;
+  notificationDriver: NotificationDriver;
   zaiApiKey: string;
   youtubeApiKey: string;
   geminiApiKey: string;
@@ -34,7 +38,19 @@ export interface AppConfig {
 }
 
 export function loadConfig(role: AppRole, source = process.env): AppConfig {
-  const missing = REQUIRED_BY_ROLE[role].filter((key) => !source[key]?.trim());
+  const analysisQueueDriver = parseAnalysisQueueDriver(
+    source.ANALYSIS_QUEUE_DRIVER ?? "cloud-tasks",
+  );
+  const notificationDriver = parseNotificationDriver(
+    source.NOTIFICATION_DRIVER ?? "firebase",
+  );
+  const required = [
+    ...REQUIRED_BY_ROLE[role],
+    ...(role === "api" && analysisQueueDriver === "cloud-tasks"
+      ? CLOUD_TASKS_REQUIRED
+      : []),
+  ];
+  const missing = required.filter((key) => !source[key]?.trim());
   if (missing.length > 0)
     throw new Error(`Missing environment variables: ${missing.join(", ")}`);
   const maxAnalysisAttempts = Number(source.MAX_ANALYSIS_ATTEMPTS ?? "3");
@@ -71,6 +87,8 @@ export function loadConfig(role: AppRole, source = process.env): AppConfig {
     cloudTasksQueue: source.CLOUD_TASKS_QUEUE ?? "recipe-analysis",
     workerUrl: source.WORKER_URL ?? "",
     taskInvokerServiceAccount: source.TASK_INVOKER_SERVICE_ACCOUNT ?? "",
+    analysisQueueDriver,
+    notificationDriver,
     zaiApiKey: source.ZAI_API_KEY ?? "",
     youtubeApiKey: source.YOUTUBE_API_KEY ?? "",
     geminiApiKey: source.GEMINI_API_KEY ?? "",
@@ -83,6 +101,18 @@ export function loadConfig(role: AppRole, source = process.env): AppConfig {
     ytDlpPath: source.YT_DLP_PATH ?? "/usr/local/bin/yt-dlp",
     port: Number(source.PORT ?? "8080"),
   };
+}
+
+function parseAnalysisQueueDriver(value: string): AnalysisQueueDriver {
+  if (value === "cloud-tasks" || value === "local-http") return value;
+  throw new Error(
+    "ANALYSIS_QUEUE_DRIVER must be cloud-tasks or local-http",
+  );
+}
+
+function parseNotificationDriver(value: string): NotificationDriver {
+  if (value === "firebase" || value === "noop") return value;
+  throw new Error("NOTIFICATION_DRIVER must be firebase or noop");
 }
 
 function parseBoolean(name: string, value: string): boolean {
