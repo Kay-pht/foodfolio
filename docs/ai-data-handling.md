@@ -134,4 +134,4 @@ AI専用同意を廃止する変更では以下を削除する。
 - Prisma `UserSetting.aiConsentedAt`
 - AI同意専用テストとmock
 
-既に適用済みのmigration履歴は改変しない。`aiConsentedAt`を追加した過去migrationは履歴として保持し、新しいmigrationでcolumnをdropする。
+既に適用済みのmigration履歴は改変しない。`aiConsentedAt`を追加した過去migrationは履歴として保持する。稼働中の旧Backendがこのcolumnを参照している間はdropせず、AI同意へ依存しないBackendを先に反映する。新iOSへの切替後、旧Backend revisionへrollbackしないことを確認してから、後続の独立したmigrationでcolumnをdropする。

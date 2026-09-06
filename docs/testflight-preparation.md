@@ -76,12 +76,13 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 ## 外部審査前に残る確認
 
 1. AI同意機能を削除した次回TestFlight buildで、新規起動時に不要な同意画面が出ず、ログイン後にURL保存・AI解析・同期・検索・Push通知・Share Extensionが動作することを実機確認する。
-2. DBへ `aiConsentedAt` drop migrationを適用してから、同意APIを削除したBackendを対象環境へ反映する。migration適用自体はユーザー作業とし、アプリ起動時には実行しない。
-3. 更新したプライバシーポリシーをFirebase Hostingへ反映し、App Store ConnectのPrivacy Policy URLから最新内容へ到達できることを確認する。
-4. App Store ConnectのApp Privacyを、Foodfolio本体と組み込みSDKが実際に扱うデータ、利用目的、ユーザーとの紐付け、tracking有無に合わせて回答・公開する。
-5. 作成済みの審査専用ログインアカウントをTest Informationへ設定する。認証情報はリポジトリへ記載しない。
-6. 外部動画のダウンロード・解析について、提供元の利用許諾と公開対象の範囲を確認する。AI同意の有無とは別に扱う。
-7. 外部グループ・What to Test・必須情報を揃えた後にTestFlight App Reviewへ提出する。
+2. 同意APIとRecipe作成gateを削除したBackendをDB変更より先に対象環境へ反映する。旧iOS buildは互換対象外とし、Backend反映後に新iOSだけを利用する。
+3. 新iOSへの切替後、旧Backend revisionへrollbackしないことを確認してから、`aiConsentedAt`をdropするmigrationを独立した後続リリースとして適用する。migrationはアプリ起動時には実行しない。
+4. 更新したプライバシーポリシーをFirebase Hostingへ反映し、App Store ConnectのPrivacy Policy URLから最新内容へ到達できることを確認する。
+5. App Store ConnectのApp Privacyを、Foodfolio本体と組み込みSDKが実際に扱うデータ、利用目的、ユーザーとの紐付け、tracking有無に合わせて回答・公開する。
+6. 作成済みの審査専用ログインアカウントをTest Informationへ設定する。認証情報はリポジトリへ記載しない。
+7. 外部動画のダウンロード・解析について、提供元の利用許諾と公開対象の範囲を確認する。AI同意の有無とは別に扱う。
+8. 外部グループ・What to Test・必須情報を揃えた後にTestFlight App Reviewへ提出する。
 
 ## 入力文面の控え（認証情報を除く）
 
