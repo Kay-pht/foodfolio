@@ -152,3 +152,11 @@ schemes:
           parallelizable: true
         - name: FoodfolioUITests
           parallelizable: true
+  Foodfolio Local:
+    build:
+      targets:
+        Foodfolio: all
+    run:
+      config: Debug
+      environmentVariables:
+        API_BASE_URL: http://127.0.0.1:8080
