@@ -62,6 +62,33 @@ describe("MVP critical API integration", () => {
     await app.close();
   });
 
+  it("creates recipes without AI consent and no longer exposes the consent API", async () => {
+    const app = buildApi({
+      prisma: context.prisma,
+      authVerifier: auth,
+      firebaseUsers: noOpFirebase,
+      taskQueue: noOpQueue,
+    });
+    const userHeaders = headers("no-ai-consent-user");
+
+    const consent = await app.inject({
+      method: "GET",
+      url: "/v1/ai-consent",
+      headers: userHeaders,
+    });
+    expect(consent.statusCode).toBe(404);
+
+    const created = await app.inject({
+      method: "POST",
+      url: "/v1/recipes",
+      headers: userHeaders,
+      payload: { url: "https://example.com/without-ai-consent" },
+    });
+    expect(created.statusCode).toBe(201);
+
+    await app.close();
+  });
+
   it("does not expose another user's recipe through GET, PATCH or DELETE", async () => {
     const app = buildApi({
       prisma: context.prisma,
