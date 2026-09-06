@@ -1,3 +1,4 @@
+import { setTimeout as delay } from "node:timers/promises";
 import { CloudTasksClient } from "@google-cloud/tasks";
 
 export interface AnalysisTaskQueue {
@@ -37,5 +38,88 @@ export class CloudTasksAnalysisQueue implements AnalysisTaskQueue {
         },
       },
     });
+  }
+}
+
+type LocalQueueDependencies = {
+  fetch?: typeof fetch;
+  sleep?: (milliseconds: number) => Promise<void>;
+  onError?: (error: unknown, recipeId: string) => void;
+};
+
+export class LocalHttpAnalysisQueue implements AnalysisTaskQueue {
+  private readonly fetchImpl: typeof fetch;
+  private readonly sleep: (milliseconds: number) => Promise<void>;
+  private readonly onError: (error: unknown, recipeId: string) => void;
+
+  constructor(
+    private readonly config: {
+      workerUrl: string;
+      maxAttempts: number;
+      retryDelayMs?: number;
+    },
+    dependencies: LocalQueueDependencies = {},
+  ) {
+    this.fetchImpl = dependencies.fetch ?? fetch;
+    this.sleep = dependencies.sleep ?? delay;
+    this.onError =
+      dependencies.onError ??
+      ((error, recipeId) =>
+        console.error("Local recipe analysis dispatch failed", {
+          recipeId,
+          error,
+        }));
+  }
+
+  enqueueRecipeAnalysis(recipeId: string): Promise<void> {
+    void Promise.resolve()
+      .then(() => this.dispatch(recipeId))
+      .catch((error: unknown) => this.onError(error, recipeId));
+    return Promise.resolve();
+  }
+
+  private async dispatch(recipeId: string): Promise<void> {
+    const workerUrl = this.config.workerUrl.replace(/\/$/, "");
+    const retryDelayMs = this.config.retryDelayMs ?? 250;
+
+    for (
+      let retryCount = 0;
+      retryCount < this.config.maxAttempts;
+      retryCount += 1
+    ) {
+      let response: Response;
+      try {
+        response = await this.fetchImpl(
+          `${workerUrl}/internal/tasks/recipe-analysis`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-cloudtasks-taskretrycount": String(retryCount),
+            },
+            body: JSON.stringify({ recipeId }),
+            signal: AbortSignal.timeout(600_000),
+          },
+        );
+      } catch (error) {
+        if (retryCount === this.config.maxAttempts - 1) throw error;
+        await this.sleep(retryDelayMs * 2 ** retryCount);
+        continue;
+      }
+
+      if (response.ok) return;
+      if (response.status < 500) {
+        throw new Error(
+          `Local worker rejected recipe analysis with HTTP ${response.status}`,
+        );
+      }
+      if (retryCount === this.config.maxAttempts - 1) {
+        throw new Error(
+          `Local worker failed recipe analysis after ${this.config.maxAttempts} attempts with HTTP ${response.status}`,
+        );
+      }
+
+      await this.sleep(retryDelayMs * 2 ** retryCount);
+    }
   }
 }

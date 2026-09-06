@@ -18,6 +18,8 @@
     "build": "tsc -p tsconfig.build.json",
     "dev:api": "tsx watch src/entrypoints/api.ts",
     "dev:worker": "tsx watch src/entrypoints/worker.ts",
+    "dev:local": "node scripts/dev-local.mjs",
+    "dev:local:down": "docker compose down",
     "start:api": "node dist/src/entrypoints/api.js",
     "start:worker": "node dist/src/entrypoints/worker.js",
     "prisma:generate": "DATABASE_DIRECT_URL=postgresql://localhost:5432/generate prisma generate",
