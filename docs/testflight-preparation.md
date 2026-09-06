@@ -70,6 +70,7 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 - build 2 (`bc3cca8b-6824-4ffc-bac0-708c6862325c`): Archive / export / Apple validation / upload成功。
 - build 3 (`cb9cbeec-da15-4e08-b2a1-79b1a86ef79e`): 当時の判断に基づくAI送信同意を含むbuild。Archive / export / Apple validation / upload成功。
 - build 5 (`aaf7a5b6-645c-4cc1-aa39-c9c5f9cffef5`): Share ExtensionとApp Group対応、および当時のAI同意実装を含む。Apple processing `VALID`、内部 `IN_BETA_TESTING`、外部 `READY_FOR_BETA_SUBMISSION` を確認済み。
+- build 6 (`0edb524b-20d2-4589-9fa5-320e26d62165`): AI同意機能の廃止と共有シートの送信確認・二重送信防止を含む。Apple processing `VALID`、build有効、内部 `IN_BETA_TESTING`、外部 `READY_FOR_BETA_SUBMISSION` を確認し、`Foodfolio Internal`へ割り当て済み。日本語の「テストしてほしいこと」も保存・再取得確認済み。
 - build 3 / 5に含まれるAI同意実装は配布履歴として残るが、現在のソース仕様では廃止対象であり、次回buildでは利用しない。
 - 内部グループ `Foodfolio Internal` に既存App Store Connect管理者1名を登録済み。
 
@@ -79,7 +80,7 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 - `npm run verify:ios`: 78件成功、失敗0、skip 0。Swift format/lint、Debug build、unit・integration・UI E2Eを含む。
 - AI同意依存を削除したBackend SHA `254c08791a2f11692b3d41bd2a5a6f2d3756b785` をdevへ反映。API `foodfolio-dev-api-00017-ntq`、Worker `foodfolio-dev-worker-00020-qgs`、traffic 100%を確認。
 - 更新したプライバシーポリシーをFirebase Hostingへ反映し、公開ページでAI送信境界の更新を確認。
-- Archive、Apple validation、upload、processing、内部グループ割り当ては未実施。
+- Release Archive、IPA export、Apple validation、uploadに成功。build ID `0edb524b-20d2-4589-9fa5-320e26d62165`のprocessing `VALID`と`Foodfolio Internal`への割り当てを確認。
 
 ## 外部審査前に残る確認
 

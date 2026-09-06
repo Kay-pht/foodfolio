@@ -49,6 +49,7 @@
     - [x] ArchiveをApp Store Connectへuploadし、build processing完了後にエラー・警告・Missing Complianceが残っていないことを確認する
     - [ ] App Store Connectで内部テスターグループを作成し、内部テスターの実機でインストール、起動、現在利用するバックエンドへの接続、主要フローをスモークテストする
       - 2026-09-05: 既存の `Foodfolio Internal` にbuild 5を割り当て、`IN_BETA_TESTING` をAPIで再確認。既存管理者1名によるbuild 5のインストールと実機検証は未確認
+      - 2026-09-06: build 6を `Foodfolio Internal` に割り当て、`VALID`、build有効、`IN_BETA_TESTING`、日本語の「テストしてほしいこと」をAPIで再確認。内部テスターによるbuild 6のインストールと実機検証は未確認
   - [ ] 外部TestFlight審査へ提出できる状態にする
     - [ ] 外部テスターグループを作成し、対象buildと「テストしてほしいこと」を設定する
     - [ ] TestFlight Test InformationとBeta App Review Informationの必須項目をすべて入力する
