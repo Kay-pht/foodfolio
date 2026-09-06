@@ -36,6 +36,8 @@ targets:
           - CFBundleTypeRole: Editor
             CFBundleURLSchemes:
               - com.googleusercontent.apps.414277381291-96m1vegr6sfb0laa8hi6oe40o5f5tj2d
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: true
           UISceneConfigurations: {}
@@ -152,3 +154,11 @@ schemes:
           parallelizable: true
         - name: FoodfolioUITests
           parallelizable: true
+  Foodfolio Local:
+    build:
+      targets:
+        Foodfolio: all
+    run:
+      config: Debug
+      environmentVariables:
+        API_BASE_URL: http://127.0.0.1:8080
