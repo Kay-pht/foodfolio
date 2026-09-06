@@ -166,7 +166,7 @@ export function validatePocCases(value: unknown): PocCase[] {
     "video-carousel",
     "mixed-carousel",
   ]);
-  const cases = value.map((item, index) => {
+  const cases = value.map((item, index): PocCase => {
     const record = asRecord(item);
     const id = asString(record?.id);
     const expectedKind = asString(
@@ -179,11 +179,12 @@ export function validatePocCases(value: unknown): PocCase[] {
     const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
     if (parsed.protocol !== "https:" || host !== "instagram.com")
       throw new Error(`case ${id} must use a public HTTPS Instagram URL`);
+    const source = asString(record?.source);
     return {
       id,
       expectedKind,
       url,
-      source: asString(record?.source) ?? undefined,
+      ...(source ? { source } : {}),
     };
   });
   if (new Set(cases.map((item) => item.id)).size !== cases.length)
