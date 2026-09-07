@@ -24,7 +24,7 @@ on:
         required: true
         type: string
       pr_number:
-        description: Pull request number when dispatched by Auto Format
+        description: Pull request number when dispatched by Auto Fix
         required: true
         type: string
 
@@ -80,10 +80,50 @@ jobs:
           QUALITY_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.head_sha || github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
         run: node scripts/classify-quality-changes.mjs
 
+      - name: Check whitespace and conflict markers
+        if: steps.proof.outputs.reusable != 'true'
+        env:
+          BASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.base_sha || github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.head_sha || github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        shell: bash
+        run: |
+          if [[ "${BASE_SHA}" =~ ^0+$ ]]; then
+            git show --check --format= "${HEAD_SHA}"
+          else
+            git diff --check "${BASE_SHA}" "${HEAD_SHA}" --
+          fi
+
+      - name: Lint GitHub Actions workflows
+        if: >-
+          steps.proof.outputs.reusable != 'true' &&
+          steps.changes.outputs.workflows == 'true'
+        shell: bash
+        run: |
+          docker run --rm \
+            --volume "${GITHUB_WORKSPACE}:/repo" \
+            --workdir /repo \
+            rhysd/actionlint:1.7.12 \
+            -color
+
+      - uses: hashicorp/setup-terraform@v3
+        if: >-
+          steps.proof.outputs.reusable != 'true' &&
+          steps.changes.outputs.terraform == 'true'
+        with:
+          terraform_version: "~1.10.0"
+          terraform_wrapper: false
+
+      - name: Check Terraform formatting
+        if: >-
+          steps.proof.outputs.reusable != 'true' &&
+          steps.changes.outputs.terraform == 'true'
+        run: terraform fmt -check -recursive infra/terraform
+
       - uses: actions/setup-node@v7
         if: >-
           steps.proof.outputs.reusable != 'true' &&
-          steps.changes.outputs.backend == 'true'
+          (steps.changes.outputs.backend == 'true' ||
+            steps.changes.outputs.docs == 'true')
         with:
           node-version: 24.18.0
           cache: npm
@@ -98,7 +138,8 @@ jobs:
       - name: Check task consistency
         if: >-
           steps.proof.outputs.reusable != 'true' &&
-          steps.changes.outputs.backend == 'true'
+          (steps.changes.outputs.backend == 'true' ||
+            steps.changes.outputs.docs == 'true')
         run: npm run tasks:check
 
       - name: Check backend formatting
@@ -113,6 +154,15 @@ jobs:
           steps.changes.outputs.backend == 'true'
         run: npm run lint
 
+      - name: Check Prisma formatting
+        if: >-
+          steps.proof.outputs.reusable != 'true' &&
+          steps.changes.outputs.backend == 'true'
+        shell: bash
+        run: |
+          npm run prisma:format
+          git diff --exit-code -- prisma/schema.prisma
+
       - name: Run architecture guardrails
         if: >-
           steps.proof.outputs.reusable != 'true' &&
@@ -122,8 +172,15 @@ jobs:
       - name: Run documentation guardrails
         if: >-
           steps.proof.outputs.reusable != 'true' &&
-          steps.changes.outputs.backend == 'true'
+          (steps.changes.outputs.backend == 'true' ||
+            steps.changes.outputs.docs == 'true')
         run: npm run check:docs
+
+      - name: Check Markdown formatting
+        if: >-
+          steps.proof.outputs.reusable != 'true' &&
+          steps.changes.outputs.docs == 'true'
+        run: npx --yes prettier@3.6.2 --check "**/*.md"
 
       - name: Run iOS lint and format check
         if: >-
