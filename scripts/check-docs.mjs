@@ -14,6 +14,8 @@ const AUTHORITATIVE_DOCS = [
 
 const MARKDOWN_LINK_PATTERN = /!?\[[^\]]*\]\(([^)]+)\)/gu;
 const NPM_RUN_PATTERN = /\bnpm run ([a-zA-Z0-9:_-]+)/gu;
+const FENCE_PATTERN = /^\s*(`{3,}|~{3,})/u;
+const INLINE_CODE_PATTERN = /(`+)(.*?)\1/gu;
 
 async function exists(path) {
   try {
@@ -47,13 +49,56 @@ function withoutFragmentOrQuery(target) {
   return target.split("#", 1)[0].split("?", 1)[0];
 }
 
+function withoutMarkdownCode(source) {
+  let fence;
+  const lines = [];
+
+  for (const line of source.split("\n")) {
+    const fenceMatch = line.match(FENCE_PATTERN);
+    if (fence) {
+      if (
+        fenceMatch &&
+        fenceMatch[1][0] === fence[0] &&
+        fenceMatch[1].length >= fence.length
+      ) {
+        fence = undefined;
+      }
+      lines.push("");
+      continue;
+    }
+
+    if (fenceMatch) {
+      fence = fenceMatch[1];
+      lines.push("");
+      continue;
+    }
+
+    lines.push(line.replace(INLINE_CODE_PATTERN, ""));
+  }
+
+  return lines.join("\n");
+}
+
+function markdownLinkTargets(source) {
+  const targets = [];
+  const markdown = withoutMarkdownCode(source);
+  MARKDOWN_LINK_PATTERN.lastIndex = 0;
+  for (const match of markdown.matchAll(MARKDOWN_LINK_PATTERN)) {
+    const target = match[1] ? linkTarget(match[1]) : undefined;
+    if (target) targets.push(target);
+  }
+  return targets;
+}
+
 async function topLevelDocs(rootDirectory) {
   const docsDirectory = join(rootDirectory, "docs");
   const entries = await readdir(docsDirectory, { withFileTypes: true });
   return entries
     .filter(
       (entry) =>
-        entry.isFile() && extname(entry.name) === ".md" && entry.name !== "README.md",
+        entry.isFile() &&
+        extname(entry.name) === ".md" &&
+        entry.name !== "README.md",
     )
     .map((entry) => entry.name)
     .sort();
@@ -70,8 +115,15 @@ export async function findDocumentationIssues({
 
   const docsIndexPath = join(rootDirectory, "docs/README.md");
   const docsIndex = await readFile(docsIndexPath, "utf8");
+  const indexedDocuments = new Set(
+    markdownLinkTargets(docsIndex)
+      .filter((target) => !isExternalOrAnchor(target))
+      .map((target) => withoutFragmentOrQuery(target))
+      .filter(Boolean)
+      .map((target) => resolve(dirname(docsIndexPath), decodeURIComponent(target))),
+  );
   for (const name of await topLevelDocs(rootDirectory)) {
-    if (!docsIndex.includes(`(${name})`)) {
+    if (!indexedDocuments.has(resolve(dirname(docsIndexPath), name))) {
       issues.push(`docs/README.md does not index docs/${name}`);
     }
   }
@@ -84,10 +136,8 @@ export async function findDocumentationIssues({
     }
 
     const source = await readFile(absoluteDocument, "utf8");
-    MARKDOWN_LINK_PATTERN.lastIndex = 0;
-    for (const match of source.matchAll(MARKDOWN_LINK_PATTERN)) {
-      const target = match[1] ? linkTarget(match[1]) : undefined;
-      if (!target || isExternalOrAnchor(target)) continue;
+    for (const target of markdownLinkTargets(source)) {
+      if (isExternalOrAnchor(target)) continue;
       const localTarget = withoutFragmentOrQuery(target);
       if (!localTarget) continue;
       const decodedTarget = decodeURIComponent(localTarget);
@@ -98,7 +148,7 @@ export async function findDocumentationIssues({
     }
 
     NPM_RUN_PATTERN.lastIndex = 0;
-    for (const match of source.matchAll(NPM_RUN_PATTERN)) {
+    for (const match of withoutMarkdownCode(source).matchAll(NPM_RUN_PATTERN)) {
       const script = match[1];
       if (script && !scripts.has(script)) {
         issues.push(`${document} references unknown npm script: ${script}`);
@@ -110,7 +160,9 @@ export async function findDocumentationIssues({
 }
 
 async function main() {
-  const rootDirectory = process.argv[2] ? resolve(process.argv[2]) : process.cwd();
+  const rootDirectory = process.argv[2]
+    ? resolve(process.argv[2])
+    : process.cwd();
   const issues = await findDocumentationIssues({ rootDirectory });
   if (issues.length === 0) {
     console.log("Documentation guardrails OK.");
@@ -122,6 +174,9 @@ async function main() {
   process.exitCode = 1;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+if (
+  process.argv[1] &&
+  fileURLToPath(import.meta.url) === resolve(process.argv[1])
+) {
   await main();
 }
