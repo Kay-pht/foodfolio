@@ -209,6 +209,7 @@ describe("documentation guardrail", () => {
         "[Guide](guide.md)",
         "[Architecture](architecture-boundaries.md)",
         "Mention only: (unindexed.md)",
+        "![Image reference](unindexed.md)",
         "`[Inline example](unindexed.md)`",
         "```md",
         "[Fenced example](unindexed.md)",
