@@ -7,43 +7,56 @@ const workerEnvironment = {
   YOUTUBE_API_KEY: "test-youtube-key",
 };
 
-describe("Instagram video fallback environment", () => {
-  it("is disabled by default and uses five total download attempts", () => {
+describe("Instagram media fallback environment", () => {
+  it("is disabled by default and uses five total retrieval attempts", () => {
     const config = loadConfig("worker", workerEnvironment);
 
-    expect(config.instagramVideoFallbackEnabled).toBe(false);
-    expect(config.instagramVideoBucket).toBe("");
-    expect(config.instagramVideoMaxAttempts).toBe(5);
+    expect(config.instagramMediaFallbackEnabled).toBe(false);
+    expect(config.instagramMediaBucket).toBe("");
+    expect(config.instagramMediaMaxAttempts).toBe(5);
   });
 
   it("requires a private media bucket when enabled", () => {
     expect(() =>
       loadConfig("worker", {
         ...workerEnvironment,
-        INSTAGRAM_VIDEO_FALLBACK_ENABLED: "true",
+        INSTAGRAM_MEDIA_FALLBACK_ENABLED: "true",
       }),
     ).toThrow(
-      "INSTAGRAM_VIDEO_BUCKET is required when Instagram video fallback is enabled",
+      "INSTAGRAM_MEDIA_BUCKET is required when Instagram media fallback is enabled",
     );
   });
 
   it("accepts an enabled configuration with an explicit bucket", () => {
     const config = loadConfig("worker", {
       ...workerEnvironment,
-      INSTAGRAM_VIDEO_FALLBACK_ENABLED: "true",
-      INSTAGRAM_VIDEO_BUCKET: "foodfolio-dev-temporary-media",
+      INSTAGRAM_MEDIA_FALLBACK_ENABLED: "true",
+      INSTAGRAM_MEDIA_BUCKET: "foodfolio-dev-temporary-media",
     });
 
-    expect(config.instagramVideoFallbackEnabled).toBe(true);
-    expect(config.instagramVideoBucket).toBe("foodfolio-dev-temporary-media");
+    expect(config.instagramMediaFallbackEnabled).toBe(true);
+    expect(config.instagramMediaBucket).toBe("foodfolio-dev-temporary-media");
   });
 
-  it("caps whole download attempts at five", () => {
+  it("accepts the PR2 video-named variables during the rollout transition", () => {
+    const config = loadConfig("worker", {
+      ...workerEnvironment,
+      INSTAGRAM_VIDEO_FALLBACK_ENABLED: "true",
+      INSTAGRAM_VIDEO_BUCKET: "foodfolio-dev-temporary-media",
+      INSTAGRAM_VIDEO_MAX_ATTEMPTS: "4",
+    });
+
+    expect(config.instagramMediaFallbackEnabled).toBe(true);
+    expect(config.instagramMediaBucket).toBe("foodfolio-dev-temporary-media");
+    expect(config.instagramMediaMaxAttempts).toBe(4);
+  });
+
+  it("caps whole retrieval attempts at five", () => {
     expect(() =>
       loadConfig("worker", {
         ...workerEnvironment,
-        INSTAGRAM_VIDEO_MAX_ATTEMPTS: "6",
+        INSTAGRAM_MEDIA_MAX_ATTEMPTS: "6",
       }),
-    ).toThrow("INSTAGRAM_VIDEO_MAX_ATTEMPTS must be an integer from 1 to 5");
+    ).toThrow("INSTAGRAM_MEDIA_MAX_ATTEMPTS must be an integer from 1 to 5");
   });
 });

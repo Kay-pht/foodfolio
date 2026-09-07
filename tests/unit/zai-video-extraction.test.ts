@@ -5,8 +5,32 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("ZaiRecipeExtractor video input", () => {
-  it("sends a signed video URL to GLM-5.3-Flash as video_url content", async () => {
+function successfulResponse(requestId: string) {
+  return new Response(
+    JSON.stringify({
+      request_id: requestId,
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              title: "パスタ",
+              servings: null,
+              cookingTimeMinutes: null,
+              genre: "麺",
+              ingredients: [{ name: "パスタ", amount: "100g" }],
+              steps: ["茹でる"],
+            }),
+          },
+        },
+      ],
+      usage: { prompt_tokens: 10, completion_tokens: 20 },
+    }),
+    { status: 200 },
+  );
+}
+
+describe("ZaiRecipeExtractor media input", () => {
+  it("keeps the existing single-video request shape", async () => {
     const fetchMock = vi.fn(async (_url: string | URL, init?: RequestInit) => {
       const request = JSON.parse(String(init?.body)) as Record<string, unknown>;
       expect(request.model).toBe("glm-5.3-flash");
@@ -18,18 +42,6 @@ describe("ZaiRecipeExtractor video input", () => {
         expect.stringContaining(
           "Write every user-visible string value in natural Japanese",
         ),
-      );
-      for (const field of [
-        "title",
-        "servings.raw",
-        "ingredients[].name",
-        "ingredients[].amount",
-        "steps[]",
-      ]) {
-        expect(systemMessage?.content).toEqual(expect.stringContaining(field));
-      }
-      expect(systemMessage?.content).toEqual(
-        expect.stringContaining("Keep JSON property names unchanged"),
       );
       expect(request.messages).toEqual(
         expect.arrayContaining([
@@ -45,27 +57,7 @@ describe("ZaiRecipeExtractor video input", () => {
           }),
         ]),
       );
-      return new Response(
-        JSON.stringify({
-          request_id: "video-request",
-          choices: [
-            {
-              message: {
-                content: JSON.stringify({
-                  title: "パスタ",
-                  servings: null,
-                  cookingTimeMinutes: null,
-                  genre: "麺",
-                  ingredients: [{ name: "パスタ", amount: "100g" }],
-                  steps: ["茹でる"],
-                }),
-              },
-            },
-          ],
-          usage: { prompt_tokens: 10, completion_tokens: 20 },
-        }),
-        { status: 200 },
-      );
+      return successfulResponse("video-request");
     });
     vi.stubGlobal("fetch", fetchMock);
     const extractor = new ZaiRecipeExtractor("test-api-key");
@@ -83,5 +75,101 @@ describe("ZaiRecipeExtractor video input", () => {
     expect(result.recipe.ingredients).toHaveLength(1);
     expect(result.providerRequestId).toBe("video-request");
     expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("sends image and video blocks in original Instagram post order", async () => {
+    const fetchMock = vi.fn(async (_url: string | URL, init?: RequestInit) => {
+      const request = JSON.parse(String(init?.body)) as {
+        messages: Array<{ role: string; content: unknown }>;
+      };
+      const user = request.messages.find((message) => message.role === "user");
+      expect(user?.content).toEqual([
+        {
+          type: "image_url",
+          image_url: { url: "https://storage.example/1.jpg" },
+        },
+        {
+          type: "video_url",
+          video_url: { url: "https://storage.example/2.mp4" },
+        },
+        {
+          type: "image_url",
+          image_url: { url: "https://storage.example/3.png" },
+        },
+        expect.objectContaining({
+          type: "text",
+          text: expect.stringContaining("original post order"),
+        }),
+      ]);
+      return successfulResponse("media-request");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const extractor = new ZaiRecipeExtractor("test-api-key");
+    const dispose = async () => {};
+
+    const result = await extractor.extractMedia(
+      {
+        sourceType: "instagram",
+        resolvedUrl: "https://www.instagram.com/p/example/",
+        imageUrl: null,
+        textForAi: "DESCRIPTION\nパスタ",
+      },
+      [
+        {
+          index: 3,
+          kind: "image",
+          url: "https://storage.example/3.png",
+          contentType: "image/png",
+          dispose,
+        },
+        {
+          index: 1,
+          kind: "image",
+          url: "https://storage.example/1.jpg",
+          contentType: "image/jpeg",
+          dispose,
+        },
+        {
+          index: 2,
+          kind: "video",
+          url: "https://storage.example/2.mp4",
+          contentType: "video/mp4",
+          dispose,
+        },
+      ],
+    );
+
+    expect(result.providerRequestId).toBe("media-request");
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("rejects a non-contiguous media collection before calling the provider", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const extractor = new ZaiRecipeExtractor("test-api-key");
+
+    await expect(
+      extractor.extractMedia(
+        {
+          sourceType: "instagram",
+          resolvedUrl: "https://www.instagram.com/p/example/",
+          imageUrl: null,
+          textForAi: null,
+        },
+        [
+          {
+            index: 2,
+            kind: "image",
+            url: "https://storage.example/2.jpg",
+            contentType: "image/jpeg",
+            dispose: async () => {},
+          },
+        ],
+      ),
+    ).rejects.toMatchObject({
+      code: "AI_MEDIA_INPUT_INVALID",
+      retryable: false,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

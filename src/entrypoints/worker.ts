@@ -6,8 +6,8 @@ import { loadConfig } from "../config/env.js";
 import { ZaiRecipeExtractor } from "../infrastructure/ai/zai-recipe-extractor.js";
 import { GeminiYoutubeRecipeExtractor } from "../infrastructure/ai/gemini-youtube-recipe-extractor.js";
 import { getPrisma } from "../infrastructure/db/prisma.js";
-import { ProductionInstagramVideoRecipeFallback } from "../infrastructure/instagram/instagram-video-recipe-fallback.js";
-import { YtDlpInstagramVideoRetriever } from "../infrastructure/instagram/yt-dlp-instagram-video-retriever.js";
+import { ProductionInstagramMediaRecipeFallback } from "../infrastructure/instagram/instagram-media-recipe-fallback.js";
+import { YtDlpInstagramMediaRetriever } from "../infrastructure/instagram/yt-dlp-instagram-media-retriever.js";
 import { GcsTemporaryMediaStore } from "../infrastructure/media/gcs-temporary-media-store.js";
 import { FirebaseNotificationSender } from "../infrastructure/notifications/firebase-notification-sender.js";
 import { NoopNotificationSender } from "../infrastructure/notifications/noop-notification-sender.js";
@@ -41,21 +41,21 @@ const tiktokVideoFallback = config.tiktokVideoFallbackEnabled
       recipeExtractor,
     )
   : null;
-const instagramVideoFallback = config.instagramVideoFallbackEnabled
-  ? new ProductionInstagramVideoRecipeFallback(
-      new YtDlpInstagramVideoRetriever({
+const instagramMediaFallback = config.instagramMediaFallbackEnabled
+  ? new ProductionInstagramMediaRecipeFallback(
+      new YtDlpInstagramMediaRetriever({
         binaryPath: config.ytDlpPath,
-        maxAttempts: config.instagramVideoMaxAttempts,
+        maxAttempts: config.instagramMediaMaxAttempts,
         attemptTimeoutMs: 45_000,
         retryBaseSeconds: 2,
         maxRetrySeconds: 10,
       }),
       new GcsTemporaryMediaStore({
-        bucketName: config.instagramVideoBucket,
+        bucketName: config.instagramMediaBucket,
         publishFailure: {
-          code: "INSTAGRAM_VIDEO_PUBLISH_FAILED",
+          code: "INSTAGRAM_MEDIA_PUBLISH_FAILED",
           retryable: true,
-          message: "Temporary Instagram video publishing failed",
+          message: "Temporary Instagram media publishing failed",
         },
       }),
       recipeExtractor,
@@ -73,7 +73,7 @@ const service = new RecipeAnalysisService({
   ),
   recipeExtractor: routedRecipeExtractor,
   ...(tiktokVideoFallback ? { tiktokVideoFallback } : {}),
-  ...(instagramVideoFallback ? { instagramVideoFallback } : {}),
+  ...(instagramMediaFallback ? { instagramMediaFallback } : {}),
   notifications,
   maxAttempts: config.maxAnalysisAttempts,
 });
