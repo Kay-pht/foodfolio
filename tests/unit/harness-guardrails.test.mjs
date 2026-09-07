@@ -4,7 +4,9 @@ import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { findArchitectureViolations } from "../../scripts/check-architecture.mjs";
+import {
+  findArchitectureViolations,
+} from "../../scripts/check-architecture.mjs";
 import { findDocumentationIssues } from "../../scripts/check-docs.mjs";
 
 const temporaryDirectories = [];
