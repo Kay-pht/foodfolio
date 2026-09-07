@@ -3,6 +3,7 @@ import type { PrismaClient } from "../../generated/prisma/client.js";
 import { genreFromLabel } from "../../domain/recipe/genre.js";
 import {
   AnalysisError,
+  type InstagramVideoRecipeFallback,
   type NotificationSender,
   type RecipeExtractionResult,
   type RecipeExtractor,
@@ -18,8 +19,15 @@ export interface AnalysisDependencies {
   sourceExtractor: SourceContentExtractor;
   recipeExtractor: RecipeExtractor;
   tiktokVideoFallback?: TikTokVideoRecipeFallback;
+  instagramVideoFallback?: InstagramVideoRecipeFallback;
   notifications: NotificationSender;
   maxAttempts: number;
+}
+
+interface VideoFallbackOptions {
+  disabledCode: string;
+  disabledMessage: string;
+  incompleteMessage: string;
 }
 
 export class RecipeAnalysisService {
@@ -175,34 +183,67 @@ export class RecipeAnalysisService {
   private async extractRecipe(
     source: SourceContent,
   ): Promise<{ result: RecipeExtractionResult; videoFallbackUsed: boolean }> {
-    if (source.sourceType !== "tiktok") {
-      const result = await this.deps.recipeExtractor.extract(source);
-      return {
-        result,
-        videoFallbackUsed:
-          source.sourceType === "youtube" && result.provider === "gemini",
-      };
-    }
+    if (source.sourceType === "tiktok")
+      return this.extractWithVideoFallback(
+        source,
+        this.deps.tiktokVideoFallback,
+        {
+          disabledCode: "TIKTOK_VIDEO_FALLBACK_DISABLED",
+          disabledMessage:
+            "TikTok title did not contain enough recipe information and video fallback is disabled",
+          incompleteMessage:
+            "TikTok video did not contain enough recipe information",
+        },
+      );
 
+    if (source.sourceType === "instagram")
+      return this.extractWithVideoFallback(
+        source,
+        this.deps.instagramVideoFallback,
+        {
+          disabledCode: "INSTAGRAM_VIDEO_FALLBACK_DISABLED",
+          disabledMessage:
+            "Instagram metadata did not contain enough recipe information and video fallback is disabled",
+          incompleteMessage:
+            "Instagram video did not contain enough recipe information",
+        },
+      );
+
+    const result = await this.deps.recipeExtractor.extract(source);
+    return {
+      result,
+      videoFallbackUsed:
+        source.sourceType === "youtube" && result.provider === "gemini",
+    };
+  }
+
+  private async extractWithVideoFallback(
+    source: SourceContent,
+    fallback:
+      | TikTokVideoRecipeFallback
+      | InstagramVideoRecipeFallback
+      | undefined,
+    options: VideoFallbackOptions,
+  ): Promise<{ result: RecipeExtractionResult; videoFallbackUsed: boolean }> {
     const textResult = source.textForAi
       ? await this.deps.recipeExtractor.extract(source)
       : null;
     if (textResult && hasRequiredRecipeContent(textResult))
       return { result: textResult, videoFallbackUsed: false };
 
-    if (!this.deps.tiktokVideoFallback)
+    if (!fallback)
       throw new AnalysisError(
-        "TIKTOK_VIDEO_FALLBACK_DISABLED",
+        options.disabledCode,
         false,
-        "TikTok title did not contain enough recipe information and video fallback is disabled",
+        options.disabledMessage,
       );
 
-    const videoResult = await this.deps.tiktokVideoFallback.extract(source);
+    const videoResult = await fallback.extract(source);
     if (!hasRequiredRecipeContent(videoResult))
       throw new AnalysisError(
         "SOURCE_CONTENT_UNAVAILABLE",
         false,
-        "TikTok video did not contain enough recipe information",
+        options.incompleteMessage,
       );
     return {
       result: textResult

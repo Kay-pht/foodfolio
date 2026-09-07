@@ -33,6 +33,9 @@ export interface AppConfig {
   youtubeGeminiFallbackEnabled: boolean;
   tiktokVideoBucket: string;
   tiktokVideoMaxAttempts: number;
+  instagramVideoFallbackEnabled: boolean;
+  instagramVideoBucket: string;
+  instagramVideoMaxAttempts: number;
   ytDlpPath: string;
   port: number;
 }
@@ -79,6 +82,28 @@ export function loadConfig(role: AppRole, source = process.env): AppConfig {
     tiktokVideoMaxAttempts > 5
   )
     throw new Error("TIKTOK_VIDEO_MAX_ATTEMPTS must be an integer from 1 to 5");
+
+  const instagramVideoFallbackEnabled = parseBoolean(
+    "INSTAGRAM_VIDEO_FALLBACK_ENABLED",
+    source.INSTAGRAM_VIDEO_FALLBACK_ENABLED ?? "false",
+  );
+  const instagramVideoBucket = source.INSTAGRAM_VIDEO_BUCKET?.trim() ?? "";
+  if (instagramVideoFallbackEnabled && !instagramVideoBucket)
+    throw new Error(
+      "INSTAGRAM_VIDEO_BUCKET is required when Instagram video fallback is enabled",
+    );
+  const instagramVideoMaxAttempts = Number(
+    source.INSTAGRAM_VIDEO_MAX_ATTEMPTS ?? "5",
+  );
+  if (
+    !Number.isInteger(instagramVideoMaxAttempts) ||
+    instagramVideoMaxAttempts < 1 ||
+    instagramVideoMaxAttempts > 5
+  )
+    throw new Error(
+      "INSTAGRAM_VIDEO_MAX_ATTEMPTS must be an integer from 1 to 5",
+    );
+
   return {
     appEnv: source.APP_ENV ?? "development",
     databaseUrl: source.DATABASE_URL ?? "",
@@ -98,6 +123,9 @@ export function loadConfig(role: AppRole, source = process.env): AppConfig {
     youtubeGeminiFallbackEnabled,
     tiktokVideoBucket,
     tiktokVideoMaxAttempts,
+    instagramVideoFallbackEnabled,
+    instagramVideoBucket,
+    instagramVideoMaxAttempts,
     ytDlpPath: source.YT_DLP_PATH ?? "/usr/local/bin/yt-dlp",
     port: Number(source.PORT ?? "8080"),
   };
