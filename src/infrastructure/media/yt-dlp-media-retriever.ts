@@ -6,14 +6,9 @@ import {
   AnalysisError,
   type MediaCollection,
   type MediaKind,
+  type MediaOperationErrorSpec,
   type MediaRetriever,
 } from "../../application/analysis/types.js";
-
-export interface MediaRetrievalErrorSpec {
-  code: string;
-  retryable: boolean;
-  message: string;
-}
 
 export interface YtDlpMediaRetrieverConfig {
   binaryPath: string;
@@ -29,8 +24,8 @@ export interface YtDlpMediaRetrieverConfig {
   contentType: string;
   formatSelector: string;
   validateUrl(url: URL): boolean;
-  invalidUrlError: MediaRetrievalErrorSpec;
-  downloadFailedError: MediaRetrievalErrorSpec;
+  invalidUrlError: MediaOperationErrorSpec;
+  downloadFailedError: MediaOperationErrorSpec;
 }
 
 export interface YtDlpAttemptOptions {
@@ -118,7 +113,7 @@ async function resetWorkDirectory(workDirectory: string): Promise<void> {
   await mkdir(workDirectory, { recursive: true });
 }
 
-function toAnalysisError(spec: MediaRetrievalErrorSpec): AnalysisError {
+function toAnalysisError(spec: MediaOperationErrorSpec): AnalysisError {
   return new AnalysisError(spec.code, spec.retryable, spec.message);
 }
 
