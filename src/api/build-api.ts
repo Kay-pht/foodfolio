@@ -57,7 +57,10 @@ export function buildApi(deps: ApiDependencies): FastifyInstance {
         : error instanceof InvalidRecipeUrlError
           ? new AppError(400, "INVALID_URL", error.message)
           : new AppError(500, "INTERNAL_ERROR", "Unexpected error");
-    if (!(error instanceof AppError) && !(error instanceof InvalidRecipeUrlError))
+    if (
+      !(error instanceof AppError) &&
+      !(error instanceof InvalidRecipeUrlError)
+    )
       request.log.error({ err: error }, "unhandled request error");
     void reply.status(appError.statusCode).send({
       error: {
