@@ -8,10 +8,7 @@ import { GcsTemporaryMediaStore } from "../media/gcs-temporary-media-store.js";
 export class GcsTemporaryVideoStore implements TemporaryVideoStore {
   private readonly mediaStore: GcsTemporaryMediaStore;
 
-  constructor(
-    bucketName: string,
-    storage = new Storage(),
-  ) {
+  constructor(bucketName: string, storage = new Storage()) {
     this.mediaStore = new GcsTemporaryMediaStore(
       {
         bucketName,
