@@ -45,7 +45,12 @@ jobs:
 
       - name: Auto-fix backend files
         if: steps.changes.outputs.backend == 'true'
-        run: npm run fix:backend
+        run: |
+          npm run tasks:sync
+          npm run format:write
+          npm run lint:fix
+          npm run format:write
+          npm run prisma:format
 
       - name: Sync task files
         if: >-
@@ -105,7 +110,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add --all
-          git commit -m "chore: apply automatic fixes"
+          git commit -m "style: apply automatic formatting"
           git push origin "HEAD:${HEAD_REF}"
           echo "head_sha=$(git rev-parse HEAD)" >> "${GITHUB_OUTPUT}"
 
@@ -152,7 +157,7 @@ jobs:
               awk 'NR == 1 { print $1 }'
           )"
           if [[ "${remote_head}" != "${HEAD_SHA}" ]]; then
-            echo "The pull request advanced to ${remote_head}; skipping stale check dispatch for ${HEAD_SHA}." >> "${GITHUB_STEP_SUMMARY}"
+            echo "The pull request advanced to ${remote_head}; skipping stale Quality dispatch and Documentation dispatch for ${HEAD_SHA}." >> "${GITHUB_STEP_SUMMARY}"
             exit 0
           fi
 
