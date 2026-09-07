@@ -29,33 +29,33 @@ enum AiProvider {
 }
 
 enum Genre {
-  mainDish   @map("主菜")
-  sideDish   @map("副菜")
-  staple     @map("主食")
-  noodles    @map("麺")
-  soup       @map("スープ・汁物")
-  salad      @map("サラダ")
-  dessert    @map("デザート")
-  other      @map("その他")
+  mainDish @map("主菜")
+  sideDish @map("副菜")
+  staple   @map("主食")
+  noodles  @map("麺")
+  soup     @map("スープ・汁物")
+  salad    @map("サラダ")
+  dessert  @map("デザート")
+  other    @map("その他")
 }
 
 model User {
-  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  firebaseUid   String        @unique
-  createdAt     DateTime      @default(now()) @db.Timestamptz(3)
-  updatedAt     DateTime      @updatedAt @db.Timestamptz(3)
-  setting       UserSetting?
-  recipes       Recipe[]
-  tags          Tag[]
-  deviceTokens  DeviceToken[]
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  firebaseUid  String        @unique
+  createdAt    DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime      @updatedAt @db.Timestamptz(3)
+  setting      UserSetting?
+  recipes      Recipe[]
+  tags         Tag[]
+  deviceTokens DeviceToken[]
 }
 
 model UserSetting {
-  userId                             String   @id @db.Uuid
+  userId                            String   @id @db.Uuid
   recipeAnalysisNotificationEnabled Boolean  @default(true)
-  createdAt                          DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt                          DateTime @updatedAt @db.Timestamptz(3)
-  user                               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt                         DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt                         DateTime @updatedAt @db.Timestamptz(3)
+  user                              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Recipe {
