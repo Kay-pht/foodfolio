@@ -176,6 +176,6 @@ FoodfolioのMVPで必要なのは、ユーザーが共有した公開投稿をba
 | image-carousel | image-carousel | image-carousel |      5 |       5/5 |        1 | PASS   |
 | mixed-carousel | mixed-carousel | unknown        |      0 |       0/0 |        3 | FAIL   |
 
-`single-image`はyt-dlpが異なる3画像を返し、すべての実ダウンロードにも成功したため、現在の投稿内容は単一画像の回帰サンプルとして利用できません。`mixed-carousel`はInstagramが空のmedia responseを返し、ブラウザ表示でも投稿ページが利用不可だったため、削除または非公開化された回帰サンプルと判断します。
+`single-image`はyt-dlpが異なる3画像を返し、すべての実ダウンロードにも成功したため、現在のyt-dlp出力は単一画像の期待値と一致しません。`mixed-carousel`はInstagramが空のmedia responseを返し、ブラウザ表示でも投稿ページが利用不可だったため、現在は回帰サンプルとして利用できません。
 
 この実行結果だけでは、単一画像とmixed carouselについて方式の可否を判定できません。匿名で閲覧できる現存の実レシピURLへ2ケースを差し替え、同じDocker環境で再実行する必要があります。一方、今回のサンプルではReel、通常動画、画像カルーセルの順序付き列挙と実ファイル取得を確認できました。
