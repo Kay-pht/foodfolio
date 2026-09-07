@@ -1080,7 +1080,7 @@ PoCで成立した方式を本番モジュールへ移植する。ただしYouTu
 サービス別：
 
 - YouTube: URLからvideoId抽出 → YouTube Data API v3 `videos.list(part=snippet)` → `title` / `description` / `thumbnails` 取得
-- Instagram: 公開OG metadata範囲
+- Instagram: 公開OG metadataを第一経路とし、本文だけではレシピ情報が不足する場合は、ユーザーがFoodfolioへ共有して解析を依頼した公開投稿に限って`yt-dlp`によるmedia fallbackを使用する。画像・動画を区別して投稿内の順序を保持し、一部entryの取得失敗は投稿全体の取得失敗として扱う
 - TikTok: 公開oEmbed metadata。タイトル解析で材料または手順が得られない場合のみ、許可条件を満たした環境で動画フォールバック
 - クラシル
 - クックパッド
@@ -1088,7 +1088,7 @@ PoCで成立した方式を本番モジュールへ移植する。ただしYouTu
 
 YouTubeではページHTML、`ytInitialPlayerResponse`、oEmbedを説明文取得の主経路として使用しない。YouTube Data API呼び出しに必要な `YOUTUBE_API_KEY` はBackendのSecretとしてGoogle Cloud Secret Managerで管理し、Cloud Run Workerへ環境変数として渡す。
 
-認証回避、非公開コンテンツ取得、動画・画像本体の無断downloadは行わない。TikTok動画フォールバックは書面許可を確認した環境だけで有効化する。dev環境は書面許可を確認済みのため有効とする。
+認証回避や非公開コンテンツ取得は行わない。Instagram media fallbackは、ユーザーがFoodfolioへ共有して解析を依頼した公開投稿だけを対象とし、取得したメディアをAI解析のために一時利用して通常完了時は即時削除する。TikTok動画フォールバックは書面許可を確認した環境だけで有効化する。dev環境は書面許可を確認済みのため有効とする。
 
 ### 14.1 YouTube説明欄優先・動画フォールバック
 
