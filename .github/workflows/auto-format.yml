@@ -1,12 +1,8 @@
-name: Auto Format
+name: Auto Fix
 
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    paths-ignore:
-      - "*.md"
-      - "**/*.md"
-      - "docs/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
@@ -17,7 +13,7 @@ permissions:
   contents: write
 
 jobs:
-  format:
+  fix:
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -35,7 +31,9 @@ jobs:
         run: node scripts/classify-quality-changes.mjs
 
       - uses: actions/setup-node@v7
-        if: steps.changes.outputs.backend == 'true'
+        if: >-
+          steps.changes.outputs.backend == 'true' ||
+          steps.changes.outputs.docs == 'true'
         with:
           node-version: 24.18.0
           cache: npm
@@ -45,9 +43,31 @@ jobs:
         if: steps.changes.outputs.backend == 'true'
         run: npm ci
 
-      - name: Format backend files
+      - name: Auto-fix backend files
         if: steps.changes.outputs.backend == 'true'
-        run: npm run format:write
+        run: npm run fix:backend
+
+      - name: Sync task files
+        if: >-
+          steps.changes.outputs.docs == 'true' &&
+          steps.changes.outputs.backend != 'true'
+        run: node scripts/sync-task-files.mjs
+
+      - name: Format Markdown files
+        if: >-
+          steps.changes.outputs.docs == 'true' &&
+          steps.changes.outputs.backend != 'true'
+        run: npx --yes prettier@3.6.2 --write "**/*.md"
+
+      - uses: hashicorp/setup-terraform@v3
+        if: steps.changes.outputs.terraform == 'true'
+        with:
+          terraform_version: "~1.10.0"
+          terraform_wrapper: false
+
+      - name: Format Terraform files
+        if: steps.changes.outputs.terraform == 'true'
+        run: terraform fmt -recursive infra/terraform
 
       - name: Format iOS files
         if: steps.changes.outputs.ios == 'true'
@@ -59,8 +79,8 @@ jobs:
             swift:6.3@sha256:4e0fc24f0f93a5cf9a91bfcf182534bbc0571d70d757389c04ff1f616c1c460f \
             bash scripts/format-ios.sh
 
-      - name: Detect formatting changes
-        id: formatting
+      - name: Detect automatic fixes
+        id: fixes
         shell: bash
         run: |
           if [[ -z "$(git status --porcelain)" ]]; then
@@ -75,9 +95,9 @@ jobs:
             echo "EOF"
           } >> "${GITHUB_OUTPUT}"
 
-      - name: Commit formatting changes
+      - name: Commit automatic fixes
         id: commit
-        if: steps.formatting.outputs.changed == 'true'
+        if: steps.fixes.outputs.changed == 'true'
         env:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
         shell: bash
@@ -85,23 +105,23 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add --all
-          git commit -m "style: apply automatic formatting"
+          git commit -m "chore: apply automatic fixes"
           git push origin "HEAD:${HEAD_REF}"
           echo "head_sha=$(git rev-parse HEAD)" >> "${GITHUB_OUTPUT}"
 
-      - name: Summarize formatting
+      - name: Summarize automatic fixes
         if: always()
         env:
-          CHANGED: ${{ steps.formatting.outputs.changed }}
-          FILES: ${{ steps.formatting.outputs.files }}
+          CHANGED: ${{ steps.fixes.outputs.changed }}
+          FILES: ${{ steps.fixes.outputs.files }}
           HEAD_SHA: ${{ steps.commit.outputs.head_sha }}
         shell: bash
         run: |
           {
-            echo "## Auto Format"
+            echo "## Auto Fix"
             echo
             if [[ "${CHANGED}" == "true" ]]; then
-              echo "Formatting changes were committed automatically."
+              echo "Deterministic fixes were committed automatically."
               echo
               echo '```text'
               printf '%s\n' "${FILES}"
@@ -109,45 +129,61 @@ jobs:
               echo
               echo "Commit: \`${HEAD_SHA}\`"
             else
-              echo "No formatting changes were required."
+              echo "No automatic fixes were required."
             fi
           } >> "${GITHUB_STEP_SUMMARY}"
 
-      - name: Re-run Quality for formatted head
+      - name: Re-run checks for fixed head
         if: >-
-          steps.formatting.outputs.changed == 'true' &&
+          steps.fixes.outputs.changed == 'true' &&
           github.event.pull_request.draft == false
         env:
           GH_TOKEN: ${{ github.token }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          DOCS_CHANGED: ${{ steps.changes.outputs.docs }}
           HEAD_SHA: ${{ steps.commit.outputs.head_sha }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPOSITORY: ${{ github.repository }}
         shell: bash
         run: |
-          default_quality="$(
-            gh api \
-              -H "Accept: application/vnd.github.raw+json" \
-              "repos/${REPOSITORY}/contents/.github/workflows/quality.yml?ref=main"
-          )"
-
-          if ! grep -q '^  workflow_dispatch:' <<< "${default_quality}"; then
-            echo "Quality dispatch is not active on main yet; the pull-request Quality run remains the bootstrap verification." >> "${GITHUB_STEP_SUMMARY}"
-            exit 0
-          fi
-
           remote_head="$(
             git ls-remote --exit-code --refs origin "refs/heads/${HEAD_REF}" |
               awk 'NR == 1 { print $1 }'
           )"
           if [[ "${remote_head}" != "${HEAD_SHA}" ]]; then
-            echo "The pull request advanced to ${remote_head}; skipping stale Quality dispatch for ${HEAD_SHA}." >> "${GITHUB_STEP_SUMMARY}"
+            echo "The pull request advanced to ${remote_head}; skipping stale check dispatch for ${HEAD_SHA}." >> "${GITHUB_STEP_SUMMARY}"
             exit 0
           fi
 
-          gh workflow run quality.yml \
-            --ref "${HEAD_REF}" \
-            -f "base_sha=${BASE_SHA}" \
-            -f "head_sha=${HEAD_SHA}" \
-            -f "pr_number=${PR_NUMBER}"
+          default_quality="$(
+            gh api \
+              -H "Accept: application/vnd.github.raw+json" \
+              "repos/${REPOSITORY}/contents/.github/workflows/quality.yml?ref=main"
+          )"
+          if grep -q '^  workflow_dispatch:' <<< "${default_quality}"; then
+            gh workflow run quality.yml \
+              --ref "${HEAD_REF}" \
+              -f "base_sha=${BASE_SHA}" \
+              -f "head_sha=${HEAD_SHA}" \
+              -f "pr_number=${PR_NUMBER}"
+          else
+            echo "Quality dispatch is not active on main; keeping the pull-request Quality run as bootstrap verification." >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
+          if [[ "${DOCS_CHANGED}" == "true" ]]; then
+            default_documentation="$(
+              gh api \
+                -H "Accept: application/vnd.github.raw+json" \
+                "repos/${REPOSITORY}/contents/.github/workflows/documentation.yml?ref=main"
+            )"
+            if grep -q '^  workflow_dispatch:' <<< "${default_documentation}"; then
+              gh workflow run documentation.yml \
+                --ref "${HEAD_REF}" \
+                -f "base_sha=${BASE_SHA}" \
+                -f "head_sha=${HEAD_SHA}" \
+                -f "pr_number=${PR_NUMBER}"
+            else
+              echo "Documentation dispatch is not active on main yet; it will become active after this PR is merged." >> "${GITHUB_STEP_SUMMARY}"
+            fi
+          fi
