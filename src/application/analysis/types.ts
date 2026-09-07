@@ -40,6 +40,9 @@ export interface VideoRecipeExtractor {
 export interface TikTokVideoRecipeFallback {
   extract(input: SourceContent): Promise<RecipeExtractionResult>;
 }
+export interface InstagramVideoRecipeFallback {
+  extract(input: SourceContent): Promise<RecipeExtractionResult>;
+}
 
 export type MediaKind = "image" | "video";
 
