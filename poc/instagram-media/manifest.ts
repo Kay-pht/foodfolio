@@ -6,11 +6,15 @@ export type ExpectedInstagramCase =
   | "video-carousel"
   | "mixed-carousel";
 
+export type PocCaseMode = "assert" | "probe";
+
 export interface PocCase {
   id: string;
   expectedKind: ExpectedInstagramCase;
   url: string;
+  mode: PocCaseMode;
   source?: string;
+  note?: string;
 }
 
 export interface MediaAsset {
@@ -158,7 +162,7 @@ export function classifyInstagramMedia(
 export function validatePocCases(value: unknown): PocCase[] {
   if (!Array.isArray(value) || value.length === 0)
     throw new Error("cases JSON must be a non-empty array");
-  const allowed = new Set<ExpectedInstagramCase>([
+  const allowedKinds = new Set<ExpectedInstagramCase>([
     "reel",
     "video",
     "image",
@@ -166,6 +170,7 @@ export function validatePocCases(value: unknown): PocCase[] {
     "video-carousel",
     "mixed-carousel",
   ]);
+  const allowedModes = new Set<PocCaseMode>(["assert", "probe"]);
   const cases = value.map((item, index): PocCase => {
     const record = asRecord(item);
     const id = asString(record?.id);
@@ -173,18 +178,24 @@ export function validatePocCases(value: unknown): PocCase[] {
       record?.expectedKind,
     ) as ExpectedInstagramCase | null;
     const url = asString(record?.url);
-    if (!id || !expectedKind || !allowed.has(expectedKind) || !url)
+    const mode = (asString(record?.mode) ?? "assert") as PocCaseMode;
+    if (!id || !expectedKind || !allowedKinds.has(expectedKind) || !url)
       throw new Error(`invalid case at index ${index}`);
+    if (!allowedModes.has(mode))
+      throw new Error(`invalid mode for case ${id}: ${mode}`);
     const parsed = new URL(url);
     const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
     if (parsed.protocol !== "https:" || host !== "instagram.com")
       throw new Error(`case ${id} must use a public HTTPS Instagram URL`);
     const source = asString(record?.source);
+    const note = asString(record?.note);
     return {
       id,
       expectedKind,
       url,
+      mode,
       ...(source ? { source } : {}),
+      ...(note ? { note } : {}),
     };
   });
   if (new Set(cases.map((item) => item.id)).size !== cases.length)
