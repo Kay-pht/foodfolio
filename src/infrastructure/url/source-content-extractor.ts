@@ -103,7 +103,7 @@ export class ProductionSourceContentExtractor implements SourceContentExtractor 
     if (sourceType === "tiktok") return this.extractTikTok(url);
     const response = await this.http.get(url);
     const extracted = htmlContent(response.body);
-    if (!extracted.text)
+    if (!extracted.text && sourceType !== "instagram")
       throw new AnalysisError(
         "SOURCE_CONTENT_UNAVAILABLE",
         false,
