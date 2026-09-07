@@ -4,18 +4,16 @@ import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import {
-  findArchitectureViolations,
-} from "../../scripts/check-architecture.mjs";
+import { findArchitectureViolations } from "../../scripts/check-architecture.mjs";
 import { findDocumentationIssues } from "../../scripts/check-docs.mjs";
 
 const temporaryDirectories = [];
 
 afterEach(async () => {
   await Promise.all(
-    temporaryDirectories.splice(0).map((directory) =>
-      rm(directory, { recursive: true, force: true }),
-    ),
+    temporaryDirectories
+      .splice(0)
+      .map((directory) => rm(directory, { recursive: true, force: true })),
   );
 });
 
@@ -88,7 +86,7 @@ describe("architecture guardrail", () => {
       root,
       "src/domain/example.ts",
       [
-        'const example = \'import { route } from "../api/routes.js";\';',
+        "const example = 'import { route } from \"../api/routes.js\";';",
         '// import { route } from "../api/routes.js";',
         '/* export { route } from "../api/routes.js"; */',
         "export { example };",
