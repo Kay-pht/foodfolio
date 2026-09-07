@@ -48,7 +48,11 @@ describe("architecture guardrail", () => {
       "src/api/routes.ts",
       'export { model } from "../infrastructure/adapter.js";\n',
     );
-    await write(root, "src/entrypoints/api.ts", 'import("../api/routes.js");\n');
+    await write(
+      root,
+      "src/entrypoints/api.ts",
+      'import("../api/routes.js");\n',
+    );
 
     await expect(
       findArchitectureViolations({ rootDirectory: root }),
