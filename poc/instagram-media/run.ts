@@ -415,9 +415,7 @@ async function main(): Promise<void> {
 
   const failed = results.filter((result) => result.outcome === "fail");
   if (failed.length > 0) {
-    console.error(
-      `\nPoC FAILED: ${failed.length} asserted case(s) failed.`,
-    );
+    console.error(`\nPoC FAILED: ${failed.length} asserted case(s) failed.`);
     console.error(`Inspect ${join(outputRoot, "result.md")}`);
     process.exitCode = 1;
     return;
@@ -431,7 +429,9 @@ async function main(): Promise<void> {
     return;
   }
 
-  console.log("\nPoC SUCCESS: all production-decision media kinds passed asserted cases.");
+  console.log(
+    "\nPoC SUCCESS: all production-decision media kinds passed asserted cases.",
+  );
   console.log(`Result: ${join(outputRoot, "result.md")}`);
 }
 
