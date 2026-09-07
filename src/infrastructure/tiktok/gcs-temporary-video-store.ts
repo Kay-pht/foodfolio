@@ -1,54 +1,41 @@
-import { randomUUID } from "node:crypto";
 import { Storage } from "@google-cloud/storage";
-import {
-  AnalysisError,
-  type PublishedVideo,
-  type TemporaryVideoStore,
+import type {
+  PublishedVideo,
+  TemporaryVideoStore,
 } from "../../application/analysis/types.js";
-
-const SIGNED_URL_LIFETIME_MS = 10 * 60 * 1000;
+import { GcsTemporaryMediaStore } from "../media/gcs-temporary-media-store.js";
 
 export class GcsTemporaryVideoStore implements TemporaryVideoStore {
+  private readonly mediaStore: GcsTemporaryMediaStore;
+
   constructor(
-    private readonly bucketName: string,
-    private readonly storage = new Storage(),
-  ) {}
+    bucketName: string,
+    storage = new Storage(),
+  ) {
+    this.mediaStore = new GcsTemporaryMediaStore(
+      {
+        bucketName,
+        publishFailure: {
+          code: "TIKTOK_VIDEO_PUBLISH_FAILED",
+          retryable: true,
+          message: "Temporary TikTok video publishing failed",
+        },
+      },
+      storage,
+    );
+  }
 
   async publish(filePath: string): Promise<PublishedVideo> {
-    const objectName = `pending/${randomUUID()}.mp4`;
-    const bucket = this.storage.bucket(this.bucketName);
-    try {
-      await bucket.upload(filePath, {
-        destination: objectName,
-        metadata: {
-          contentType: "video/mp4",
-          cacheControl: "private, no-store, max-age=0",
-        },
-        resumable: false,
-        validation: "crc32c",
-      });
-      const file = bucket.file(objectName);
-      const [url] = await file.getSignedUrl({
-        version: "v4",
-        action: "read",
-        expires: Date.now() + SIGNED_URL_LIFETIME_MS,
-      });
-      return {
-        url,
-        dispose: async () => {
-          await file.delete({ ignoreNotFound: true });
-        },
-      };
-    } catch {
-      await bucket
-        .file(objectName)
-        .delete({ ignoreNotFound: true })
-        .catch(() => {});
-      throw new AnalysisError(
-        "TIKTOK_VIDEO_PUBLISH_FAILED",
-        true,
-        "Temporary TikTok video publishing failed",
-      );
-    }
+    const published = await this.mediaStore.publish({
+      index: 1,
+      kind: "video",
+      filePath,
+      sizeBytes: 0,
+      contentType: "video/mp4",
+    });
+    return {
+      url: published.url,
+      dispose: published.dispose,
+    };
   }
 }
