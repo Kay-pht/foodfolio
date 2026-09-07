@@ -19,13 +19,28 @@ on:
       - "package.json"
       - "scripts/check-docs.mjs"
       - ".github/workflows/documentation.yml"
+  workflow_dispatch:
+    inputs:
+      base_sha:
+        description: Pull request base SHA
+        required: true
+        type: string
+      head_sha:
+        description: Fixed pull request head SHA
+        required: true
+        type: string
+      pr_number:
+        description: Pull request number when dispatched by Auto Fix
+        required: true
+        type: string
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || inputs.pr_number || github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   checks:
@@ -34,11 +49,28 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Validate dispatched PR context
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          QUALITY_BASE_SHA: ${{ inputs.base_sha }}
+          QUALITY_EVENT_SHA: ${{ github.sha }}
+          QUALITY_HEAD_REF: ${{ github.ref_name }}
+          QUALITY_HEAD_SHA: ${{ inputs.head_sha }}
+          QUALITY_PR_NUMBER: ${{ inputs.pr_number }}
+        run: node scripts/validate-quality-dispatch.mjs
 
       - uses: actions/setup-node@v7
         with:
           node-version: 24.18.0
           package-manager-cache: false
+
+      - name: Check task consistency
+        run: npm run tasks:check
 
       - name: Run documentation guardrails
         run: npm run check:docs
