@@ -120,7 +120,9 @@ export async function findDocumentationIssues({
       .filter((target) => !isExternalOrAnchor(target))
       .map((target) => withoutFragmentOrQuery(target))
       .filter(Boolean)
-      .map((target) => resolve(dirname(docsIndexPath), decodeURIComponent(target))),
+      .map((target) =>
+        resolve(dirname(docsIndexPath), decodeURIComponent(target)),
+      ),
   );
   for (const name of await topLevelDocs(rootDirectory)) {
     if (!indexedDocuments.has(resolve(dirname(docsIndexPath), name))) {
@@ -148,7 +150,7 @@ export async function findDocumentationIssues({
     }
 
     NPM_RUN_PATTERN.lastIndex = 0;
-    for (const match of withoutMarkdownCode(source).matchAll(NPM_RUN_PATTERN)) {
+    for (const match of source.matchAll(NPM_RUN_PATTERN)) {
       const script = match[1];
       if (script && !scripts.has(script)) {
         issues.push(`${document} references unknown npm script: ${script}`);
