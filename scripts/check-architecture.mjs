@@ -1,6 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import * as ts from "typescript";
 
 const LAYERS = new Set([
   "domain",
@@ -18,10 +19,6 @@ const BLOCKED_IMPORTS = new Map([
   ["entrypoints", new Set()],
 ]);
 
-const IMPORT_EXPORT_PATTERN =
-  /\b(?:import|export)\s+(?:type\s+)?(?:[^"'();]*?\s+from\s+)?["']([^"']+)["']/gu;
-const DYNAMIC_IMPORT_PATTERN = /\bimport\s*\(\s*["']([^"']+)["']\s*\)/gu;
-
 async function listTypeScriptFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
   const files = [];
@@ -36,14 +33,42 @@ async function listTypeScriptFiles(directory) {
   return files;
 }
 
-function moduleSpecifiers(source) {
-  const specifiers = new Set();
-  for (const pattern of [IMPORT_EXPORT_PATTERN, DYNAMIC_IMPORT_PATTERN]) {
-    pattern.lastIndex = 0;
-    for (const match of source.matchAll(pattern)) {
-      if (match[1]) specifiers.add(match[1]);
-    }
+function literalModuleSpecifier(node) {
+  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+    return node.text;
   }
+  return undefined;
+}
+
+function moduleSpecifiers(source, fileName) {
+  const sourceFile = ts.createSourceFile(
+    fileName,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  const specifiers = new Set();
+
+  function visit(node) {
+    if (
+      (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
+      node.moduleSpecifier
+    ) {
+      const specifier = literalModuleSpecifier(node.moduleSpecifier);
+      if (specifier) specifiers.add(specifier);
+    } else if (
+      ts.isCallExpression(node) &&
+      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+      node.arguments.length === 1
+    ) {
+      const specifier = literalModuleSpecifier(node.arguments[0]);
+      if (specifier) specifiers.add(specifier);
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
   return [...specifiers];
 }
 
@@ -78,7 +103,7 @@ export async function findArchitectureViolations({
     if (!blocked?.size) continue;
 
     const source = await readFile(sourceFile, "utf8");
-    for (const specifier of moduleSpecifiers(source)) {
+    for (const specifier of moduleSpecifiers(source, sourceFile)) {
       const targetLayer = importedLayer({ sourceFile, specifier, srcRoot });
       if (!targetLayer || !blocked.has(targetLayer)) continue;
       violations.push({
@@ -94,7 +119,9 @@ export async function findArchitectureViolations({
 }
 
 async function main() {
-  const rootDirectory = process.argv[2] ? resolve(process.argv[2]) : process.cwd();
+  const rootDirectory = process.argv[2]
+    ? resolve(process.argv[2])
+    : process.cwd();
   const violations = await findArchitectureViolations({ rootDirectory });
   if (violations.length === 0) {
     console.log("Architecture boundaries OK.");
@@ -110,6 +137,9 @@ async function main() {
   process.exitCode = 1;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+if (
+  process.argv[1] &&
+  fileURLToPath(import.meta.url) === resolve(process.argv[1])
+) {
   await main();
 }
