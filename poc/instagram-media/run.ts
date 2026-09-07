@@ -5,6 +5,7 @@ import {
   classifyInstagramMedia,
   parseYtDlpInstagramJson,
   validatePocCases,
+  type ExpectedInstagramCase,
   type MediaAsset,
   type PocCase,
 } from "./manifest.js";
@@ -12,6 +13,15 @@ import {
 const MAX_MEDIA_BYTES = 100 * 1024 * 1024;
 const DEFAULT_CASES = "poc/instagram-media/cases.json";
 const DEFAULT_TIMEOUT_MS = 60_000;
+const REQUIRED_DECISION_KINDS: ExpectedInstagramCase[] = [
+  "reel",
+  "video",
+  "image",
+  "image-carousel",
+  "mixed-carousel",
+];
+
+type CaseOutcome = "pass" | "fail" | "inconclusive";
 
 interface CommandResult {
   code: number | null;
@@ -35,12 +45,14 @@ interface CaseResult {
   url: string;
   expectedKind: PocCase["expectedKind"];
   actualKind: ReturnType<typeof classifyInstagramMedia>;
+  mode: PocCase["mode"];
   source?: string;
+  note?: string;
   metadataOk: boolean;
   assetCount: number;
   unavailableEntryCount: number;
   downloads: DownloadResult[];
-  success: boolean;
+  outcome: CaseOutcome;
   error: string | null;
   diagnostic: string | null;
   attempts: number;
@@ -193,12 +205,14 @@ function failedCase(
     url: item.url,
     expectedKind: item.expectedKind,
     actualKind: "unknown",
+    mode: item.mode,
     ...(item.source ? { source: item.source } : {}),
+    ...(item.note ? { note: item.note } : {}),
     metadataOk: false,
     assetCount: 0,
     unavailableEntryCount: 0,
     downloads: [],
-    success: false,
+    outcome: item.mode === "probe" ? "inconclusive" : "fail",
     error: `yt-dlp metadata extraction failed after ${attempts} attempt(s)`,
     diagnostic,
     attempts,
@@ -243,29 +257,41 @@ async function runCase(
         const downloads = await Promise.all(
           parsed.assets.map((asset) => downloadAsset(asset, caseDirectory)),
         );
-        const success =
-          actualKind === item.expectedKind &&
+        const retrievalOk =
           parsed.unavailableEntryCount === 0 &&
           parsed.assets.length > 0 &&
           downloads.every((download) => download.ok);
+        const assertionSatisfied =
+          retrievalOk && actualKind === item.expectedKind;
+        const outcome: CaseOutcome =
+          item.mode === "probe"
+            ? "inconclusive"
+            : assertionSatisfied
+              ? "pass"
+              : "fail";
         const result: CaseResult = {
           id: item.id,
           url: item.url,
           expectedKind: item.expectedKind,
           actualKind,
+          mode: item.mode,
           ...(item.source ? { source: item.source } : {}),
+          ...(item.note ? { note: item.note } : {}),
           metadataOk: true,
           assetCount: parsed.assets.length,
           unavailableEntryCount: parsed.unavailableEntryCount,
           downloads,
-          success,
-          error: success
-            ? null
-            : "metadata was readable but did not satisfy the expected media/download conditions",
+          outcome,
+          error:
+            retrievalOk && (item.mode === "probe" || assertionSatisfied)
+              ? null
+              : "metadata was readable but did not satisfy the expected media/download conditions",
           diagnostic: lastDiagnostic,
           attempts: attempt,
         };
-        if (success) return result;
+
+        if (assertionSatisfied) return result;
+        if (item.mode === "probe" && retrievalOk) return result;
         lastPartialResult = result;
       } catch (error) {
         lastDiagnostic = error instanceof Error ? error.message : String(error);
@@ -278,23 +304,44 @@ async function runCase(
   return lastPartialResult ?? failedCase(item, maxAttempts, lastDiagnostic);
 }
 
+function missingDecisionKinds(results: CaseResult[]): ExpectedInstagramCase[] {
+  return REQUIRED_DECISION_KINDS.filter(
+    (kind) =>
+      !results.some(
+        (result) =>
+          result.mode === "assert" &&
+          result.expectedKind === kind &&
+          result.outcome === "pass",
+      ),
+  );
+}
+
 function markdownReport(
   version: string,
   maxAttempts: number,
   results: CaseResult[],
 ): string {
+  const passed = results.filter((result) => result.outcome === "pass").length;
+  const failed = results.filter((result) => result.outcome === "fail").length;
+  const inconclusive = results.filter(
+    (result) => result.outcome === "inconclusive",
+  ).length;
+  const missingKinds = missingDecisionKinds(results);
   const lines = [
     "# Instagram Media PoC result",
     "",
     `- yt-dlp: \`${version}\``,
     `- max attempts per case: ${maxAttempts}`,
-    `- successful cases: ${results.filter((result) => result.success).length}/${results.length}`,
+    `- asserted PASS: ${passed}`,
+    `- asserted FAIL: ${failed}`,
+    `- INCONCLUSIVE probes: ${inconclusive}`,
+    `- missing production-decision coverage: ${missingKinds.length ? missingKinds.join(", ") : "none"}`,
     "",
-    "| Case | Expected | Actual | Assets | Downloads | Attempts | Result |",
-    "| --- | --- | --- | ---: | ---: | ---: | --- |",
+    "| Case | Mode | Expected | Actual | Assets | Downloads | Attempts | Outcome |",
+    "| --- | --- | --- | --- | ---: | ---: | ---: | --- |",
     ...results.map(
       (result) =>
-        `| ${result.id} | ${result.expectedKind} | ${result.actualKind} | ${result.assetCount} | ${result.downloads.filter((download) => download.ok).length}/${result.downloads.length} | ${result.attempts} | ${result.success ? "PASS" : "FAIL"} |`,
+        `| ${result.id} | ${result.mode} | ${result.expectedKind} | ${result.actualKind} | ${result.assetCount} | ${result.downloads.filter((download) => download.ok).length}/${result.downloads.length} | ${result.attempts} | ${result.outcome.toUpperCase()} |`,
     ),
     "",
     "## Diagnostics",
@@ -302,9 +349,12 @@ function markdownReport(
   ];
   for (const result of results) {
     lines.push(`### ${result.id}`, "");
+    lines.push(`- mode: ${result.mode}`);
+    lines.push(`- outcome: ${result.outcome.toUpperCase()}`);
     lines.push(result.error ? `- error: ${result.error}` : "- error: none");
     lines.push(`- attempts: ${result.attempts}`);
     lines.push(`- unavailable entries: ${result.unavailableEntryCount}`);
+    if (result.note) lines.push(`- note: ${result.note}`);
     if (result.diagnostic) lines.push("", "```text", result.diagnostic, "```");
     lines.push("");
   }
@@ -343,33 +393,45 @@ async function main(): Promise<void> {
 
   const results: CaseResult[] = [];
   for (const item of cases) {
-    console.log(`\n== ${item.id}: expected ${item.expectedKind} ==`);
+    console.log(
+      `\n== ${item.id}: mode=${item.mode}, expected ${item.expectedKind} ==`,
+    );
     const result = await runCase(item, outputRoot, ytDlp, maxAttempts);
     results.push(result);
     console.log(
-      `${result.success ? "PASS" : "FAIL"}: actual=${result.actualKind}, assets=${result.assetCount}, downloads=${result.downloads.filter((download) => download.ok).length}/${result.downloads.length}, attempts=${result.attempts}`,
+      `${result.outcome.toUpperCase()}: actual=${result.actualKind}, assets=${result.assetCount}, downloads=${result.downloads.filter((download) => download.ok).length}/${result.downloads.length}, attempts=${result.attempts}`,
     );
   }
 
+  const missingKinds = missingDecisionKinds(results);
   await writeFile(
     join(outputRoot, "result.json"),
-    `${JSON.stringify({ version, maxAttempts, results }, null, 2)}\n`,
+    `${JSON.stringify({ version, maxAttempts, missingDecisionKinds: missingKinds, results }, null, 2)}\n`,
   );
   await writeFile(
     join(outputRoot, "result.md"),
     markdownReport(version, maxAttempts, results),
   );
 
-  const failed = results.filter((result) => !result.success);
+  const failed = results.filter((result) => result.outcome === "fail");
   if (failed.length > 0) {
     console.error(
-      `\nPoC FAILED: ${failed.length}/${results.length} case(s) failed.`,
+      `\nPoC FAILED: ${failed.length} asserted case(s) failed.`,
     );
     console.error(`Inspect ${join(outputRoot, "result.md")}`);
     process.exitCode = 1;
     return;
   }
-  console.log(`\nPoC SUCCESS: all ${results.length} cases passed.`);
+  if (missingKinds.length > 0) {
+    console.error(
+      `\nPoC INCONCLUSIVE: replace probe/stale samples for ${missingKinds.join(", ")} with current public recipe URLs and rerun.`,
+    );
+    console.error(`Inspect ${join(outputRoot, "result.md")}`);
+    process.exitCode = 2;
+    return;
+  }
+
+  console.log("\nPoC SUCCESS: all production-decision media kinds passed asserted cases.");
   console.log(`Result: ${join(outputRoot, "result.md")}`);
 }
 
