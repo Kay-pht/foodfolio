@@ -249,11 +249,15 @@ describe("PR Quality proof", () => {
     );
     expect(autoFormatWorkflow).toContain("gh workflow run quality.yml");
     expect(autoFormatWorkflow).toContain("git ls-remote --exit-code --refs");
-    expect(autoFormatWorkflow).toContain("skipping stale Quality dispatch");
+    expect(autoFormatWorkflow).toContain(
+      "skipping stale Auto Fix, Quality, and Documentation dispatches",
+    );
     expect(autoFormatWorkflow).toContain(
       "github.event.pull_request.draft == false",
     );
-    expect(autoFormatWorkflow).not.toContain("\n  workflow_dispatch:\n");
+    expect(autoFormatWorkflow).toContain("workflow_dispatch:");
+    expect(autoFormatWorkflow).toContain("Validate dispatched PR context");
+    expect(autoFormatWorkflow).toContain("gh workflow run auto-format.yml");
 
     expect(deployWorkflow).toContain("workflow_run:");
     expect(deployWorkflow).toContain(
