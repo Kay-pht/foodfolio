@@ -75,6 +75,51 @@ describe("architecture guardrail", () => {
       },
     ]);
   });
+
+  it("ignores import-like text in comments and strings", async () => {
+    const root = await temporaryRepository();
+    await write(
+      root,
+      "src/domain/example.ts",
+      [
+        'const example = \'import { route } from "../api/routes.js";\';',
+        '// import { route } from "../api/routes.js";',
+        '/* export { route } from "../api/routes.js"; */',
+        "export { example };",
+        "",
+      ].join("\n"),
+    );
+
+    await expect(
+      findArchitectureViolations({ rootDirectory: root }),
+    ).resolves.toEqual([]);
+  });
+
+  it("rejects a dynamic import that points outward", async () => {
+    const root = await temporaryRepository();
+    await write(root, "src/infrastructure/db.ts", "export const db = 1;\n");
+    await write(
+      root,
+      "src/application/use-case.ts",
+      [
+        "export async function loadDb() {",
+        '  return import("../infrastructure/db.js");',
+        "}",
+        "",
+      ].join("\n"),
+    );
+
+    await expect(
+      findArchitectureViolations({ rootDirectory: root }),
+    ).resolves.toEqual([
+      {
+        source: "src/application/use-case.ts",
+        sourceLayer: "application",
+        targetLayer: "infrastructure",
+        specifier: "../infrastructure/db.js",
+      },
+    ]);
+  });
 });
 
 describe("documentation guardrail", () => {
@@ -82,7 +127,9 @@ describe("documentation guardrail", () => {
     await write(
       root,
       "package.json",
-      JSON.stringify({ scripts: { verify: "echo ok", "check:docs": "echo ok" } }),
+      JSON.stringify({
+        scripts: { verify: "echo ok", "check:docs": "echo ok" },
+      }),
     );
     await write(root, "docs/guide.md", "# Guide\n");
     await write(root, "docs/architecture-boundaries.md", "# Architecture\n");
@@ -120,5 +167,43 @@ describe("documentation guardrail", () => {
     expect(issues).toContain(
       "docs/agent/testing.md references unknown npm script: missing-script",
     );
+  });
+
+  it("requires a real non-code link for each indexed document", async () => {
+    const root = await temporaryRepository();
+    await createMinimumDocs(root);
+    await write(root, "docs/unindexed.md", "# Unindexed\n");
+    await write(
+      root,
+      "docs/README.md",
+      [
+        "[Guide](guide.md)",
+        "[Architecture](architecture-boundaries.md)",
+        "Mention only: (unindexed.md)",
+        "`[Inline example](unindexed.md)`",
+        "```md",
+        "[Fenced example](unindexed.md)",
+        "```",
+        "",
+      ].join("\n"),
+    );
+
+    const issues = await findDocumentationIssues({ rootDirectory: root });
+    expect(issues).toContain("docs/README.md does not index docs/unindexed.md");
+
+    await write(
+      root,
+      "docs/README.md",
+      [
+        "[Guide](guide.md)",
+        "[Architecture](architecture-boundaries.md)",
+        "[Unindexed](unindexed.md)",
+        "",
+      ].join("\n"),
+    );
+
+    await expect(
+      findDocumentationIssues({ rootDirectory: root }),
+    ).resolves.not.toContain("docs/README.md does not index docs/unindexed.md");
   });
 });
