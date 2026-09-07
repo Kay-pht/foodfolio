@@ -231,6 +231,18 @@ resource "google_cloud_run_v2_service" "worker" {
         value = "5"
       }
       env {
+        name  = "INSTAGRAM_VIDEO_FALLBACK_ENABLED"
+        value = "true"
+      }
+      env {
+        name  = "INSTAGRAM_VIDEO_BUCKET"
+        value = google_storage_bucket.tiktok_video_fallback.name
+      }
+      env {
+        name  = "INSTAGRAM_VIDEO_MAX_ATTEMPTS"
+        value = "5"
+      }
+      env {
         name  = "YT_DLP_PATH"
         value = "/usr/local/bin/yt-dlp"
       }
