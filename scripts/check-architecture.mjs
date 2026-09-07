@@ -118,26 +118,28 @@ export async function findArchitectureViolations({
   return violations;
 }
 
-function formatViolation(violation) {
-  return `${violation.source}: ${violation.sourceLayer} must not depend on ${violation.targetLayer} (${violation.specifier})`;
-}
-
 async function main() {
-  const violations = await findArchitectureViolations();
+  const rootDirectory = process.argv[2]
+    ? resolve(process.argv[2])
+    : process.cwd();
+  const violations = await findArchitectureViolations({ rootDirectory });
   if (violations.length === 0) {
     console.log("Architecture boundaries OK.");
     return;
   }
 
-  console.error("Architecture boundary violations:");
+  console.error("Architecture boundary violations found:");
   for (const violation of violations) {
-    console.error(`- ${formatViolation(violation)}`);
+    console.error(
+      `- ${violation.source}: ${violation.sourceLayer} -> ${violation.targetLayer} via ${violation.specifier}`,
+    );
   }
   process.exitCode = 1;
 }
 
-const isEntryPoint =
-  process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
-if (isEntryPoint) {
+if (
+  process.argv[1] &&
+  fileURLToPath(import.meta.url) === resolve(process.argv[1])
+) {
   await main();
 }
