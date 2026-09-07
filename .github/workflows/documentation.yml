@@ -42,3 +42,6 @@ jobs:
 
       - name: Run documentation guardrails
         run: npm run check:docs
+
+      - name: Check Markdown formatting
+        run: npx --yes prettier@3.6.2 --check "**/*.md"
