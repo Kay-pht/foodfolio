@@ -43,21 +43,24 @@ const tiktokVideoFallback = config.tiktokVideoFallbackEnabled
   : null;
 const instagramMediaFallback = config.instagramMediaFallbackEnabled
   ? new ProductionInstagramMediaRecipeFallback(
-      new YtDlpInstagramMediaRetriever({
-        binaryPath: config.ytDlpPath,
-        maxAttempts: config.instagramMediaMaxAttempts,
-        attemptTimeoutMs: 45_000,
-        retryBaseSeconds: 2,
-        maxRetrySeconds: 10,
-      }),
-      new GcsTemporaryMediaStore({
-        bucketName: config.instagramMediaBucket,
-        publishFailure: {
-          code: "INSTAGRAM_MEDIA_PUBLISH_FAILED",
-          retryable: true,
-          message: "Temporary Instagram media publishing failed",
+      new YtDlpInstagramMediaRetriever(
+        {
+          binaryPath: config.ytDlpPath,
+          maxAttempts: config.instagramMediaMaxAttempts,
+          attemptTimeoutMs: 45_000,
+          retryBaseSeconds: 2,
+          maxRetrySeconds: 10,
         },
-      }),
+        new GcsTemporaryMediaStore({
+          bucketName: config.instagramMediaBucket,
+          signedUrlLifetimeMs: 30 * 60 * 1000,
+          publishFailure: {
+            code: "INSTAGRAM_MEDIA_PUBLISH_FAILED",
+            retryable: true,
+            message: "Temporary Instagram media publishing failed",
+          },
+        }),
+      ),
       recipeExtractor,
     )
   : null;

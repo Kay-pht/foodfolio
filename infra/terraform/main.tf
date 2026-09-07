@@ -231,15 +231,15 @@ resource "google_cloud_run_v2_service" "worker" {
         value = "5"
       }
       env {
-        name  = "INSTAGRAM_VIDEO_FALLBACK_ENABLED"
+        name  = "INSTAGRAM_MEDIA_FALLBACK_ENABLED"
         value = "true"
       }
       env {
-        name  = "INSTAGRAM_VIDEO_BUCKET"
+        name  = "INSTAGRAM_MEDIA_BUCKET"
         value = google_storage_bucket.tiktok_video_fallback.name
       }
       env {
-        name  = "INSTAGRAM_VIDEO_MAX_ATTEMPTS"
+        name  = "INSTAGRAM_MEDIA_MAX_ATTEMPTS"
         value = "5"
       }
       env {

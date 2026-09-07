@@ -1,10 +1,12 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
+  LocalMediaItem,
   MediaCollection,
   MediaRetriever,
+  TemporaryMediaStore,
 } from "../../src/application/analysis/types.js";
 import {
   downloadInstagramAsset,
@@ -21,38 +23,54 @@ const config = {
   maxRetrySeconds: 1,
 };
 
-const singleVideoCollection: MediaCollection = {
-  items: [
-    {
-      index: 1,
-      kind: "video",
-      filePath: "/tmp/video.mp4",
-      sizeBytes: 123,
-      contentType: "video/mp4",
-    },
-  ],
-  attempts: 1,
-  dispose: async () => {},
-};
-
 const temporaryDirectories: string[] = [];
+
+function createMediaStore(
+  dispose: () => Promise<void> = async () => {},
+): TemporaryMediaStore {
+  return {
+    publish: vi.fn(async (item: LocalMediaItem) => ({
+      url: `https://storage.example/${item.index}`,
+      kind: item.kind,
+      contentType: item.contentType,
+      dispose,
+    })),
+  };
+}
 
 afterEach(async () => {
   await Promise.all(
-    temporaryDirectories.splice(0).map((directory) =>
-      rm(directory, { recursive: true, force: true }),
-    ),
+    temporaryDirectories
+      .splice(0)
+      .map((directory) => rm(directory, { recursive: true, force: true })),
   );
 });
 
 describe("YtDlpInstagramMediaRetriever", () => {
   it("keeps the existing yt-dlp single-video download path for Reels and video posts", async () => {
+    const disposeLocal = vi.fn(async () => {});
+    const disposePublished = vi.fn(async () => {});
+    const singleVideoCollection: MediaCollection = {
+      items: [
+        {
+          index: 1,
+          kind: "video",
+          filePath: "/tmp/video.mp4",
+          sizeBytes: 123,
+          contentType: "video/mp4",
+        },
+      ],
+      attempts: 1,
+      dispose: disposeLocal,
+    };
     const singleVideoRetriever: MediaRetriever = {
       retrieve: vi.fn(async () => singleVideoCollection),
     };
     const assetDownloader = vi.fn();
+    const mediaStore = createMediaStore(disposePublished);
     const retriever = new YtDlpInstagramMediaRetriever(
       config,
+      mediaStore,
       async () => ({
         formats: [
           {
@@ -67,11 +85,88 @@ describe("YtDlpInstagramMediaRetriever", () => {
       async () => {},
     );
 
-    await expect(
-      retriever.retrieve(new URL("https://www.instagram.com/reel/example/")),
-    ).resolves.toBe(singleVideoCollection);
+    const collection = await retriever.retrieve(
+      new URL("https://www.instagram.com/reel/example/"),
+    );
+    expect(collection.items).toEqual([
+      expect.objectContaining({
+        index: 1,
+        kind: "video",
+        url: "https://storage.example/1",
+      }),
+    ]);
     expect(singleVideoRetriever.retrieve).toHaveBeenCalledOnce();
+    expect(mediaStore.publish).toHaveBeenCalledWith(
+      singleVideoCollection.items[0],
+    );
+    expect(disposeLocal).toHaveBeenCalledOnce();
     expect(assetDownloader).not.toHaveBeenCalled();
+    await collection.dispose();
+    expect(disposePublished).toHaveBeenCalledOnce();
+  });
+
+  it("downloads, publishes, and deletes each carousel item before starting the next", async () => {
+    const metadata = {
+      entries: [1, 2, 3].map((index) => ({
+        formats: [],
+        thumbnails: [{ url: `https://cdn.example/${index}.jpg` }],
+      })),
+    };
+    const events: string[] = [];
+    const downloadedPaths: string[] = [];
+    const assetDownloader = vi.fn(
+      async (asset: InstagramMediaAsset, workDirectory: string) => {
+        if (downloadedPaths.length) {
+          await expect(
+            access(downloadedPaths[downloadedPaths.length - 1]!),
+          ).rejects.toThrow();
+        }
+        events.push(`download:${asset.index}`);
+        const filePath = join(workDirectory, `${asset.index}.jpg`);
+        await writeFile(filePath, new Uint8Array([asset.index]));
+        downloadedPaths.push(filePath);
+        return { filePath, sizeBytes: 1, contentType: "image/jpeg" };
+      },
+    );
+    const mediaStore: TemporaryMediaStore = {
+      publish: vi.fn(async (item) => {
+        await expect(readFile(item.filePath)).resolves.toHaveLength(1);
+        events.push(`publish:${item.index}`);
+        return {
+          url: `https://storage.example/${item.index}`,
+          kind: item.kind,
+          contentType: item.contentType,
+          dispose: async () => {},
+        };
+      }),
+    };
+    const retriever = new YtDlpInstagramMediaRetriever(
+      config,
+      mediaStore,
+      async () => metadata,
+      { retrieve: vi.fn() },
+      assetDownloader,
+      async () => {},
+    );
+
+    const collection = await retriever.retrieve(
+      new URL("https://www.instagram.com/p/sequential/"),
+    );
+
+    expect(events).toEqual([
+      "download:1",
+      "publish:1",
+      "download:2",
+      "publish:2",
+      "download:3",
+      "publish:3",
+    ]);
+    await Promise.all(
+      downloadedPaths.map((filePath) =>
+        expect(access(filePath)).rejects.toThrow(),
+      ),
+    );
+    await collection.dispose();
   });
 
   it("retrieves image, video, and mixed carousel entries in original order", async () => {
@@ -111,6 +206,7 @@ describe("YtDlpInstagramMediaRetriever", () => {
     });
     const retriever = new YtDlpInstagramMediaRetriever(
       config,
+      createMediaStore(),
       async () => metadata,
       { retrieve: vi.fn() },
       assetDownloader,
@@ -120,7 +216,9 @@ describe("YtDlpInstagramMediaRetriever", () => {
     const collection = await retriever.retrieve(
       new URL("https://www.instagram.com/p/mixed/"),
     );
-    expect(collection.items.map(({ index, kind }) => ({ index, kind }))).toEqual([
+    expect(
+      collection.items.map(({ index, kind }) => ({ index, kind })),
+    ).toEqual([
       { index: 1, kind: "image" },
       { index: 2, kind: "video" },
       { index: 3, kind: "image" },
@@ -144,6 +242,7 @@ describe("YtDlpInstagramMediaRetriever", () => {
     };
     const retriever = new YtDlpInstagramMediaRetriever(
       config,
+      createMediaStore(),
       async () => metadata,
       { retrieve: vi.fn() },
       async (asset: InstagramMediaAsset) => ({
@@ -168,6 +267,7 @@ describe("YtDlpInstagramMediaRetriever", () => {
     const assetDownloader = vi.fn();
     const retriever = new YtDlpInstagramMediaRetriever(
       config,
+      createMediaStore(),
       async () => ({
         entries: [
           { formats: [], thumbnails: [{ url: "https://cdn.example/1.jpg" }] },
@@ -203,8 +303,10 @@ describe("YtDlpInstagramMediaRetriever", () => {
         contentType: "image/jpeg",
       };
     });
+    const disposePublished = vi.fn(async () => {});
     const retriever = new YtDlpInstagramMediaRetriever(
       config,
+      createMediaStore(disposePublished),
       async () => metadata,
       { retrieve: vi.fn() },
       assetDownloader,
@@ -218,6 +320,49 @@ describe("YtDlpInstagramMediaRetriever", () => {
       retryable: false,
     });
     expect(assetDownloader).toHaveBeenCalledTimes(4);
+    expect(disposePublished).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries the whole carousel and cleans prior GCS objects when a publish fails", async () => {
+    const metadata = {
+      entries: [1, 2].map((index) => ({
+        formats: [],
+        thumbnails: [{ url: `https://cdn.example/${index}.jpg` }],
+      })),
+    };
+    const disposePublished = vi.fn(async () => {});
+    const mediaStore: TemporaryMediaStore = {
+      publish: vi.fn(async (item) => {
+        if (item.index === 2) throw new Error("GCS unavailable");
+        return {
+          url: `https://storage.example/${item.index}`,
+          kind: item.kind,
+          contentType: item.contentType,
+          dispose: disposePublished,
+        };
+      }),
+    };
+    const retriever = new YtDlpInstagramMediaRetriever(
+      config,
+      mediaStore,
+      async () => metadata,
+      { retrieve: vi.fn() },
+      async (asset) => ({
+        filePath: `/tmp/${asset.index}.jpg`,
+        sizeBytes: 100,
+        contentType: "image/jpeg",
+      }),
+      async () => {},
+    );
+
+    await expect(
+      retriever.retrieve(new URL("https://www.instagram.com/p/images/")),
+    ).rejects.toMatchObject({
+      code: "INSTAGRAM_MEDIA_DOWNLOAD_FAILED",
+      retryable: false,
+    });
+    expect(mediaStore.publish).toHaveBeenCalledTimes(4);
+    expect(disposePublished).toHaveBeenCalledTimes(2);
   });
 
   it("maps repeated metadata probe failures to a retryable analysis error", async () => {
@@ -226,6 +371,7 @@ describe("YtDlpInstagramMediaRetriever", () => {
     });
     const retriever = new YtDlpInstagramMediaRetriever(
       config,
+      createMediaStore(),
       metadataProbe,
       { retrieve: vi.fn() },
       vi.fn(),
@@ -245,6 +391,7 @@ describe("YtDlpInstagramMediaRetriever", () => {
     const metadataProbe = vi.fn();
     const retriever = new YtDlpInstagramMediaRetriever(
       config,
+      createMediaStore(),
       metadataProbe,
       { retrieve: vi.fn() },
       vi.fn(),
@@ -266,7 +413,11 @@ describe("Instagram media metadata and HTTP download", () => {
           {
             thumbnails: [
               { url: "https://cdn.example/small.jpg", width: 320, height: 320 },
-              { url: "https://cdn.example/large.jpg", width: 1080, height: 1080 },
+              {
+                url: "https://cdn.example/large.jpg",
+                width: 1080,
+                height: 1080,
+              },
             ],
           },
         ],
@@ -285,7 +436,9 @@ describe("Instagram media metadata and HTTP download", () => {
   });
 
   it("streams a supported image to disk without buffering the collection", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "foodfolio-test-instagram-"));
+    const directory = await mkdtemp(
+      join(tmpdir(), "foodfolio-test-instagram-"),
+    );
     temporaryDirectories.push(directory);
     const result = await downloadInstagramAsset(
       {
@@ -309,7 +462,9 @@ describe("Instagram media metadata and HTTP download", () => {
   });
 
   it("rejects image formats the AI provider does not accept", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "foodfolio-test-instagram-"));
+    const directory = await mkdtemp(
+      join(tmpdir(), "foodfolio-test-instagram-"),
+    );
     temporaryDirectories.push(directory);
 
     await expect(

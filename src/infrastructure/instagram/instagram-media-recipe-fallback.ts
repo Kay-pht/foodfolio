@@ -2,16 +2,13 @@ import {
   AnalysisError,
   type InstagramMediaRecipeFallback,
   type MediaRecipeExtractor,
-  type MediaRetriever,
-  type OrderedPublishedMedia,
+  type PublishedMediaRetriever,
   type SourceContent,
-  type TemporaryMediaStore,
 } from "../../application/analysis/types.js";
 
 export class ProductionInstagramMediaRecipeFallback implements InstagramMediaRecipeFallback {
   constructor(
-    private readonly mediaRetriever: MediaRetriever,
-    private readonly mediaStore: TemporaryMediaStore,
+    private readonly mediaRetriever: PublishedMediaRetriever,
     private readonly recipeExtractor: MediaRecipeExtractor,
   ) {}
 
@@ -19,7 +16,6 @@ export class ProductionInstagramMediaRecipeFallback implements InstagramMediaRec
     const media = await this.mediaRetriever.retrieve(
       new URL(input.resolvedUrl),
     );
-    const published: OrderedPublishedMedia[] = [];
     try {
       const ordered = [...media.items].sort((a, b) => a.index - b.index);
       if (
@@ -32,16 +28,9 @@ export class ProductionInstagramMediaRecipeFallback implements InstagramMediaRec
           "Instagram media fallback requires a complete ordered collection",
         );
 
-      for (const item of ordered) {
-        const stored = await this.mediaStore.publish(item);
-        published.push({ ...stored, index: item.index });
-      }
-      return await this.recipeExtractor.extractMedia(input, published);
+      return await this.recipeExtractor.extractMedia(input, ordered);
     } finally {
-      await Promise.allSettled([
-        ...published.map((item) => item.dispose()),
-        media.dispose(),
-      ]);
+      await media.dispose();
     }
   }
 }

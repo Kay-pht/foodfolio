@@ -5,9 +5,12 @@ import { extname, join } from "node:path";
 import {
   AnalysisError,
   type LocalMediaItem,
-  type MediaCollection,
   type MediaKind,
   type MediaRetriever,
+  type OrderedPublishedMedia,
+  type PublishedMediaCollection,
+  type PublishedMediaRetriever,
+  type TemporaryMediaStore,
 } from "../../application/analysis/types.js";
 import { YtDlpMediaRetriever } from "../media/yt-dlp-media-retriever.js";
 
@@ -57,16 +60,15 @@ type Sleeper = (milliseconds: number) => Promise<void>;
 
 type UnknownRecord = Record<string, unknown>;
 
-export class YtDlpInstagramMediaRetriever implements MediaRetriever {
+export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
   private readonly singleVideoRetriever: MediaRetriever;
 
   constructor(
     private readonly config: YtDlpInstagramMediaRetrieverConfig,
-    private readonly metadataProbe: InstagramMetadataProbe =
-      runInstagramMetadataProbe,
+    private readonly mediaStore: TemporaryMediaStore,
+    private readonly metadataProbe: InstagramMetadataProbe = runInstagramMetadataProbe,
     singleVideoRetriever?: MediaRetriever,
-    private readonly assetDownloader: InstagramAssetDownloader =
-      downloadInstagramAsset,
+    private readonly assetDownloader: InstagramAssetDownloader = downloadInstagramAsset,
     private readonly sleep: Sleeper = (milliseconds) =>
       new Promise((resolve) => setTimeout(resolve, milliseconds)),
   ) {
@@ -95,7 +97,7 @@ export class YtDlpInstagramMediaRetriever implements MediaRetriever {
       });
   }
 
-  async retrieve(url: URL): Promise<MediaCollection> {
+  async retrieve(url: URL): Promise<PublishedMediaCollection> {
     if (!isInstagramUrl(url))
       throw new AnalysisError(
         "INSTAGRAM_MEDIA_URL_INVALID",
@@ -138,37 +140,55 @@ export class YtDlpInstagramMediaRetriever implements MediaRetriever {
       if (parsed.assets.length === 1 && parsed.assets[0]?.kind === "video") {
         if (workDirectory)
           await rm(workDirectory, { recursive: true, force: true });
-        return this.singleVideoRetriever.retrieve(url);
+        return this.retrieveAndPublishSingleVideo(url);
       }
 
-      const currentWorkDirectory =
+      const currentWorkDirectory: string =
         workDirectory ??
         (await mkdtemp(join(tmpdir(), "foodfolio-instagram-media-")));
       workDirectory = currentWorkDirectory;
       await clearWorkDirectory(currentWorkDirectory);
+      const published: OrderedPublishedMedia[] = [];
       try {
-        const items: LocalMediaItem[] = [];
         for (const asset of parsed.assets) {
           const downloaded = await this.assetDownloader(
             asset,
             currentWorkDirectory,
             this.config.attemptTimeoutMs,
           );
-          items.push({
+          const localMedia: LocalMediaItem = {
             index: asset.index,
             kind: asset.kind,
             ...downloaded,
-          });
+          };
+          try {
+            const stored = await this.mediaStore.publish(localMedia);
+            published.push({ ...stored, index: asset.index });
+          } finally {
+            await rm(downloaded.filePath, { force: true });
+          }
         }
+        await rm(currentWorkDirectory, { recursive: true, force: true });
+        workDirectory = null;
         return {
-          items,
+          items: published,
           attempts: attempt,
-          dispose: () =>
-            rm(currentWorkDirectory, { recursive: true, force: true }),
+          dispose: () => disposePublishedMedia(published),
         };
-      } catch {
+      } catch (error) {
+        try {
+          await disposePublishedMedia(published);
+        } catch {
+          await rm(currentWorkDirectory, { recursive: true, force: true });
+          throw new AnalysisError(
+            "INSTAGRAM_MEDIA_CLEANUP_FAILED",
+            true,
+            "Temporary Instagram media cleanup failed",
+          );
+        }
         if (attempt === this.config.maxAttempts) {
           await rm(currentWorkDirectory, { recursive: true, force: true });
+          if (error instanceof AnalysisError) throw error;
           throw new AnalysisError(
             "INSTAGRAM_MEDIA_DOWNLOAD_FAILED",
             false,
@@ -186,6 +206,42 @@ export class YtDlpInstagramMediaRetriever implements MediaRetriever {
     );
   }
 
+  private async retrieveAndPublishSingleVideo(
+    url: URL,
+  ): Promise<PublishedMediaCollection> {
+    const local = await this.singleVideoRetriever.retrieve(url);
+    const published: OrderedPublishedMedia[] = [];
+    try {
+      const item = local.items[0];
+      if (!item || local.items.length !== 1)
+        throw new AnalysisError(
+          "INSTAGRAM_MEDIA_COLLECTION_INVALID",
+          false,
+          "Instagram single-video fallback requires exactly one media item",
+        );
+      const stored = await this.mediaStore.publish(item);
+      published.push({ ...stored, index: 1 });
+      await local.dispose();
+      return {
+        items: published,
+        attempts: local.attempts,
+        dispose: () => disposePublishedMedia(published),
+      };
+    } catch (error) {
+      const cleanup = await Promise.allSettled([
+        local.dispose(),
+        disposePublishedMedia(published),
+      ]);
+      if (cleanup.some((result) => result.status === "rejected"))
+        throw new AnalysisError(
+          "INSTAGRAM_MEDIA_CLEANUP_FAILED",
+          true,
+          "Temporary Instagram media cleanup failed",
+        );
+      throw error;
+    }
+  }
+
   private async waitBeforeRetry(attempt: number): Promise<void> {
     const retrySeconds = Math.min(
       this.config.retryBaseSeconds * attempt,
@@ -193,6 +249,16 @@ export class YtDlpInstagramMediaRetriever implements MediaRetriever {
     );
     await this.sleep(retrySeconds * 1000);
   }
+}
+
+async function disposePublishedMedia(
+  media: OrderedPublishedMedia[],
+): Promise<void> {
+  const results = await Promise.allSettled(media.map((item) => item.dispose()));
+  const failure = results.find(
+    (result): result is PromiseRejectedResult => result.status === "rejected",
+  );
+  if (failure) throw failure.reason;
 }
 
 export function runInstagramMetadataProbe(
@@ -235,7 +301,9 @@ export function runInstagramMetadataProbe(
   });
 }
 
-export function parseInstagramMediaMetadata(value: unknown): ParsedInstagramMedia {
+export function parseInstagramMediaMetadata(
+  value: unknown,
+): ParsedInstagramMedia {
   const root = asRecord(value);
   if (!root)
     throw new AnalysisError(
@@ -279,7 +347,9 @@ export async function downloadInstagramAsset(
     signal: AbortSignal.timeout(timeoutMs),
   });
   if (!response.ok || !response.body)
-    throw new Error(`Instagram media download returned HTTP ${response.status}`);
+    throw new Error(
+      `Instagram media download returned HTTP ${response.status}`,
+    );
 
   const contentType = mediaContentType(
     asset.kind,
@@ -357,8 +427,7 @@ function mediaAssetFromEntry(
         .map(asRecord)
         .filter((value): value is UnknownRecord => value !== null)
         .filter(
-          (format) =>
-            asString(format.url) !== null && format.vcodec !== "none",
+          (format) => asString(format.url) !== null && format.vcodec !== "none",
         )
     : [];
   const combined = formats.filter(
@@ -434,7 +503,9 @@ function mediaContentType(
     if (extension === ".mov") return "video/quicktime";
     if (extension === ".mkv") return "video/x-matroska";
   }
-  throw new Error("Instagram media content type is unsupported by the AI provider");
+  throw new Error(
+    "Instagram media content type is unsupported by the AI provider",
+  );
 }
 
 function extensionForContentType(contentType: string): string {
