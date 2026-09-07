@@ -45,7 +45,9 @@ describe("CI auto-fix coverage", () => {
     expect(autoFixWorkflow).toContain("name: Auto Fix");
     expect(autoFixWorkflow).toContain("npm run lint:fix");
     expect(autoFixWorkflow).toContain("npm run prisma:format");
-    expect(autoFixWorkflow).toContain("terraform fmt -recursive infra/terraform");
+    expect(autoFixWorkflow).toContain(
+      "terraform fmt -recursive infra/terraform",
+    );
     expect(autoFixWorkflow).toContain('prettier@3.6.2 --write "**/*.md"');
     expect(autoFixWorkflow).toContain("node scripts/sync-task-files.mjs");
     expect(autoFixWorkflow).toContain("gh workflow run quality.yml");
@@ -58,7 +60,9 @@ describe("CI auto-fix coverage", () => {
     expect(qualityWorkflow).toContain("Check Terraform formatting");
     expect(qualityWorkflow).toContain("terraform fmt -check -recursive");
     expect(qualityWorkflow).toContain("Check Prisma formatting");
-    expect(qualityWorkflow).toContain("git diff --exit-code -- prisma/schema.prisma");
+    expect(qualityWorkflow).toContain(
+      "git diff --exit-code -- prisma/schema.prisma",
+    );
     expect(qualityWorkflow).toContain("Check Markdown formatting");
 
     expect(documentationWorkflow).toContain("workflow_dispatch:");
