@@ -60,7 +60,7 @@ function moduleSpecifiers(source, fileName) {
     } else if (
       ts.isCallExpression(node) &&
       node.expression.kind === ts.SyntaxKind.ImportKeyword &&
-      node.arguments.length === 1
+      node.arguments.length >= 1
     ) {
       const specifier = literalModuleSpecifier(node.arguments[0]);
       if (specifier) specifiers.add(specifier);
@@ -118,28 +118,26 @@ export async function findArchitectureViolations({
   return violations;
 }
 
+function formatViolation(violation) {
+  return `${violation.source}: ${violation.sourceLayer} must not depend on ${violation.targetLayer} (${violation.specifier})`;
+}
+
 async function main() {
-  const rootDirectory = process.argv[2]
-    ? resolve(process.argv[2])
-    : process.cwd();
-  const violations = await findArchitectureViolations({ rootDirectory });
+  const violations = await findArchitectureViolations();
   if (violations.length === 0) {
     console.log("Architecture boundaries OK.");
     return;
   }
 
-  console.error("Architecture boundary violations found:");
+  console.error("Architecture boundary violations:");
   for (const violation of violations) {
-    console.error(
-      `- ${violation.source}: ${violation.sourceLayer} -> ${violation.targetLayer} via ${violation.specifier}`,
-    );
+    console.error(`- ${formatViolation(violation)}`);
   }
   process.exitCode = 1;
 }
 
-if (
-  process.argv[1] &&
-  fileURLToPath(import.meta.url) === resolve(process.argv[1])
-) {
+const isEntryPoint =
+  process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+if (isEntryPoint) {
   await main();
 }
