@@ -21,8 +21,14 @@ const validRun = {
 };
 
 describe("PR Quality proof", () => {
-  it("accepts only successful Quality runs from a same-repository PR", () => {
+  it("accepts successful same-repository PR and dispatched Quality runs", () => {
     expect(isReusableQualityRun(validRun, repository)).toBe(true);
+    expect(
+      isReusableQualityRun(
+        { ...validRun, event: "workflow_dispatch" },
+        repository,
+      ),
+    ).toBe(true);
     expect(
       isReusableQualityRun({ ...validRun, conclusion: "failure" }, repository),
     ).toBe(false);
@@ -98,9 +104,13 @@ describe("PR Quality proof", () => {
     expect(api).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps deploy gated by main Quality and verifies manual deploys", async () => {
+  it("keeps deploy gated by Quality and verifies manual deploys", async () => {
     const qualityWorkflow = await readFile(
       new URL("../../.github/workflows/quality.yml", import.meta.url),
+      "utf8",
+    );
+    const autoFormatWorkflow = await readFile(
+      new URL("../../.github/workflows/auto-format.yml", import.meta.url),
       "utf8",
     );
     const deployWorkflow = await readFile(
@@ -109,9 +119,19 @@ describe("PR Quality proof", () => {
     );
 
     expect(qualityWorkflow).toContain("quality-proof-${{");
-    expect(qualityWorkflow).toContain("Run backend Quality checks");
-    expect(qualityWorkflow).toContain("run: npm run verify");
+    expect(qualityWorkflow).toContain("Check task consistency");
+    expect(qualityWorkflow).toContain("Check backend formatting");
+    expect(qualityWorkflow).toContain("Run backend lint");
+    expect(qualityWorkflow).toContain("Run architecture guardrails");
+    expect(qualityWorkflow).toContain("Run documentation guardrails");
     expect(qualityWorkflow).toContain("Run iOS lint and format check");
+    expect(qualityWorkflow).toContain("Generate Prisma client");
+    expect(qualityWorkflow).toContain("Validate Prisma schema");
+    expect(qualityWorkflow).toContain("Build backend");
+    expect(qualityWorkflow).toContain("Run unit tests");
+    expect(qualityWorkflow).toContain("Run integration tests");
+    expect(qualityWorkflow).toContain("Run E2E tests");
+    expect(qualityWorkflow).not.toContain("run: npm run verify");
     expect(qualityWorkflow).toContain("swift:6.3@sha256:");
     expect(qualityWorkflow).not.toContain("runs-on: macos-");
     expect(qualityWorkflow).toContain(
@@ -120,20 +140,63 @@ describe("PR Quality proof", () => {
     expect(qualityWorkflow).toContain(
       "github.event.pull_request.draft == false",
     );
+    expect(qualityWorkflow).toContain("workflow_dispatch:");
     expect(qualityWorkflow).toContain("paths-ignore:");
     expect(qualityWorkflow).toContain('- "*.md"');
     expect(qualityWorkflow).toContain('- "**/*.md"');
     expect(qualityWorkflow).toContain('- "docs/**"');
+    expect(qualityWorkflow).toContain("github.event.before");
+    expect(qualityWorkflow).toContain("classify-quality-changes.mjs");
+    expect(qualityWorkflow).not.toContain("main-push-context-${{");
+
+    const orderedQualitySteps = [
+      "Check task consistency",
+      "Check backend formatting",
+      "Run backend lint",
+      "Run architecture guardrails",
+      "Run documentation guardrails",
+      "Run iOS lint and format check",
+      "Generate Prisma client",
+      "Validate Prisma schema",
+      "Build backend",
+      "Run unit tests",
+      "Run integration tests",
+      "Run E2E tests",
+    ];
+    let previousIndex = -1;
+    for (const step of orderedQualitySteps) {
+      const index = qualityWorkflow.indexOf(step);
+      expect(index).toBeGreaterThan(previousIndex);
+      previousIndex = index;
+    }
+
+    expect(autoFormatWorkflow).toContain(
+      "github.event.pull_request.head.repo.full_name == github.repository",
+    );
+    expect(autoFormatWorkflow).toContain("npm run format:write");
+    expect(autoFormatWorkflow).toContain("bash scripts/format-ios.sh");
+    expect(autoFormatWorkflow).toContain(
+      'git commit -m "style: apply automatic formatting"',
+    );
+    expect(autoFormatWorkflow).toContain("gh workflow run quality.yml");
+    expect(autoFormatWorkflow).toContain(
+      "github.event.pull_request.draft == false",
+    );
+    expect(autoFormatWorkflow).not.toContain("\n  workflow_dispatch:\n");
+
     expect(deployWorkflow).toContain("workflow_run:");
     expect(deployWorkflow).toContain(
       "github.event.workflow_run.conclusion == 'success'",
     );
     expect(deployWorkflow).toContain(
+      "github.event.workflow_run.event == 'push'",
+    );
+    expect(deployWorkflow).toContain(
+      "github.event.workflow_run.head_branch == 'main'",
+    );
+    expect(deployWorkflow).toContain(
       "if: github.event_name == 'workflow_dispatch'",
     );
-    expect(qualityWorkflow).toContain("github.event.before");
-    expect(qualityWorkflow).toContain("classify-quality-changes.mjs");
-    expect(qualityWorkflow).not.toContain("main-push-context-${{");
     expect(deployWorkflow).toContain("Resolve deployed Cloud Run SHA");
     expect(deployWorkflow).toContain("DEPLOYED_SHA");
     expect(deployWorkflow).not.toContain("Download originating push range");
@@ -148,6 +211,7 @@ describe("PR Quality proof", () => {
         "ios/Foodfolio/App/FoodfolioApp.swift",
         "scripts/verify-ios.sh",
         "scripts/lint-ios.sh",
+        "scripts/format-ios.sh",
       ]),
     ).toEqual({ backend: false, ios: true });
   });
