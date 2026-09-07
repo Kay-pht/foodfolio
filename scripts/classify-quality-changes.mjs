@@ -22,8 +22,25 @@ function isDocumentationPath(path) {
   return path.endsWith(".md") || path.startsWith("docs/");
 }
 
+function isDocumentationWorkflowPath(path) {
+  return (
+    isDocumentationPath(path) ||
+    path === "package.json" ||
+    path === "scripts/check-docs.mjs" ||
+    path === ".github/workflows/documentation.yml"
+  );
+}
+
 function isIosPath(path) {
   return path.startsWith("ios/") || IOS_PATHS.has(path);
+}
+
+function isTerraformPath(path) {
+  return path.startsWith("infra/terraform/");
+}
+
+function isWorkflowPath(path) {
+  return path.startsWith(".github/workflows/");
 }
 
 export function classifyQualityPaths(paths) {
@@ -51,6 +68,26 @@ export function classifyQualityPaths(paths) {
   return { backend, ios };
 }
 
+export function classifyAutomationPaths(paths) {
+  let docs = false;
+  let documentation = false;
+  let terraform = false;
+  let workflows = false;
+
+  for (const rawPath of paths) {
+    const path = normalizePath(rawPath);
+    if (!path) {
+      continue;
+    }
+    docs ||= isDocumentationPath(path);
+    documentation ||= isDocumentationWorkflowPath(path);
+    terraform ||= isTerraformPath(path);
+    workflows ||= isWorkflowPath(path);
+  }
+
+  return { docs, documentation, terraform, workflows };
+}
+
 async function changedPaths(baseSha, headSha) {
   const { stdout } = await execFileAsync("git", [
     "diff",
@@ -70,7 +107,15 @@ async function writeOutput(result) {
   }
   await appendFile(
     outputPath,
-    `backend=${result.backend}\nios=${result.ios}\n`,
+    [
+      `backend=${result.backend}`,
+      `ios=${result.ios}`,
+      `docs=${result.docs}`,
+      `documentation=${result.documentation}`,
+      `terraform=${result.terraform}`,
+      `workflows=${result.workflows}`,
+      "",
+    ].join("\n"),
   );
 }
 
@@ -93,16 +138,26 @@ async function main() {
     }
 
     const paths = await changedPaths(baseSha, headSha);
-    const result = classifyQualityPaths(paths);
+    const result = {
+      ...classifyQualityPaths(paths),
+      ...classifyAutomationPaths(paths),
+    };
     console.log(
-      `Changed paths: ${paths.length}; backend=${result.backend}; ios=${result.ios}.`,
+      `Changed paths: ${paths.length}; backend=${result.backend}; ios=${result.ios}; docs=${result.docs}; documentation=${result.documentation}; terraform=${result.terraform}; workflows=${result.workflows}.`,
     );
     await writeOutput(result);
   } catch (error) {
     console.warn(
-      `Could not classify Quality changes; running backend and iOS checks safely. ${error instanceof Error ? error.message : String(error)}`,
+      `Could not classify Quality changes; running all checks safely. ${error instanceof Error ? error.message : String(error)}`,
     );
-    await writeOutput({ backend: true, ios: true });
+    await writeOutput({
+      backend: true,
+      ios: true,
+      docs: true,
+      documentation: true,
+      terraform: true,
+      workflows: true,
+    });
   }
 }
 
