@@ -16,7 +16,9 @@ export class ProductionInstagramVideoRecipeFallback implements InstagramVideoRec
   ) {}
 
   async extract(input: SourceContent) {
-    const media = await this.mediaRetriever.retrieve(new URL(input.resolvedUrl));
+    const media = await this.mediaRetriever.retrieve(
+      new URL(input.resolvedUrl),
+    );
     let published: PublishedMedia | null = null;
     try {
       const video = media.items[0];

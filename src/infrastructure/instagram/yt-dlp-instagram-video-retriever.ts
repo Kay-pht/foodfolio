@@ -28,8 +28,7 @@ export class YtDlpInstagramVideoRetriever implements MediaRetriever {
 
   constructor(
     private readonly config: YtDlpInstagramVideoRetrieverConfig,
-    private readonly metadataProbe: InstagramMetadataProbe =
-      runInstagramMetadataProbe,
+    private readonly metadataProbe: InstagramMetadataProbe = runInstagramMetadataProbe,
     mediaRetriever?: MediaRetriever,
   ) {
     this.mediaRetriever =
@@ -137,7 +136,8 @@ function isSingleVideoMetadata(value: unknown): boolean {
   if (Array.isArray(record.entries)) return false;
   if (!Array.isArray(record.formats)) return false;
   return record.formats.some((value) => {
-    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    if (!value || typeof value !== "object" || Array.isArray(value))
+      return false;
     const format = value as Record<string, unknown>;
     if (typeof format.url !== "string" || !format.url) return false;
     if (format.vcodec === "none") return false;

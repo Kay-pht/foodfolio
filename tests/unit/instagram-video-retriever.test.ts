@@ -78,24 +78,27 @@ describe("YtDlpInstagramVideoRetriever", () => {
         ],
       },
     ],
-  ])("rejects %s so PR2 never partially analyzes it", async (_name, metadata) => {
-    const mediaRetriever: MediaRetriever = {
-      retrieve: vi.fn(async () => collection),
-    };
-    const retriever = new YtDlpInstagramVideoRetriever(
-      config,
-      async () => metadata,
-      mediaRetriever,
-    );
+  ])(
+    "rejects %s so PR2 never partially analyzes it",
+    async (_name, metadata) => {
+      const mediaRetriever: MediaRetriever = {
+        retrieve: vi.fn(async () => collection),
+      };
+      const retriever = new YtDlpInstagramVideoRetriever(
+        config,
+        async () => metadata,
+        mediaRetriever,
+      );
 
-    await expect(
-      retriever.retrieve(new URL("https://www.instagram.com/p/example/")),
-    ).rejects.toMatchObject({
-      code: "INSTAGRAM_VIDEO_UNSUPPORTED_MEDIA",
-      retryable: false,
-    });
-    expect(mediaRetriever.retrieve).not.toHaveBeenCalled();
-  });
+      await expect(
+        retriever.retrieve(new URL("https://www.instagram.com/p/example/")),
+      ).rejects.toMatchObject({
+        code: "INSTAGRAM_VIDEO_UNSUPPORTED_MEDIA",
+        retryable: false,
+      });
+      expect(mediaRetriever.retrieve).not.toHaveBeenCalled();
+    },
+  );
 
   it("maps metadata probe failures to a retryable analysis error", async () => {
     const mediaRetriever: MediaRetriever = {
