@@ -1,5 +1,4 @@
 import type { SourceType } from "../../generated/prisma/client.js";
-import { AppError } from "../../api/errors/app-error.js";
 
 const TRACKING_PARAMS = new Set([
   "utm_source",
@@ -21,6 +20,13 @@ const YOUTUBE_HOSTS = new Set([
   "youtube-nocookie.com",
   "www.youtube-nocookie.com",
 ]);
+
+export class InvalidRecipeUrlError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidRecipeUrlError";
+  }
+}
 
 export function youtubeVideoId(url: URL): string | null {
   const host = url.hostname.toLowerCase().replace(/\.$/, "");
@@ -57,16 +63,15 @@ export function parseAndNormalizeRecipeUrl(input: string): {
   normalizedUrl: string;
   sourceType: SourceType;
 } {
-  if (input.length > 4096)
-    throw new AppError(400, "INVALID_URL", "URL is too long");
+  if (input.length > 4096) throw new InvalidRecipeUrlError("URL is too long");
   let url: URL;
   try {
     url = new URL(input);
   } catch {
-    throw new AppError(400, "INVALID_URL", "URL is invalid");
+    throw new InvalidRecipeUrlError("URL is invalid");
   }
   if (!["http:", "https:"].includes(url.protocol) || !url.hostname) {
-    throw new AppError(400, "INVALID_URL", "Only HTTP(S) URLs are allowed");
+    throw new InvalidRecipeUrlError("Only HTTP(S) URLs are allowed");
   }
   url.protocol = url.protocol.toLowerCase();
   url.hostname = url.hostname.toLowerCase();

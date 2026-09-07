@@ -1,0 +1,47 @@
+name: Documentation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "*.md"
+      - "**/*.md"
+      - "docs/**"
+      - "package.json"
+      - "scripts/check-docs.mjs"
+      - ".github/workflows/documentation.yml"
+  push:
+    branches: [main]
+    paths:
+      - "*.md"
+      - "**/*.md"
+      - "docs/**"
+      - "package.json"
+      - "scripts/check-docs.mjs"
+      - ".github/workflows/documentation.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.18.0
+          package-manager-cache: false
+
+      - name: Run documentation guardrails
+        run: npm run check:docs
+
+      - name: Check Markdown formatting
+        run: npx --yes prettier@3.6.2 --check "**/*.md"
