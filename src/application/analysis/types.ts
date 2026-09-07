@@ -84,6 +84,16 @@ export interface OrderedPublishedMedia extends PublishedMedia {
   index: number;
 }
 
+export interface PublishedMediaCollection {
+  items: OrderedPublishedMedia[];
+  attempts: number;
+  dispose(): Promise<void>;
+}
+
+export interface PublishedMediaRetriever {
+  retrieve(url: URL): Promise<PublishedMediaCollection>;
+}
+
 export interface MediaRecipeExtractor {
   extractMedia(
     input: SourceContent,
