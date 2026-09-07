@@ -8,7 +8,7 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
 
 - [ ] `REL-20260907-01` Instagram動画フォールバック
   - 内容: 公開InstagramのReelと単一動画投稿で、metadata解析だけでは材料・手順が揃わない場合に限り、動画を一時取得してAI動画解析へフォールバックする。画像・カルーセル・mixed carouselはこのPRでは対象外とする。
-  - PR: 未作成
+  - PR: https://github.com/Kay-pht/foodfolio/pull/68
   - main反映: 未反映
   - 必要な反映先:
     - [ ] Cloud Run（dev） — 対象Git SHA/revision: 未定
