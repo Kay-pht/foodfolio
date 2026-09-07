@@ -43,6 +43,9 @@ export interface TikTokVideoRecipeFallback {
 export interface InstagramVideoRecipeFallback {
   extract(input: SourceContent): Promise<RecipeExtractionResult>;
 }
+export interface InstagramMediaRecipeFallback {
+  extract(input: SourceContent): Promise<RecipeExtractionResult>;
+}
 
 export type MediaKind = "image" | "video";
 
@@ -75,6 +78,27 @@ export interface PublishedMedia {
   kind: MediaKind;
   contentType: string;
   dispose(): Promise<void>;
+}
+
+export interface OrderedPublishedMedia extends PublishedMedia {
+  index: number;
+}
+
+export interface PublishedMediaCollection {
+  items: OrderedPublishedMedia[];
+  attempts: number;
+  dispose(): Promise<void>;
+}
+
+export interface PublishedMediaRetriever {
+  retrieve(url: URL): Promise<PublishedMediaCollection>;
+}
+
+export interface MediaRecipeExtractor {
+  extractMedia(
+    input: SourceContent,
+    media: OrderedPublishedMedia[],
+  ): Promise<RecipeExtractionResult>;
 }
 
 export interface TemporaryMediaStore {

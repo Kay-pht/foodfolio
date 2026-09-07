@@ -3,6 +3,7 @@ import type { PrismaClient } from "../../generated/prisma/client.js";
 import { genreFromLabel } from "../../domain/recipe/genre.js";
 import {
   AnalysisError,
+  type InstagramMediaRecipeFallback,
   type InstagramVideoRecipeFallback,
   type NotificationSender,
   type RecipeExtractionResult,
@@ -19,12 +20,13 @@ export interface AnalysisDependencies {
   sourceExtractor: SourceContentExtractor;
   recipeExtractor: RecipeExtractor;
   tiktokVideoFallback?: TikTokVideoRecipeFallback;
+  instagramMediaFallback?: InstagramMediaRecipeFallback;
   instagramVideoFallback?: InstagramVideoRecipeFallback;
   notifications: NotificationSender;
   maxAttempts: number;
 }
 
-interface VideoFallbackOptions {
+interface FallbackOptions {
   disabledCode: string;
   disabledMessage: string;
   incompleteMessage: string;
@@ -184,28 +186,24 @@ export class RecipeAnalysisService {
     source: SourceContent,
   ): Promise<{ result: RecipeExtractionResult; videoFallbackUsed: boolean }> {
     if (source.sourceType === "tiktok")
-      return this.extractWithVideoFallback(
-        source,
-        this.deps.tiktokVideoFallback,
-        {
-          disabledCode: "TIKTOK_VIDEO_FALLBACK_DISABLED",
-          disabledMessage:
-            "TikTok title did not contain enough recipe information and video fallback is disabled",
-          incompleteMessage:
-            "TikTok video did not contain enough recipe information",
-        },
-      );
+      return this.extractWithFallback(source, this.deps.tiktokVideoFallback, {
+        disabledCode: "TIKTOK_VIDEO_FALLBACK_DISABLED",
+        disabledMessage:
+          "TikTok title did not contain enough recipe information and video fallback is disabled",
+        incompleteMessage:
+          "TikTok video did not contain enough recipe information",
+      });
 
     if (source.sourceType === "instagram")
-      return this.extractWithVideoFallback(
+      return this.extractWithFallback(
         source,
-        this.deps.instagramVideoFallback,
+        this.deps.instagramMediaFallback ?? this.deps.instagramVideoFallback,
         {
-          disabledCode: "INSTAGRAM_VIDEO_FALLBACK_DISABLED",
+          disabledCode: "INSTAGRAM_MEDIA_FALLBACK_DISABLED",
           disabledMessage:
-            "Instagram metadata did not contain enough recipe information and video fallback is disabled",
+            "Instagram metadata did not contain enough recipe information and media fallback is disabled",
           incompleteMessage:
-            "Instagram video did not contain enough recipe information",
+            "Instagram media did not contain enough recipe information",
         },
       );
 
@@ -217,11 +215,14 @@ export class RecipeAnalysisService {
     };
   }
 
-  private async extractWithVideoFallback(
+  private async extractWithFallback(
     source: SourceContent,
     fallback:
-      TikTokVideoRecipeFallback | InstagramVideoRecipeFallback | undefined,
-    options: VideoFallbackOptions,
+      | TikTokVideoRecipeFallback
+      | InstagramMediaRecipeFallback
+      | InstagramVideoRecipeFallback
+      | undefined,
+    options: FallbackOptions,
   ): Promise<{ result: RecipeExtractionResult; videoFallbackUsed: boolean }> {
     const textResult = source.textForAi
       ? await this.deps.recipeExtractor.extract(source)
@@ -236,8 +237,8 @@ export class RecipeAnalysisService {
         options.disabledMessage,
       );
 
-    const videoResult = await fallback.extract(source);
-    if (!hasRequiredRecipeContent(videoResult))
+    const mediaResult = await fallback.extract(source);
+    if (!hasRequiredRecipeContent(mediaResult))
       throw new AnalysisError(
         "SOURCE_CONTENT_UNAVAILABLE",
         false,
@@ -246,12 +247,12 @@ export class RecipeAnalysisService {
     return {
       result: textResult
         ? {
-            ...videoResult,
-            inputTokens: textResult.inputTokens + videoResult.inputTokens,
-            outputTokens: textResult.outputTokens + videoResult.outputTokens,
-            latencyMs: textResult.latencyMs + videoResult.latencyMs,
+            ...mediaResult,
+            inputTokens: textResult.inputTokens + mediaResult.inputTokens,
+            outputTokens: textResult.outputTokens + mediaResult.outputTokens,
+            latencyMs: textResult.latencyMs + mediaResult.latencyMs,
           }
-        : videoResult,
+        : mediaResult,
       videoFallbackUsed: true,
     };
   }

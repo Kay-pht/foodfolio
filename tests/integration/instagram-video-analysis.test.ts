@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { RecipeAnalysisService } from "../../src/application/analysis/analysis-service.js";
 import type {
-  InstagramVideoRecipeFallback,
+  InstagramMediaRecipeFallback,
   NotificationSender,
   RecipeExtractor,
   SourceContentExtractor,
@@ -48,7 +48,7 @@ describe("Instagram video analysis integration", () => {
     await stopPostgres(context);
   }, 120_000);
 
-  it("uses video fallback only after metadata extraction is incomplete", async () => {
+  it("uses media fallback only after Instagram metadata extraction is incomplete", async () => {
     const user = await context.prisma.user.create({
       data: {
         firebaseUid: "instagram-video-fallback-user",
@@ -58,15 +58,15 @@ describe("Instagram video analysis integration", () => {
     const recipe = await context.prisma.recipe.create({
       data: {
         userId: user.id,
-        originalUrl: "https://www.instagram.com/reel/Chunk8-jurw/",
-        normalizedUrl: "https://www.instagram.com/reel/Chunk8-jurw/",
+        originalUrl: "https://www.instagram.com/p/mixed-carousel/",
+        normalizedUrl: "https://www.instagram.com/p/mixed-carousel/",
         sourceType: "instagram",
       },
     });
     const sourceExtractor: SourceContentExtractor = {
       extract: async () => ({
         sourceType: "instagram",
-        resolvedUrl: "https://www.instagram.com/reel/Chunk8-jurw/",
+        resolvedUrl: "https://www.instagram.com/p/mixed-carousel/",
         imageUrl: "https://images.example/instagram.jpg",
         textForAi: "DESCRIPTION\n絶品パスタ",
       }),
@@ -89,7 +89,7 @@ describe("Instagram video analysis integration", () => {
       }),
     };
     const extractVideo = vi.fn(async () => completeVideoResult);
-    const instagramVideoFallback: InstagramVideoRecipeFallback = {
+    const instagramMediaFallback: InstagramMediaRecipeFallback = {
       extract: extractVideo,
     };
     const log = vi.fn();
@@ -97,7 +97,7 @@ describe("Instagram video analysis integration", () => {
       prisma: context.prisma,
       sourceExtractor,
       recipeExtractor: metadataExtractor,
-      instagramVideoFallback,
+      instagramMediaFallback,
       notifications: new NoopNotifications(),
       maxAttempts: 3,
     });
