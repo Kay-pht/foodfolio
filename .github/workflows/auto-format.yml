@@ -140,7 +140,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          DOCS_CHANGED: ${{ steps.changes.outputs.docs }}
+          DOCUMENTATION_CHANGED: ${{ steps.changes.outputs.documentation }}
           HEAD_SHA: ${{ steps.commit.outputs.head_sha }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -171,7 +171,7 @@ jobs:
             echo "Quality dispatch is not active on main; keeping the pull-request Quality run as bootstrap verification." >> "${GITHUB_STEP_SUMMARY}"
           fi
 
-          if [[ "${DOCS_CHANGED}" == "true" ]]; then
+          if [[ "${DOCUMENTATION_CHANGED}" == "true" ]]; then
             default_documentation="$(
               gh api \
                 -H "Accept: application/vnd.github.raw+json" \
