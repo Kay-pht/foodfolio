@@ -24,7 +24,7 @@
     "start:worker": "node dist/src/entrypoints/worker.js",
     "prisma:generate": "DATABASE_DIRECT_URL=postgresql://localhost:5432/generate prisma generate",
     "prisma:validate": "DATABASE_DIRECT_URL=postgresql://localhost:5432/validate prisma validate",
-    "prisma:format": "prisma format",
+    "prisma:format": "DATABASE_DIRECT_URL=postgresql://localhost:5432/format prisma format",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "tasks:sync": "node scripts/sync-task-files.mjs",
     "tasks:check": "node scripts/sync-task-files.mjs --check",
