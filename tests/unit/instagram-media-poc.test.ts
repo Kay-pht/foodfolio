@@ -119,20 +119,55 @@ describe("Instagram media PoC manifest parser", () => {
     ).toBe("unknown");
   });
 
-  it("validates case IDs, expected kinds and public HTTPS Instagram URLs", () => {
-    expect(
-      validatePocCases([
-        {
-          id: "reel",
-          expectedKind: "reel",
-          url: "https://www.instagram.com/reel/abc/",
-        },
-      ]),
-    ).toHaveLength(1);
+  it("defaults cases to assert mode and accepts explicit probe metadata", () => {
+    const cases = validatePocCases([
+      {
+        id: "reel",
+        expectedKind: "reel",
+        url: "https://www.instagram.com/reel/abc/",
+      },
+      {
+        id: "stale-image",
+        expectedKind: "image",
+        mode: "probe",
+        url: "https://www.instagram.com/p/def/",
+        note: "Historical sample; not decision eligible",
+      },
+    ]);
+
+    expect(cases).toEqual([
+      {
+        id: "reel",
+        expectedKind: "reel",
+        mode: "assert",
+        url: "https://www.instagram.com/reel/abc/",
+      },
+      {
+        id: "stale-image",
+        expectedKind: "image",
+        mode: "probe",
+        url: "https://www.instagram.com/p/def/",
+        note: "Historical sample; not decision eligible",
+      },
+    ]);
+  });
+
+  it("rejects invalid modes and non-HTTPS Instagram URLs", () => {
     expect(() =>
       validatePocCases([
         {
-          id: "bad",
+          id: "bad-mode",
+          expectedKind: "image",
+          mode: "skip",
+          url: "https://www.instagram.com/p/abc/",
+        },
+      ]),
+    ).toThrow("invalid mode");
+
+    expect(() =>
+      validatePocCases([
+        {
+          id: "bad-url",
           expectedKind: "image",
           url: "http://instagram.com/p/abc/",
         },
