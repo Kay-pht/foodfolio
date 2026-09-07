@@ -2,8 +2,10 @@ import { readFile } from "node:fs/promises";
 import { URL } from "node:url";
 
 import { describe, expect, it } from "vitest";
+import { getFileInfo } from "prettier";
 
 import { classifyAutomationPaths } from "../../scripts/classify-quality-changes.mjs";
+import { selectMarkdownPaths } from "../../scripts/format-changed-markdown.mjs";
 
 describe("CI auto-fix coverage", () => {
   it("classifies deterministic fix and lightweight validation paths", () => {
@@ -28,6 +30,28 @@ describe("CI auto-fix coverage", () => {
     });
   });
 
+  it("formats changed documentation despite the repository-wide docs ignore", async () => {
+    expect(
+      selectMarkdownPaths([
+        "docs/README.md",
+        "src/index.ts",
+        "./tasks/todo.md",
+        "docs/README.md",
+      ]),
+    ).toEqual(["docs/README.md", "tasks/todo.md"]);
+
+    await expect(
+      getFileInfo("docs/README.md", {
+        ignorePath: ".prettierignore.markdown",
+      }),
+    ).resolves.toMatchObject({ ignored: false, inferredParser: "markdown" });
+    await expect(
+      getFileInfo("poc/results/evidence.md", {
+        ignorePath: ".prettierignore.markdown",
+      }),
+    ).resolves.toMatchObject({ ignored: true });
+  });
+
   it("keeps automatic fixes deterministic and re-verifies the fixed head", async () => {
     const autoFixWorkflow = await readFile(
       new URL("../../.github/workflows/auto-format.yml", import.meta.url),
@@ -48,11 +72,19 @@ describe("CI auto-fix coverage", () => {
     expect(autoFixWorkflow).toContain(
       "terraform fmt -recursive infra/terraform",
     );
-    expect(autoFixWorkflow).toContain('prettier@3.6.2 --write "**/*.md"');
+    expect(autoFixWorkflow).toContain(
+      "node scripts/format-changed-markdown.mjs --write",
+    );
     expect(autoFixWorkflow).toContain("node scripts/sync-task-files.mjs");
     expect(autoFixWorkflow).toContain("gh workflow run quality.yml");
     expect(autoFixWorkflow).toContain("gh workflow run documentation.yml");
-    expect(autoFixWorkflow).not.toContain("\n  workflow_dispatch:\n");
+    expect(autoFixWorkflow).toContain("workflow_dispatch:");
+    expect(autoFixWorkflow).toContain("Validate dispatched PR context");
+    expect(autoFixWorkflow).toContain(
+      "Reject remaining fixes on dispatched head",
+    );
+    expect(autoFixWorkflow).toContain("gh workflow run auto-format.yml");
+    expect(autoFixWorkflow).toContain("verify-{0}");
 
     expect(qualityWorkflow).toContain("Check whitespace and conflict markers");
     expect(qualityWorkflow).toContain("git diff --check");
@@ -64,9 +96,16 @@ describe("CI auto-fix coverage", () => {
       "git diff --exit-code -- prisma/schema.prisma",
     );
     expect(qualityWorkflow).toContain("Check Markdown formatting");
+    expect(qualityWorkflow).toContain(
+      "node scripts/format-changed-markdown.mjs --check",
+    );
 
     expect(documentationWorkflow).toContain("workflow_dispatch:");
     expect(documentationWorkflow).toContain("Validate dispatched PR context");
     expect(documentationWorkflow).toContain("Check task consistency");
+    expect(documentationWorkflow).toContain("stale-dispatch-{0}");
+    expect(documentationWorkflow).toContain(
+      "node scripts/format-changed-markdown.mjs --check",
+    );
   });
 });

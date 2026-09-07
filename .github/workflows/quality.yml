@@ -180,7 +180,10 @@ jobs:
         if: >-
           steps.proof.outputs.reusable != 'true' &&
           steps.changes.outputs.docs == 'true'
-        run: npx --yes prettier@3.6.2 --check "**/*.md"
+        env:
+          MARKDOWN_BASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.base_sha || github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          MARKDOWN_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.head_sha || github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/format-changed-markdown.mjs --check
 
       - name: Run iOS lint and format check
         if: >-

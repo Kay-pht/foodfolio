@@ -35,7 +35,7 @@ on:
         type: string
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || inputs.pr_number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && github.sha != inputs.head_sha && format('stale-dispatch-{0}', github.run_id) || github.event.pull_request.number || inputs.pr_number || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -76,4 +76,7 @@ jobs:
         run: npm run check:docs
 
       - name: Check Markdown formatting
-        run: npx --yes prettier@3.6.2 --check "**/*.md"
+        env:
+          MARKDOWN_BASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.base_sha || github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          MARKDOWN_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.head_sha || github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/format-changed-markdown.mjs --check

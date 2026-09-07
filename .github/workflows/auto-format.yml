@@ -3,31 +3,59 @@ name: Auto Fix
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      base_sha:
+        description: Pull request base SHA
+        required: true
+        type: string
+      head_sha:
+        description: Auto-fixed pull request head SHA
+        required: true
+        type: string
+      pr_number:
+        description: Pull request number when verifying an auto-fixed head
+        required: true
+        type: string
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && github.sha != inputs.head_sha && format('stale-dispatch-{0}', github.run_id) || github.event_name == 'workflow_dispatch' && format('verify-{0}', inputs.pr_number) || github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
   actions: write
   contents: write
+  pull-requests: read
 
 jobs:
   fix:
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.pull_request.head.ref }}
+
+      - name: Validate dispatched PR context
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          QUALITY_BASE_SHA: ${{ inputs.base_sha }}
+          QUALITY_EVENT_SHA: ${{ github.sha }}
+          QUALITY_HEAD_REF: ${{ github.ref_name }}
+          QUALITY_HEAD_SHA: ${{ inputs.head_sha }}
+          QUALITY_PR_NUMBER: ${{ inputs.pr_number }}
+        run: node scripts/validate-quality-dispatch.mjs
 
       - name: Classify changed files
         id: changes
         env:
-          QUALITY_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          QUALITY_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          QUALITY_BASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.base_sha || github.event.pull_request.base.sha }}
+          QUALITY_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.head_sha || github.event.pull_request.head.sha }}
         run: node scripts/classify-quality-changes.mjs
 
       - uses: actions/setup-node@v7
@@ -59,10 +87,11 @@ jobs:
         run: node scripts/sync-task-files.mjs
 
       - name: Format Markdown files
-        if: >-
-          steps.changes.outputs.docs == 'true' &&
-          steps.changes.outputs.backend != 'true'
-        run: npx --yes prettier@3.6.2 --write "**/*.md"
+        if: steps.changes.outputs.docs == 'true'
+        env:
+          MARKDOWN_BASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.base_sha || github.event.pull_request.base.sha }}
+          MARKDOWN_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.head_sha || github.event.pull_request.head.sha }}
+        run: node scripts/format-changed-markdown.mjs --write
 
       - uses: hashicorp/setup-terraform@v3
         if: steps.changes.outputs.terraform == 'true'
@@ -102,7 +131,9 @@ jobs:
 
       - name: Commit automatic fixes
         id: commit
-        if: steps.fixes.outputs.changed == 'true'
+        if: >-
+          github.event_name == 'pull_request' &&
+          steps.fixes.outputs.changed == 'true'
         env:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
         shell: bash
@@ -114,10 +145,21 @@ jobs:
           git push origin "HEAD:${HEAD_REF}"
           echo "head_sha=$(git rev-parse HEAD)" >> "${GITHUB_OUTPUT}"
 
+      - name: Reject remaining fixes on dispatched head
+        if: >-
+          github.event_name == 'workflow_dispatch' &&
+          steps.fixes.outputs.changed == 'true'
+        shell: bash
+        run: |
+          git status --short
+          echo "The dispatched auto-fixed head still produces deterministic changes." >&2
+          exit 1
+
       - name: Summarize automatic fixes
         if: always()
         env:
           CHANGED: ${{ steps.fixes.outputs.changed }}
+          EVENT_NAME: ${{ github.event_name }}
           FILES: ${{ steps.fixes.outputs.files }}
           HEAD_SHA: ${{ steps.commit.outputs.head_sha }}
         shell: bash
@@ -125,7 +167,13 @@ jobs:
           {
             echo "## Auto Fix"
             echo
-            if [[ "${CHANGED}" == "true" ]]; then
+            if [[ "${CHANGED}" == "true" && "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+              echo "Verification found remaining deterministic changes; no commit was created."
+              echo
+              echo '```text'
+              printf '%s\n' "${FILES}"
+              echo '```'
+            elif [[ "${CHANGED}" == "true" ]]; then
               echo "Deterministic fixes were committed automatically."
               echo
               echo '```text'
@@ -140,6 +188,7 @@ jobs:
 
       - name: Re-run checks for fixed head
         if: >-
+          github.event_name == 'pull_request' &&
           steps.fixes.outputs.changed == 'true' &&
           github.event.pull_request.draft == false
         env:
@@ -157,8 +206,23 @@ jobs:
               awk 'NR == 1 { print $1 }'
           )"
           if [[ "${remote_head}" != "${HEAD_SHA}" ]]; then
-            echo "The pull request advanced to ${remote_head}; skipping stale Quality dispatch and Documentation dispatch for ${HEAD_SHA}." >> "${GITHUB_STEP_SUMMARY}"
+            echo "The pull request advanced to ${remote_head}; skipping stale Auto Fix, Quality, and Documentation dispatches for ${HEAD_SHA}." >> "${GITHUB_STEP_SUMMARY}"
             exit 0
+          fi
+
+          default_auto_fix="$(
+            gh api \
+              -H "Accept: application/vnd.github.raw+json" \
+              "repos/${REPOSITORY}/contents/.github/workflows/auto-format.yml?ref=main"
+          )"
+          if grep -q '^  workflow_dispatch:' <<< "${default_auto_fix}"; then
+            gh workflow run auto-format.yml \
+              --ref "${HEAD_REF}" \
+              -f "base_sha=${BASE_SHA}" \
+              -f "head_sha=${HEAD_SHA}" \
+              -f "pr_number=${PR_NUMBER}"
+          else
+            echo "Auto Fix dispatch is not active on main yet; the pull-request Auto Fix run remains the bootstrap verification." >> "${GITHUB_STEP_SUMMARY}"
           fi
 
           default_quality="$(
