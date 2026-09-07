@@ -20,9 +20,7 @@ describe("Instagram source metadata extraction", () => {
     const extractor = new ProductionSourceContentExtractor(http, "unused");
 
     await expect(
-      extractor.extract(
-        new URL("https://www.instagram.com/reel/Chunk8-jurw/"),
-      ),
+      extractor.extract(new URL("https://www.instagram.com/reel/Chunk8-jurw/")),
     ).resolves.toEqual({
       sourceType: "instagram",
       resolvedUrl: "https://www.instagram.com/reel/Chunk8-jurw/",

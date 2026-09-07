@@ -50,7 +50,10 @@ describe("Instagram video analysis integration", () => {
 
   it("uses video fallback only after metadata extraction is incomplete", async () => {
     const user = await context.prisma.user.create({
-      data: { firebaseUid: "instagram-video-fallback-user", setting: { create: {} } },
+      data: {
+        firebaseUid: "instagram-video-fallback-user",
+        setting: { create: {} },
+      },
     });
     const recipe = await context.prisma.recipe.create({
       data: {
@@ -123,7 +126,10 @@ describe("Instagram video analysis integration", () => {
 
   it("does not retrieve video when Instagram metadata already contains a complete recipe", async () => {
     const user = await context.prisma.user.create({
-      data: { firebaseUid: "instagram-metadata-complete-user", setting: { create: {} } },
+      data: {
+        firebaseUid: "instagram-metadata-complete-user",
+        setting: { create: {} },
+      },
     });
     const recipe = await context.prisma.recipe.create({
       data: {
@@ -160,7 +166,10 @@ describe("Instagram video analysis integration", () => {
 
   it("skips text AI and falls back directly when Instagram metadata text is absent", async () => {
     const user = await context.prisma.user.create({
-      data: { firebaseUid: "instagram-metadata-empty-user", setting: { create: {} } },
+      data: {
+        firebaseUid: "instagram-metadata-empty-user",
+        setting: { create: {} },
+      },
     });
     const recipe = await context.prisma.recipe.create({
       data: {

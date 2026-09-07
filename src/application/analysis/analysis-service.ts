@@ -220,9 +220,7 @@ export class RecipeAnalysisService {
   private async extractWithVideoFallback(
     source: SourceContent,
     fallback:
-      | TikTokVideoRecipeFallback
-      | InstagramVideoRecipeFallback
-      | undefined,
+      TikTokVideoRecipeFallback | InstagramVideoRecipeFallback | undefined,
     options: VideoFallbackOptions,
   ): Promise<{ result: RecipeExtractionResult; videoFallbackUsed: boolean }> {
     const textResult = source.textForAi

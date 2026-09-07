@@ -44,8 +44,6 @@ describe("Instagram video fallback environment", () => {
         ...workerEnvironment,
         INSTAGRAM_VIDEO_MAX_ATTEMPTS: "6",
       }),
-    ).toThrow(
-      "INSTAGRAM_VIDEO_MAX_ATTEMPTS must be an integer from 1 to 5",
-    );
+    ).toThrow("INSTAGRAM_VIDEO_MAX_ATTEMPTS must be an integer from 1 to 5");
   });
 });
