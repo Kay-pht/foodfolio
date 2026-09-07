@@ -1,11 +1,12 @@
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
+import { InvalidRecipeUrlError } from "../domain/recipe/url.js";
 import type { PrismaClient } from "../generated/prisma/client.js";
-import { AppError } from "./errors/app-error.js";
 import type {
   AuthVerifier,
   FirebaseUserManager,
 } from "../infrastructure/auth/auth-verifier.js";
 import type { AnalysisTaskQueue } from "../infrastructure/tasks/task-queue.js";
+import { AppError } from "./errors/app-error.js";
 import { registerRoutes } from "./routes.js";
 import { registerTagBatchRoutes } from "./tag-batch-routes.js";
 
@@ -53,8 +54,10 @@ export function buildApi(deps: ApiDependencies): FastifyInstance {
     const appError =
       error instanceof AppError
         ? error
-        : new AppError(500, "INTERNAL_ERROR", "Unexpected error");
-    if (!(error instanceof AppError))
+        : error instanceof InvalidRecipeUrlError
+          ? new AppError(400, "INVALID_URL", error.message)
+          : new AppError(500, "INTERNAL_ERROR", "Unexpected error");
+    if (!(error instanceof AppError) && !(error instanceof InvalidRecipeUrlError))
       request.log.error({ err: error }, "unhandled request error");
     void reply.status(appError.statusCode).send({
       error: {
