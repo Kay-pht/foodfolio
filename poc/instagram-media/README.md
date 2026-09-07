@@ -163,3 +163,19 @@ FoodfolioのMVPで必要なのは、ユーザーが共有した公開投稿をba
 - DockerだけFAIL、ローカルPASS: IP、fingerprint、ネットワーク環境差の追加検証が必要
 
 公開回帰URL自体が削除・非公開化されている場合、そのケースの失敗だけで方式不成立とは判断しません。ブラウザから匿名で開ける実レシピURLへ差し替えて再実行してください。
+
+## 2026-09-07 Docker実行結果
+
+`node:24.18.0-slim`、yt-dlp `2026.08.19`、Cookieなし、ケースごとに最大3回の条件で実行し、3/5ケースがPASSしました。
+
+| Case           | Expected       | Actual         | Assets | Downloads | Attempts | Result |
+| -------------- | -------------- | -------------- | -----: | --------: | -------: | ------ |
+| reel           | reel           | reel           |      1 |       1/1 |        1 | PASS   |
+| video-post     | video          | video          |      1 |       1/1 |        1 | PASS   |
+| single-image   | image          | image-carousel |      3 |       3/3 |        3 | FAIL   |
+| image-carousel | image-carousel | image-carousel |      5 |       5/5 |        1 | PASS   |
+| mixed-carousel | mixed-carousel | unknown        |      0 |       0/0 |        3 | FAIL   |
+
+`single-image`はyt-dlpが異なる3画像を返し、すべての実ダウンロードにも成功したため、現在の投稿内容は単一画像の回帰サンプルとして利用できません。`mixed-carousel`はInstagramが空のmedia responseを返し、ブラウザ表示でも投稿ページが利用不可だったため、削除または非公開化された回帰サンプルと判断します。
+
+この実行結果だけでは、単一画像とmixed carouselについて方式の可否を判定できません。匿名で閲覧できる現存の実レシピURLへ2ケースを差し替え、同じDocker環境で再実行する必要があります。一方、今回のサンプルではReel、通常動画、画像カルーセルの順序付き列挙と実ファイル取得を確認できました。

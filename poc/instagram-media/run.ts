@@ -275,9 +275,7 @@ async function runCase(
     if (attempt < maxAttempts) await delay(Math.min(attempt * 2, 10) * 1000);
   }
 
-  return (
-    lastPartialResult ?? failedCase(item, maxAttempts, lastDiagnostic)
-  );
+  return lastPartialResult ?? failedCase(item, maxAttempts, lastDiagnostic);
 }
 
 function markdownReport(
@@ -307,8 +305,7 @@ function markdownReport(
     lines.push(result.error ? `- error: ${result.error}` : "- error: none");
     lines.push(`- attempts: ${result.attempts}`);
     lines.push(`- unavailable entries: ${result.unavailableEntryCount}`);
-    if (result.diagnostic)
-      lines.push("", "```text", result.diagnostic, "```");
+    if (result.diagnostic) lines.push("", "```text", result.diagnostic, "```");
     lines.push("");
   }
   return `${lines.join("\n")}\n`;
@@ -365,7 +362,9 @@ async function main(): Promise<void> {
 
   const failed = results.filter((result) => !result.success);
   if (failed.length > 0) {
-    console.error(`\nPoC FAILED: ${failed.length}/${results.length} case(s) failed.`);
+    console.error(
+      `\nPoC FAILED: ${failed.length}/${results.length} case(s) failed.`,
+    );
     console.error(`Inspect ${join(outputRoot, "result.md")}`);
     process.exitCode = 1;
     return;
