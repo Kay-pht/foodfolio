@@ -40,6 +40,44 @@ export interface VideoRecipeExtractor {
 export interface TikTokVideoRecipeFallback {
   extract(input: SourceContent): Promise<RecipeExtractionResult>;
 }
+
+export type MediaKind = "image" | "video";
+
+export interface MediaOperationErrorSpec {
+  code: string;
+  retryable: boolean;
+  message: string;
+}
+
+export interface LocalMediaItem {
+  index: number;
+  kind: MediaKind;
+  filePath: string;
+  sizeBytes: number;
+  contentType: string;
+}
+
+export interface MediaCollection {
+  items: LocalMediaItem[];
+  attempts: number;
+  dispose(): Promise<void>;
+}
+
+export interface MediaRetriever {
+  retrieve(url: URL): Promise<MediaCollection>;
+}
+
+export interface PublishedMedia {
+  url: string;
+  kind: MediaKind;
+  contentType: string;
+  dispose(): Promise<void>;
+}
+
+export interface TemporaryMediaStore {
+  publish(media: LocalMediaItem): Promise<PublishedMedia>;
+}
+
 export interface DownloadedVideo {
   filePath: string;
   sizeBytes: number;
