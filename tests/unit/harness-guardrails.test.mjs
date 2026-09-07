@@ -124,6 +124,31 @@ describe("architecture guardrail", () => {
       },
     ]);
   });
+
+  it("rejects a two-argument dynamic import that points outward", async () => {
+    const root = await temporaryRepository();
+    await write(
+      root,
+      "src/application/use-case.ts",
+      [
+        "export async function loadData() {",
+        '  return import("../infrastructure/data.json", { with: { type: "json" } });',
+        "}",
+        "",
+      ].join("\n"),
+    );
+
+    await expect(
+      findArchitectureViolations({ rootDirectory: root }),
+    ).resolves.toEqual([
+      {
+        source: "src/application/use-case.ts",
+        sourceLayer: "application",
+        targetLayer: "infrastructure",
+        specifier: "../infrastructure/data.json",
+      },
+    ]);
+  });
 });
 
 describe("documentation guardrail", () => {
