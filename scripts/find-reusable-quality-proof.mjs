@@ -1,11 +1,12 @@
 import { appendFile } from "node:fs/promises";
 
 const QUALITY_WORKFLOW_PATH = ".github/workflows/quality.yml";
+const REUSABLE_QUALITY_EVENTS = new Set(["pull_request", "workflow_dispatch"]);
 
 export function isReusableQualityRun(run, repository) {
   return (
     run.conclusion === "success" &&
-    run.event === "pull_request" &&
+    REUSABLE_QUALITY_EVENTS.has(run.event) &&
     run.name === "Quality" &&
     run.path === QUALITY_WORKFLOW_PATH &&
     run.repository?.full_name === repository &&
@@ -95,13 +96,13 @@ async function main() {
     });
     await writeOutput(runId !== undefined, runId);
     if (runId !== undefined) {
-      console.log(`Reusing successful PR Quality run ${runId}.`);
+      console.log(`Reusing successful Quality run ${runId}.`);
     } else {
-      console.log("No reusable PR Quality proof found; running full Quality.");
+      console.log("No reusable Quality proof found; running full Quality.");
     }
   } catch (error) {
     console.warn(
-      `Could not verify a reusable PR Quality proof; running full Quality. ${error instanceof Error ? error.message : String(error)}`,
+      `Could not verify a reusable Quality proof; running full Quality. ${error instanceof Error ? error.message : String(error)}`,
     );
     await writeOutput(false);
   }
