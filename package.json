@@ -27,6 +27,8 @@
     "prisma:migrate:deploy": "prisma migrate deploy",
     "tasks:sync": "node scripts/sync-task-files.mjs",
     "tasks:check": "node scripts/sync-task-files.mjs --check",
+    "check:architecture": "node scripts/check-architecture.mjs",
+    "check:docs": "node scripts/check-docs.mjs",
     "format": "npm run tasks:sync && prettier --write .",
     "format:check": "npm run tasks:check && prettier --check .",
     "lint": "eslint .",
@@ -47,7 +49,7 @@
     "deploy:hosting": "GOOGLE_CLOUD_QUOTA_PROJECT=foodfolio-af28aa npx --yes firebase-tools@15.29.0 deploy --only hosting --project foodfolio-af28aa",
     "test": "npm run test:unit && npm run test:integration && npm run test:e2e",
     "verify:ios": "bash scripts/verify-ios.sh",
-    "verify": "npm run prisma:generate && npm run prisma:validate && npm run test && npm run lint && npm run format:check && npm run build"
+    "verify": "npm run check:architecture && npm run check:docs && npm run prisma:generate && npm run prisma:validate && npm run test && npm run lint && npm run format:check && npm run build"
   },
   "dependencies": {
     "@google-cloud/storage": "^8.0.1",
