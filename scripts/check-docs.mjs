@@ -12,7 +12,7 @@ const AUTHORITATIVE_DOCS = [
   "docs/agent/release.md",
 ];
 
-const MARKDOWN_LINK_PATTERN = /!?\[[^\]]*\]\(([^)]+)\)/gu;
+const MARKDOWN_LINK_PATTERN = /(!?)\[[^\]]*\]\(([^)]+)\)/gu;
 const NPM_RUN_PATTERN = /\bnpm run ([a-zA-Z0-9:_-]+)/gu;
 const FENCE_PATTERN = /^\s*(`{3,}|~{3,})/u;
 const INLINE_CODE_PATTERN = /(`+)(.*?)\1/gu;
@@ -79,12 +79,14 @@ function withoutMarkdownCode(source) {
   return lines.join("\n");
 }
 
-function markdownLinkTargets(source) {
+function markdownLinkTargets(source, { includeImages = true } = {}) {
   const targets = [];
   const markdown = withoutMarkdownCode(source);
   MARKDOWN_LINK_PATTERN.lastIndex = 0;
   for (const match of markdown.matchAll(MARKDOWN_LINK_PATTERN)) {
-    const target = match[1] ? linkTarget(match[1]) : undefined;
+    const isImage = match[1] === "!";
+    if (!includeImages && isImage) continue;
+    const target = match[2] ? linkTarget(match[2]) : undefined;
     if (target) targets.push(target);
   }
   return targets;
@@ -116,7 +118,7 @@ export async function findDocumentationIssues({
   const docsIndexPath = join(rootDirectory, "docs/README.md");
   const docsIndex = await readFile(docsIndexPath, "utf8");
   const indexedDocuments = new Set(
-    markdownLinkTargets(docsIndex)
+    markdownLinkTargets(docsIndex, { includeImages: false })
       .filter((target) => !isExternalOrAnchor(target))
       .map((target) => withoutFragmentOrQuery(target))
       .filter(Boolean)
