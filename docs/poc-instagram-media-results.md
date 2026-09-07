@@ -22,7 +22,7 @@ Foodfolioのユースケースでは、投稿者本人によるFoodfolioへのIn
 
 Instagram画像について、`yt-dlp`は本来動画・音声取得を主目的とするが、`--ignore-no-formats-error`を利用すると画像投稿でもmetadataを取得できる場合がある。PoCではmetadata内の画像候補URLを取得し、そのURLから画像を直接HTTPダウンロードする方式を確認した。
 
-PoC実装・試行錯誤の履歴はGitHub PR #64に残す。PoCコード自体はproductionへマージせず、本書に検証結果と採用判断だけを残す。
+PoC実装・試行錯誤の履歴はGitHub PR #64に残す。最終検証に使用したPoCコードはcommit `dcfdd7e`で特定する。PoCコード自体はproductionへマージせず、本書に検証結果と採用判断だけを残す。
 
 - Historical PoC PR: https://github.com/Kay-pht/foodfolio/pull/64
 
@@ -67,22 +67,90 @@ PoCのraw artifact、Instagram画像・動画、`yt-dlp`のraw JSON、時限的�
 - exit code: **0**
 - 全ケース初回試行で成功
 
-| ケース | 結果 | 実取得 |
-| --- | --- | --- |
-| Reel | PASS | 動画 1/1 |
-| 通常動画 | PASS | 動画 1/1 |
-| 単一画像 A | PASS | 画像 1/1 |
-| 単一画像 B | PASS | 画像 1/1 |
-| 画像カルーセル | PASS | 全画像取得成功 |
-| 画像 + 動画の混在カルーセル | PASS | 全メディア取得成功 |
+| ケース | canonical投稿URL | 結果 | 実取得 |
+| --- | --- | --- | --- |
+| Reel | `https://www.instagram.com/reel/Chunk8-jurw/` | PASS | 動画 1/1 |
+| 通常動画 | `https://www.instagram.com/p/aye83DjauH/` | PASS | 動画 1/1 |
+| 単一画像 A | `https://www.instagram.com/p/Dc91C9GmASP/` | PASS | 画像 1/1 |
+| 単一画像 B | `https://www.instagram.com/p/Dc8frxcTvVK/` | PASS | 画像 1/1 |
+| 画像カルーセル | `https://www.instagram.com/p/CcGzpiOvwnp/` | PASS | 画像 6/6 |
+| 画像 + 動画の混在カルーセル | `https://www.instagram.com/p/C2BkuU0BCSf/` | PASS | 画像 8/8、動画 2/2、合計 10/10 |
 
 投稿本文にレシピ本文・作り方が存在するかどうかは、このPoCのメディア取得判定には影響させていない。
 
 画像投稿では`yt-dlp`が「動画formatが存在しない」旨の警告を出す場合があるが、画像metadataと画像本体を取得できている場合は想定内として扱った。
 
+### 5.1 再現情報
+
+最終検証はclosed PR #64のcommit `dcfdd7e`をcheckoutし、以下のcase manifestを`poc/artifacts/instagram-media/cases.local.json`として作成して実行した。共有URLに付いていた`utm_source`、`stkn`、`img_index`等のquery parameterは記録せず、投稿を一意に示すcanonical URLだけを残している。
+
+```json
+[
+  {
+    "id": "reel",
+    "expectedKind": "reel",
+    "mode": "assert",
+    "url": "https://www.instagram.com/reel/Chunk8-jurw/"
+  },
+  {
+    "id": "video-post",
+    "expectedKind": "video",
+    "mode": "assert",
+    "url": "https://www.instagram.com/p/aye83DjauH/"
+  },
+  {
+    "id": "single-image-user-sample-1",
+    "expectedKind": "image",
+    "mode": "assert",
+    "url": "https://www.instagram.com/p/Dc91C9GmASP/"
+  },
+  {
+    "id": "single-image-user-sample-2",
+    "expectedKind": "image",
+    "mode": "assert",
+    "url": "https://www.instagram.com/p/Dc8frxcTvVK/"
+  },
+  {
+    "id": "image-carousel-user-sample",
+    "expectedKind": "image-carousel",
+    "mode": "assert",
+    "url": "https://www.instagram.com/p/CcGzpiOvwnp/"
+  },
+  {
+    "id": "mixed-carousel-user-sample",
+    "expectedKind": "mixed-carousel",
+    "mode": "assert",
+    "url": "https://www.instagram.com/p/C2BkuU0BCSf/"
+  }
+]
+```
+
+実行コマンド：
+
+```bash
+BUILDKIT_PROGRESS=plain npm run poc:instagram-media:docker -- \
+  --cases poc/artifacts/instagram-media/cases.local.json
+```
+
+最終出力の要約：
+
+```text
+yt-dlp: 2026.08.19
+cases: 6
+asserted PASS: 6
+asserted FAIL: 0
+INCONCLUSIVE probes: 0
+missing production-decision coverage: none
+PoC SUCCESS: all production-decision media kinds passed asserted cases.
+```
+
+投稿の削除・非公開化やInstagram側の変更により、同じcaseを将来再実行した結果は変わり得る。上記は2026-09-07時点の検証条件と結果を再現可能な形で記録するものである。
+
 ## 6. 採用判断
 
 Instagram media fallbackのproduction実装へ進む。
+
+この判断はローカルDocker環境での技術的成立性に対するものであり、Cloud Run上の送信元IP、resource、timeoutを含む実環境検証はproduction実装後に別途行う。
 
 現時点の実装方針は以下を第一候補とする。
 

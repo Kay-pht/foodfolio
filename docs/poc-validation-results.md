@@ -76,7 +76,7 @@ Z.ai
 
 API keyは`.env` / Google Cloud Secret Managerで管理し、リポジトリへ実値を保存しない。
 
-Instagramは公開OGメタデータを使用する。認証回避、非公開投稿取得、動画・画像本体の無断ダウンロードは行わない。
+Instagramは公開OGメタデータを第一経路として使用する。その後のInstagram Media Retrieval PoC（[検証結果](./poc-instagram-media-results.md)）により、ユーザーがFoodfolioへ共有して解析を依頼した公開投稿について、本文だけではレシピ情報が不足する場合に`yt-dlp`で画像・動画本体を一時取得するfallbackの技術的成立性を確認した。Cookieやログインによる認証回避、非公開投稿の取得は行わず、取得したメディアはAI解析のためだけに一時利用し、通常完了時は即時削除する方針とする。
 
 負例2件はいずれも当初PoCではAI入力不可と判定した。画像失敗だけでは本文取得を失敗扱いにしない。
 
