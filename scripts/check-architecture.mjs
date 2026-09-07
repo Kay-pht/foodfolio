@@ -1,7 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import * as ts from "typescript";
+import ts from "typescript";
 
 const LAYERS = new Set([
   "domain",
