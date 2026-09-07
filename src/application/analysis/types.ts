@@ -43,6 +43,12 @@ export interface TikTokVideoRecipeFallback {
 
 export type MediaKind = "image" | "video";
 
+export interface MediaOperationErrorSpec {
+  code: string;
+  retryable: boolean;
+  message: string;
+}
+
 export interface LocalMediaItem {
   index: number;
   kind: MediaKind;

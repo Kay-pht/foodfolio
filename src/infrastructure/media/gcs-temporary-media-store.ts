@@ -4,16 +4,16 @@ import { Storage } from "@google-cloud/storage";
 import {
   AnalysisError,
   type LocalMediaItem,
+  type MediaOperationErrorSpec,
   type PublishedMedia,
   type TemporaryMediaStore,
 } from "../../application/analysis/types.js";
-import type { MediaRetrievalErrorSpec } from "./yt-dlp-media-retriever.js";
 
 const DEFAULT_SIGNED_URL_LIFETIME_MS = 10 * 60 * 1000;
 
 export interface GcsTemporaryMediaStoreConfig {
   bucketName: string;
-  publishFailure: MediaRetrievalErrorSpec;
+  publishFailure: MediaOperationErrorSpec;
   signedUrlLifetimeMs?: number;
 }
 
