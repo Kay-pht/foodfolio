@@ -9,6 +9,7 @@ import {
 } from "../../scripts/find-reusable-quality-proof.mjs";
 import { classifyDeploymentRange } from "../../scripts/classify-deployment-range.mjs";
 import { classifyQualityPaths } from "../../scripts/classify-quality-changes.mjs";
+import { validateQualityDispatch } from "../../scripts/validate-quality-dispatch.mjs";
 
 const repository = "Kay-pht/foodfolio";
 const validRun = {
@@ -19,8 +20,71 @@ const validRun = {
   repository: { full_name: repository },
   head_repository: { full_name: repository },
 };
+const baseSha = "a".repeat(40);
+const headSha = "b".repeat(40);
+const validDispatch = {
+  baseSha,
+  eventSha: headSha,
+  headRef: "codex/ci-auto-format",
+  headSha,
+  prNumber: "69",
+  repository,
+  pullRequest: {
+    number: 69,
+    state: "open",
+    head: {
+      ref: "codex/ci-auto-format",
+      sha: headSha,
+      repo: { full_name: repository },
+    },
+    base: { sha: baseSha, repo: { full_name: repository } },
+  },
+};
 
 describe("PR Quality proof", () => {
+  it("accepts a dispatch only for the current repository-owned PR head", () => {
+    expect(() => validateQualityDispatch(validDispatch)).not.toThrow();
+  });
+
+  it("rejects a dispatch whose ref advanced past the formatted head", () => {
+    expect(() =>
+      validateQualityDispatch({
+        ...validDispatch,
+        eventSha: "c".repeat(40),
+      }),
+    ).toThrow(/expected formatted head/);
+  });
+
+  it("rejects stale, closed, and fork dispatch contexts", () => {
+    expect(() =>
+      validateQualityDispatch({
+        ...validDispatch,
+        pullRequest: {
+          ...validDispatch.pullRequest,
+          head: { ...validDispatch.pullRequest.head, sha: "c".repeat(40) },
+        },
+      }),
+    ).toThrow(/no longer points/);
+    expect(() =>
+      validateQualityDispatch({
+        ...validDispatch,
+        pullRequest: { ...validDispatch.pullRequest, state: "closed" },
+      }),
+    ).toThrow(/not open/);
+    expect(() =>
+      validateQualityDispatch({
+        ...validDispatch,
+        pullRequest: {
+          ...validDispatch.pullRequest,
+          head: {
+            ...validDispatch.pullRequest.head,
+            repo: { full_name: "fork/foodfolio" },
+          },
+        },
+      }),
+    ).toThrow(/not fully repository-owned/);
+  });
+
   it("accepts successful same-repository PR and dispatched Quality runs", () => {
     expect(isReusableQualityRun(validRun, repository)).toBe(true);
     expect(
@@ -141,6 +205,11 @@ describe("PR Quality proof", () => {
       "github.event.pull_request.draft == false",
     );
     expect(qualityWorkflow).toContain("workflow_dispatch:");
+    expect(qualityWorkflow).toContain("Validate dispatched PR context");
+    expect(qualityWorkflow).toContain("validate-quality-dispatch.mjs");
+    expect(qualityWorkflow).toContain("stale-dispatch-{0}");
+    expect(qualityWorkflow).toContain("pull-requests: read");
+    expect(qualityWorkflow).toContain("ref: ${{ github.sha }}");
     expect(qualityWorkflow).toContain("paths-ignore:");
     expect(qualityWorkflow).toContain('- "*.md"');
     expect(qualityWorkflow).toContain('- "**/*.md"');
@@ -179,6 +248,8 @@ describe("PR Quality proof", () => {
       'git commit -m "style: apply automatic formatting"',
     );
     expect(autoFormatWorkflow).toContain("gh workflow run quality.yml");
+    expect(autoFormatWorkflow).toContain("git ls-remote --exit-code --refs");
+    expect(autoFormatWorkflow).toContain("skipping stale Quality dispatch");
     expect(autoFormatWorkflow).toContain(
       "github.event.pull_request.draft == false",
     );

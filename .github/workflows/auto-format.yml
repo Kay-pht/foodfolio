@@ -137,6 +137,15 @@ jobs:
             exit 0
           fi
 
+          remote_head="$(
+            git ls-remote --exit-code --refs origin "refs/heads/${HEAD_REF}" |
+              awk 'NR == 1 { print $1 }'
+          )"
+          if [[ "${remote_head}" != "${HEAD_SHA}" ]]; then
+            echo "The pull request advanced to ${remote_head}; skipping stale Quality dispatch for ${HEAD_SHA}." >> "${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
+
           gh workflow run quality.yml \
             --ref "${HEAD_REF}" \
             -f "base_sha=${BASE_SHA}" \
