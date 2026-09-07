@@ -22,6 +22,15 @@ function isDocumentationPath(path) {
   return path.endsWith(".md") || path.startsWith("docs/");
 }
 
+function isDocumentationWorkflowPath(path) {
+  return (
+    isDocumentationPath(path) ||
+    path === "package.json" ||
+    path === "scripts/check-docs.mjs" ||
+    path === ".github/workflows/documentation.yml"
+  );
+}
+
 function isIosPath(path) {
   return path.startsWith("ios/") || IOS_PATHS.has(path);
 }
@@ -61,6 +70,7 @@ export function classifyQualityPaths(paths) {
 
 export function classifyAutomationPaths(paths) {
   let docs = false;
+  let documentation = false;
   let terraform = false;
   let workflows = false;
 
@@ -70,11 +80,12 @@ export function classifyAutomationPaths(paths) {
       continue;
     }
     docs ||= isDocumentationPath(path);
+    documentation ||= isDocumentationWorkflowPath(path);
     terraform ||= isTerraformPath(path);
     workflows ||= isWorkflowPath(path);
   }
 
-  return { docs, terraform, workflows };
+  return { docs, documentation, terraform, workflows };
 }
 
 async function changedPaths(baseSha, headSha) {
@@ -100,6 +111,7 @@ async function writeOutput(result) {
       `backend=${result.backend}`,
       `ios=${result.ios}`,
       `docs=${result.docs}`,
+      `documentation=${result.documentation}`,
       `terraform=${result.terraform}`,
       `workflows=${result.workflows}`,
       "",
@@ -131,7 +143,7 @@ async function main() {
       ...classifyAutomationPaths(paths),
     };
     console.log(
-      `Changed paths: ${paths.length}; backend=${result.backend}; ios=${result.ios}; docs=${result.docs}; terraform=${result.terraform}; workflows=${result.workflows}.`,
+      `Changed paths: ${paths.length}; backend=${result.backend}; ios=${result.ios}; docs=${result.docs}; documentation=${result.documentation}; terraform=${result.terraform}; workflows=${result.workflows}.`,
     );
     await writeOutput(result);
   } catch (error) {
@@ -142,6 +154,7 @@ async function main() {
       backend: true,
       ios: true,
       docs: true,
+      documentation: true,
       terraform: true,
       workflows: true,
     });
