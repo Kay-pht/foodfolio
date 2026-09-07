@@ -2,31 +2,38 @@
   {
     "id": "reel",
     "expectedKind": "reel",
+    "mode": "assert",
     "url": "https://www.instagram.com/reel/Chunk8-jurw/",
     "source": "yt-dlp public regression sample"
   },
   {
     "id": "video-post",
     "expectedKind": "video",
+    "mode": "assert",
     "url": "https://www.instagram.com/p/aye83DjauH/",
     "source": "yt-dlp public regression sample"
   },
   {
     "id": "single-image",
     "expectedKind": "image",
+    "mode": "probe",
     "url": "https://www.instagram.com/p/DV50JOdjR-P/",
-    "source": "yt-dlp issue #16328 public sample"
+    "source": "yt-dlp issue #16328 public sample",
+    "note": "Issue described this as a single photo, but the 2026-09-07 PoC observed three distinct downloadable images. Do not use this sample for production adoption decisions."
   },
   {
     "id": "image-carousel",
     "expectedKind": "image-carousel",
+    "mode": "assert",
     "url": "https://www.instagram.com/p/DaBUYYOjNgA/",
     "source": "yt-dlp issue #17077 public sample"
   },
   {
     "id": "mixed-carousel",
     "expectedKind": "mixed-carousel",
+    "mode": "probe",
     "url": "https://www.instagram.com/p/CtXtwOop1W5/",
-    "source": "yt-dlp issue #7569 public sample"
+    "source": "yt-dlp issue #7569 public sample",
+    "note": "This historical mixed carousel is currently unavailable to anonymous access. Replace it with a current public recipe post before production adoption."
   }
 ]
