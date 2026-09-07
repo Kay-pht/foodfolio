@@ -23,7 +23,14 @@ iOS の全体検証は `npm run verify:ios` を使用する。
 
 ドキュメントやコメントなど、実装の動作に影響しない部分だけを変更した場合は、実行しても変更内容を検証できない全体テスト、結合テスト、E2E テスト、lint、build を省略してよい。
 
-ただし `npm run check:docs` は実行し、リンク切れや索引漏れを確認する。省略した検証と理由は完了報告に明記する。
+ただし、次の軽量チェックは必須とする。
+
+- `npm run check:docs`: リンク切れ、索引漏れ、存在しない npm script 参照を確認する。
+- Markdown の format check: Documentation workflow では、全依存の `npm ci` を避けるため、リポジトリで使用している Prettier 3.6.2 を直接実行して `**/*.md` を検証する。
+
+ドキュメントのみの変更では、Backend 全体向けの `npm run format:check` は省略してよい。これは task file check や非 Markdown ファイルを含む全体検証であり、Documentation workflow の Markdown format check がドキュメント変更に対する format 完了条件を満たすためである。
+
+省略した検証と理由は完了報告に明記する。
 
 ## 実行頻度
 
