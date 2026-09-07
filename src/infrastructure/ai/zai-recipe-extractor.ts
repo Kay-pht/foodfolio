@@ -3,6 +3,8 @@ import recipeSchema from "../../../schemas/extracted-recipe.schema.json" with { 
 import {
   AnalysisError,
   type ExtractedRecipe,
+  type MediaRecipeExtractor,
+  type OrderedPublishedMedia,
   type RecipeExtractionResult,
   type RecipeExtractor,
   type SourceContent,
@@ -13,8 +15,13 @@ import { RECIPE_EXTRACTION_SYSTEM_PROMPT } from "../../shared/recipe-extraction-
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 const validate = ajv.compile<ExtractedRecipe>(recipeSchema);
 
+type ZaiContentItem =
+  | { type: "image_url"; image_url: { url: string } }
+  | { type: "video_url"; video_url: { url: string } }
+  | { type: "text"; text: string };
+
 export class ZaiRecipeExtractor
-  implements RecipeExtractor, VideoRecipeExtractor
+  implements RecipeExtractor, VideoRecipeExtractor, MediaRecipeExtractor
 {
   constructor(
     private readonly apiKey: string,
@@ -55,14 +62,42 @@ export class ZaiRecipeExtractor
     });
   }
 
+  async extractMedia(input: SourceContent, media: OrderedPublishedMedia[]) {
+    if (!media.length)
+      throw new AnalysisError(
+        "AI_MEDIA_INPUT_INVALID",
+        false,
+        "AI media extraction requires at least one media item",
+        "zai",
+      );
+    const ordered = [...media].sort((a, b) => a.index - b.index);
+    if (ordered.some((item, offset) => item.index !== offset + 1))
+      throw new AnalysisError(
+        "AI_MEDIA_INPUT_INVALID",
+        false,
+        "AI media extraction requires contiguous media ordering",
+        "zai",
+      );
+    const content: ZaiContentItem[] = ordered.map((item) =>
+      item.kind === "image"
+        ? { type: "image_url", image_url: { url: item.url } }
+        : { type: "video_url", video_url: { url: item.url } },
+    );
+    content.push({
+      type: "text",
+      text: [
+        "Extract one recipe from these Instagram media items.",
+        "The media blocks are in the original post order. Consider every item and never treat only a successful subset as the complete post.",
+        "Use the source metadata only as supporting context.",
+        `SOURCE METADATA\n${input.textForAi ?? "(none)"}`,
+      ].join("\n"),
+    });
+    return this.request({ role: "user", content });
+  }
+
   private async request(userMessage: {
     role: "user";
-    content:
-      | string
-      | Array<
-          | { type: "video_url"; video_url: { url: string } }
-          | { type: "text"; text: string }
-        >;
+    content: string | ZaiContentItem[];
   }): Promise<RecipeExtractionResult> {
     const startedAt = Date.now();
     let response: Response;
