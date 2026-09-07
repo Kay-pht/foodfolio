@@ -7,6 +7,7 @@ const GIT_SHA_PATTERN = /^[0-9a-f]{40,64}$/;
 const ZERO_SHA_PATTERN = /^0+$/;
 const IOS_PATHS = new Set([
   ".swift-format",
+  "scripts/format-ios.sh",
   "scripts/lint-ios.sh",
   "scripts/push-simulator-notification.sh",
   "scripts/test-ios.sh",

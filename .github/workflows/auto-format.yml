@@ -1,0 +1,144 @@
+name: Auto Format
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore:
+      - "*.md"
+      - "**/*.md"
+      - "docs/**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  actions: write
+  contents: write
+
+jobs:
+  format:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Classify changed files
+        id: changes
+        env:
+          QUALITY_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          QUALITY_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/classify-quality-changes.mjs
+
+      - uses: actions/setup-node@v7
+        if: steps.changes.outputs.backend == 'true'
+        with:
+          node-version: 24.18.0
+          cache: npm
+          package-manager-cache: false
+
+      - name: Install dependencies
+        if: steps.changes.outputs.backend == 'true'
+        run: npm ci
+
+      - name: Format backend files
+        if: steps.changes.outputs.backend == 'true'
+        run: npm run format:write
+
+      - name: Format iOS files
+        if: steps.changes.outputs.ios == 'true'
+        shell: bash
+        run: |
+          docker run --rm \
+            --volume "${GITHUB_WORKSPACE}:/workspace" \
+            --workdir /workspace \
+            swift:6.3@sha256:4e0fc24f0f93a5cf9a91bfcf182534bbc0571d70d757389c04ff1f616c1c460f \
+            bash scripts/format-ios.sh
+
+      - name: Detect formatting changes
+        id: formatting
+        shell: bash
+        run: |
+          if [[ -z "$(git status --porcelain)" ]]; then
+            echo "changed=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          echo "changed=true" >> "${GITHUB_OUTPUT}"
+          {
+            echo "files<<EOF"
+            git status --short
+            echo "EOF"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Commit formatting changes
+        id: commit
+        if: steps.formatting.outputs.changed == 'true'
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add --all
+          git commit -m "style: apply automatic formatting"
+          git push origin "HEAD:${HEAD_REF}"
+          echo "head_sha=$(git rev-parse HEAD)" >> "${GITHUB_OUTPUT}"
+
+      - name: Summarize formatting
+        if: always()
+        env:
+          CHANGED: ${{ steps.formatting.outputs.changed }}
+          FILES: ${{ steps.formatting.outputs.files }}
+          HEAD_SHA: ${{ steps.commit.outputs.head_sha }}
+        shell: bash
+        run: |
+          {
+            echo "## Auto Format"
+            echo
+            if [[ "${CHANGED}" == "true" ]]; then
+              echo "Formatting changes were committed automatically."
+              echo
+              echo '```text'
+              printf '%s\n' "${FILES}"
+              echo '```'
+              echo
+              echo "Commit: \`${HEAD_SHA}\`"
+            else
+              echo "No formatting changes were required."
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Re-run Quality for formatted head
+        if: >-
+          steps.formatting.outputs.changed == 'true' &&
+          github.event.pull_request.draft == false
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ steps.commit.outputs.head_sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          default_quality="$(
+            gh api \
+              -H "Accept: application/vnd.github.raw+json" \
+              "repos/${REPOSITORY}/contents/.github/workflows/quality.yml?ref=main"
+          )"
+
+          if ! grep -q '^  workflow_dispatch:' <<< "${default_quality}"; then
+            echo "Quality dispatch is not active on main yet; the pull-request Quality run remains the bootstrap verification." >> "${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
+
+          gh workflow run quality.yml \
+            --ref "${HEAD_REF}" \
+            -f "base_sha=${BASE_SHA}" \
+            -f "head_sha=${HEAD_SHA}" \
+            -f "pr_number=${PR_NUMBER}"
