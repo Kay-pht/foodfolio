@@ -1,4 +1,5 @@
 import { stat, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { YtDlpMediaRetriever } from "../../src/infrastructure/media/yt-dlp-media-retriever.js";
 
@@ -57,10 +58,53 @@ describe("YtDlpMediaRetriever", () => {
       }),
     ]);
     await expect(stat(result.items[0]!.filePath)).resolves.toBeDefined();
+
+    const workDirectory = dirname(result.items[0]!.filePath);
+    if (process.platform !== "win32") {
+      const directoryMetadata = await stat(workDirectory);
+      expect(directoryMetadata.mode & 0o777).toBe(0o700);
+    }
+
     await result.dispose();
     await expect(stat(result.items[0]!.filePath)).rejects.toMatchObject({
       code: "ENOENT",
     });
+  });
+
+  it("clears retry artifacts without replacing the private work directory", async () => {
+    let attempt = 0;
+    let firstWorkDirectory: string | null = null;
+    const retriever = new YtDlpMediaRetriever(
+      baseConfig,
+      async (_binary, _sourceUrl, outputPath) => {
+        attempt += 1;
+        const workDirectory = dirname(outputPath);
+
+        if (attempt === 1) {
+          firstWorkDirectory = workDirectory;
+          await writeFile(join(workDirectory, "stale.part"), "partial-data");
+          throw new Error("failed");
+        }
+
+        expect(workDirectory).toBe(firstWorkDirectory);
+        await expect(
+          stat(join(workDirectory, "stale.part")),
+        ).rejects.toMatchObject({ code: "ENOENT" });
+        if (process.platform !== "win32") {
+          const directoryMetadata = await stat(workDirectory);
+          expect(directoryMetadata.mode & 0o777).toBe(0o700);
+        }
+        await writeFile(outputPath, "image-data");
+      },
+      async () => undefined,
+    );
+
+    const result = await retriever.retrieve(
+      new URL("https://example.com/post/1"),
+    );
+
+    expect(result.attempts).toBe(2);
+    await result.dispose();
   });
 
   it("retries whole attempts and returns the configured failure after the cap", async () => {

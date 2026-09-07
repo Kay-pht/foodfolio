@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdir, mkdtemp, rm, stat } from "node:fs/promises";
+import { mkdtemp, readdir, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -62,7 +62,7 @@ export class YtDlpMediaRetriever implements MediaRetriever {
     const outputPath = join(workDirectory, this.config.outputFileName);
 
     for (let attempt = 1; attempt <= this.config.maxAttempts; attempt += 1) {
-      await resetWorkDirectory(workDirectory);
+      await clearWorkDirectory(workDirectory);
       try {
         await this.runAttempt(
           this.config.binaryPath,
@@ -108,9 +108,13 @@ export class YtDlpMediaRetriever implements MediaRetriever {
   }
 }
 
-async function resetWorkDirectory(workDirectory: string): Promise<void> {
-  await rm(workDirectory, { recursive: true, force: true });
-  await mkdir(workDirectory, { recursive: true });
+async function clearWorkDirectory(workDirectory: string): Promise<void> {
+  const entries = await readdir(workDirectory);
+  await Promise.all(
+    entries.map((entry) =>
+      rm(join(workDirectory, entry), { recursive: true, force: true }),
+    ),
+  );
 }
 
 function toAnalysisError(spec: MediaOperationErrorSpec): AnalysisError {
