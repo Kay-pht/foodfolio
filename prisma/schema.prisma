@@ -40,14 +40,15 @@ enum Genre {
 }
 
 model User {
-  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  firebaseUid  String        @unique
-  createdAt    DateTime      @default(now()) @db.Timestamptz(3)
-  updatedAt    DateTime      @updatedAt @db.Timestamptz(3)
-  setting      UserSetting?
-  recipes      Recipe[]
-  tags         Tag[]
-  deviceTokens DeviceToken[]
+  id                 String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  firebaseUid        String              @unique
+  createdAt          DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime            @updatedAt @db.Timestamptz(3)
+  setting            UserSetting?
+  recipes            Recipe[]
+  tags               Tag[]
+  deviceTokens       DeviceToken[]
+  analysisAdmissions AnalysisAdmission[]
 }
 
 model UserSetting {
@@ -86,6 +87,20 @@ model Recipe {
   @@index([userId, genre])
   @@index([userId, analysisStatus])
   @@index([userId, updatedAt])
+}
+
+model AnalysisAdmission {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String    @db.Uuid
+  recipeId   String    @unique @db.Uuid
+  acceptedAt DateTime  @default(now()) @db.Timestamptz(3)
+  finishedAt DateTime? @db.Timestamptz(3)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, finishedAt])
+  @@index([finishedAt])
+  @@index([userId, acceptedAt])
+  @@index([acceptedAt])
 }
 
 model Ingredient {
