@@ -66,9 +66,7 @@ describe("CI auto-fix coverage", () => {
       "utf8",
     );
 
-    expect(autoFixWorkflow).toContain(
-           "name: Auto Fix"
-    );
+    expect(autoFixWorkflow).toContain("name: Auto Fix");
     expect(autoFixWorkflow).toContain("npm run lint:fix");
     expect(autoFixWorkflow).toContain("npm run prisma:format");
     expect(autoFixWorkflow).toContain(
