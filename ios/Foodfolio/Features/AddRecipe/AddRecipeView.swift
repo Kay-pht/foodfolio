@@ -20,7 +20,9 @@ struct AddRecipeView: View {
 
           Spacer()
 
-          Button { dismiss() } label: {
+          Button {
+            dismiss()
+          } label: {
             Image(systemName: "xmark")
               .font(.subheadline.weight(.semibold))
               .foregroundStyle(FoodfolioTheme.secondaryInk)
