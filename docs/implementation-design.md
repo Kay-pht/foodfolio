@@ -219,6 +219,7 @@ schemas/extracted-recipe.schema.json
 - Userの作成 / 解決
 - Recipe CRUD
 - URL validation / URL正規化 / 重複判定
+- 解析受付上限制御
 - Tag CRUDのMVP範囲
 - RecipeTag付与 / 解除
 - 差分同期
@@ -282,6 +283,7 @@ interface AnalysisTaskQueue {
 
 - User ID: UUID
 - Recipe ID: UUID
+- AnalysisAdmission ID: UUID
 - Ingredient ID: UUID
 - RecipeStep ID: UUID
 - Tag ID: UUID
@@ -487,6 +489,25 @@ DeviceToken
 
 ログアウト時はその端末のTokenを削除する。
 
+### 7.11 AnalysisAdmission
+
+解析依頼の受付履歴をRecipeとは独立して保持する。
+
+```text
+AnalysisAdmission
+- id: UUID PK
+- userId: UUID FK -> User.id ON DELETE CASCADE
+- recipeId: UUID UNIQUE NOT NULL
+- acceptedAt: datetime NOT NULL
+- finishedAt: datetime NULL
+```
+
+`acceptedAt` はユーザー日次・月次およびシステム全体日次の受付上限に使用する。`finishedAt = null` の行は未処理上限として数える。
+
+`recipeId` は意図的にRecipeへの外部キーにしない。解析中Recipeを削除しても既に受け付けた解析依頼の履歴を失わず、削除による上限回避を防ぐためである。
+
+詳細な受付上限・JST境界・解放条件は [analysis-admission-control.md](analysis-admission-control.md) を参照する。
+
 ---
 
 ## 8. Prisma Schema方針
@@ -589,9 +610,23 @@ URL normalization
 ↓
 同一Userの重複確認
 ↓
-Recipe保存
+DB transaction開始 + PostgreSQL transaction-level advisory lock取得
+↓
+ユーザー未処理 < 10
+↓
+ユーザー当日受付 < 30（JST）
+↓
+ユーザー当月受付 < 100（JST）
+↓
+システム全体未処理 < 100
+↓
+システム全体当日受付 < 500（JST）
+↓
+Recipe + AnalysisAdmission保存
   title = 解析中のレシピ
   analysisStatus = pending
+↓
+commit
 ↓
 Cloud Tasks enqueue
 ↓
@@ -608,6 +643,14 @@ Cloud Tasks enqueue
 
 error detailsに既存 `recipeId` を含め、iOSは既存Recipe詳細への導線を表示する。
 
+受付上限到達時：
+
+```http
+429 Too Many Requests
+```
+
+`ANALYSIS_LIMIT_EXCEEDED` と `limitType / limit / retryAt` を返し、iOSは上限種別に応じた日本語メッセージを表示する。時間で解消する日次・月次上限では `retryAt` を返す。
+
 Cloud Tasks enqueueに失敗した場合もRecipe自体は削除しない。
 
 その場合：
@@ -616,7 +659,7 @@ Cloud Tasks enqueueに失敗した場合もRecipe自体は削除しない。
 analysisStatus = failed
 ```
 
-としてRecipeを返し、内部原因 `TASK_ENQUEUE_FAILED` はCloud Loggingへ記録する。
+としてRecipeを返し、内部原因 `TASK_ENQUEUE_FAILED` はCloud Loggingへ記録する。未処理枠は解放するが、日次・月次の受付履歴は維持する。
 
 201成功レスポンスはiOS側でSwiftDataへ即時反映する。
 
@@ -937,8 +980,11 @@ iOS側は `code` をユーザー向け日本語メッセージへmappingする�
 | 409 | DUPLICATE_RECIPE | 正規化URL重複 |
 | 409 | RECIPE_ANALYSIS_IN_PROGRESS | pending / processing中のRecipe編集 |
 | 422 | VALIDATION_ERROR | 編集値等の業務validation不正 |
+| 429 | ANALYSIS_LIMIT_EXCEEDED | 解析受付上限（ユーザー未処理 / 日次 / 月次、全体未処理 / 日次） |
 | 500 | INTERNAL_ERROR | 想定外エラー |
 | 503 | TEMPORARILY_UNAVAILABLE | 一時的なBackend障害 |
+
+`ANALYSIS_LIMIT_EXCEEDED` の `details` には `limitType` と数値の `limit` を含める。日次・月次のように時刻で解消する上限では、次回受付可能時刻をISO 8601の `retryAt` として含める。日次・月次境界はJSTを基準とする。
 
 ---
 
@@ -1312,12 +1358,28 @@ AI解析結果をRecipeへ反映した場合は、Recipe本体・Ingredient・Re
 ```text
 POST /v1/recipes
 ↓
-Recipe INSERT (pending)
+URL validation / normalization / duplicate check
+↓
+DB transaction開始
+↓
+PostgreSQL transaction-level advisory lock取得
+↓
+ユーザー未処理10件・日次30件・月次100件を判定（JST）
+↓
+システム全体未処理100件・日次500件を判定（JST）
+↓
+Recipe INSERT (pending) + AnalysisAdmission INSERT
+↓
+commit
 ↓
 Cloud Tasks enqueue(recipeId)
 ↓
 API response
 ```
+
+受付判定とRecipe作成は同一transaction内で行う。上限到達時はRecipeを作成せず `429 ANALYSIS_LIMIT_EXCEEDED` を返す。日次はJST 00:00〜翌日00:00未満、月次はJST毎月1日00:00〜翌月1日00:00未満で判定する。
+
+受付制御の詳細、判定順序、`AnalysisAdmission` のライフサイクルは [analysis-admission-control.md](analysis-admission-control.md) を正本とする。
 
 Task payload：
 
@@ -1704,6 +1766,7 @@ analysisResult = completed | failed
 - User
 - UserSetting
 - Recipe
+- AnalysisAdmission
 - Ingredient
 - RecipeStep
 - Tag
@@ -1820,7 +1883,7 @@ WorkerがTaskを受信してRecipeが存在しない場合：
 成功応答して何もしない
 ```
 
-これにより削除済みRecipeを復活させない。
+これにより削除済みRecipeを復活させない。Recipe削除だけでは対応する `AnalysisAdmission` を削除せず、Workerが当該Taskを終端扱いにした時点で未処理枠を解放する。
 
 ---
 
@@ -2031,6 +2094,7 @@ Library/Application Support/Foodfolio/RecipeImages/{recipeId}
 - `POST /v1/recipes`
 - 201でレスポンスをSwiftDataへ反映してSheet close
 - 409で既存Recipeへの導線
+- 429で受付上限に応じた日本語メッセージを表示
 - AI完了は待たない
 
 オフライン時は未同期Recipeを作らず、通信が必要であることを表示する。
