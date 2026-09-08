@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { buildApi } from "../../src/api/build-api.js";
+import { jstMonthRange } from "../../src/application/analysis/admission-service.js";
 import type {
   AuthVerifier,
   FirebaseUserManager,
@@ -170,6 +171,46 @@ describe("analysis admission limits", () => {
       details: { limitType: "user_daily", limit: 30 },
     });
     expect(response.json().error.details.retryAt).toEqual(expect.any(String));
+    await app.close();
+  });
+
+  it("enforces the 100-per-JST-month user limit even for finished admissions", async () => {
+    const user = await ensureUser("monthly-user");
+    const now = new Date();
+    const month = jstMonthRange(now);
+    const twelveHoursMs = 12 * 60 * 60 * 1000;
+    const dayMs = 24 * 60 * 60 * 1000;
+    await context.prisma.analysisAdmission.createMany({
+      data: Array.from({ length: 100 }, (_, index) => ({
+        userId: user.id,
+        recipeId: randomUUID(),
+        acceptedAt: new Date(
+          month.start.getTime() + (index % 25) * dayMs + twelveHoursMs,
+        ),
+        finishedAt: now,
+      })),
+    });
+    const app = buildApi({
+      prisma: context.prisma,
+      authVerifier: auth,
+      firebaseUsers: noOpFirebase,
+      taskQueue: noOpQueue,
+    });
+    const response = await app.inject({
+      method: "POST",
+      url: "/v1/recipes",
+      headers: headers("monthly-user"),
+      payload: { url: "https://example.com/monthly-over-limit" },
+    });
+
+    expect(response.statusCode).toBe(429);
+    expect(response.json().error).toMatchObject({
+      code: "ANALYSIS_LIMIT_EXCEEDED",
+      details: { limitType: "user_monthly", limit: 100 },
+    });
+    expect(new Date(response.json().error.details.retryAt).toISOString()).toBe(
+      month.end.toISOString(),
+    );
     await app.close();
   });
 
