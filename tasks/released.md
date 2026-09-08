@@ -3,6 +3,23 @@
 `tasks/unreleased.md` で指定した必要な反映先がすべて反映済みになった項目を、日付とversion情報を保ったまま記録する。
 日付は日本時間（JST）の `YYYY-MM-DD`、iOSは `version (build)`、Cloud RunはGit SHAとservice revisionを記載する。
 
+## 2026-09-08
+
+- [x] `REL-20260908-03` IPv6リテラルによるSSRF制限迂回を防止する
+  - 内容: URL検証で角括弧付きIPv6リテラルを正規化し、loopback、private、link-local等の禁止アドレスへのBackend通信を拒否する。
+  - PR: [#75](https://github.com/Kay-pht/foodfolio/pull/75)
+  - main反映: `a439f7cb3d04e5868a11923f6f4d7cbac1b59b5d`
+  - 必要な反映先:
+    - [x] Cloud Run（現在利用中のdev） — 反映日: `2026-09-08`、version: `a439f7cb3d04e5868a11923f6f4d7cbac1b59b5d`、API `foodfolio-dev-api-00025-dm7` / Worker `foodfolio-dev-worker-00028-f4r`、traffic 100%
+
+- [x] `REL-20260907-01` Instagramメディアフォールバック
+  - 内容: 公開InstagramのReel、単一動画、単一画像、画像carousel、画像と動画のmixed carousel、pure video carouselで、metadata解析だけでは材料・手順が揃わない場合に限り、投稿順を維持した全メディアを一時取得してAI解析へフォールバックする。一部entryだけを解析成功として扱わない。
+  - PR: [#68](https://github.com/Kay-pht/foodfolio/pull/68)、[#70](https://github.com/Kay-pht/foodfolio/pull/70)
+  - main反映: `e0395db540a95364493943ecbf8f1e7eb7c92c0c`
+  - 必要な反映先:
+    - [x] Cloud Run（現在利用中のdev） — 反映日: `2026-09-08`、version: `a439f7cb3d04e5868a11923f6f4d7cbac1b59b5d`、API `foodfolio-dev-api-00025-dm7` / Worker `foodfolio-dev-worker-00028-f4r`、traffic 100%
+  - 備考: 一時メディアは既存のprivate GCS bucketを共用する。carouselは各entryをdownload、GCS publish、local削除の順で逐次処理し、解析後または失敗時にGCS objectを削除する。bucket lifecycleの1日削除も既存の安全網として維持する。
+
 ## 2026-09-06
 
 - [x] `REL-20260906-01` 共有シートでURL確認後に作成し、二重送信を防止する
