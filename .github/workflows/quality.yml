@@ -3,16 +3,8 @@ name: Quality
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    paths-ignore:
-      - "*.md"
-      - "**/*.md"
-      - "docs/**"
   push:
     branches: [main]
-    paths-ignore:
-      - "*.md"
-      - "**/*.md"
-      - "docs/**"
   workflow_dispatch:
     inputs:
       base_sha:
