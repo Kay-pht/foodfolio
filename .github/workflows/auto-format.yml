@@ -185,15 +185,15 @@ jobs:
           github.event_name == 'pull_request' &&
           steps.fixes.outputs.changed == 'true'
         env:
-          APP_CLIENT_ID: ${{ vars.AUTO_FIX_APP_CLIENT_ID }}
+          APP_ID: ${{ vars.AUTO_FIX_APP_ID }}
           APP_PRIVATE_KEY: ${{ secrets.AUTO_FIX_APP_PRIVATE_KEY }}
         shell: bash
         run: |
-          if [[ -n "${APP_CLIENT_ID}" && -n "${APP_PRIVATE_KEY}" ]]; then
+          if [[ -n "${APP_ID}" && -n "${APP_PRIVATE_KEY}" ]]; then
             echo "configured=true" >> "${GITHUB_OUTPUT}"
           else
             echo "configured=false" >> "${GITHUB_OUTPUT}"
-            echo "::warning::Auto Fix GitHub App is not configured; using the GITHUB_TOKEN bootstrap path. Configure AUTO_FIX_APP_CLIENT_ID and AUTO_FIX_APP_PRIVATE_KEY to remove approval-required duplicate PR runs."
+            echo "::warning::Auto Fix GitHub App is not configured; using the GITHUB_TOKEN bootstrap path. Configure AUTO_FIX_APP_ID and AUTO_FIX_APP_PRIVATE_KEY to remove approval-required duplicate PR runs."
           fi
 
       - name: Create Auto Fix GitHub App token
@@ -204,7 +204,7 @@ jobs:
           steps.app-config.outputs.configured == 'true'
         uses: actions/create-github-app-token@v3
         with:
-          client-id: ${{ vars.AUTO_FIX_APP_CLIENT_ID }}
+          app-id: ${{ vars.AUTO_FIX_APP_ID }}
           private-key: ${{ secrets.AUTO_FIX_APP_PRIVATE_KEY }}
           permission-contents: write
 
