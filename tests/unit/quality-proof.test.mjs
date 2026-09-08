@@ -177,6 +177,10 @@ describe("PR Quality proof", () => {
       new URL("../../.github/workflows/auto-format.yml", import.meta.url),
       "utf8",
     );
+    const documentationWorkflow = await readFile(
+      new URL("../../.github/workflows/documentation.yml", import.meta.url),
+      "utf8",
+    );
     const deployWorkflow = await readFile(
       new URL("../../.github/workflows/deploy-dev.yml", import.meta.url),
       "utf8",
@@ -210,13 +214,19 @@ describe("PR Quality proof", () => {
     expect(qualityWorkflow).toContain("stale-dispatch-{0}");
     expect(qualityWorkflow).toContain("pull-requests: read");
     expect(qualityWorkflow).toContain("ref: ${{ github.sha }}");
-    expect(qualityWorkflow).toContain("paths-ignore:");
-    expect(qualityWorkflow).toContain('- "*.md"');
-    expect(qualityWorkflow).toContain('- "**/*.md"');
-    expect(qualityWorkflow).toContain('- "docs/**"');
+    expect(qualityWorkflow).not.toContain("paths-ignore:");
     expect(qualityWorkflow).toContain("github.event.before");
     expect(qualityWorkflow).toContain("classify-quality-changes.mjs");
     expect(qualityWorkflow).not.toContain("main-push-context-${{");
+
+    expect(documentationWorkflow).not.toContain("\n    paths:\n");
+    expect(documentationWorkflow).toContain("Classify changed files");
+    expect(documentationWorkflow).toContain(
+      "Documentation checks not required",
+    );
+    expect(documentationWorkflow).toContain(
+      "steps.changes.outputs.documentation == 'true'",
+    );
 
     const orderedQualitySteps = [
       "Check task consistency",
@@ -242,13 +252,33 @@ describe("PR Quality proof", () => {
     expect(autoFormatWorkflow).toContain(
       "github.event.pull_request.head.repo.full_name == github.repository",
     );
+    expect(autoFormatWorkflow).toContain("github.event.sender.type != 'Bot'");
+    expect(autoFormatWorkflow).toContain("persist-credentials: false");
+    expect(autoFormatWorkflow).toContain(
+      "github.event.pull_request.head.sha",
+    );
     expect(autoFormatWorkflow).toContain("npm run format:write");
     expect(autoFormatWorkflow).toContain("bash scripts/format-ios.sh");
+    expect(autoFormatWorkflow).toContain("Verify automatic fixes are stable");
+    expect(autoFormatWorkflow).toContain(
+      "refusing to push a non-idempotent result",
+    );
+    expect(autoFormatWorkflow).toContain("AUTO_FIX_APP_ID");
+    expect(autoFormatWorkflow).toContain("actions/create-github-app-token@v3");
+    expect(autoFormatWorkflow).toContain("permission-contents: write");
     expect(autoFormatWorkflow).toContain(
       'git commit -m "style: apply automatic formatting"',
     );
-    expect(autoFormatWorkflow).toContain("gh workflow run quality.yml");
     expect(autoFormatWorkflow).toContain("git ls-remote --exit-code --refs");
+    expect(autoFormatWorkflow).toContain(
+      "Pull request advanced, closed, or changed head",
+    );
+    expect(autoFormatWorkflow).toContain(
+      'git push origin "HEAD:refs/heads/${HEAD_REF}"',
+    );
+    expect(autoFormatWorkflow).not.toContain("git push --force");
+    expect(autoFormatWorkflow).toContain("gh workflow run quality.yml");
+    expect(autoFormatWorkflow).toContain("gh workflow run documentation.yml");
     expect(autoFormatWorkflow).toContain(
       "skipping stale Auto Fix, Quality, and Documentation dispatches",
     );
