@@ -47,6 +47,7 @@
 		A6DD55B569097F863FFC9A55 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FE4DD1DC1E7C38733785B6B1 /* Assets.xcassets */; };
 		AB7B2AE9944C32B5FC719475 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 332E8AF8018286A7FBBDE6AB /* FirebaseCore */; };
 		AFBC2450A9901304BCEF0FF3 /* FoodfolioApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8CC27A1E7A83EDF3D5DCA5D /* FoodfolioApp.swift */; };
+		BDB7217D02DBAF13750F39EC /* AddRecipeClipboardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DB494F130BE396550C119E /* AddRecipeClipboardTests.swift */; };
 		C065F2D8B65FAC97BB9D5366 /* SharedURLParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91341891D7B2DCB74DB48E96 /* SharedURLParserTests.swift */; };
 		CB538FEC036B38FE5EDD8BCE /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 817BBC9D2C78EFB8A37E2906 /* ShareViewController.swift */; };
 		CD213DE5CE8957F5EAC78576 /* FoodfolioShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 816E5E19C049E744E52F7E12 /* FoodfolioShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -137,6 +138,7 @@
 		878169D781953F40FFC02877 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		91341891D7B2DCB74DB48E96 /* SharedURLParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedURLParserTests.swift; sourceTree = "<group>"; };
 		92038E5247A17CCAA03FF84E /* AccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountView.swift; sourceTree = "<group>"; };
+		94DB494F130BE396550C119E /* AddRecipeClipboardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddRecipeClipboardTests.swift; sourceTree = "<group>"; };
 		97E393135C6D202AAC694AE1 /* FoodfolioRelease.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FoodfolioRelease.entitlements; sourceTree = "<group>"; };
 		9CCB34B2AEF6DCBDACF84C60 /* PersistenceIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceIntegrationTests.swift; sourceTree = "<group>"; };
 		AA1F87C3FD70DC1781AD9FBD /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
@@ -305,6 +307,7 @@
 		6DC931727CC69D0310F7E00E /* FoodfolioTests */ = {
 			isa = PBXGroup;
 			children = (
+				94DB494F130BE396550C119E /* AddRecipeClipboardTests.swift */,
 				FB7164CA62061513D5F3DFF7 /* CoreLogicTests.swift */,
 				7650A5DE07E3569A2715BE56 /* NotificationActivationTests.swift */,
 				91341891D7B2DCB74DB48E96 /* SharedURLParserTests.swift */,
@@ -690,6 +693,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BDB7217D02DBAF13750F39EC /* AddRecipeClipboardTests.swift in Sources */,
 				43CC20594DBBC6F5E1B7575E /* CoreLogicTests.swift in Sources */,
 				4F03F3DE45321B4815E73986 /* NotificationActivationTests.swift in Sources */,
 				C065F2D8B65FAC97BB9D5366 /* SharedURLParserTests.swift in Sources */,

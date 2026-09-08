@@ -256,9 +256,37 @@ import XCTest
 }
 
 @MainActor final class MutationAndAccountUITests: FoodfolioUITestCase {
+  func testAddRecipeSheetReusesFullWidthPrimaryButtonWithoutClipping() {
+    let app = launch()
+    app.buttons["home.add"].tap()
+
+    let pasteButton = app.buttons["add.paste"]
+    let manualButton = app.buttons["add.manual"]
+    XCTAssertTrue(pasteButton.waitForExistence(timeout: 3))
+    XCTAssertTrue(manualButton.exists)
+    XCTAssertFalse(app.textFields["add.url"].exists)
+    let pasteButtonFrame = pasteButton.frame
+
+    manualButton.tap()
+
+    let title = app.staticTexts["add.title"]
+    let clipboardHeadline = app.staticTexts["add.clipboardHeadline"]
+    let urlField = app.textFields["add.url"]
+    let saveButton = app.buttons["add.save"]
+    XCTAssertTrue(urlField.waitForExistence(timeout: 3))
+    XCTAssertTrue(saveButton.exists)
+    XCTAssertFalse(pasteButton.exists)
+    XCTAssertTrue(title.isHittable)
+    XCTAssertTrue(clipboardHeadline.isHittable)
+    XCTAssertGreaterThan(clipboardHeadline.frame.height, 30)
+    XCTAssertEqual(pasteButtonFrame.width, saveButton.frame.width, accuracy: 2)
+    XCTAssertEqual(pasteButtonFrame.height, saveButton.frame.height, accuracy: 2)
+  }
+
   func testAddTagEditAndDeleteRecipe() {
     let app = launch(arguments: ["-ui-testing-slow-tag-save"])
     app.buttons["home.add"].tap()
+    app.buttons["add.manual"].tap()
     XCTAssertTrue(app.textFields["add.url"].waitForExistence(timeout: 3))
     app.textFields["add.url"].tap()
     app.textFields["add.url"].typeText("https://example.com/new-recipe")
