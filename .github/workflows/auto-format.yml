@@ -31,14 +31,16 @@ jobs:
   fix:
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      github.event.pull_request.head.repo.full_name == github.repository
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.sender.type != 'Bot')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.pull_request.head.ref }}
+          persist-credentials: false
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_sha || github.event.pull_request.head.sha }}
 
       - name: Validate dispatched PR context
         if: github.event_name == 'workflow_dispatch'
@@ -129,21 +131,173 @@ jobs:
             echo "EOF"
           } >> "${GITHUB_OUTPUT}"
 
-      - name: Commit automatic fixes
-        id: commit
+      - name: Verify automatic fixes are stable
+        if: steps.fixes.outputs.changed == 'true'
+        env:
+          FIX_BACKEND: ${{ steps.changes.outputs.backend }}
+          FIX_DOCS: ${{ steps.changes.outputs.docs }}
+          FIX_IOS: ${{ steps.changes.outputs.ios }}
+          FIX_TERRAFORM: ${{ steps.changes.outputs.terraform }}
+          MARKDOWN_BASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.base_sha || github.event.pull_request.base.sha }}
+          MARKDOWN_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.head_sha || github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          git add --all
+          first_tree="$(git write-tree)"
+
+          if [[ "${FIX_BACKEND}" == "true" ]]; then
+            npm run tasks:sync
+            npm run format:write
+            npm run lint:fix
+            npm run format:write
+            npm run prisma:format
+          elif [[ "${FIX_DOCS}" == "true" ]]; then
+            node scripts/sync-task-files.mjs
+          fi
+
+          if [[ "${FIX_DOCS}" == "true" ]]; then
+            node scripts/format-changed-markdown.mjs --write
+          fi
+
+          if [[ "${FIX_TERRAFORM}" == "true" ]]; then
+            terraform fmt -recursive infra/terraform
+          fi
+
+          if [[ "${FIX_IOS}" == "true" ]]; then
+            docker run --rm \
+              --volume "${GITHUB_WORKSPACE}:/workspace" \
+              --workdir /workspace \
+              swift:6.3@sha256:4e0fc24f0f93a5cf9a91bfcf182534bbc0571d70d757389c04ff1f616c1c460f \
+              bash scripts/format-ios.sh
+          fi
+
+          git add --all
+          second_tree="$(git write-tree)"
+          if [[ "${first_tree}" != "${second_tree}" ]]; then
+            git status --short
+            echo "Automatic fixes changed again on a second pass; refusing to push a non-idempotent result." >&2
+            exit 1
+          fi
+
+      - name: Detect GitHub App configuration
+        id: app-config
         if: >-
           github.event_name == 'pull_request' &&
           steps.fixes.outputs.changed == 'true'
         env:
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          APP_CLIENT_ID: ${{ vars.AUTO_FIX_APP_CLIENT_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.AUTO_FIX_APP_PRIVATE_KEY }}
         shell: bash
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [[ -n "${APP_CLIENT_ID}" && -n "${APP_PRIVATE_KEY}" ]]; then
+            echo "configured=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "configured=false" >> "${GITHUB_OUTPUT}"
+            echo "::warning::Auto Fix GitHub App is not configured; using the GITHUB_TOKEN bootstrap path. Configure AUTO_FIX_APP_CLIENT_ID and AUTO_FIX_APP_PRIVATE_KEY to remove approval-required duplicate PR runs."
+          fi
+
+      - name: Create Auto Fix GitHub App token
+        id: app-token
+        if: >-
+          github.event_name == 'pull_request' &&
+          steps.fixes.outputs.changed == 'true' &&
+          steps.app-config.outputs.configured == 'true'
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.AUTO_FIX_APP_CLIENT_ID }}
+          private-key: ${{ secrets.AUTO_FIX_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: Validate pull request head before commit
+        id: freshness
+        if: >-
+          github.event_name == 'pull_request' &&
+          steps.fixes.outputs.changed == 'true'
+        env:
+          EXPECTED_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          EXPECTED_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          pr="$(gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}")"
+          state="$(jq -r '.state' <<< "${pr}")"
+          head_repo="$(jq -r '.head.repo.full_name // empty' <<< "${pr}")"
+          head_ref="$(jq -r '.head.ref' <<< "${pr}")"
+          head_sha="$(jq -r '.head.sha' <<< "${pr}")"
+
+          if [[ "${state}" != "open" ||
+                "${head_repo}" != "${EXPECTED_HEAD_REPO}" ||
+                "${head_ref}" != "${EXPECTED_HEAD_REF}" ||
+                "${head_sha}" != "${EXPECTED_HEAD_SHA}" ]]; then
+            echo "fresh=false" >> "${GITHUB_OUTPUT}"
+            echo "Pull request advanced, closed, or changed head while Auto Fix was running; skipping stale automatic commit."
+            exit 0
+          fi
+
+          remote_head="$(
+            git ls-remote --exit-code --refs \
+              "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git" \
+              "refs/heads/${EXPECTED_HEAD_REF}" |
+              awk 'NR == 1 { print $1 }'
+          )" || true
+
+          if [[ "${remote_head}" != "${EXPECTED_HEAD_SHA}" ]]; then
+            echo "fresh=false" >> "${GITHUB_OUTPUT}"
+            echo "Remote head is ${remote_head:-missing}, expected ${EXPECTED_HEAD_SHA}; skipping stale automatic commit."
+            exit 0
+          fi
+
+          echo "fresh=true" >> "${GITHUB_OUTPUT}"
+
+      - name: Commit automatic fixes
+        id: commit
+        if: >-
+          github.event_name == 'pull_request' &&
+          steps.fixes.outputs.changed == 'true' &&
+          steps.freshness.outputs.fresh == 'true'
+        env:
+          APP_CONFIGURED: ${{ steps.app-config.outputs.configured }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          if [[ "${APP_CONFIGURED}" == "true" ]]; then
+            bot_user_id="$(
+              GH_TOKEN="${APP_TOKEN}" gh api "/users/${APP_SLUG}[bot]" --jq '.id'
+            )"
+            git config user.name "${APP_SLUG}[bot]"
+            git config user.email "${bot_user_id}+${APP_SLUG}[bot]@users.noreply.github.com"
+            push_token="${APP_TOKEN}"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            push_token="${GITHUB_TOKEN}"
+          fi
+
           git add --all
           git commit -m "style: apply automatic formatting"
-          git push origin "HEAD:${HEAD_REF}"
-          echo "head_sha=$(git rev-parse HEAD)" >> "${GITHUB_OUTPUT}"
+          commit_sha="$(git rev-parse HEAD)"
+          git remote set-url origin "https://x-access-token:${push_token}@github.com/${REPOSITORY}.git"
+
+          if ! git push origin "HEAD:refs/heads/${HEAD_REF}"; then
+            remote_head="$(git ls-remote --exit-code --refs origin "refs/heads/${HEAD_REF}" | awk 'NR == 1 { print $1 }')" || true
+            if [[ "${remote_head}" != "${EXPECTED_HEAD_SHA}" ]]; then
+              echo "Pull request advanced to ${remote_head:-missing} before Auto Fix could push; stale result was not written."
+              echo "pushed=false" >> "${GITHUB_OUTPUT}"
+              exit 0
+            fi
+            echo "Auto Fix push failed while the remote head was still ${EXPECTED_HEAD_SHA}." >&2
+            exit 1
+          fi
+
+          echo "head_sha=${commit_sha}" >> "${GITHUB_OUTPUT}"
+          echo "pushed=true" >> "${GITHUB_OUTPUT}"
 
       - name: Reject remaining fixes on dispatched head
         if: >-
@@ -158,10 +312,13 @@ jobs:
       - name: Summarize automatic fixes
         if: always()
         env:
+          APP_CONFIGURED: ${{ steps.app-config.outputs.configured }}
           CHANGED: ${{ steps.fixes.outputs.changed }}
           EVENT_NAME: ${{ github.event_name }}
           FILES: ${{ steps.fixes.outputs.files }}
+          FRESH: ${{ steps.freshness.outputs.fresh }}
           HEAD_SHA: ${{ steps.commit.outputs.head_sha }}
+          PUSHED: ${{ steps.commit.outputs.pushed }}
         shell: bash
         run: |
           {
@@ -173,7 +330,9 @@ jobs:
               echo '```text'
               printf '%s\n' "${FILES}"
               echo '```'
-            elif [[ "${CHANGED}" == "true" ]]; then
+            elif [[ "${CHANGED}" == "true" && "${FRESH}" == "false" ]]; then
+              echo "Automatic fixes were computed, but the pull request advanced or closed before commit; stale changes were not pushed."
+            elif [[ "${CHANGED}" == "true" && "${PUSHED}" == "true" ]]; then
               echo "Deterministic fixes were committed automatically."
               echo
               echo '```text'
@@ -181,15 +340,24 @@ jobs:
               echo '```'
               echo
               echo "Commit: \`${HEAD_SHA}\`"
+              if [[ "${APP_CONFIGURED}" == "true" ]]; then
+                echo "Push authentication: GitHub App"
+              else
+                echo "Push authentication: GITHUB_TOKEN bootstrap fallback"
+              fi
+            elif [[ "${CHANGED}" == "true" ]]; then
+              echo "Automatic fixes were computed but not pushed because the branch advanced during the final push race."
             else
               echo "No automatic fixes were required."
             fi
           } >> "${GITHUB_STEP_SUMMARY}"
 
-      - name: Re-run checks for fixed head
+      - name: Re-run checks for fixed head during bootstrap
         if: >-
           github.event_name == 'pull_request' &&
           steps.fixes.outputs.changed == 'true' &&
+          steps.commit.outputs.pushed == 'true' &&
+          steps.app-config.outputs.configured != 'true' &&
           github.event.pull_request.draft == false
         env:
           GH_TOKEN: ${{ github.token }}
@@ -210,49 +378,22 @@ jobs:
             exit 0
           fi
 
-          default_auto_fix="$(
-            gh api \
-              -H "Accept: application/vnd.github.raw+json" \
-              "repos/${REPOSITORY}/contents/.github/workflows/auto-format.yml?ref=main"
-          )"
-          if grep -q '^  workflow_dispatch:' <<< "${default_auto_fix}"; then
-            gh workflow run auto-format.yml \
-              --ref "${HEAD_REF}" \
-              -f "base_sha=${BASE_SHA}" \
-              -f "head_sha=${HEAD_SHA}" \
-              -f "pr_number=${PR_NUMBER}"
-          else
-            echo "Auto Fix dispatch is not active on main yet; the pull-request Auto Fix run remains the bootstrap verification." >> "${GITHUB_STEP_SUMMARY}"
-          fi
+          gh workflow run auto-format.yml \
+            --ref "${HEAD_REF}" \
+            -f "base_sha=${BASE_SHA}" \
+            -f "head_sha=${HEAD_SHA}" \
+            -f "pr_number=${PR_NUMBER}"
 
-          default_quality="$(
-            gh api \
-              -H "Accept: application/vnd.github.raw+json" \
-              "repos/${REPOSITORY}/contents/.github/workflows/quality.yml?ref=main"
-          )"
-          if grep -q '^  workflow_dispatch:' <<< "${default_quality}"; then
-            gh workflow run quality.yml \
-              --ref "${HEAD_REF}" \
-              -f "base_sha=${BASE_SHA}" \
-              -f "head_sha=${HEAD_SHA}" \
-              -f "pr_number=${PR_NUMBER}"
-          else
-            echo "Quality dispatch is not active on main; keeping the pull-request Quality run as bootstrap verification." >> "${GITHUB_STEP_SUMMARY}"
-          fi
+          gh workflow run quality.yml \
+            --ref "${HEAD_REF}" \
+            -f "base_sha=${BASE_SHA}" \
+            -f "head_sha=${HEAD_SHA}" \
+            -f "pr_number=${PR_NUMBER}"
 
           if [[ "${DOCUMENTATION_CHANGED}" == "true" ]]; then
-            default_documentation="$(
-              gh api \
-                -H "Accept: application/vnd.github.raw+json" \
-                "repos/${REPOSITORY}/contents/.github/workflows/documentation.yml?ref=main"
-            )"
-            if grep -q '^  workflow_dispatch:' <<< "${default_documentation}"; then
-              gh workflow run documentation.yml \
-                --ref "${HEAD_REF}" \
-                -f "base_sha=${BASE_SHA}" \
-                -f "head_sha=${HEAD_SHA}" \
-                -f "pr_number=${PR_NUMBER}"
-            else
-              echo "Documentation dispatch is not active on main yet; it will become active after this PR is merged." >> "${GITHUB_STEP_SUMMARY}"
-            fi
+            gh workflow run documentation.yml \
+              --ref "${HEAD_REF}" \
+              -f "base_sha=${BASE_SHA}" \
+              -f "head_sha=${HEAD_SHA}" \
+              -f "pr_number=${PR_NUMBER}"
           fi
