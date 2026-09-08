@@ -130,7 +130,7 @@ export async function admitRecipeAnalysis(
 }
 
 export async function finishAnalysisAdmission(
-  prisma: PrismaClient,
+  prisma: PrismaClient | Prisma.TransactionClient,
   recipeId: string,
 ): Promise<void> {
   await prisma.analysisAdmission.updateMany({
