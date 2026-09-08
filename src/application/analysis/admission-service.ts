@@ -11,7 +11,10 @@ export const ANALYSIS_ADMISSION_LIMITS = {
 } as const;
 
 export type AnalysisAdmissionLimitType =
-  "user_outstanding" | "user_daily" | "global_outstanding" | "global_daily";
+  | "user_outstanding"
+  | "user_daily"
+  | "global_outstanding"
+  | "global_daily";
 
 export class AnalysisAdmissionLimitError extends Error {
   constructor(
@@ -49,10 +52,10 @@ export async function admitRecipeAnalysis(
   return prisma.$transaction(
     async (tx) => {
       // Serialize the small admission critical section across all API instances.
-      // The two integers are an application-defined PostgreSQL advisory-lock key.
+      // Select only a supported scalar because pg_advisory_xact_lock itself returns void.
       await tx.$queryRaw<
-        Array<{ pg_advisory_xact_lock: null }>
-      >`SELECT pg_advisory_xact_lock(20260908, 1)`;
+        Array<{ acquired: number }>
+      >`SELECT 1::int AS acquired FROM pg_advisory_xact_lock(20260908, 1)`;
 
       const [clock] = await tx.$queryRaw<
         Array<{ now: Date }>
