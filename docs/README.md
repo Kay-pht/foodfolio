@@ -4,26 +4,27 @@
 
 ## 要件・設計の正本
 
-| 目的 | 文書 |
-| --- | --- |
-| MVP の要件 | [requirements-specification.md](requirements-specification.md) |
-| 基本設計 | [basic-design.md](basic-design.md) |
-| UI / UX | [ui-ux-design.md](ui-ux-design.md) |
-| 技術選定 | [technology-selection.md](technology-selection.md) |
-| 実装設計 | [implementation-design.md](implementation-design.md) |
-| Backend 層間依存 | [architecture-boundaries.md](architecture-boundaries.md) |
+| 目的             | 文書                                                           |
+| ---------------- | -------------------------------------------------------------- |
+| MVP の要件       | [requirements-specification.md](requirements-specification.md) |
+| 基本設計         | [basic-design.md](basic-design.md)                             |
+| UI / UX          | [ui-ux-design.md](ui-ux-design.md)                             |
+| 技術選定         | [technology-selection.md](technology-selection.md)             |
+| 実装設計         | [implementation-design.md](implementation-design.md)           |
+| Backend 層間依存 | [architecture-boundaries.md](architecture-boundaries.md)       |
 
 ## 開発・運用
 
-| 目的 | 文書 |
-| --- | --- |
-| 開発プロセス | [dev-flow.md](dev-flow.md) |
-| ローカル Backend | [local-development.md](local-development.md) |
-| AI データ取扱い | [ai-data-handling.md](ai-data-handling.md) |
-| Share Extension セットアップ | [share-extension-setup.md](share-extension-setup.md) |
-| TestFlight 準備 | [testflight-preparation.md](testflight-preparation.md) |
-| テストケース改善方針 | [test-case-improvement.md](test-case-improvement.md) |
-| デザイン改善メモ | [../design-improvement.md](../design-improvement.md) |
+| 目的                         | 文書                                                           |
+| ---------------------------- | -------------------------------------------------------------- |
+| 開発プロセス                 | [dev-flow.md](dev-flow.md)                                     |
+| ローカル Backend             | [local-development.md](local-development.md)                   |
+| 解析依頼の受付制御           | [analysis-admission-control.md](analysis-admission-control.md) |
+| AI データ取扱い              | [ai-data-handling.md](ai-data-handling.md)                     |
+| Share Extension セットアップ | [share-extension-setup.md](share-extension-setup.md)           |
+| TestFlight 準備              | [testflight-preparation.md](testflight-preparation.md)         |
+| テストケース改善方針         | [test-case-improvement.md](test-case-improvement.md)           |
+| デザイン改善メモ             | [../design-improvement.md](../design-improvement.md)           |
 
 ## エージェント向け運用ルール
 
