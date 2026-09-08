@@ -11,10 +11,7 @@ export const ANALYSIS_ADMISSION_LIMITS = {
 } as const;
 
 export type AnalysisAdmissionLimitType =
-  | "user_outstanding"
-  | "user_daily"
-  | "global_outstanding"
-  | "global_daily";
+  "user_outstanding" | "user_daily" | "global_outstanding" | "global_daily";
 
 export class AnalysisAdmissionLimitError extends Error {
   constructor(
