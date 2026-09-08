@@ -14,19 +14,19 @@ describe("SafeHttpClient hostname validation", () => {
     requestMock.mockReset();
   });
 
-  it.each([
-    "http://[::1]/",
-    "http://[::ffff:127.0.0.1]/",
-  ])("rejects an internal IPv6 literal before requesting %s", async (url) => {
-    const client = new SafeHttpClient();
+  it.each(["http://[::1]/", "http://[::ffff:127.0.0.1]/"])(
+    "rejects an internal IPv6 literal before requesting %s",
+    async (url) => {
+      const client = new SafeHttpClient();
 
-    await expect(client.get(new URL(url))).rejects.toMatchObject({
-      code: "SOURCE_UNSAFE_URL",
-      retryable: false,
-      message: "Blocked IP address",
-    });
-    expect(requestMock).not.toHaveBeenCalled();
-  });
+      await expect(client.get(new URL(url))).rejects.toMatchObject({
+        code: "SOURCE_UNSAFE_URL",
+        retryable: false,
+        message: "Blocked IP address",
+      });
+      expect(requestMock).not.toHaveBeenCalled();
+    },
+  );
 
   it("revalidates an IPv6 literal after a redirect", async () => {
     const dump = vi.fn(async () => undefined);

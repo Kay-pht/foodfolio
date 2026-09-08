@@ -59,9 +59,7 @@ describe("SafeHttpClient SSRF connection guard", () => {
     const client = new SafeHttpClient();
 
     await expect(
-      client.get(
-        new URL(`http://[::ffff:127.0.0.1]:${internal.port}/secret`),
-      ),
+      client.get(new URL(`http://[::ffff:127.0.0.1]:${internal.port}/secret`)),
     ).rejects.toMatchObject({
       code: "SOURCE_UNSAFE_URL",
       retryable: false,
