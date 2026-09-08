@@ -19,6 +19,7 @@
 | --- | --- |
 | 開発プロセス | [dev-flow.md](dev-flow.md) |
 | ローカル Backend | [local-development.md](local-development.md) |
+| 解析依頼の受付制御 | [analysis-admission-control.md](analysis-admission-control.md) |
 | AI データ取扱い | [ai-data-handling.md](ai-data-handling.md) |
 | Share Extension セットアップ | [share-extension-setup.md](share-extension-setup.md) |
 | TestFlight 準備 | [testflight-preparation.md](testflight-preparation.md) |
