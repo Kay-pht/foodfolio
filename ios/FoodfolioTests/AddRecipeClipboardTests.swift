@@ -12,6 +12,7 @@ import XCTest
 
     XCTAssertTrue(result)
     XCTAssertEqual(model.url, "https://example.com/recipes/123?source=share")
+    XCTAssertTrue(model.canSubmit)
     XCTAssertNil(model.errorMessage)
   }
 
@@ -23,6 +24,7 @@ import XCTest
 
     XCTAssertFalse(result)
     XCTAssertEqual(model.url, "")
+    XCTAssertFalse(model.canSubmit)
     XCTAssertEqual(model.errorMessage, APIError.invalidURL.userMessage)
   }
 }
