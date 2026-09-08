@@ -1,7 +1,13 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import { RecipeAnalysisService } from "../application/analysis/analysis-service.js";
 
-export function buildWorker(service: RecipeAnalysisService): FastifyInstance {
+export type RecipeAnalysisProcessor = Pick<RecipeAnalysisService, "process">;
+export type AnalysisAdmissionFinisher = (recipeId: string) => Promise<void>;
+
+export function buildWorker(
+  service: RecipeAnalysisProcessor,
+  finishAdmission: AnalysisAdmissionFinisher = async () => {},
+): FastifyInstance {
   const app = Fastify({ logger: true, requestIdHeader: "x-request-id" });
   app.get("/healthz", async () => ({ status: "ok" }));
   app.get("/health", async () => ({ status: "ok" }));
@@ -20,6 +26,7 @@ export function buildWorker(service: RecipeAnalysisService): FastifyInstance {
     );
     if (result.retry)
       return reply.status(503).send({ error: "RETRYABLE_ANALYSIS_ERROR" });
+    await finishAdmission(body.recipeId);
     return reply.status(204).send();
   });
   return app;

@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { buildWorker } from "../api/build-worker.js";
+import { finishAnalysisAdmission } from "../application/analysis/admission-service.js";
 import { RecipeAnalysisService } from "../application/analysis/analysis-service.js";
 import { YoutubeAwareRecipeExtractor } from "../application/analysis/youtube-aware-recipe-extractor.js";
 import { loadConfig } from "../config/env.js";
@@ -18,6 +19,7 @@ import { SafeHttpClient } from "../infrastructure/url/safe-http-client.js";
 import { ProductionSourceContentExtractor } from "../infrastructure/url/source-content-extractor.js";
 
 const config = loadConfig("worker");
+const prisma = getPrisma();
 const recipeExtractor = new ZaiRecipeExtractor(
   config.zaiApiKey,
   config.aiModel,
@@ -69,7 +71,7 @@ const notifications =
     ? new NoopNotificationSender()
     : new FirebaseNotificationSender();
 const service = new RecipeAnalysisService({
-  prisma: getPrisma(),
+  prisma,
   sourceExtractor: new ProductionSourceContentExtractor(
     new SafeHttpClient(),
     config.youtubeApiKey,
@@ -80,4 +82,6 @@ const service = new RecipeAnalysisService({
   notifications,
   maxAttempts: config.maxAnalysisAttempts,
 });
-await buildWorker(service).listen({ host: "0.0.0.0", port: config.port });
+await buildWorker(service, (recipeId) =>
+  finishAnalysisAdmission(prisma, recipeId),
+).listen({ host: "0.0.0.0", port: config.port });

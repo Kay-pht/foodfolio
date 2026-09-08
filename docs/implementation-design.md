@@ -22,25 +22,25 @@
 
 ### 2.1 ユーザー決定事項
 
-| 項目 | 決定 |
-| --- | --- |
-| タグ検索 | 1タグのみ選択可能 |
-| URL重複 | 明らかな差異を正規化して同一URL判定 |
-| 検索履歴 | iPhone端末内に保存 |
-| `1〜2人分` 等の範囲人数 | 原文は表示するが人数変更・比例計算は行わない |
-| レシピ解析通知 | 初期ON |
-| 通知許可要求 | 初回ログイン完了直後に要求 |
-| OS通知拒否時 | アプリ内通知設定はONを維持し、OS設定が無効であることを表示 |
-| アカウント削除 | 関連ユーザーデータを即時完全削除 |
-| オフライン利用 | 保存済みレシピの閲覧・検索のみ可能 |
-| iOSローカルDB | SwiftDataへRecipe等のローカルコピーを永続保存 |
-| 画像保存 | Application Supportへ保存し、同一端末でアプリが存在する間は原則保持 |
-| 画像URL失効 | ローカル画像もない場合はプレースホルダー |
-| AI解析中編集 | pending / processing中は不可 |
-| 解析失敗表示 | 原因別表示をせず共通メッセージ |
-| レシピ検索 | SwiftData上でローカル検索 |
-| 同期 | Backend発行cursorによる差分同期 |
-| 複数端末 | リアルタイム整合は保証せず、定期的な全Recipe ID照合で削除を検出 |
+| 項目                    | 決定                                                                |
+| ----------------------- | ------------------------------------------------------------------- |
+| タグ検索                | 1タグのみ選択可能                                                   |
+| URL重複                 | 明らかな差異を正規化して同一URL判定                                 |
+| 検索履歴                | iPhone端末内に保存                                                  |
+| `1〜2人分` 等の範囲人数 | 原文は表示するが人数変更・比例計算は行わない                        |
+| レシピ解析通知          | 初期ON                                                              |
+| 通知許可要求            | 初回ログイン完了直後に要求                                          |
+| OS通知拒否時            | アプリ内通知設定はONを維持し、OS設定が無効であることを表示          |
+| アカウント削除          | 関連ユーザーデータを即時完全削除                                    |
+| オフライン利用          | 保存済みレシピの閲覧・検索のみ可能                                  |
+| iOSローカルDB           | SwiftDataへRecipe等のローカルコピーを永続保存                       |
+| 画像保存                | Application Supportへ保存し、同一端末でアプリが存在する間は原則保持 |
+| 画像URL失効             | ローカル画像もない場合はプレースホルダー                            |
+| AI解析中編集            | pending / processing中は不可                                        |
+| 解析失敗表示            | 原因別表示をせず共通メッセージ                                      |
+| レシピ検索              | SwiftData上でローカル検索                                           |
+| 同期                    | Backend発行cursorによる差分同期                                     |
+| 複数端末                | リアルタイム整合は保証せず、定期的な全Recipe ID照合で削除を検出     |
 
 ### 2.2 MVPの実装原則
 
@@ -219,6 +219,7 @@ schemas/extracted-recipe.schema.json
 - Userの作成 / 解決
 - Recipe CRUD
 - URL validation / URL正規化 / 重複判定
+- 解析受付上限制御
 - Tag CRUDのMVP範囲
 - RecipeTag付与 / 解除
 - 差分同期
@@ -282,6 +283,7 @@ interface AnalysisTaskQueue {
 
 - User ID: UUID
 - Recipe ID: UUID
+- AnalysisAdmission ID: UUID
 - Ingredient ID: UUID
 - RecipeStep ID: UUID
 - Tag ID: UUID
@@ -487,6 +489,27 @@ DeviceToken
 
 ログアウト時はその端末のTokenを削除する。
 
+### 7.11 AnalysisAdmission
+
+解析依頼の受付履歴をRecipeとは独立して保持する。
+
+```text
+AnalysisAdmission
+- id: UUID PK
+- userId: UUID FK -> User.id ON DELETE CASCADE
+- recipeId: UUID UNIQUE NOT NULL
+- acceptedAt: datetime NOT NULL
+- finishedAt: datetime NULL
+```
+
+`acceptedAt` はユーザー日次・月次およびシステム全体日次の受付上限に使用する。`finishedAt = null` の行は未処理上限として数える。
+
+`recipeId` は意図的にRecipeへの外部キーにしない。解析中Recipeを削除しても既に受け付けた解析依頼の履歴を失わず、削除による上限回避を防ぐためである。
+
+初回rolloutでは既存Recipeをbackfillせず、`AnalysisAdmission` テーブル作成後に受け付けた解析依頼から集計を開始する。デプロイ以前に実行・完了した解析は初回rollout月の日次・月次受付数に含めない。この例外は初回rollout時だけとし、以後は保存された `AnalysisAdmission` をJSTの日次・月次境界で集計する。
+
+詳細な受付上限・JST境界・解放条件は [analysis-admission-control.md](analysis-admission-control.md) を参照する。
+
 ---
 
 ## 8. Prisma Schema方針
@@ -589,9 +612,23 @@ URL normalization
 ↓
 同一Userの重複確認
 ↓
-Recipe保存
+DB transaction開始 + PostgreSQL transaction-level advisory lock取得
+↓
+ユーザー未処理 < 10
+↓
+ユーザー当日受付 < 30（JST）
+↓
+ユーザー当月受付 < 100（JST）
+↓
+システム全体未処理 < 100
+↓
+システム全体当日受付 < 500（JST）
+↓
+Recipe + AnalysisAdmission保存
   title = 解析中のレシピ
   analysisStatus = pending
+↓
+commit
 ↓
 Cloud Tasks enqueue
 ↓
@@ -608,6 +645,14 @@ Cloud Tasks enqueue
 
 error detailsに既存 `recipeId` を含め、iOSは既存Recipe詳細への導線を表示する。
 
+受付上限到達時：
+
+```http
+429 Too Many Requests
+```
+
+`ANALYSIS_LIMIT_EXCEEDED` と `limitType / limit / retryAt` を返し、iOSは上限種別に応じた日本語メッセージを表示する。時間で解消する日次・月次上限では `retryAt` を返す。
+
 Cloud Tasks enqueueに失敗した場合もRecipe自体は削除しない。
 
 その場合：
@@ -616,7 +661,7 @@ Cloud Tasks enqueueに失敗した場合もRecipe自体は削除しない。
 analysisStatus = failed
 ```
 
-としてRecipeを返し、内部原因 `TASK_ENQUEUE_FAILED` はCloud Loggingへ記録する。
+としてRecipeを返し、内部原因 `TASK_ENQUEUE_FAILED` はCloud Loggingへ記録する。未処理枠は解放するが、日次・月次の受付履歴は維持する。
 
 201成功レスポンスはiOS側でSwiftDataへ即時反映する。
 
@@ -928,17 +973,20 @@ iOS側は `code` をユーザー向け日本語メッセージへmappingする�
 
 ### 11.1 API Error Code
 
-| HTTP | code | 用途 |
-| ---: | --- | --- |
-| 400 | INVALID_URL | URL形式不正 / http・https以外 |
-| 400 | INVALID_REQUEST | request形式不正 |
-| 401 | UNAUTHENTICATED | Firebase Token不正 / 期限切れ |
-| 404 | NOT_FOUND | 対象resourceなし / 他User所有 |
-| 409 | DUPLICATE_RECIPE | 正規化URL重複 |
-| 409 | RECIPE_ANALYSIS_IN_PROGRESS | pending / processing中のRecipe編集 |
-| 422 | VALIDATION_ERROR | 編集値等の業務validation不正 |
-| 500 | INTERNAL_ERROR | 想定外エラー |
-| 503 | TEMPORARILY_UNAVAILABLE | 一時的なBackend障害 |
+| HTTP | code                        | 用途                                                            |
+| ---: | --------------------------- | --------------------------------------------------------------- |
+|  400 | INVALID_URL                 | URL形式不正 / http・https以外                                   |
+|  400 | INVALID_REQUEST             | request形式不正                                                 |
+|  401 | UNAUTHENTICATED             | Firebase Token不正 / 期限切れ                                   |
+|  404 | NOT_FOUND                   | 対象resourceなし / 他User所有                                   |
+|  409 | DUPLICATE_RECIPE            | 正規化URL重複                                                   |
+|  409 | RECIPE_ANALYSIS_IN_PROGRESS | pending / processing中のRecipe編集                              |
+|  422 | VALIDATION_ERROR            | 編集値等の業務validation不正                                    |
+|  429 | ANALYSIS_LIMIT_EXCEEDED     | 解析受付上限（ユーザー未処理 / 日次 / 月次、全体未処理 / 日次） |
+|  500 | INTERNAL_ERROR              | 想定外エラー                                                    |
+|  503 | TEMPORARILY_UNAVAILABLE     | 一時的なBackend障害                                             |
+
+`ANALYSIS_LIMIT_EXCEEDED` の `details` には `limitType` と数値の `limit` を含める。日次・月次のように時刻で解消する上限では、次回受付可能時刻をISO 8601の `retryAt` として含める。日次・月次境界はJSTを基準とする。
 
 ---
 
@@ -1312,12 +1360,28 @@ AI解析結果をRecipeへ反映した場合は、Recipe本体・Ingredient・Re
 ```text
 POST /v1/recipes
 ↓
-Recipe INSERT (pending)
+URL validation / normalization / duplicate check
+↓
+DB transaction開始
+↓
+PostgreSQL transaction-level advisory lock取得
+↓
+ユーザー未処理10件・日次30件・月次100件を判定（JST）
+↓
+システム全体未処理100件・日次500件を判定（JST）
+↓
+Recipe INSERT (pending) + AnalysisAdmission INSERT
+↓
+commit
 ↓
 Cloud Tasks enqueue(recipeId)
 ↓
 API response
 ```
+
+受付判定とRecipe作成は同一transaction内で行う。上限到達時はRecipeを作成せず `429 ANALYSIS_LIMIT_EXCEEDED` を返す。日次はJST 00:00〜翌日00:00未満、月次はJST毎月1日00:00〜翌月1日00:00未満で判定する。
+
+受付制御の詳細、判定順序、`AnalysisAdmission` のライフサイクルは [analysis-admission-control.md](analysis-admission-control.md) を正本とする。
 
 Task payload：
 
@@ -1704,6 +1768,7 @@ analysisResult = completed | failed
 - User
 - UserSetting
 - Recipe
+- AnalysisAdmission
 - Ingredient
 - RecipeStep
 - Tag
@@ -1820,7 +1885,7 @@ WorkerがTaskを受信してRecipeが存在しない場合：
 成功応答して何もしない
 ```
 
-これにより削除済みRecipeを復活させない。
+これにより削除済みRecipeを復活させない。Recipe削除だけでは対応する `AnalysisAdmission` を削除せず、Workerが当該Taskを終端扱いにした時点で未処理枠を解放する。
 
 ---
 
@@ -2031,6 +2096,7 @@ Library/Application Support/Foodfolio/RecipeImages/{recipeId}
 - `POST /v1/recipes`
 - 201でレスポンスをSwiftDataへ反映してSheet close
 - 409で既存Recipeへの導線
+- 429で受付上限に応じた日本語メッセージを表示
 - AI完了は待たない
 
 オフライン時は未同期Recipeを作らず、通信が必要であることを表示する。
