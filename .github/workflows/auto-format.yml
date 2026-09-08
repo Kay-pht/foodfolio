@@ -291,7 +291,9 @@ jobs:
           commit_sha="$(git rev-parse HEAD)"
           git remote set-url origin "https://x-access-token:${push_token}@github.com/${REPOSITORY}.git"
 
-          if ! git push origin "HEAD:refs/heads/${HEAD_REF}"; then
+          if ! git push \
+            --force-with-lease="refs/heads/${HEAD_REF}:${EXPECTED_HEAD_SHA}" \
+            origin "HEAD:refs/heads/${HEAD_REF}"; then
             remote_head="$(git ls-remote --exit-code --refs origin "refs/heads/${HEAD_REF}" | awk 'NR == 1 { print $1 }')" || true
             if [[ "${remote_head}" != "${EXPECTED_HEAD_SHA}" ]]; then
               echo "Pull request advanced to ${remote_head:-missing} before Auto Fix could push; stale result was not written."

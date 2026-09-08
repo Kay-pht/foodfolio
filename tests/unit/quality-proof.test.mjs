@@ -272,9 +272,14 @@ describe("PR Quality proof", () => {
       "Pull request advanced, closed, or changed head",
     );
     expect(autoFormatWorkflow).toContain(
-      'git push origin "HEAD:refs/heads/${HEAD_REF}"',
+      '--force-with-lease="refs/heads/${HEAD_REF}:${EXPECTED_HEAD_SHA}"',
     );
-    expect(autoFormatWorkflow).not.toContain("git push --force");
+    expect(autoFormatWorkflow).toContain(
+      'origin "HEAD:refs/heads/${HEAD_REF}"',
+    );
+    expect(autoFormatWorkflow).not.toMatch(
+      /git push(?:\s|\\\n)*--force(?:\s|$)/,
+    );
     expect(autoFormatWorkflow).toContain("gh workflow run quality.yml");
     expect(autoFormatWorkflow).toContain("gh workflow run documentation.yml");
     expect(autoFormatWorkflow).toContain(
