@@ -22,25 +22,25 @@
 
 ### 2.1 ユーザー決定事項
 
-| 項目 | 決定 |
-| --- | --- |
-| タグ検索 | 1タグのみ選択可能 |
-| URL重複 | 明らかな差異を正規化して同一URL判定 |
-| 検索履歴 | iPhone端末内に保存 |
-| `1〜2人分` 等の範囲人数 | 原文は表示するが人数変更・比例計算は行わない |
-| レシピ解析通知 | 初期ON |
-| 通知許可要求 | 初回ログイン完了直後に要求 |
-| OS通知拒否時 | アプリ内通知設定はONを維持し、OS設定が無効であることを表示 |
-| アカウント削除 | 関連ユーザーデータを即時完全削除 |
-| オフライン利用 | 保存済みレシピの閲覧・検索のみ可能 |
-| iOSローカルDB | SwiftDataへRecipe等のローカルコピーを永続保存 |
-| 画像保存 | Application Supportへ保存し、同一端末でアプリが存在する間は原則保持 |
-| 画像URL失効 | ローカル画像もない場合はプレースホルダー |
-| AI解析中編集 | pending / processing中は不可 |
-| 解析失敗表示 | 原因別表示をせず共通メッセージ |
-| レシピ検索 | SwiftData上でローカル検索 |
-| 同期 | Backend発行cursorによる差分同期 |
-| 複数端末 | リアルタイム整合は保証せず、定期的な全Recipe ID照合で削除を検出 |
+| 項目                    | 決定                                                                |
+| ----------------------- | ------------------------------------------------------------------- |
+| タグ検索                | 1タグのみ選択可能                                                   |
+| URL重複                 | 明らかな差異を正規化して同一URL判定                                 |
+| 検索履歴                | iPhone端末内に保存                                                  |
+| `1〜2人分` 等の範囲人数 | 原文は表示するが人数変更・比例計算は行わない                        |
+| レシピ解析通知          | 初期ON                                                              |
+| 通知許可要求            | 初回ログイン完了直後に要求                                          |
+| OS通知拒否時            | アプリ内通知設定はONを維持し、OS設定が無効であることを表示          |
+| アカウント削除          | 関連ユーザーデータを即時完全削除                                    |
+| オフライン利用          | 保存済みレシピの閲覧・検索のみ可能                                  |
+| iOSローカルDB           | SwiftDataへRecipe等のローカルコピーを永続保存                       |
+| 画像保存                | Application Supportへ保存し、同一端末でアプリが存在する間は原則保持 |
+| 画像URL失効             | ローカル画像もない場合はプレースホルダー                            |
+| AI解析中編集            | pending / processing中は不可                                        |
+| 解析失敗表示            | 原因別表示をせず共通メッセージ                                      |
+| レシピ検索              | SwiftData上でローカル検索                                           |
+| 同期                    | Backend発行cursorによる差分同期                                     |
+| 複数端末                | リアルタイム整合は保証せず、定期的な全Recipe ID照合で削除を検出     |
 
 ### 2.2 MVPの実装原則
 
@@ -971,18 +971,18 @@ iOS側は `code` をユーザー向け日本語メッセージへmappingする�
 
 ### 11.1 API Error Code
 
-| HTTP | code | 用途 |
-| ---: | --- | --- |
-| 400 | INVALID_URL | URL形式不正 / http・https以外 |
-| 400 | INVALID_REQUEST | request形式不正 |
-| 401 | UNAUTHENTICATED | Firebase Token不正 / 期限切れ |
-| 404 | NOT_FOUND | 対象resourceなし / 他User所有 |
-| 409 | DUPLICATE_RECIPE | 正規化URL重複 |
-| 409 | RECIPE_ANALYSIS_IN_PROGRESS | pending / processing中のRecipe編集 |
-| 422 | VALIDATION_ERROR | 編集値等の業務validation不正 |
-| 429 | ANALYSIS_LIMIT_EXCEEDED | 解析受付上限（ユーザー未処理 / 日次 / 月次、全体未処理 / 日次） |
-| 500 | INTERNAL_ERROR | 想定外エラー |
-| 503 | TEMPORARILY_UNAVAILABLE | 一時的なBackend障害 |
+| HTTP | code                        | 用途                                                            |
+| ---: | --------------------------- | --------------------------------------------------------------- |
+|  400 | INVALID_URL                 | URL形式不正 / http・https以外                                   |
+|  400 | INVALID_REQUEST             | request形式不正                                                 |
+|  401 | UNAUTHENTICATED             | Firebase Token不正 / 期限切れ                                   |
+|  404 | NOT_FOUND                   | 対象resourceなし / 他User所有                                   |
+|  409 | DUPLICATE_RECIPE            | 正規化URL重複                                                   |
+|  409 | RECIPE_ANALYSIS_IN_PROGRESS | pending / processing中のRecipe編集                              |
+|  422 | VALIDATION_ERROR            | 編集値等の業務validation不正                                    |
+|  429 | ANALYSIS_LIMIT_EXCEEDED     | 解析受付上限（ユーザー未処理 / 日次 / 月次、全体未処理 / 日次） |
+|  500 | INTERNAL_ERROR              | 想定外エラー                                                    |
+|  503 | TEMPORARILY_UNAVAILABLE     | 一時的なBackend障害                                             |
 
 `ANALYSIS_LIMIT_EXCEEDED` の `details` には `limitType` と数値の `limit` を含める。日次・月次のように時刻で解消する上限では、次回受付可能時刻をISO 8601の `retryAt` として含める。日次・月次境界はJSTを基準とする。
 
