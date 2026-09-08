@@ -14,6 +14,19 @@ final class AddRecipeViewModel {
     return scheme == "http" || scheme == "https"
   }
 
+  @discardableResult
+  func usePastedText(_ text: String) -> Bool {
+    guard let value = SharedURLParser.firstHTTPURL(in: text) else {
+      url = ""
+      errorMessage = APIError.invalidURL.userMessage
+      return false
+    }
+
+    url = value.absoluteString
+    errorMessage = nil
+    return true
+  }
+
   func submit(add: (String) async throws -> Void) async -> Bool {
     guard canSubmit else {
       errorMessage = APIError.invalidURL.userMessage
