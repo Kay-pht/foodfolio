@@ -14,15 +14,15 @@
 
 ## データ棚卸し
 
-| データ | 保存・送信先と目的 | 主な実装根拠 |
-| --- | --- | --- |
-| 認証UID・メール・氏名等 | Firebase Authentication、Apple/Google認証。本人確認。NeonのUserにはFirebase UIDを保存し、メール・氏名列は持たない | `ios/Foodfolio/Core/Auth/AuthService.swift`、`prisma/schema.prisma` |
-| URL・レシピ・タグ | API、Cloud Tasks、Neon、端末のSwiftData。解析、保存、同期、表示 | `src/api/routes.ts`、`prisma/schema.prisma` |
-| 元ページの本文・動画・メタデータ | 元サイト、YouTube/TikTok、必要時の一時ストレージ、Z.ai、YouTube説明欄が不十分な場合のGemini。レシピ抽出 | `src/infrastructure/url/source-content-extractor.ts`、`src/infrastructure/ai/zai-recipe-extractor.ts`、`src/infrastructure/ai/gemini-youtube-recipe-extractor.ts` |
-| FCM/APNs token・インストールID | Firebase Messaging/APNs、Foodfolio API・Neon。解析通知。Neon上では利用者に紐付く | `ios/Foodfolio/Core/Notifications/NotificationService.swift`、`prisma/schema.prisma` |
-| 検索履歴 | 端末内のみ。サーバーへ送らない | `ios/Foodfolio/Core/Persistence/SearchHistoryStore.swift` |
-| 画像・元サイト通信 | 画像表示時は端末から画像配信元へ直接通信 | `ios/Foodfolio/Core/Images/RecipeImageStore.swift` |
-| リクエスト・診断情報 | Cloud Run/Logging、各SDK提供者。障害調査・不正防止・SDK品質維持 | `src/api/build-api.ts`、Archive内SDKのPrivacy Manifest |
+| データ                           | 保存・送信先と目的                                                                                                | 主な実装根拠                                                                                                                                                      |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 認証UID・メール・氏名等          | Firebase Authentication、Apple/Google認証。本人確認。NeonのUserにはFirebase UIDを保存し、メール・氏名列は持たない | `ios/Foodfolio/Core/Auth/AuthService.swift`、`prisma/schema.prisma`                                                                                               |
+| URL・レシピ・タグ                | API、Cloud Tasks、Neon、端末のSwiftData。解析、保存、同期、表示                                                   | `src/api/routes.ts`、`prisma/schema.prisma`                                                                                                                       |
+| 元ページの本文・動画・メタデータ | 元サイト、YouTube/TikTok、必要時の一時ストレージ、Z.ai、YouTube説明欄が不十分な場合のGemini。レシピ抽出           | `src/infrastructure/url/source-content-extractor.ts`、`src/infrastructure/ai/zai-recipe-extractor.ts`、`src/infrastructure/ai/gemini-youtube-recipe-extractor.ts` |
+| FCM/APNs token・インストールID   | Firebase Messaging/APNs、Foodfolio API・Neon。解析通知。Neon上では利用者に紐付く                                  | `ios/Foodfolio/Core/Notifications/NotificationService.swift`、`prisma/schema.prisma`                                                                              |
+| 検索履歴                         | 端末内のみ。サーバーへ送らない                                                                                    | `ios/Foodfolio/Core/Persistence/SearchHistoryStore.swift`                                                                                                         |
+| 画像・元サイト通信               | 画像表示時は端末から画像配信元へ直接通信                                                                          | `ios/Foodfolio/Core/Images/RecipeImageStore.swift`                                                                                                                |
+| リクエスト・診断情報             | Cloud Run/Logging、各SDK提供者。障害調査・不正防止・SDK品質維持                                                   | `src/api/build-api.ts`、Archive内SDKのPrivacy Manifest                                                                                                            |
 
 ### AI Providerへの送信境界
 
@@ -53,12 +53,12 @@ AI Providerへ送るものは、レシピ抽出に必要な元ページ本文、
 
 build 2の実物の `PrivacyInfo.xcprivacy` を確認済み。Xcode Organizerの集約Privacy Reportの生成・確認を代替したとは扱わない。
 
-| 対象 | 収集カテゴリの申告 |
-| --- | --- |
-| Foodfolio本体 | 氏名、メール、ユーザーID、端末ID、その他ユーザーコンテンツ。利用者に紐付く・アプリ機能目的・trackingなし |
-| Firebase Auth / Installations / GoogleDataTransport | 主にその他診断データ。SDK側にはAnalytics目的の申告がある |
-| Firebase Messaging | 端末ID、その他データ、その他診断データ。アプリ独自に保存するFCM tokenは利用者に紐付くため本体にも申告 |
-| GoogleSignIn | 氏名、メール、電話番号、その他データ、おおよその位置、ユーザーID、端末ID、その他利用状況。機能・Analytics目的を含む |
+| 対象                                                | 収集カテゴリの申告                                                                                                  |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Foodfolio本体                                       | 氏名、メール、ユーザーID、端末ID、その他ユーザーコンテンツ。利用者に紐付く・アプリ機能目的・trackingなし            |
+| Firebase Auth / Installations / GoogleDataTransport | 主にその他診断データ。SDK側にはAnalytics目的の申告がある                                                            |
+| Firebase Messaging                                  | 端末ID、その他データ、その他診断データ。アプリ独自に保存するFCM tokenは利用者に紐付くため本体にも申告               |
+| GoogleSignIn                                        | 氏名、メール、電話番号、その他データ、おおよその位置、ユーザーID、端末ID、その他利用状況。機能・Analytics目的を含む |
 
 Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analytics目的のデータ収集がゼロであることは同義ではない。GoogleSignInのSDK申告と実際に要求する認証scopeを照合し、App Privacy回答を確定する。
 
