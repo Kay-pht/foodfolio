@@ -1,6 +1,6 @@
 # TestFlight準備の確認記録
 
-最終更新日: 2026-09-06。自動テスト、署名済みArchive、Apple側の処理状態、実機確認は別の証跡として扱う。
+最終更新日: 2026-09-09。自動テスト、署名済みArchive、Apple側の処理状態、実機確認は別の証跡として扱う。
 
 ## 公開ページ
 
@@ -66,7 +66,7 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 
 ## 既存TestFlight配布履歴
 
-- 次回内部配布はversion `1.0`、build `6`、iPhone、iOS `26.0` 以上。接続先は既存のFoodfolio dev API。
+- 次回内部配布はversion `1.0`、build `7`、iPhone、iOS `26.0` 以上。接続先は既存のFoodfolio dev API。
 - build 2 (`bc3cca8b-6824-4ffc-bac0-708c6862325c`): Archive / export / Apple validation / upload成功。
 - build 3 (`cb9cbeec-da15-4e08-b2a1-79b1a86ef79e`): 当時の判断に基づくAI送信同意を含むbuild。Archive / export / Apple validation / upload成功。
 - build 5 (`aaf7a5b6-645c-4cc1-aa39-c9c5f9cffef5`): Share ExtensionとApp Group対応、および当時のAI同意実装を含む。Apple processing `VALID`、内部 `IN_BETA_TESTING`、外部 `READY_FOR_BETA_SUBMISSION` を確認済み。
@@ -101,7 +101,7 @@ Foodfolioは、公開されているレシピのURLを保存し、材料や作�
 
 ### What to Test（次回build用）
 
-新しいbuildでは、不要だったAI解析専用の同意画面と同意状態管理を削除しています。起動・ログイン、アプリ内または共有シートからのURL保存、AI解析、タグの追加・編集、検索・同期、Push通知をご確認ください。AI解析は公開レシピ元コンテンツを外部AIサービスで処理しますが、FoodfolioのユーザーIDやメールアドレス等をAI解析リクエストへ含めません。
+build 7では、レシピ追加画面をクリップボード内のWeb URLから貼り付けやすい導線に変更しました。候補がない場合や貼り付けを許可しない場合も手入力できます。また、月次のAI解析受付上限に到達した場合は理由を表示します。起動・ログイン、URLの貼り付けと手入力、レシピ作成、AI解析、検索・同期、Push通知をご確認ください。
 
 ### Review Notes
 
