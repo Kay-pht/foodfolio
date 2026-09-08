@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildWorker, type RecipeAnalysisProcessor } from "../../src/api/build-worker.js";
+import {
+  buildWorker,
+  type RecipeAnalysisProcessor,
+} from "../../src/api/build-worker.js";
 
 describe("buildWorker analysis admission lifecycle", () => {
   it("finishes the admission after a terminal analysis result", async () => {

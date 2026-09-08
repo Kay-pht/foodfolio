@@ -58,7 +58,11 @@ describe("analysis admission limits", () => {
       taskQueue: noOpQueue,
     });
     const userHeaders = headers("parallel-limit-user");
-    await app.inject({ method: "GET", url: "/v1/settings", headers: userHeaders });
+    await app.inject({
+      method: "GET",
+      url: "/v1/settings",
+      headers: userHeaders,
+    });
 
     const responses = await Promise.all(
       Array.from({ length: 11 }, (_, index) =>
@@ -71,9 +75,9 @@ describe("analysis admission limits", () => {
       ),
     );
 
-    expect(responses.filter(({ statusCode }) => statusCode === 201)).toHaveLength(
-      10,
-    );
+    expect(
+      responses.filter(({ statusCode }) => statusCode === 201),
+    ).toHaveLength(10);
     const rejected = responses.filter(({ statusCode }) => statusCode === 429);
     expect(rejected).toHaveLength(1);
     expect(rejected[0]?.json().error).toMatchObject({
