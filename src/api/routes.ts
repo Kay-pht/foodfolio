@@ -1,5 +1,10 @@
 import type { FastifyInstance } from "fastify";
 import { Prisma, type Genre } from "../generated/prisma/client.js";
+import {
+  admitRecipeAnalysis,
+  AnalysisAdmissionLimitError,
+  finishAnalysisAdmission,
+} from "../application/analysis/admission-service.js";
 import type { ApiDependencies } from "./build-api.js";
 import { AppError } from "./errors/app-error.js";
 import { recipeDto, recipeInclude } from "./recipe-dto.js";
@@ -33,6 +38,28 @@ async function ownedRecipe(
   return recipe;
 }
 
+async function duplicateRecipeError(
+  deps: ApiDependencies,
+  userId: string,
+  normalizedUrl: string,
+): Promise<AppError> {
+  const existing = await deps.prisma.recipe.findUnique({
+    where: {
+      userId_normalizedUrl: {
+        userId,
+        normalizedUrl,
+      },
+    },
+    select: { id: true },
+  });
+  return new AppError(
+    409,
+    "DUPLICATE_RECIPE",
+    "Recipe already exists",
+    existing ? { recipeId: existing.id } : undefined,
+  );
+}
+
 export function registerRoutes(
   app: FastifyInstance,
   deps: ApiDependencies,
@@ -43,32 +70,55 @@ export function registerRoutes(
     async (request, reply) => {
       const url = requireString(asObject(request.body).url, "url");
       const normalized = parseAndNormalizeRecipeUrl(url);
+      const userId = request.appUser.id;
+
+      const existing = await deps.prisma.recipe.findUnique({
+        where: {
+          userId_normalizedUrl: {
+            userId,
+            normalizedUrl: normalized.normalizedUrl,
+          },
+        },
+        select: { id: true },
+      });
+      if (existing)
+        throw new AppError(
+          409,
+          "DUPLICATE_RECIPE",
+          "Recipe already exists",
+          { recipeId: existing.id },
+        );
+
       let recipe;
       try {
-        recipe = await deps.prisma.recipe.create({
-          data: { userId: request.appUser.id, ...normalized },
-          include: recipeInclude,
+        const recipeId = await admitRecipeAnalysis(deps.prisma, {
+          userId,
+          ...normalized,
         });
+        recipe = await ownedRecipe(deps, userId, recipeId);
       } catch (error) {
+        if (error instanceof AnalysisAdmissionLimitError)
+          throw new AppError(
+            429,
+            "ANALYSIS_LIMIT_EXCEEDED",
+            "Analysis request limit reached",
+            {
+              limitType: error.limitType,
+              limit: error.limit,
+              ...(error.retryAt
+                ? { retryAt: error.retryAt.toISOString() }
+                : {}),
+            },
+          );
         if (
           error instanceof Prisma.PrismaClientKnownRequestError &&
           error.code === "P2002"
-        ) {
-          const existing = await deps.prisma.recipe.findUnique({
-            where: {
-              userId_normalizedUrl: {
-                userId: request.appUser.id,
-                normalizedUrl: normalized.normalizedUrl,
-              },
-            },
-          });
-          throw new AppError(
-            409,
-            "DUPLICATE_RECIPE",
-            "Recipe already exists",
-            existing ? { recipeId: existing.id } : undefined,
+        )
+          throw await duplicateRecipeError(
+            deps,
+            userId,
+            normalized.normalizedUrl,
           );
-        }
         throw error;
       }
       try {
@@ -78,11 +128,21 @@ export function registerRoutes(
           { err: error, recipeId: recipe.id, errorCode: "TASK_ENQUEUE_FAILED" },
           "task enqueue failed",
         );
-        recipe = await deps.prisma.recipe.update({
-          where: { id: recipe.id },
-          data: { analysisStatus: "failed", title: "解析に失敗したレシピ" },
-          include: recipeInclude,
-        });
+        const [updatedRecipe] = await deps.prisma.$transaction([
+          deps.prisma.recipe.update({
+            where: { id: recipe.id },
+            data: {
+              analysisStatus: "failed",
+              title: "解析に失敗したレシピ",
+            },
+            include: recipeInclude,
+          }),
+          deps.prisma.analysisAdmission.updateMany({
+            where: { recipeId: recipe.id, finishedAt: null },
+            data: { finishedAt: new Date() },
+          }),
+        ]);
+        recipe = updatedRecipe;
       }
       return reply.status(201).send(recipeDto(recipe));
     },
