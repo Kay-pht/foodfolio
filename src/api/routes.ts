@@ -81,12 +81,9 @@ export function registerRoutes(
         select: { id: true },
       });
       if (existing)
-        throw new AppError(
-          409,
-          "DUPLICATE_RECIPE",
-          "Recipe already exists",
-          { recipeId: existing.id },
-        );
+        throw new AppError(409, "DUPLICATE_RECIPE", "Recipe already exists", {
+          recipeId: existing.id,
+        });
 
       let recipe;
       try {

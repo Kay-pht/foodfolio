@@ -1,7 +1,4 @@
-import type {
-  Prisma,
-  PrismaClient,
-} from "../../generated/prisma/client.js";
+import type { Prisma, PrismaClient } from "../../generated/prisma/client.js";
 
 const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -14,10 +11,7 @@ export const ANALYSIS_ADMISSION_LIMITS = {
 } as const;
 
 export type AnalysisAdmissionLimitType =
-  | "user_outstanding"
-  | "user_daily"
-  | "global_outstanding"
-  | "global_daily";
+  "user_outstanding" | "user_daily" | "global_outstanding" | "global_daily";
 
 export class AnalysisAdmissionLimitError extends Error {
   constructor(
