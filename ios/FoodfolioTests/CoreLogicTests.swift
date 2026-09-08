@@ -137,6 +137,18 @@ final class CoreLogicTests: XCTestCase {
     XCTAssertEqual(APIError.from(status: 401, data: Data()), .unauthenticated)
   }
 
+  func testAPIErrorDecodesNumericAnalysisLimitDetailsAndShowsMonthlyMessage() throws {
+    let data = try XCTUnwrap(
+      """
+      {"error":{"code":"ANALYSIS_LIMIT_EXCEEDED","message":"limit","details":{"limitType":"user_monthly","limit":100,"retryAt":"2026-09-30T15:00:00.000Z"},"requestId":"req"}}
+      """.data(using: .utf8))
+    let error = APIError.from(status: 429, data: data)
+    XCTAssertEqual(error, .analysisLimitExceeded(.userMonthly, 100))
+    XCTAssertEqual(
+      error.userMessage,
+      "今月のレシピ解析上限（100件）に達しました。来月1日0:00以降にもう一度お試しください。")
+  }
+
   func testAPIClientDoesNotSendJSONContentTypeWithEmptyDeleteBody() async throws {
     let configuration = URLSessionConfiguration.ephemeral
     configuration.protocolClasses = [APIRequestCaptureURLProtocol.self]
