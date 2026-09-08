@@ -35,8 +35,15 @@ export function publicLookupResult(
   return all ? publicAddresses : publicAddresses[0]!;
 }
 
-function validateHostname(hostname: string): void {
+function normalizeHostname(hostname: string): string {
   const normalized = hostname.toLowerCase().replace(/\.$/, "");
+  if (normalized.startsWith("[") && normalized.endsWith("]"))
+    return normalized.slice(1, -1);
+  return normalized;
+}
+
+function validateHostname(hostname: string): void {
+  const normalized = normalizeHostname(hostname);
   if (
     BLOCKED_HOSTS.has(normalized) ||
     normalized.endsWith(".localhost") ||
