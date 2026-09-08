@@ -506,6 +506,8 @@ AnalysisAdmission
 
 `recipeId` は意図的にRecipeへの外部キーにしない。解析中Recipeを削除しても既に受け付けた解析依頼の履歴を失わず、削除による上限回避を防ぐためである。
 
+初回rolloutでは既存Recipeをbackfillせず、`AnalysisAdmission` テーブル作成後に受け付けた解析依頼から集計を開始する。デプロイ以前に実行・完了した解析は初回rollout月の日次・月次受付数に含めない。この例外は初回rollout時だけとし、以後は保存された `AnalysisAdmission` をJSTの日次・月次境界で集計する。
+
 詳細な受付上限・JST境界・解放条件は [analysis-admission-control.md](analysis-admission-control.md) を参照する。
 
 ---
