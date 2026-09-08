@@ -263,6 +263,7 @@ jobs:
           APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
           APP_TOKEN: ${{ steps.app-token.outputs.token }}
           EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GITHUB_TOKEN: ${{ github.token }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           REPOSITORY: ${{ github.repository }}
         shell: bash
@@ -362,11 +363,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          DOCUMENTATION_CHANGED: ${{ steps.changes.outputs.documentation }}
           HEAD_SHA: ${{ steps.commit.outputs.head_sha }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          REPOSITORY: ${{ github.repository }}
         shell: bash
         run: |
           remote_head="$(
@@ -390,10 +389,8 @@ jobs:
             -f "head_sha=${HEAD_SHA}" \
             -f "pr_number=${PR_NUMBER}"
 
-          if [[ "${DOCUMENTATION_CHANGED}" == "true" ]]; then
-            gh workflow run documentation.yml \
-              --ref "${HEAD_REF}" \
-              -f "base_sha=${BASE_SHA}" \
-              -f "head_sha=${HEAD_SHA}" \
-              -f "pr_number=${PR_NUMBER}"
-          fi
+          gh workflow run documentation.yml \
+            --ref "${HEAD_REF}" \
+            -f "base_sha=${BASE_SHA}" \
+            -f "head_sha=${HEAD_SHA}" \
+            -f "pr_number=${PR_NUMBER}"
