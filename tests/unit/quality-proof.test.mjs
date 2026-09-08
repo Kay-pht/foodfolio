@@ -254,9 +254,7 @@ describe("PR Quality proof", () => {
     );
     expect(autoFormatWorkflow).toContain("github.event.sender.type != 'Bot'");
     expect(autoFormatWorkflow).toContain("persist-credentials: false");
-    expect(autoFormatWorkflow).toContain(
-      "github.event.pull_request.head.sha",
-    );
+    expect(autoFormatWorkflow).toContain("github.event.pull_request.head.sha");
     expect(autoFormatWorkflow).toContain("npm run format:write");
     expect(autoFormatWorkflow).toContain("bash scripts/format-ios.sh");
     expect(autoFormatWorkflow).toContain("Verify automatic fixes are stable");
