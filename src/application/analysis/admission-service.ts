@@ -6,12 +6,17 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export const ANALYSIS_ADMISSION_LIMITS = {
   userOutstanding: 10,
   userDaily: 30,
+  userMonthly: 100,
   globalOutstanding: 100,
   globalDaily: 500,
 } as const;
 
 export type AnalysisAdmissionLimitType =
-  "user_outstanding" | "user_daily" | "global_outstanding" | "global_daily";
+  | "user_outstanding"
+  | "user_daily"
+  | "user_monthly"
+  | "global_outstanding"
+  | "global_daily";
 
 export class AnalysisAdmissionLimitError extends Error {
   constructor(
@@ -42,6 +47,16 @@ export function jstDayRange(now: Date): { start: Date; end: Date } {
   return { start: new Date(startMs), end: new Date(startMs + DAY_MS) };
 }
 
+export function jstMonthRange(now: Date): { start: Date; end: Date } {
+  const shifted = new Date(now.getTime() + JST_OFFSET_MS);
+  const year = shifted.getUTCFullYear();
+  const month = shifted.getUTCMonth();
+  return {
+    start: new Date(Date.UTC(year, month, 1) - JST_OFFSET_MS),
+    end: new Date(Date.UTC(year, month + 1, 1) - JST_OFFSET_MS),
+  };
+}
+
 export async function admitRecipeAnalysis(
   prisma: PrismaClient,
   input: RecipeAnalysisAdmissionInput,
@@ -58,7 +73,8 @@ export async function admitRecipeAnalysis(
         Array<{ now: Date }>
       >`SELECT clock_timestamp() AS now`;
       const now = clock?.now ?? new Date();
-      const { start, end } = jstDayRange(now);
+      const day = jstDayRange(now);
+      const month = jstMonthRange(now);
 
       const userOutstanding = await tx.analysisAdmission.count({
         where: { userId: input.userId, finishedAt: null },
@@ -72,14 +88,27 @@ export async function admitRecipeAnalysis(
       const userDaily = await tx.analysisAdmission.count({
         where: {
           userId: input.userId,
-          acceptedAt: { gte: start, lt: end },
+          acceptedAt: { gte: day.start, lt: day.end },
         },
       });
       if (userDaily >= ANALYSIS_ADMISSION_LIMITS.userDaily)
         throw new AnalysisAdmissionLimitError(
           "user_daily",
           ANALYSIS_ADMISSION_LIMITS.userDaily,
-          end,
+          day.end,
+        );
+
+      const userMonthly = await tx.analysisAdmission.count({
+        where: {
+          userId: input.userId,
+          acceptedAt: { gte: month.start, lt: month.end },
+        },
+      });
+      if (userMonthly >= ANALYSIS_ADMISSION_LIMITS.userMonthly)
+        throw new AnalysisAdmissionLimitError(
+          "user_monthly",
+          ANALYSIS_ADMISSION_LIMITS.userMonthly,
+          month.end,
         );
 
       const globalOutstanding = await tx.analysisAdmission.count({
@@ -92,13 +121,13 @@ export async function admitRecipeAnalysis(
         );
 
       const globalDaily = await tx.analysisAdmission.count({
-        where: { acceptedAt: { gte: start, lt: end } },
+        where: { acceptedAt: { gte: day.start, lt: day.end } },
       });
       if (globalDaily >= ANALYSIS_ADMISSION_LIMITS.globalDaily)
         throw new AnalysisAdmissionLimitError(
           "global_daily",
           ANALYSIS_ADMISSION_LIMITS.globalDaily,
-          end,
+          day.end,
         );
 
       const recipe = await tx.recipe.create({
