@@ -3,7 +3,6 @@ import { Prisma, type Genre } from "../generated/prisma/client.js";
 import {
   admitRecipeAnalysis,
   AnalysisAdmissionLimitError,
-  finishAnalysisAdmission,
 } from "../application/analysis/admission-service.js";
 import type { ApiDependencies } from "./build-api.js";
 import { AppError } from "./errors/app-error.js";
