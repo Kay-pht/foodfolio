@@ -3,22 +3,8 @@ name: Documentation
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - "*.md"
-      - "**/*.md"
-      - "docs/**"
-      - "package.json"
-      - "scripts/check-docs.mjs"
-      - ".github/workflows/documentation.yml"
   push:
     branches: [main]
-    paths:
-      - "*.md"
-      - "**/*.md"
-      - "docs/**"
-      - "package.json"
-      - "scripts/check-docs.mjs"
-      - ".github/workflows/documentation.yml"
   workflow_dispatch:
     inputs:
       base_sha:
@@ -64,18 +50,33 @@ jobs:
           QUALITY_PR_NUMBER: ${{ inputs.pr_number }}
         run: node scripts/validate-quality-dispatch.mjs
 
+      - name: Classify changed files
+        id: changes
+        env:
+          QUALITY_BASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.base_sha || github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          QUALITY_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.head_sha || github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/classify-quality-changes.mjs
+
+      - name: Documentation checks not required
+        if: steps.changes.outputs.documentation != 'true'
+        run: echo "No documentation-affecting changes were detected; Documentation remains successful without running documentation tooling."
+
       - uses: actions/setup-node@v7
+        if: steps.changes.outputs.documentation == 'true'
         with:
           node-version: 24.18.0
           package-manager-cache: false
 
       - name: Check task consistency
+        if: steps.changes.outputs.documentation == 'true'
         run: npm run tasks:check
 
       - name: Run documentation guardrails
+        if: steps.changes.outputs.documentation == 'true'
         run: npm run check:docs
 
       - name: Check Markdown formatting
+        if: steps.changes.outputs.documentation == 'true'
         env:
           MARKDOWN_BASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.base_sha || github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
           MARKDOWN_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.head_sha || github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
