@@ -18,6 +18,12 @@
 
 Kill Switchは設けない。
 
+### 初回rollout時の集計開始点
+
+初回rolloutでは既存Recipeを `AnalysisAdmission` へbackfillせず、migrationによるテーブル作成後に受け付けた解析依頼から集計を開始する。デプロイ以前に実行・完了した解析は、初回rollout月の日次・月次受付数に含めない。
+
+この扱いは初回rollout時だけの移行仕様である。rollout後は `AnalysisAdmission` を継続して保持し、通常どおりJSTの日次・月次境界で集計する。
+
 ## 受付フロー
 
 ```text
