@@ -5,7 +5,7 @@ struct AddRecipeView: View {
   @Environment(AppSession.self) private var session
   @Environment(\.dismiss) private var dismiss
   @State private var model = AddRecipeViewModel()
-  @State private var showManualEntry = false
+  @State private var showManualEntry = ProcessInfo.processInfo.arguments.contains("-ui-testing")
   @State private var clipboardHasURL = false
 
   var body: some View {
