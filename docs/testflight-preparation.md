@@ -66,11 +66,12 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 
 ## 既存TestFlight配布履歴
 
-- 次回内部配布はversion `1.0`、build `7`、iPhone、iOS `26.0` 以上。接続先は既存のFoodfolio dev API。
+- 最新の内部配布はversion `1.0`、build `7`、iPhone、iOS `26.0` 以上。接続先は既存のFoodfolio dev API。
 - build 2 (`bc3cca8b-6824-4ffc-bac0-708c6862325c`): Archive / export / Apple validation / upload成功。
 - build 3 (`cb9cbeec-da15-4e08-b2a1-79b1a86ef79e`): 当時の判断に基づくAI送信同意を含むbuild。Archive / export / Apple validation / upload成功。
 - build 5 (`aaf7a5b6-645c-4cc1-aa39-c9c5f9cffef5`): Share ExtensionとApp Group対応、および当時のAI同意実装を含む。Apple processing `VALID`、内部 `IN_BETA_TESTING`、外部 `READY_FOR_BETA_SUBMISSION` を確認済み。
 - build 6 (`0edb524b-20d2-4589-9fa5-320e26d62165`): AI同意機能の廃止と共有シートの送信確認・二重送信防止を含む。Apple processing `VALID`、build有効、内部 `IN_BETA_TESTING`、外部 `READY_FOR_BETA_SUBMISSION` を確認し、`Foodfolio Internal`へ割り当て済み。日本語の「テストしてほしいこと」も保存・再取得確認済み。
+- build 7 (`063c15a7-b6fb-4034-8860-203185b377f7`): クリップボード優先のレシピ追加導線と月次AI解析受付上限のiOS表示を含む。Apple processing `VALID`、build有効、内部 `IN_BETA_TESTING`、外部 `READY_FOR_BETA_SUBMISSION` を確認し、`Foodfolio Internal`へ割り当て済み。日本語の「テストしてほしいこと」も保存・再取得確認済み。
 - build 3 / 5に含まれるAI同意実装は配布履歴として残るが、現在のソース仕様では廃止対象であり、次回buildでは利用しない。
 - 内部グループ `Foodfolio Internal` に既存App Store Connect管理者1名を登録済み。
 
@@ -81,6 +82,14 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 - AI同意依存を削除したBackend SHA `254c08791a2f11692b3d41bd2a5a6f2d3756b785` をdevへ反映。API `foodfolio-dev-api-00017-ntq`、Worker `foodfolio-dev-worker-00020-qgs`、traffic 100%を確認。
 - 更新したプライバシーポリシーをFirebase Hostingへ反映し、公開ページでAI送信境界の更新を確認。
 - Release Archive、IPA export、Apple validation、uploadに成功。build ID `0edb524b-20d2-4589-9fa5-320e26d62165`のprocessing `VALID`と`Foodfolio Internal`への割り当てを確認。
+
+## build 7の配布結果
+
+- 配布ソースはmain `0085d1b9a525dc35b69346ac8d85153bdf9b2a04`。
+- `npm run verify`: unit 215、integration 29、E2E 27、およびPrisma、lint、format check、TypeScript build成功。
+- `npm run verify:ios`: 82件成功、失敗0、skip 0。Swift format/lint、Debug build、unit・integration・UI E2Eを含む。
+- Backend SHA `a439f7cb3d04e5868a11923f6f4d7cbac1b59b5d` はdevのAPI `foodfolio-dev-api-00025-dm7`、Worker `foodfolio-dev-worker-00028-f4r`でtraffic 100%。
+- Release Archive、IPA export、Apple validation、uploadに成功。build ID `063c15a7-b6fb-4034-8860-203185b377f7`のprocessing `VALID`と`Foodfolio Internal`への割り当て、日本語の「テストしてほしいこと」の再取得を確認。
 
 ## 外部審査前に残る確認
 
@@ -99,7 +108,7 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 
 Foodfolioは、公開されているレシピのURLを保存し、材料や作り方を整理して、自分のレシピ帳として検索・編集できるアプリです。Webページや対応する動画の内容をAIで解析し、完了時にPush通知でお知らせします。解析結果は必ず元のレシピと照らし合わせて確認してください。初期テスト版のため、データや機能が変更される場合があります。
 
-### What to Test（次回build用）
+### What to Test（build 7）
 
 build 7では、レシピ追加画面をクリップボード内のWeb URLから貼り付けやすい導線に変更しました。候補がない場合や貼り付けを許可しない場合も手入力できます。また、月次のAI解析受付上限に到達した場合は理由を表示します。起動・ログイン、URLの貼り付けと手入力、レシピ作成、AI解析、検索・同期、Push通知をご確認ください。
 
