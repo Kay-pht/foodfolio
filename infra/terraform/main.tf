@@ -67,7 +67,7 @@ resource "google_service_account" "task_invoker" {
 
 resource "google_service_account" "github_deployer" {
   account_id   = "${local.name_prefix}-github"
-  display_name = "Foodfolio dev GitHub deployer"
+  display_name = "Foodfolio GitHub deployer"
 }
 
 resource "google_storage_bucket" "tiktok_video_fallback" {
@@ -352,6 +352,15 @@ resource "google_cloud_run_v2_service" "api" {
           }
         }
       }
+      env {
+        name = "YOUTUBE_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.app["foodfolio-dev-youtube-api-key"].secret_id
+            version = "latest"
+          }
+        }
+      }
     }
   }
   depends_on = [google_project_service.required, google_project_iam_member.api_roles]
@@ -372,7 +381,7 @@ resource "google_iam_workload_identity_pool" "github" {
 }
 
 resource "google_iam_workload_identity_pool_provider" "github" {
-  workload_identity_pool_id          = google_iam_workload_identity_pool.github.workload_identity_pool_id
+  workload_identity_pool_id          = google_iam_workload_identity_pool.github.name
   workload_identity_pool_provider_id = "github"
   display_name                       = "Foodfolio repository"
   attribute_mapping = {
