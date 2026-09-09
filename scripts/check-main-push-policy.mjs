@@ -30,4 +30,6 @@ for (const commit of commits) {
   }
 }
 
-console.log(`Main push policy passed for ${commits.length} first-parent commit(s).`);
+console.log(
+  `Main push policy passed for ${commits.length} first-parent commit(s).`,
+);

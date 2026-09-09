@@ -19,7 +19,9 @@
   ],
   "properties": {
     "id": { "type": "string", "minLength": 1 },
-    "type": { "enum": ["feature", "bug", "refactor", "security", "maintenance"] },
+    "type": {
+      "enum": ["feature", "bug", "refactor", "security", "maintenance"]
+    },
     "status": { "const": "approved" },
     "objective": { "type": "string", "minLength": 1 },
     "requirements": {
