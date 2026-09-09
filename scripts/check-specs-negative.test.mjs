@@ -8,6 +8,7 @@ for (const required of [
   "verification path does not exist",
   "status must be 'approved'",
 ]) {
-  if (!source.includes(required)) throw new Error(`Specification checker is missing guardrail: ${required}`);
+  if (!source.includes(required))
+    throw new Error(`Specification checker is missing guardrail: ${required}`);
 }
 console.log("Specification negative guardrail assertions passed.");

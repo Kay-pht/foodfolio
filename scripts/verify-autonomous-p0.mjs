@@ -1,6 +1,8 @@
 import { execFileSync } from "node:child_process";
 
-execFileSync(process.execPath, ["scripts/install-git-hooks.mjs"], { stdio: "inherit" });
+execFileSync(process.execPath, ["scripts/install-git-hooks.mjs"], {
+  stdio: "inherit",
+});
 
 for (const script of [
   "scripts/validate-p0-files.mjs",
