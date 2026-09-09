@@ -1,0 +1,1 @@
+Task specification files live in this directory. Each behavior-changing task uses one approved YAML file that conforms to `../schema.json` and passes `npm run check:specs` before implementation begins.
