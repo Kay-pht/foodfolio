@@ -7,6 +7,8 @@ import {
   CloudTasksAnalysisQueue,
   LocalHttpAnalysisQueue,
 } from "../infrastructure/tasks/task-queue.js";
+import { SafeHttpClient } from "../infrastructure/url/safe-http-client.js";
+import { ProductionSourceContentExtractor } from "../infrastructure/url/source-content-extractor.js";
 
 const config = loadConfig("api");
 const auth = new FirebaseAdminAuth();
@@ -28,6 +30,10 @@ const app = buildApi({
   authVerifier: auth,
   firebaseUsers: auth,
   taskQueue,
+  sourceExtractor: new ProductionSourceContentExtractor(
+    new SafeHttpClient(),
+    config.youtubeApiKey,
+  ),
 });
 
 await app.listen({ host: "0.0.0.0", port: config.port });
