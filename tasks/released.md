@@ -5,6 +5,13 @@
 
 ## 2026-09-09
 
+- [x] `REL-20260909-01` AI解析で根拠に基づく料理名を原則必須にする
+  - 内容: AIへ提供された投稿文、ページ本文、画像、動画、音声、画面内テキスト、材料、調理手順などを根拠に、簡潔な料理名を必ず生成するよう解析指示を強化する。AIが有効な料理名を返さない場合の「タイトル未取得のレシピ」は安全策として維持する
+  - PR: [#80](https://github.com/Kay-pht/foodfolio/pull/80)
+  - main反映: `bf933657bcdb87bccaae4c36df4331600a74430a`
+  - 必要な反映先:
+    - [x] Cloud Run（現在利用中のdev） — 反映日: `2026-09-09`、version: `bf933657bcdb87bccaae4c36df4331600a74430a`、API `foodfolio-dev-api-00026-tq9` / Worker `foodfolio-dev-worker-00029-xrz`、traffic 100%
+
 - [x] `REL-20260908-01` 月次AI解析受付上限
   - 内容: JSTの月単位で、全体500件・1利用者100件を上限として新規解析を受付時に制限する。実行中枠は解析の終端状態で解放し、iOSでは上限到達理由を表示する。
   - PR: [#72](https://github.com/Kay-pht/foodfolio/pull/72)
