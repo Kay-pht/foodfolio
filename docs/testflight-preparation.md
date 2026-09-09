@@ -66,13 +66,14 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 
 ## 既存TestFlight配布履歴
 
-- 次回内部配布はversion `1.0`、build `9`、iPhone、iOS `26.0` 以上。接続先は既存のFoodfolio dev API。
+- 最新の内部配布はversion `1.0`、build `9`、iPhone、iOS `26.0` 以上。接続先は既存のFoodfolio dev API。
 - build 2 (`bc3cca8b-6824-4ffc-bac0-708c6862325c`): Archive / export / Apple validation / upload成功。
 - build 3 (`cb9cbeec-da15-4e08-b2a1-79b1a86ef79e`): 当時の判断に基づくAI送信同意を含むbuild。Archive / export / Apple validation / upload成功。
 - build 5 (`aaf7a5b6-645c-4cc1-aa39-c9c5f9cffef5`): Share ExtensionとApp Group対応、および当時のAI同意実装を含む。Apple processing `VALID`、内部 `IN_BETA_TESTING`、外部 `READY_FOR_BETA_SUBMISSION` を確認済み。
 - build 6 (`0edb524b-20d2-4589-9fa5-320e26d62165`): AI同意機能の廃止と共有シートの送信確認・二重送信防止を含む。Apple processing `VALID`、build有効、内部 `IN_BETA_TESTING`、外部 `READY_FOR_BETA_SUBMISSION` を確認し、`Foodfolio Internal`へ割り当て済み。日本語の「テストしてほしいこと」も保存・再取得確認済み。
 - build 7 (`063c15a7-b6fb-4034-8860-203185b377f7`): クリップボード優先のレシピ追加導線と月次AI解析受付上限のiOS表示を含む。Apple processing `VALID`、build有効、内部 `IN_BETA_TESTING`、外部 `READY_FOR_BETA_SUBMISSION` を確認し、`Foodfolio Internal`へ割り当て済み。日本語の「テストしてほしいこと」も保存・再取得確認済み。
 - build 8 (`4d337a07-fd2d-46c4-80c6-73bc2bf8d61c`): 欠損したレシピ画像の元URLからの復旧を含む。Apple processing `VALID`、build有効、内部 `IN_BETA_TESTING`、外部 `READY_FOR_BETA_SUBMISSION` を確認し、`Foodfolio Internal`へ割り当て済み。日本語の「テストしてほしいこと」も保存・再取得確認済み。
+- build 9 (`1d7c06fc-fc52-43ea-b1c8-7ad9567bd8ef`): 画像再取得で初回解析と同じ媒体別の代表画像解決を使用する変更を含む。Apple processing `VALID`、build有効、内部 `IN_BETA_TESTING`、外部 `READY_FOR_BETA_SUBMISSION` を確認し、`Foodfolio Internal`へ割り当て済み。日本語の「テストしてほしいこと」も保存・再取得確認済み。
 - build 3 / 5に含まれるAI同意実装は配布履歴として残るが、現在のソース仕様では廃止対象であり、次回buildでは利用しない。
 - 内部グループ `Foodfolio Internal` に既存App Store Connect管理者1名を登録済み。
 
@@ -99,6 +100,14 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 - `npm run verify:ios`: 91件成功、失敗0、skip 0。Swift format/lint、Debug build、unit・integration・UI E2Eを含む。
 - 料理名生成を強化したBackend SHA `bf933657bcdb87bccaae4c36df4331600a74430a` はdevのAPI `foodfolio-dev-api-00026-tq9`、Worker `foodfolio-dev-worker-00029-xrz`でtraffic 100%。
 - Release Archive、IPA export、Apple validation、uploadに成功。build ID `4d337a07-fd2d-46c4-80c6-73bc2bf8d61c`のprocessing `VALID`、build有効、内部 `IN_BETA_TESTING`、外部 `READY_FOR_BETA_SUBMISSION`、`Foodfolio Internal`への割り当て、日本語の「テストしてほしいこと」の再取得を確認。
+
+## build 9の配布結果
+
+- 配布ソースはmain `f40b20736a64575b66dfcb5069ef8d894d231be6`。
+- `npm run verify`: unit 221、integration 38、E2E 28、およびPrisma、lint、format check、TypeScript build成功。
+- `npm run verify:ios`: 91件成功、失敗0、skip 0。Swift format/lint、Debug build、unit・integration・UI E2Eを含む。
+- 画像再取得Backendを含むSHA `87e9ffb6621ef758b5f85d26b614205f7a8917a4` はdevのAPI `foodfolio-dev-api-00029-x8x`、Worker `foodfolio-dev-worker-00031-c5x`でtraffic 100%。APIが既存の `foodfolio-dev-youtube-api-key` Secretを参照することも確認。
+- Release Archive、IPA export、uploadに成功。upload後に実行完了した単独validationは既存build 9として重複エラーになったが、App Store Connect APIでbuild ID `1d7c06fc-fc52-43ea-b1c8-7ad9567bd8ef`のprocessing `VALID`、build有効、内部 `IN_BETA_TESTING`、外部 `READY_FOR_BETA_SUBMISSION`、`Foodfolio Internal`への割り当て、日本語の「テストしてほしいこと」の再取得を確認。
 
 ## 外部審査前に残る確認
 
