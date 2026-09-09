@@ -1,0 +1,1 @@
+Autonomous P0 scripts are intentionally dependency-free so the existing npm lockfile remains unchanged.
