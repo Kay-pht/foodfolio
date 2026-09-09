@@ -13,6 +13,12 @@ const IOS_PATHS = new Set([
   "scripts/test-ios.sh",
   "scripts/verify-ios.sh",
 ]);
+const SPEC_EXEMPT_REPOSITORY_METADATA = new Set([
+  ".gitignore",
+  ".prettierignore",
+  ".prettierignore.markdown",
+  ".swift-format",
+]);
 
 function normalizePath(path) {
   return path.replace(/^\.\/+/, "");
@@ -43,16 +49,36 @@ function isWorkflowPath(path) {
   return path.startsWith(".github/workflows/");
 }
 
-function isSpecificationRequiredPath(path) {
+function isTestOnlyPath(path) {
   return (
-    path.startsWith("src/") ||
-    path.startsWith("prisma/") ||
-    path.startsWith("infra/terraform/") ||
-    path.startsWith("ios/Foodfolio/") ||
-    path.startsWith("ios/FoodfolioShareExtension/") ||
-    path.startsWith("ios/Foodfolio.xcodeproj/") ||
-    path === "ios/project.yml"
+    path.startsWith("tests/") ||
+    path.startsWith("ios/FoodfolioTests/") ||
+    path.startsWith("ios/FoodfolioIntegrationTests/") ||
+    path.startsWith("ios/FoodfolioUITests/")
   );
+}
+
+function isTaskSpecificationPath(path) {
+  return path.startsWith("specs/tasks/");
+}
+
+function isSpecificationRequiredPath(path) {
+  if (
+    isDocumentationPath(path) ||
+    isTestOnlyPath(path) ||
+    isTaskSpecificationPath(path) ||
+    SPEC_EXEMPT_REPOSITORY_METADATA.has(path) ||
+    path.startsWith(".vscode/")
+  ) {
+    return false;
+  }
+
+  // Specification enforcement must fail safe. Application code, CI workflows,
+  // developer automation, infrastructure, shared configuration, and any new
+  // implementation path can change observable behavior. Explicitly exempt only
+  // paths that are mechanically known to be documentation, tests, task specs,
+  // or editor/formatting metadata.
+  return true;
 }
 
 export function classifyQualityPaths(paths) {
