@@ -30,7 +30,7 @@ const app = buildApi({
   authVerifier: auth,
   firebaseUsers: auth,
   taskQueue,
-  sourceExtractor: new ProductionSourceContentExtractor(
+  imageResolver: new ProductionSourceContentExtractor(
     new SafeHttpClient(),
     config.youtubeApiKey,
   ),
