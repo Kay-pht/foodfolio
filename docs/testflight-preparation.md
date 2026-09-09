@@ -66,7 +66,7 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 
 ## 既存TestFlight配布履歴
 
-- 最新の内部配布はversion `1.0`、build `8`、iPhone、iOS `26.0` 以上。接続先は既存のFoodfolio dev API。
+- 次回内部配布はversion `1.0`、build `9`、iPhone、iOS `26.0` 以上。接続先は既存のFoodfolio dev API。
 - build 2 (`bc3cca8b-6824-4ffc-bac0-708c6862325c`): Archive / export / Apple validation / upload成功。
 - build 3 (`cb9cbeec-da15-4e08-b2a1-79b1a86ef79e`): 当時の判断に基づくAI送信同意を含むbuild。Archive / export / Apple validation / upload成功。
 - build 5 (`aaf7a5b6-645c-4cc1-aa39-c9c5f9cffef5`): Share ExtensionとApp Group対応、および当時のAI同意実装を含む。Apple processing `VALID`、内部 `IN_BETA_TESTING`、外部 `READY_FOR_BETA_SUBMISSION` を確認済み。
@@ -117,9 +117,9 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 
 Foodfolioは、公開されているレシピのURLを保存し、材料や作り方を整理して、自分のレシピ帳として検索・編集できるアプリです。Webページや対応する動画の内容をAIで解析し、完了時にPush通知でお知らせします。解析結果は必ず元のレシピと照らし合わせて確認してください。初期テスト版のため、データや機能が変更される場合があります。
 
-### What to Test（build 8）
+### What to Test（build 9）
 
-build 8では、保存済みの画像URLから画像を表示できない場合に、元のレシピURLから代表画像を復旧して端末内へ保存するようにしました。また、AI解析では投稿文やページ本文などの根拠に基づく簡潔な料理名を原則として生成します。起動・ログイン、レシピ一覧と詳細の画像表示、画像が欠損した既存レシピの復旧、URLからのレシピ作成、AI解析後の料理名、検索・同期、Push通知をご確認ください。
+build 9では、端末内の保存画像と保存済み画像URLの両方から画像を復旧できない場合に、Backendが初回解析と同じ媒体別の処理で代表画像を再取得するようにしました。画像が欠損した既存レシピで、YouTube・TikTok・Instagram・Webページの代表画像が復旧し、一覧と詳細で中央拡大・トリミング表示されることをご確認ください。あわせて、起動・ログイン、URLからのレシピ作成、検索・同期、Push通知、Share Extensionをご確認ください。
 
 ### Review Notes
 
