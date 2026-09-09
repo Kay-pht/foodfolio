@@ -141,30 +141,28 @@ struct RecipeImageView: View {
       cached = nil
     }
 
-    guard !Task.isCancelled else { return }
-    let token = await images.beginRemoteLoad(recipeID: recipe.id)
-    guard
-      let result = await loader.imageData(
-        localImageData: cached, imageURL: expectedID.imageURL,
-        originalURL: expectedID.originalURL),
-      let decoded = UIImage(data: result.data)
-    else {
-      await images.cancelRemoteLoad(recipeID: recipe.id, token: token)
-      return
-    }
-
-    if result.source == .local {
-      await images.cancelRemoteLoad(recipeID: recipe.id, token: token)
+    if let cached, let decoded = UIImage(data: cached) {
       image = decoded
       return
     }
 
-    guard !Task.isCancelled, imageLoadID == expectedID else {
-      await images.cancelRemoteLoad(recipeID: recipe.id, token: token)
-      return
-    }
+    guard !Task.isCancelled else { return }
+    let request = RecipeImageRequest(
+      recipeID: recipe.id, imageURL: expectedID.imageURL,
+      originalURL: expectedID.originalURL)
+    guard
+      let remoteImage = await images.remoteImage(
+        for: request,
+        fetch: {
+          await loader.remoteImageData(
+            imageURL: request.imageURL, originalURL: request.originalURL)
+        }),
+      let decoded = UIImage(data: remoteImage.data)
+    else { return }
+
+    guard !Task.isCancelled, imageLoadID == expectedID else { return }
     do {
-      guard try await images.store(result.data, recipeID: recipe.id, ifCurrent: token) else {
+      guard try await images.store(remoteImage, recipeID: recipe.id) else {
         return
       }
     } catch {
