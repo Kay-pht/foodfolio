@@ -161,7 +161,7 @@ final class RecipeRepository {
     let id = dto.id
     let tag =
       try context.fetch(FetchDescriptor<LocalTag>(predicate: #Predicate { $0.id == id })).first
-      ?? LocalTag(id: dto.id, name: dto.name, createdAt: dto.createdAt)
+      ?? LocalTag(id: id, name: dto.name, createdAt: dto.createdAt)
     if tag.modelContext == nil { context.insert(tag) }
     tag.name = dto.name
     tag.createdAt = dto.createdAt
