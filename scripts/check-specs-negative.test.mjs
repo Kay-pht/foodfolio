@@ -1,12 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import {
-  cpSync,
-  mkdtempSync,
-  mkdirSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { cpSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -49,7 +43,10 @@ try {
   mkdirSync(join(root, "proof-dir"));
   writeFileSync(outside, "outside\n");
 
-  expectFailure(yaml({ condition: '""' }), /schema \/requirements\/0\/condition/);
+  expectFailure(
+    yaml({ condition: '""' }),
+    /schema \/requirements\/0\/condition/,
+  );
   expectFailure(
     yaml({ extraRequirement: "    unknown_field: value\n" }),
     /schema \/requirements\/0: must NOT have additional properties/,
