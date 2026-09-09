@@ -1,0 +1,78 @@
+id: TESTFLIGHT-BUILD-9
+type: maintenance
+status: approved
+
+objective: >-
+  Keep MARKETING_VERSION at 1.0, increment the iOS build number from 8 to 9,
+  and distribute the resulting build to the existing Foodfolio Internal TestFlight group.
+
+requirements:
+  - id: TF9-1
+    condition: The build 9 release project is generated.
+    expected: ios/project.yml remains at MARKETING_VERSION 1.0 and sets CURRENT_PROJECT_VERSION 9.
+    verification:
+      - ios/project.yml
+  - id: TF9-2
+    condition: XcodeGen generates the Foodfolio project from ios/project.yml.
+    expected: The generated project applies build number 9 to both the Foodfolio app and Share Extension while keeping version 1.0.
+    verification:
+      - ios/Foodfolio.xcodeproj/project.pbxproj
+  - id: TF9-3
+    condition: The release candidate is validated before upload.
+    expected: Backend and iOS verification entry points pass, including unit, integration, E2E, lint, format, and build checks.
+    verification:
+      - package.json
+      - scripts/verify-ios.sh
+  - id: TF9-4
+    condition: Apple accepts and processes build 9.
+    expected: The build is VALID, unexpired, IN_BETA_TESTING, assigned to Foodfolio Internal, and has the Japanese What to Test text read back from App Store Connect.
+    verification:
+      - docs/testflight-preparation.md
+      - tasks/unreleased.md
+  - id: TF9-5
+    condition: Distribution evidence is recorded after the Apple-side checks succeed.
+    expected: Release tracking records version 1.0 build 9, the App Store Connect Build ID, source commit, internal group, and the separately verified Cloud Run revision.
+    verification:
+      - docs/testflight-preparation.md
+      - tasks/released.md
+      - tasks/todo.md
+
+edge_cases:
+  - The upload receipt is accepted before the build is queryable through the App Store Connect API.
+  - Apple reports processingState INVALID or marks the build expired.
+  - Build 9 already exists in App Store Connect and Apple rejects a duplicate upload.
+  - The build is valid but not assigned to Foodfolio Internal or its Japanese What to Test text is missing.
+
+security_invariants:
+  - App Store Connect credentials and signing material must not be committed or printed.
+  - Distribution is limited to the existing Foodfolio Internal group.
+  - External TestFlight review submission and App Store publication require separate authorization.
+
+compatibility:
+  - MARKETING_VERSION remains 1.0.
+  - The minimum supported iOS version and existing bundle identifiers remain unchanged.
+  - The build continues to use the existing Foodfolio dev backend environment.
+
+non_functional:
+  - Archive signing and entitlements must be verified for the app and Share Extension.
+  - Upload success alone is not sufficient evidence of internal distribution completion.
+  - Apple, Cloud Run, local verification, CI, and physical-device behavior remain separate proof layers.
+
+out_of_scope:
+  - External TestFlight App Review submission.
+  - App Store production publication.
+  - Physical-device installation, authentication, Push, Share Extension, and main-flow smoke testing.
+  - Creating a new TestFlight group or changing the tester membership of Foodfolio Internal.
+
+acceptance_criteria:
+  - Foodfolio and FoodfolioShareExtension both build as version 1.0 build 9.
+  - npm run verify succeeds.
+  - npm run verify:ios succeeds with the repository-defined expected test count.
+  - Apple validation and upload succeed.
+  - App Store Connect reports VALID, unexpired, and IN_BETA_TESTING for build 9.
+  - Build 9 is assigned to Foodfolio Internal and the Japanese What to Test text is read back.
+  - Release documentation records the source commit, Build ID, group, and verification evidence.
+
+regression:
+  required: false
+  tests: []

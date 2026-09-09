@@ -9,10 +9,10 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
 - [ ] `REL-20260909-03` 画像再取得で初回解析と同じ代表画像解決を使用する
   - 内容: 端末内の保存画像と保存済み画像URLの両方から画像を復旧できない場合に、Backendが初回解析と同じ媒体別ロジックで代表画像URLを再解決する。LinkPresentationのプレビュー画像は使用せず、再取得画像にも通常の中央拡大・トリミングを適用する。
   - PR: [#84](https://github.com/Kay-pht/foodfolio/pull/84)
-  - main反映: 未反映
+  - main反映: `26732f4ec5554f2891e1916c9afa80150709d723`
   - 必要な反映先:
-    - [ ] TestFlight内部テスト — 対象version/build: 未定
-    - [ ] Cloud Run（現在利用中のdev） — 対象version/revision: 未定
+    - [ ] TestFlight内部テスト — 対象version/build: `1.0 (9)`
+    - [x] Cloud Run（現在利用中のdev） — 反映日: `2026-09-09`、version: `87e9ffb6621ef758b5f85d26b614205f7a8917a4`、API `foodfolio-dev-api-00029-x8x` / Worker `foodfolio-dev-worker-00031-c5x`、traffic 100%
   - 備考: Cloud Run APIで既存の `foodfolio-dev-youtube-api-key` Secretを参照できることをBackend反映前に確認する。
 
 ## 追加時の書式
