@@ -352,6 +352,15 @@ resource "google_cloud_run_v2_service" "api" {
           }
         }
       }
+      env {
+        name = "YOUTUBE_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.app["foodfolio-dev-youtube-api-key"].secret_id
+            version = "latest"
+          }
+        }
+      }
     }
   }
   depends_on = [google_project_service.required, google_project_iam_member.api_roles]
