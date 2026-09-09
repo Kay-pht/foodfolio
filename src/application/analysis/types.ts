@@ -20,6 +20,9 @@ export interface ExtractedRecipe {
 export interface SourceContentExtractor {
   extract(url: URL): Promise<SourceContent>;
 }
+export interface RepresentativeImageResolver {
+  resolveImageUrl(url: URL): Promise<string | null>;
+}
 export interface RecipeExtractionResult {
   recipe: ExtractedRecipe;
   provider: "zai" | "gemini";

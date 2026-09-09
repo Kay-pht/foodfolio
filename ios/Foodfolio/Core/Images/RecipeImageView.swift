@@ -1,16 +1,14 @@
-import LinkPresentation
 import SwiftUI
 import UIKit
-import UniformTypeIdentifiers
 
 struct RecipeImageLoader: Sendable {
   static let maxImageBytes = 10 * 1024 * 1024
 
   typealias DirectImageFetcher = @Sendable (URL) async throws -> Data
-  typealias MetadataImageFetcher = @Sendable (URL) async throws -> Data?
+  typealias ImageURLResolver = @Sendable () async throws -> String?
 
   private let directImageFetcher: DirectImageFetcher
-  private let metadataImageFetcher: MetadataImageFetcher
+  private let imageURLResolver: ImageURLResolver
 
   struct Result: Sendable {
     enum Source: Equatable, Sendable { case local, remote }
@@ -22,29 +20,23 @@ struct RecipeImageLoader: Sendable {
     directImageFetcher: @escaping DirectImageFetcher = {
       try await RecipeImageLoader.downloadImageData(from: $0)
     },
-    metadataImageFetcher: @escaping MetadataImageFetcher = {
-      try await RecipeImageLoader.downloadMetadataImageData(from: $0)
-    }
+    imageURLResolver: @escaping ImageURLResolver = { nil }
   ) {
     self.directImageFetcher = directImageFetcher
-    self.metadataImageFetcher = metadataImageFetcher
+    self.imageURLResolver = imageURLResolver
   }
 
-  func imageData(
-    localImageData: Data?, imageURL: String?, originalURL: String
-  ) async -> Result? {
+  func imageData(localImageData: Data?, imageURL: String?) async -> Result? {
     if let localImageData, Self.isValidImageData(localImageData) {
       return Result(data: localImageData, source: .local)
     }
-    guard let data = await remoteImageData(imageURL: imageURL, originalURL: originalURL) else {
+    guard let data = await remoteImageData(imageURL: imageURL) else {
       return nil
     }
     return Result(data: data, source: .remote)
   }
 
-  func remoteImageData(imageURL rawImageURL: String?, originalURL rawOriginalURL: String) async
-    -> Data?
-  {
+  func remoteImageData(imageURL rawImageURL: String?) async -> Data? {
     if let imageURL = Self.webURL(from: rawImageURL) {
       do {
         let data = try await directImageFetcher(imageURL)
@@ -54,11 +46,13 @@ struct RecipeImageLoader: Sendable {
       }
     }
 
-    guard !Task.isCancelled, let originalURL = Self.webURL(from: rawOriginalURL) else { return nil }
+    guard !Task.isCancelled else { return nil }
     do {
-      guard let data = try await metadataImageFetcher(originalURL), Self.isValidImageData(data)
+      guard let rawResolvedURL = try await imageURLResolver(),
+        let resolvedURL = Self.webURL(from: rawResolvedURL)
       else { return nil }
-      return data
+      let data = try await directImageFetcher(resolvedURL)
+      return Self.isValidImageData(data) ? data : nil
     } catch {
       return nil
     }
@@ -83,35 +77,12 @@ struct RecipeImageLoader: Sendable {
     }
     return data
   }
-
-  private static func downloadMetadataImageData(from url: URL) async throws -> Data? {
-    let metadataProvider = LPMetadataProvider()
-    metadataProvider.timeout = 10
-    let metadata = try await metadataProvider.startFetchingMetadata(for: url)
-    guard let imageProvider = metadata.imageProvider else { return nil }
-    guard
-      let typeIdentifier = imageProvider.registeredTypeIdentifiers.first(where: {
-        UTType($0)?.conforms(to: .image) == true
-      })
-    else { return nil }
-
-    return try await withCheckedThrowingContinuation { continuation in
-      imageProvider.loadDataRepresentation(forTypeIdentifier: typeIdentifier) { data, error in
-        if let error {
-          continuation.resume(throwing: error)
-        } else {
-          continuation.resume(returning: data)
-        }
-      }
-    }
-  }
 }
 
 struct RecipeImageView: View {
   @Environment(AppSession.self) private var session
   let recipe: LocalRecipe
   @State private var image: UIImage?
-  private let loader = RecipeImageLoader()
 
   var body: some View {
     Group {
@@ -150,12 +121,17 @@ struct RecipeImageView: View {
     let request = RecipeImageRequest(
       recipeID: recipe.id, imageURL: expectedID.imageURL,
       originalURL: expectedID.originalURL)
+    let api = session.api
+    let loader = RecipeImageLoader(imageURLResolver: {
+      let response: RecipeImageResolutionResponse = try await api.send(
+        "/v1/recipes/\(request.recipeID)/image/resolve", method: "POST")
+      return response.imageUrl
+    })
     guard
       let remoteImage = await images.remoteImage(
         for: request,
         fetch: {
-          await loader.remoteImageData(
-            imageURL: request.imageURL, originalURL: request.originalURL)
+          await loader.remoteImageData(imageURL: request.imageURL)
         }),
       let decoded = UIImage(data: remoteImage.data)
     else { return }
@@ -171,6 +147,10 @@ struct RecipeImageView: View {
     }
     image = decoded
   }
+}
+
+private struct RecipeImageResolutionResponse: Decodable, Sendable {
+  let imageUrl: String?
 }
 
 private struct RecipeImageLoadID: Equatable {
