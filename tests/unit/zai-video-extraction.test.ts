@@ -39,6 +39,19 @@ describe("ZaiRecipeExtractor media input", () => {
         (message) => message.role === "system",
       );
       expect(systemMessage?.content).toEqual(
+        expect.stringContaining("Always return a non-empty title"),
+      );
+      expect(systemMessage?.content).toEqual(
+        expect.stringContaining(
+          "all supplied source evidence, which may include text, images, video, audio, and visible text",
+        ),
+      );
+      expect(systemMessage?.content).toEqual(
+        expect.stringContaining(
+          "Never invent unsupported ingredients, cooking methods, proper nouns, or dish attributes",
+        ),
+      );
+      expect(systemMessage?.content).toEqual(
         expect.stringContaining(
           "Write every user-visible string value in natural Japanese",
         ),
