@@ -1,0 +1,92 @@
+id: AUTONOMOUS-P0-001
+type: feature
+status: approved
+
+objective: >-
+  Establish P0 guardrails for autonomous agent implementation and review while keeping
+  final merge authority with a human operator.
+
+requirements:
+  - id: P0-1
+    condition: An agent or developer attempts to push directly to main from a configured local checkout.
+    expected: The tracked pre-push hook rejects the push, and repository policy explicitly forbids bypassing it.
+    verification:
+      - scripts/test-push-policy.mjs
+  - id: P0-1-CI
+    condition: A push event updates main without a pull request merge commit relationship.
+    expected: CI reports an automation policy violation.
+    verification:
+      - scripts/check-main-push-policy.mjs
+  - id: P0-2
+    condition: A feature, bug fix, or behavior-changing task is implemented.
+    expected: An approved task specification exists before implementation and passes check:specs.
+    verification:
+      - scripts/check-specs.mjs
+  - id: P0-3
+    condition: Agent implementation and review are performed.
+    expected: Implementer, Reviewer, and Fixer responsibilities are separated by documented workflow; session separation is performed by the human operator.
+    verification:
+      - docs/agent/review.md
+      - docs/agent/development.md
+  - id: P0-4
+    condition: A reviewer returns LGTM for a pull request.
+    expected: The review proof records the exact reviewed PR HEAD SHA outside the tracked Git tree, and the fixed human merge command refuses to merge if that SHA no longer matches.
+    verification:
+      - scripts/review-proof.mjs
+      - scripts/pr-final-merge.mjs
+  - id: P0-5
+    condition: A task specification has type bug.
+    expected: The specification declares at least one regression test and check:specs verifies that the referenced test exists.
+    verification:
+      - scripts/check-specs.mjs
+  - id: P0-6
+    condition: Quality CI executes.
+    expected: Existing single-runner fail-fast behavior is preserved and the failing step remains identifiable without splitting checks into separate runners.
+    verification:
+      - .github/workflows/quality.yml
+  - id: P0-7
+    condition: Verification or review encounters a defined stop condition.
+    expected: The agent stops with AUTOMATION_BLOCKED and never performs the final merge; successful review stops at LGTM with reviewed_sha.
+    verification:
+      - docs/agent/review.md
+      - docs/agent/development.md
+
+edge_cases:
+  - A new commit is pushed after reviewer LGTM but before the human merge command runs.
+  - The local review proof belongs to a different pull request.
+  - CI passes for an older commit while the pull request HEAD has changed.
+  - A direct main push is performed with local hooks bypassed.
+  - The final merge command fails; the local proof must remain available for diagnosis.
+
+security_invariants:
+  - AI agents must never execute the final merge command.
+  - Review proof must not be stored in the tracked working tree.
+  - Human merge must be bound to the reviewed SHA using gh pr merge --match-head-commit.
+
+compatibility:
+  - GitHub Free private-repository limitations are accepted; local hooks and CI provide guardrails, not an unbypassable server-side branch protection boundary.
+  - Existing Auto Fix fail-fast behavior must remain intact.
+  - Existing npm verify and verify:ios entry points must remain valid.
+
+non_functional:
+  - Final human merge command must be fixed and require no manually typed SHA.
+  - P0 checks should avoid adding separate GitHub-hosted runners solely to improve check display granularity.
+  - The implementation should avoid unnecessary new runtime dependencies.
+
+out_of_scope:
+  - Automatic orchestration of separate Implementer, Reviewer, and Fixer sessions.
+  - Automatic merge by an AI agent.
+  - Paid GitHub branch protection or ruleset configuration.
+
+acceptance_criteria:
+  - A tracked pre-push hook rejects direct pushes to main in normal operation.
+  - CI contains a direct-main-push violation check.
+  - check:specs validates required task-spec structure and bug regression-test declarations.
+  - Agent documentation defines LGTM, AUTOMATION_BLOCKED, role separation, and human-only merge authority.
+  - Reviewer proof is written outside the tracked Git tree.
+  - A fixed npm command performs final checks, validates the proof against current PR HEAD, waits for CI, merges with --match-head-commit, and removes the proof only after successful merge.
+  - Quality CI remains single-runner and fail-fast.
+
+regression:
+  required: false
+  tests: []
