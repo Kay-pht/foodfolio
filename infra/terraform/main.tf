@@ -67,7 +67,7 @@ resource "google_service_account" "task_invoker" {
 
 resource "google_service_account" "github_deployer" {
   account_id   = "${local.name_prefix}-github"
-  display_name = "Foodfolio GitHub deployer"
+  display_name = "Foodfolio dev GitHub deployer"
 }
 
 resource "google_storage_bucket" "tiktok_video_fallback" {
@@ -381,7 +381,7 @@ resource "google_iam_workload_identity_pool" "github" {
 }
 
 resource "google_iam_workload_identity_pool_provider" "github" {
-  workload_identity_pool_id          = google_iam_workload_identity_pool.github.name
+  workload_identity_pool_id          = google_iam_workload_identity_pool.github.workload_identity_pool_id
   workload_identity_pool_provider_id = "github"
   display_name                       = "Foodfolio repository"
   attribute_mapping = {
