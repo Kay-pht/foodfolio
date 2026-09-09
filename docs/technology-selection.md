@@ -70,28 +70,28 @@
 
 ## 3. 採用技術スタック
 
-| 領域 | 採用技術 | 状態 |
-| --- | --- | --- |
-| iOS | Swift + SwiftUI | 採用 |
-| Minimum iOS | iOS 26.0 | 採用 |
-| iOSローカルDB | SwiftData | 採用 |
-| iOS画像保存 | FileManager / Application Support | 採用 |
-| Backend Runtime | Node.js + TypeScript | 採用 |
-| Backend Hosting | Google Cloud Run | 採用 |
-| Database | Neon PostgreSQL | 採用 |
-| ORM | Prisma | 採用 |
-| Authentication | Firebase Authentication | 採用 |
-| 非同期Queue | Google Cloud Tasks | 採用 |
-| Worker | Google Cloud Run | 採用 |
-| Push Notification | Firebase Cloud Messaging + APNs | 採用 |
-| AI Provider | Z.ai / `glm-5.3-flash` | PoC合格・MVP採用 |
-| AI出力検証 | JSON Schema相当 + アプリ側Schema validation | 採用 |
-| YouTube metadata | YouTube Data API v3 `videos.list(part=snippet)` | 採用 |
-| IaC | Terraform | 採用 |
-| Secrets | Google Cloud Secret Manager | 採用 |
-| Crash Reporting | TestFlight標準のクラッシュ情報 | 初回TestFlightで利用 |
-| Analytics | TestFlight標準のセッション情報 | 初回TestFlightで利用 |
-| 画像Cloud Storage | MVP初期は専用Storageを持たない | 採用 |
+| 領域              | 採用技術                                        | 状態                 |
+| ----------------- | ----------------------------------------------- | -------------------- |
+| iOS               | Swift + SwiftUI                                 | 採用                 |
+| Minimum iOS       | iOS 26.0                                        | 採用                 |
+| iOSローカルDB     | SwiftData                                       | 採用                 |
+| iOS画像保存       | FileManager / Application Support               | 採用                 |
+| Backend Runtime   | Node.js + TypeScript                            | 採用                 |
+| Backend Hosting   | Google Cloud Run                                | 採用                 |
+| Database          | Neon PostgreSQL                                 | 採用                 |
+| ORM               | Prisma                                          | 採用                 |
+| Authentication    | Firebase Authentication                         | 採用                 |
+| 非同期Queue       | Google Cloud Tasks                              | 採用                 |
+| Worker            | Google Cloud Run                                | 採用                 |
+| Push Notification | Firebase Cloud Messaging + APNs                 | 採用                 |
+| AI Provider       | Z.ai / `glm-5.3-flash`                          | PoC合格・MVP採用     |
+| AI出力検証        | JSON Schema相当 + アプリ側Schema validation     | 採用                 |
+| YouTube metadata  | YouTube Data API v3 `videos.list(part=snippet)` | 採用                 |
+| IaC               | Terraform                                       | 採用                 |
+| Secrets           | Google Cloud Secret Manager                     | 採用                 |
+| Crash Reporting   | TestFlight標準のクラッシュ情報                  | 初回TestFlightで利用 |
+| Analytics         | TestFlight標準のセッション情報                  | 初回TestFlightで利用 |
+| 画像Cloud Storage | MVP初期は専用Storageを持たない                  | 採用                 |
 
 ---
 
@@ -402,7 +402,7 @@ Backendから特定Provider SDKを直接Domain Logicへ埋め込まない。
 
 ```ts
 interface RecipeExtractor {
-  extract(input: RecipeSource): Promise<ExtractedRecipe>
+  extract(input: RecipeSource): Promise<ExtractedRecipe>;
 }
 ```
 
@@ -463,19 +463,19 @@ TypeScript側のSchema validation libraryは実装設計時に決定する。
 
 モデルごとに以下を測定する。
 
-| 指標 | 内容 |
-| --- | --- |
-| 料理名精度 | 原典と一致しているか |
-| 材料精度 | 材料の欠落・混入がないか |
-| 分量精度 | 材料と正しく対応しているか |
-| 人数精度 | 原典に存在する場合のみ取得できるか |
-| 調理時間精度 | 原典情報を正しく取得できるか |
-| ジャンル精度 | 固定候補から適切に分類できるか |
-| 手順精度 | 手順の欠落・捏造がないか |
-| Schema成功率 | 期待Schemaとして処理できる割合 |
-| Hallucination | 原典にない情報を生成していないか |
-| Cost | 1レシピ解析あたりの費用 |
-| Latency | 1レシピ解析時間 |
+| 指標          | 内容                               |
+| ------------- | ---------------------------------- |
+| 料理名精度    | 原典と一致しているか               |
+| 材料精度      | 材料の欠落・混入がないか           |
+| 分量精度      | 材料と正しく対応しているか         |
+| 人数精度      | 原典に存在する場合のみ取得できるか |
+| 調理時間精度  | 原典情報を正しく取得できるか       |
+| ジャンル精度  | 固定候補から適切に分類できるか     |
+| 手順精度      | 手順の欠落・捏造がないか           |
+| Schema成功率  | 期待Schemaとして処理できる割合     |
+| Hallucination | 原典にない情報を生成していないか   |
+| Cost          | 1レシピ解析あたりの費用            |
+| Latency       | 1レシピ解析時間                    |
 
 ### 10.3 決定方法
 
@@ -576,9 +576,9 @@ TikTokはoEmbedタイトルを先に`glm-5.3-flash`で解析し、材料また�
 
 MVP初期では、画像保存専用のCloud Storageを必須構成にしない。TikTok動画フォールバック用bucketは画像保存用途ではなく、AI解析中だけ使う非公開の一時領域として分離する。
 
-元ページから取得できた代表画像URLはRecipeデータの `imageUrl` としてBackend DBへ保持する。これは端末側に画像が存在しない場合の再取得元として利用する。
+元ページから取得できた代表画像URLはRecipeデータの `imageUrl` としてBackend DBへ保持する。これは端末側に画像が存在しない場合の第一の再取得元として利用する。
 
-iOSは画像を初回取得した際、Application Support配下のアプリ管理領域へ保存し、以後はローカル画像を優先して表示する。
+iOSは画像を初回取得した際、Application Support配下のアプリ管理領域へ保存し、Backendの `imageUrl` が変わっても有効なローカル画像を優先して表示する。ローカル画像も保存済み `imageUrl` も利用できない場合は、Apple LinkPresentationの `LPMetadataProvider` を使って `originalUrl` から現在の代表画像を端末側で再取得する。
 
 ```text
 ローカル画像あり
@@ -589,9 +589,16 @@ iOSは画像を初回取得した際、Application Support配下のアプリ管�
 → Application Supportへ保存
 → 表示
 
-ローカル画像なし + imageUrlから取得不可
+ローカル画像なし + imageUrlから取得不可 + originalUrl有効
+→ LPMetadataProviderでoriginalUrlの代表画像を取得
+→ Application Supportへ保存
+→ 表示
+
+originalUrlからも代表画像を取得不可
 → プレースホルダー
 ```
+
+この復旧処理はiOS端末側だけで行い、Backend DBの `imageUrl` は書き換えない。復旧画像も通常の画像と同じくRecipe ID単位でApplication Supportへ保存する。
 
 画像は同一端末でアプリがインストールされている間は原則保持する。アプリ削除・再インストール・新端末への移行後の復元はMVPでは保証しない。
 

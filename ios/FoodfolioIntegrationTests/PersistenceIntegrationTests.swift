@@ -21,7 +21,7 @@ import XCTest
       analysisStatus: .completed,
       ingredients: [IngredientDTO(id: "i1", name: "玉ねぎ", amount: "1個", sortOrder: 0)], steps: [],
       tags: [TagDTO(id: "t1", name: "簡単", createdAt: date)], createdAt: date, updatedAt: date)
-    try repository.upsert(dto)
+    try await repository.upsert(dto)
     XCTAssertEqual(
       try repository.search(query: "鶏肉 玉ねぎ", genre: .main, tagID: "t1").map(\.id), ["r1"])
     XCTAssertTrue(try repository.search(query: "", genre: .main, tagID: nil).count == 1)
@@ -34,7 +34,7 @@ import XCTest
         IngredientDTO(id: "i2", name: "鶏肉", amount: "400g", sortOrder: 1),
       ], steps: [], tags: [TagDTO(id: "t1", name: "簡単", createdAt: date)], createdAt: date,
       updatedAt: date.addingTimeInterval(1))
-    try repository.upsert(updated)
+    try await repository.upsert(updated)
     XCTAssertEqual(try repository.recipe(id: "r1")?.title, "更新後のカレー")
     XCTAssertEqual(try repository.recipe(id: "r1")?.ingredients.count, 2)
     try await repository.removeLocalRecipes(notIn: [])
@@ -53,6 +53,113 @@ import XCTest
     XCTAssertNil(removedData)
   }
 
+  func testImageURLChangeRetainsCachedImage() async throws {
+    let container = try ModelContainerFactory.make(inMemory: true)
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    let imageStore = try RecipeImageStore(root: root)
+    let repository = RecipeRepository(
+      context: container.mainContext,
+      api: APIClient(
+        baseURL: URL(string: "https://example.invalid")!, tokenProvider: TestTokenProvider()),
+      images: imageStore)
+    let date = Date()
+
+    try await repository.upsert(
+      makeRecipe(id: "recipe", date: date, imageUrl: "https://cdn.example.com/old.jpg"))
+    try await imageStore.store(validPNGData, recipeID: "recipe")
+    let cachedData = await imageStore.data(for: "recipe")
+    let cachedBeforeUpdate = try XCTUnwrap(cachedData)
+
+    try await repository.upsert(
+      makeRecipe(id: "recipe", date: date, imageUrl: "https://cdn.example.com/new.jpg"))
+
+    let cachedAfterUpdate = await imageStore.data(for: "recipe")
+    XCTAssertEqual(cachedAfterUpdate, cachedBeforeUpdate)
+  }
+
+  func testImageURLChangeRejectsPendingOldURLImage() async throws {
+    let container = try ModelContainerFactory.make(inMemory: true)
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    let imageStore = try RecipeImageStore(root: root)
+    let repository = RecipeRepository(
+      context: container.mainContext,
+      api: APIClient(
+        baseURL: URL(string: "https://example.invalid")!, tokenProvider: TestTokenProvider()),
+      images: imageStore)
+    let date = Date()
+
+    try await repository.upsert(
+      makeRecipe(id: "recipe", date: date, imageUrl: "https://cdn.example.com/old.jpg"))
+    let oldRequest = RecipeImageRequest(
+      recipeID: "recipe", imageURL: "https://cdn.example.com/old.jpg",
+      originalURL: "https://example.com/recipe")
+    let fetchRecorder = RemoteImageFetchRecorder()
+    let oldLoad = Task {
+      await imageStore.remoteImage(for: oldRequest) {
+        await fetchRecorder.fetch(validPNGData, delay: .seconds(10))
+      }
+    }
+    await fetchRecorder.waitUntilStarted()
+
+    try await repository.upsert(
+      makeRecipe(id: "recipe", date: date, imageUrl: "https://cdn.example.com/new.jpg"))
+
+    let oldImage = await oldLoad.value
+    let stored = try await imageStore.store(try XCTUnwrap(oldImage), recipeID: "recipe")
+    let cachedAfterUpdate = await imageStore.data(for: "recipe")
+    XCTAssertFalse(stored)
+    XCTAssertNil(cachedAfterUpdate)
+  }
+
+  func testConcurrentViewsShareRemoteLoadAndCanBothStoreItsResult() async throws {
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    let imageStore = try RecipeImageStore(root: root)
+    let request = RecipeImageRequest(
+      recipeID: "recipe", imageURL: "https://cdn.example.com/image.jpg",
+      originalURL: "https://example.com/recipe")
+    let fetchRecorder = RemoteImageFetchRecorder()
+
+    async let first = imageStore.remoteImage(for: request) {
+      await fetchRecorder.fetch(validPNGData, delay: .milliseconds(100))
+    }
+    async let second = imageStore.remoteImage(for: request) {
+      await fetchRecorder.fetch(validPNGData, delay: .milliseconds(100))
+    }
+    let (firstImage, secondImage) = await (first, second)
+    let fetchCount = await fetchRecorder.count
+    let firstStored = try await imageStore.store(try XCTUnwrap(firstImage), recipeID: "recipe")
+    let secondStored = try await imageStore.store(try XCTUnwrap(secondImage), recipeID: "recipe")
+    let storedData = await imageStore.data(for: "recipe")
+
+    XCTAssertEqual(fetchCount, 1)
+    XCTAssertTrue(firstStored)
+    XCTAssertTrue(secondStored)
+    XCTAssertEqual(storedData, validPNGData)
+  }
+
+  func testRecipeRemovalRejectsPendingRemoteImage() async throws {
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    let imageStore = try RecipeImageStore(root: root)
+    let request = RecipeImageRequest(
+      recipeID: "recipe", imageURL: "https://cdn.example.com/image.jpg",
+      originalURL: "https://example.com/recipe")
+    let fetchRecorder = RemoteImageFetchRecorder()
+    let remoteLoad = Task {
+      await imageStore.remoteImage(for: request) {
+        await fetchRecorder.fetch(validPNGData, delay: .seconds(10))
+      }
+    }
+    await fetchRecorder.waitUntilStarted()
+
+    try await imageStore.remove(recipeID: "recipe")
+
+    let remoteImage = await remoteLoad.value
+    let stored = try await imageStore.store(try XCTUnwrap(remoteImage), recipeID: "recipe")
+    let storedData = await imageStore.data(for: "recipe")
+    XCTAssertFalse(stored)
+    XCTAssertNil(storedData)
+  }
+
   func testDifferentialSyncPersistsCursorGlobalTagsAndReconcilesIDs() async throws {
     let container = try ModelContainerFactory.make(inMemory: true)
     let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
@@ -63,7 +170,7 @@ import XCTest
       images: try RecipeImageStore(root: root))
     let defaults = UserDefaults(suiteName: UUID().uuidString)!
     let date = Date()
-    try repository.upsert(makeRecipe(id: "local-only", date: date))
+    try await repository.upsert(makeRecipe(id: "local-only", date: date))
     var requestedPaths: [String] = []
     var responses = [
       SyncResponse(
@@ -97,14 +204,33 @@ import XCTest
   }
 }
 
-private func makeRecipe(id: String, date: Date) -> RecipeDTO {
+private let validPNGData = Data(
+  base64Encoded:
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+)!
+
+private func makeRecipe(id: String, date: Date, imageUrl: String? = nil) -> RecipeDTO {
   RecipeDTO(
     id: id, originalUrl: "https://example.com/\(id)", sourceType: "web", title: id,
-    imageUrl: nil, servingsValue: nil, servingsRaw: nil, cookingTimeMinutes: nil, genre: nil,
+    imageUrl: imageUrl, servingsValue: nil, servingsRaw: nil, cookingTimeMinutes: nil, genre: nil,
     analysisStatus: .completed, ingredients: [], steps: [], tags: [], createdAt: date,
     updatedAt: date)
 }
 
 private struct TestTokenProvider: IDTokenProvider {
   func idToken() async throws -> String { "token" }
+}
+
+private actor RemoteImageFetchRecorder {
+  private(set) var count = 0
+
+  func fetch(_ data: Data, delay: Duration) async -> Data {
+    count += 1
+    try? await Task.sleep(for: delay)
+    return data
+  }
+
+  func waitUntilStarted() async {
+    while count == 0 { await Task.yield() }
+  }
 }

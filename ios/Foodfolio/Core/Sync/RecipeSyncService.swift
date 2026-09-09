@@ -35,7 +35,7 @@ final class RecipeSyncService {
       } ?? "/v1/sync"
     let response = try await fetchSync(path)
     try repository.upsert(tags: response.tags)
-    for recipe in response.recipes { try repository.upsert(recipe) }
+    for recipe in response.recipes { try await repository.upsert(recipe) }
     defaults.set(response.nextCursor, forKey: cursorKey)
     let last = defaults.object(forKey: reconciliationKey) as? Date
     if last == nil || now.timeIntervalSince(last!) >= 86_400 {
