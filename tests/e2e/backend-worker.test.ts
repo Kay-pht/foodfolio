@@ -520,6 +520,72 @@ describe("API/Worker application E2E", () => {
     await worker.close();
   });
 
+  it("keeps the fallback title when the provider omits only the title", async () => {
+    const user = await context.prisma.user.create({
+      data: {
+        firebaseUid: "tiktok-provider-title-missing-user",
+        setting: { create: {} },
+      },
+    });
+    const recipe = await context.prisma.recipe.create({
+      data: {
+        userId: user.id,
+        originalUrl: "https://www.tiktok.com/@chef/video/890",
+        normalizedUrl: "https://www.tiktok.com/@chef/video/890",
+        sourceType: "tiktok",
+      },
+    });
+    const extractVideo = vi.fn();
+    const worker = buildWorker(
+      new RecipeAnalysisService({
+        prisma: context.prisma,
+        sourceExtractor: {
+          extract: async () => ({
+            sourceType: "tiktok",
+            resolvedUrl: "https://www.tiktok.com/@chef/video/890",
+            imageUrl: null,
+            textForAi: "TITLE\n材料 パスタ100g 作り方 茹でる",
+          }),
+        },
+        recipeExtractor: {
+          extract: async () => ({
+            recipe: {
+              title: null,
+              servings: null,
+              cookingTimeMinutes: null,
+              genre: "麺",
+              ingredients: [{ name: "パスタ", amount: "100g" }],
+              steps: ["茹でる"],
+            },
+            provider: "zai",
+            providerRequestId: "missing-title-request",
+            inputTokens: 3,
+            outputTokens: 4,
+            latencyMs: 5,
+          }),
+        },
+        tiktokVideoFallback: { extract: extractVideo },
+        notifications: new FakeNotifications(),
+        maxAttempts: 3,
+      }),
+    );
+
+    const response = await worker.inject({
+      method: "POST",
+      url: "/internal/tasks/recipe-analysis",
+      payload: { recipeId: recipe.id },
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(extractVideo).not.toHaveBeenCalled();
+    const updated = await context.prisma.recipe.findUniqueOrThrow({
+      where: { id: recipe.id },
+    });
+    expect(updated.analysisStatus).toBe("completed");
+    expect(updated.title).toBe("タイトル未取得のレシピ");
+    await worker.close();
+  });
+
   it("fails without creating an incomplete page when video extraction is still incomplete", async () => {
     const user = await context.prisma.user.create({
       data: {
