@@ -1,1 +1,0 @@
-The checker accepts the repository's constrained task-spec YAML shape and intentionally has no external runtime dependency. Schema evolution beyond this subset must update both `specs/schema.json` and `scripts/check-specs.mjs` with regression coverage.
