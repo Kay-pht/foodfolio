@@ -98,7 +98,7 @@ function parseYamlSubset(source, file) {
           i = end;
           continue;
         }
-        const colon = rest.indexOf(":");
+        const colon = rest.search(/:(?:\s|$)/u);
         if (colon > 0) {
           const obj = {};
           const key = rest.slice(0, colon).trim();
