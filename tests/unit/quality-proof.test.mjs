@@ -97,6 +97,9 @@ describe("PR Quality proof", () => {
       isReusableQualityRun({ ...validRun, conclusion: "failure" }, repository),
     ).toBe(false);
     expect(
+      isReusableQualityRun({ ...validRun, event: "push" }, repository),
+    ).toBe(false);
+    expect(
       isReusableQualityRun(
         { ...validRun, head_repository: { full_name: "fork/foodfolio" } },
         repository,
