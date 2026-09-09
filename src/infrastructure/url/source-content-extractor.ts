@@ -2,6 +2,7 @@ import * as cheerio from "cheerio";
 import { sourceTypeForUrl, youtubeVideoId } from "../../domain/recipe/url.js";
 import {
   AnalysisError,
+  type RepresentativeImageResolver,
   type SourceContent,
   type SourceContentExtractor,
 } from "../../application/analysis/types.js";
@@ -91,12 +92,15 @@ function htmlContent(html: string): {
   };
 }
 
-export class ProductionSourceContentExtractor implements SourceContentExtractor {
+export class ProductionSourceContentExtractor
+  implements SourceContentExtractor, RepresentativeImageResolver
+{
   constructor(
     private readonly http: SafeHttpClient,
     private readonly youtubeApiKey: string,
     private readonly fetchImpl: typeof fetch = fetch,
   ) {}
+
   async extract(url: URL): Promise<SourceContent> {
     const sourceType = sourceTypeForUrl(url);
     if (sourceType === "youtube") return this.extractYoutube(url);
@@ -118,6 +122,16 @@ export class ProductionSourceContentExtractor implements SourceContentExtractor 
       textForAi: extracted.text,
     };
   }
+
+  async resolveImageUrl(url: URL): Promise<string | null> {
+    const sourceType = sourceTypeForUrl(url);
+    if (sourceType === "youtube") return (await this.extractYoutube(url)).imageUrl;
+    if (sourceType === "tiktok") return (await this.extractTikTok(url)).imageUrl;
+    const response = await this.http.get(url);
+    const imageUrl = htmlContent(response.body).imageUrl;
+    return imageUrl ? new URL(imageUrl, response.finalUrl).toString() : null;
+  }
+
   private async extractTikTok(url: URL): Promise<SourceContent> {
     const endpoint = new URL("https://www.tiktok.com/oembed");
     endpoint.searchParams.set("url", url.toString());
@@ -150,6 +164,7 @@ export class ProductionSourceContentExtractor implements SourceContentExtractor 
       textForAi: title ? `TITLE\n${title}`.slice(0, MAX_AI_CHARS) : null,
     };
   }
+
   private async extractYoutube(url: URL): Promise<SourceContent> {
     const videoId = youtubeVideoId(url);
     if (!videoId)
