@@ -6,4 +6,6 @@ Each feature, bug fix, refactor, security change, or maintenance change that can
 
 Run `npm run check:specs` before implementation and as part of CI. Requirement IDs must be unique across active task specifications. Every verification path must exist. Bug specifications must declare `regression.required: true` and at least one regression test.
 
+Quality CI separately runs `scripts/check-spec-change.mjs` for production behavior paths. That change gate compares the PR base and head SHAs and requires at least one `specs/tasks/*.yaml` change in the PR diff before the specification contracts are validated.
+
 The schema contract is `specs/schema.json`. Task specifications use YAML for readability, but validation is performed by the repository checker rather than by agent judgment alone.
