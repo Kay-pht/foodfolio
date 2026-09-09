@@ -26,9 +26,9 @@ describe("Specification change gate", () => {
     expect(classifySpecificationPaths(["ios/project.yml"])).toEqual({
       spec_required: true,
     });
-    expect(
-      classifySpecificationPaths(["infra/terraform/main.tf"]),
-    ).toEqual({ spec_required: true });
+    expect(classifySpecificationPaths(["infra/terraform/main.tf"])).toEqual({
+      spec_required: true,
+    });
   });
 
   it("does not require specs for tests, CI, docs, or tooling alone", () => {
