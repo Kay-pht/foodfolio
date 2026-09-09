@@ -148,6 +148,16 @@ jobs:
             steps.changes.outputs.docs == 'true')
         run: npm run tasks:check
 
+      - name: Check specification change gate
+        id: spec_change
+        if: >-
+          steps.proof.outputs.reusable != 'true' &&
+          steps.changes.outputs.spec_required == 'true'
+        env:
+          SPEC_BASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.base_sha || github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          SPEC_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.head_sha || github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/check-spec-change.mjs
+
       - name: Check specification contracts
         id: specs
         if: >-
@@ -320,6 +330,7 @@ jobs:
             echo "| Whitespace | ${{ steps.whitespace.outcome }} |"
             echo "| Actionlint | ${{ steps.actionlint.outcome }} |"
             echo "| Tasks | ${{ steps.tasks.outcome }} |"
+            echo "| Specification change gate | ${{ steps.spec_change.outcome }} |"
             echo "| Specification contracts | ${{ steps.specs.outcome }} |"
             echo "| Autonomous P0 | ${{ steps.autonomous_p0.outcome }} |"
             echo "| Format | ${{ steps.format.outcome }} |"
