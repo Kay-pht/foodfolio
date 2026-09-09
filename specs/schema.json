@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://foodfolio.local/specs/task.schema.json",
+  "title": "Foodfolio task specification",
+  "type": "object",
+  "required": [
+    "id",
+    "type",
+    "status",
+    "objective",
+    "requirements",
+    "edge_cases",
+    "security_invariants",
+    "compatibility",
+    "non_functional",
+    "out_of_scope",
+    "acceptance_criteria",
+    "regression"
+  ],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "type": { "enum": ["feature", "bug", "refactor", "security", "maintenance"] },
+    "status": { "const": "approved" },
+    "objective": { "type": "string", "minLength": 1 },
+    "requirements": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "condition", "expected", "verification"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "condition": { "type": "string", "minLength": 1 },
+          "expected": { "type": "string", "minLength": 1 },
+          "verification": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "edge_cases": { "$ref": "#/$defs/stringArray" },
+    "security_invariants": { "$ref": "#/$defs/stringArray" },
+    "compatibility": { "$ref": "#/$defs/stringArray" },
+    "non_functional": { "$ref": "#/$defs/stringArray" },
+    "out_of_scope": { "$ref": "#/$defs/stringArray" },
+    "acceptance_criteria": { "$ref": "#/$defs/stringArray" },
+    "regression": {
+      "type": "object",
+      "required": ["required", "tests"],
+      "properties": {
+        "required": { "type": "boolean" },
+        "tests": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "stringArray": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  },
+  "additionalProperties": false
+}
