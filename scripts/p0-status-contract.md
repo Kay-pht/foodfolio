@@ -1,1 +1,0 @@
-P0 agent terminal states are `LGTM` and `AUTOMATION_BLOCKED`. Neither state authorizes an AI agent to merge. `LGTM` must be SHA-bound using `npm run review:lgtm`; final merge authority remains human-only via `npm run pr:merge`.
