@@ -11,10 +11,7 @@ describe("ProductionSourceContentExtractor representative image resolution", () 
       contentType: "text/html",
       body: '<html><head><meta property="og:image" content="/images/dish.jpg"></head><body>plain page</body></html>',
     });
-    const extractor = new ProductionSourceContentExtractor(
-      http,
-      "youtube-key",
-    );
+    const extractor = new ProductionSourceContentExtractor(http, "youtube-key");
 
     await expect(
       extractor.resolveImageUrl(new URL("https://example.com/recipe")),

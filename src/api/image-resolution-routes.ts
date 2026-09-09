@@ -31,8 +31,7 @@ export function registerImageResolutionRoutes(
         where: { id: recipeId, userId: request.appUser.id },
         select: { originalUrl: true },
       });
-      if (!recipe)
-        throw new AppError(404, "NOT_FOUND", "Recipe was not found");
+      if (!recipe) throw new AppError(404, "NOT_FOUND", "Recipe was not found");
       if (!deps.imageResolver)
         throw new AppError(
           503,
