@@ -10,6 +10,7 @@ const workerEnvironment = {
 const cloudApiEnvironment = {
   DATABASE_URL: "postgresql://localhost/foodfolio",
   WORKER_URL: "https://worker.example",
+  YOUTUBE_API_KEY: "test-youtube-key",
   GCP_PROJECT_ID: "project",
   CLOUD_TASKS_LOCATION: "region",
   CLOUD_TASKS_QUEUE: "queue",
@@ -25,10 +26,20 @@ describe("backend environment drivers", () => {
     expect(workerConfig.notificationDriver).toBe("firebase");
   });
 
+  it("requires YouTube metadata access for API image resolution", () => {
+    expect(() =>
+      loadConfig("api", {
+        ...cloudApiEnvironment,
+        YOUTUBE_API_KEY: "",
+      }),
+    ).toThrow("Missing environment variables: YOUTUBE_API_KEY");
+  });
+
   it("allows the local HTTP queue without Cloud Tasks configuration", () => {
     const config = loadConfig("api", {
       DATABASE_URL: "postgresql://localhost/foodfolio",
       WORKER_URL: "http://127.0.0.1:8081",
+      YOUTUBE_API_KEY: "test-youtube-key",
       ANALYSIS_QUEUE_DRIVER: "local-http",
     });
 
@@ -50,6 +61,7 @@ describe("backend environment drivers", () => {
       loadConfig("api", {
         DATABASE_URL: "postgresql://localhost/foodfolio",
         WORKER_URL: "http://127.0.0.1:8081",
+        YOUTUBE_API_KEY: "test-youtube-key",
         ANALYSIS_QUEUE_DRIVER: "memory",
       }),
     ).toThrow("ANALYSIS_QUEUE_DRIVER must be cloud-tasks or local-http");
