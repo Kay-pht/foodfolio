@@ -576,9 +576,9 @@ TikTokはoEmbedタイトルを先に`glm-5.3-flash`で解析し、材料また�
 
 MVP初期では、画像保存専用のCloud Storageを必須構成にしない。TikTok動画フォールバック用bucketは画像保存用途ではなく、AI解析中だけ使う非公開の一時領域として分離する。
 
-元ページから取得できた代表画像URLはRecipeデータの `imageUrl` としてBackend DBへ保持する。これは端末側に画像が存在しない場合の再取得元として利用する。
+元ページから取得できた代表画像URLはRecipeデータの `imageUrl` としてBackend DBへ保持する。これは端末側に画像が存在しない場合の第一の再取得元として利用する。
 
-iOSは画像を初回取得した際、Application Support配下のアプリ管理領域へ保存し、以後はローカル画像を優先して表示する。
+iOSは画像を初回取得した際、Application Support配下のアプリ管理領域へ保存し、以後はローカル画像を優先して表示する。ローカル画像も保存済み `imageUrl` も利用できない場合は、Apple LinkPresentationの `LPMetadataProvider` を使って `originalUrl` から現在の代表画像を端末側で再取得する。
 
 ```text
 ローカル画像あり
@@ -589,9 +589,16 @@ iOSは画像を初回取得した際、Application Support配下のアプリ管�
 → Application Supportへ保存
 → 表示
 
-ローカル画像なし + imageUrlから取得不可
+ローカル画像なし + imageUrlから取得不可 + originalUrl有効
+→ LPMetadataProviderでoriginalUrlの代表画像を取得
+→ Application Supportへ保存
+→ 表示
+
+originalUrlからも代表画像を取得不可
 → プレースホルダー
 ```
+
+この復旧処理はiOS端末側だけで行い、Backend DBの `imageUrl` は書き換えない。復旧画像も通常の画像と同じくRecipe ID単位でApplication Supportへ保存する。
 
 画像は同一端末でアプリがインストールされている間は原則保持する。アプリ削除・再インストール・新端末への移行後の復元はMVPでは保証しない。
 
