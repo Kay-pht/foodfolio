@@ -1,8 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import {
-  AnalysisError,
-  type SourceContentExtractor,
-} from "../application/analysis/types.js";
+import { AnalysisError } from "../application/analysis/types.js";
 import type { ApiDependencies } from "./build-api.js";
 import { AppError } from "./errors/app-error.js";
 
@@ -36,10 +33,7 @@ export function registerImageResolutionRoutes(
       });
       if (!recipe)
         throw new AppError(404, "NOT_FOUND", "Recipe was not found");
-
-      const sourceExtractor: SourceContentExtractor | undefined =
-        deps.sourceExtractor;
-      if (!sourceExtractor)
+      if (!deps.imageResolver)
         throw new AppError(
           503,
           "IMAGE_RESOLUTION_UNAVAILABLE",
@@ -47,8 +41,11 @@ export function registerImageResolutionRoutes(
         );
 
       try {
-        const source = await sourceExtractor.extract(new URL(recipe.originalUrl));
-        return { imageUrl: source.imageUrl };
+        return {
+          imageUrl: await deps.imageResolver.resolveImageUrl(
+            new URL(recipe.originalUrl),
+          ),
+        };
       } catch (error) {
         if (!(error instanceof AnalysisError)) throw error;
         request.log.info(
