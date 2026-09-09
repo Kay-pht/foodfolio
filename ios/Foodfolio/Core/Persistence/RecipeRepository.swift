@@ -112,7 +112,9 @@ final class RecipeRepository {
         id: dto.id, originalUrl: dto.originalUrl, sourceType: dto.sourceType, title: dto.title,
         createdAt: dto.createdAt, updatedAt: dto.updatedAt)
     if local.modelContext == nil { context.insert(local) }
-    if local.imageUrl != dto.imageUrl { try? await images.remove(recipeID: dto.id) }
+    if local.imageUrl != dto.imageUrl || local.originalUrl != dto.originalUrl {
+      await images.invalidatePendingRemoteLoad(recipeID: dto.id)
+    }
     local.originalUrl = dto.originalUrl
     local.sourceType = dto.sourceType
     local.title = dto.title

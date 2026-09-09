@@ -1,4 +1,3 @@
-import ImageIO
 import LinkPresentation
 import SwiftUI
 import UIKit
@@ -13,6 +12,12 @@ struct RecipeImageLoader: Sendable {
   private let directImageFetcher: DirectImageFetcher
   private let metadataImageFetcher: MetadataImageFetcher
 
+  struct Result: Sendable {
+    enum Source: Equatable, Sendable { case local, remote }
+    let data: Data
+    let source: Source
+  }
+
   init(
     directImageFetcher: @escaping DirectImageFetcher = {
       try await RecipeImageLoader.downloadImageData(from: $0)
@@ -23,6 +28,18 @@ struct RecipeImageLoader: Sendable {
   ) {
     self.directImageFetcher = directImageFetcher
     self.metadataImageFetcher = metadataImageFetcher
+  }
+
+  func imageData(
+    localImageData: Data?, imageURL: String?, originalURL: String
+  ) async -> Result? {
+    if let localImageData, Self.isValidImageData(localImageData) {
+      return Result(data: localImageData, source: .local)
+    }
+    guard let data = await remoteImageData(imageURL: imageURL, originalURL: originalURL) else {
+      return nil
+    }
+    return Result(data: data, source: .remote)
   }
 
   func remoteImageData(imageURL rawImageURL: String?, originalURL rawOriginalURL: String) async
@@ -49,7 +66,7 @@ struct RecipeImageLoader: Sendable {
 
   static func isValidImageData(_ data: Data) -> Bool {
     guard !data.isEmpty, data.count <= maxImageBytes else { return false }
-    return CGImageSourceCreateWithData(data as CFData, nil) != nil
+    return UIImage(data: data) != nil
   }
 
   private static func webURL(from rawURL: String?) -> URL? {
@@ -109,24 +126,56 @@ struct RecipeImageView: View {
       }
     }
     .clipped()
-    .task(id: imageLoadID) { await loadImage() }
+    .task(id: imageLoadID) { await loadImage(expectedID: imageLoadID) }
   }
 
-  private var imageLoadID: String { "\(recipe.imageUrl ?? "")|\(recipe.originalUrl)" }
+  private var imageLoadID: RecipeImageLoadID {
+    RecipeImageLoadID(imageURL: recipe.imageUrl, originalURL: recipe.originalUrl)
+  }
 
-  @MainActor private func loadImage() async {
-    if let cached = await session.images.data(for: recipe.id), let decoded = UIImage(data: cached) {
+  @MainActor private func loadImage(expectedID: RecipeImageLoadID) async {
+    let images = session.images
+    var cached = await images.data(for: recipe.id)
+    if let cachedData = cached, !RecipeImageLoader.isValidImageData(cachedData) {
+      try? await images.remove(recipeID: recipe.id)
+      cached = nil
+    }
+
+    guard !Task.isCancelled else { return }
+    let token = await images.beginRemoteLoad(recipeID: recipe.id)
+    guard
+      let result = await loader.imageData(
+        localImageData: cached, imageURL: expectedID.imageURL,
+        originalURL: expectedID.originalURL),
+      let decoded = UIImage(data: result.data)
+    else {
+      await images.cancelRemoteLoad(recipeID: recipe.id, token: token)
+      return
+    }
+
+    if result.source == .local {
+      await images.cancelRemoteLoad(recipeID: recipe.id, token: token)
       image = decoded
       return
     }
 
-    guard
-      let data = await loader.remoteImageData(
-        imageURL: recipe.imageUrl, originalURL: recipe.originalUrl),
-      let decoded = UIImage(data: data)
-    else { return }
-
-    try? await session.images.store(data, recipeID: recipe.id)
+    guard !Task.isCancelled, imageLoadID == expectedID else {
+      await images.cancelRemoteLoad(recipeID: recipe.id, token: token)
+      return
+    }
+    do {
+      guard try await images.store(result.data, recipeID: recipe.id, ifCurrent: token) else {
+        return
+      }
+    } catch {
+      guard !Task.isCancelled, imageLoadID == expectedID else { return }
+      // 保存だけに失敗した場合も、取得済み画像は現在の画面で表示する。
+    }
     image = decoded
   }
+}
+
+private struct RecipeImageLoadID: Equatable {
+  let imageURL: String?
+  let originalURL: String
 }

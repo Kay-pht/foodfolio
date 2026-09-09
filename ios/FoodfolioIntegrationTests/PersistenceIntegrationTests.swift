@@ -53,7 +53,7 @@ import XCTest
     XCTAssertNil(removedData)
   }
 
-  func testImageURLChangeRemovesCachedImageBeforeUpsertReturns() async throws {
+  func testImageURLChangeRetainsCachedImage() async throws {
     let container = try ModelContainerFactory.make(inMemory: true)
     let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
     let imageStore = try RecipeImageStore(root: root)
@@ -66,14 +66,39 @@ import XCTest
 
     try await repository.upsert(
       makeRecipe(id: "recipe", date: date, imageUrl: "https://cdn.example.com/old.jpg"))
-    try await imageStore.store(Data("cached-image".utf8), recipeID: "recipe")
-    let cachedBeforeUpdate = await imageStore.data(for: "recipe")
-    XCTAssertNotNil(cachedBeforeUpdate)
+    try await imageStore.store(validPNGData, recipeID: "recipe")
+    let cachedData = await imageStore.data(for: "recipe")
+    let cachedBeforeUpdate = try XCTUnwrap(cachedData)
 
     try await repository.upsert(
       makeRecipe(id: "recipe", date: date, imageUrl: "https://cdn.example.com/new.jpg"))
 
     let cachedAfterUpdate = await imageStore.data(for: "recipe")
+    XCTAssertEqual(cachedAfterUpdate, cachedBeforeUpdate)
+  }
+
+  func testImageURLChangeRejectsPendingOldURLImage() async throws {
+    let container = try ModelContainerFactory.make(inMemory: true)
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    let imageStore = try RecipeImageStore(root: root)
+    let repository = RecipeRepository(
+      context: container.mainContext,
+      api: APIClient(
+        baseURL: URL(string: "https://example.invalid")!, tokenProvider: TestTokenProvider()),
+      images: imageStore)
+    let date = Date()
+
+    try await repository.upsert(
+      makeRecipe(id: "recipe", date: date, imageUrl: "https://cdn.example.com/old.jpg"))
+    let oldLoadToken = await imageStore.beginRemoteLoad(recipeID: "recipe")
+
+    try await repository.upsert(
+      makeRecipe(id: "recipe", date: date, imageUrl: "https://cdn.example.com/new.jpg"))
+
+    let stored = try await imageStore.store(
+      validPNGData, recipeID: "recipe", ifCurrent: oldLoadToken)
+    let cachedAfterUpdate = await imageStore.data(for: "recipe")
+    XCTAssertFalse(stored)
     XCTAssertNil(cachedAfterUpdate)
   }
 
@@ -120,6 +145,11 @@ import XCTest
     XCTAssertEqual(reconciliationCount, 1)
   }
 }
+
+private let validPNGData = Data(
+  base64Encoded:
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+)!
 
 private func makeRecipe(id: String, date: Date, imageUrl: String? = nil) -> RecipeDTO {
   RecipeDTO(

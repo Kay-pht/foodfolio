@@ -578,7 +578,7 @@ MVP初期では、画像保存専用のCloud Storageを必須構成にしない�
 
 元ページから取得できた代表画像URLはRecipeデータの `imageUrl` としてBackend DBへ保持する。これは端末側に画像が存在しない場合の第一の再取得元として利用する。
 
-iOSは画像を初回取得した際、Application Support配下のアプリ管理領域へ保存し、以後はローカル画像を優先して表示する。ローカル画像も保存済み `imageUrl` も利用できない場合は、Apple LinkPresentationの `LPMetadataProvider` を使って `originalUrl` から現在の代表画像を端末側で再取得する。
+iOSは画像を初回取得した際、Application Support配下のアプリ管理領域へ保存し、Backendの `imageUrl` が変わっても有効なローカル画像を優先して表示する。ローカル画像も保存済み `imageUrl` も利用できない場合は、Apple LinkPresentationの `LPMetadataProvider` を使って `originalUrl` から現在の代表画像を端末側で再取得する。
 
 ```text
 ローカル画像あり
