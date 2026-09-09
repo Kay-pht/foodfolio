@@ -128,7 +128,8 @@ jobs:
         if: >-
           steps.proof.outputs.reusable != 'true' &&
           (steps.changes.outputs.backend == 'true' ||
-            steps.changes.outputs.docs == 'true')
+            steps.changes.outputs.docs == 'true' ||
+            steps.changes.outputs.spec_required == 'true')
         with:
           node-version: 24.18.0
           cache: npm
