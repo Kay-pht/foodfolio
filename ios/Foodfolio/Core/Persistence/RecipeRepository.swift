@@ -27,7 +27,7 @@ final class RecipeRepository {
   func add(url: String) async throws -> LocalRecipe {
     struct Body: Encodable, Sendable { let url: String }
     let dto: RecipeDTO = try await api.send("/v1/recipes", method: "POST", body: Body(url: url))
-    return try upsert(dto)
+    return try await upsert(dto)
   }
 
   func update(id: String, title: String, genre: RecipeGenre?, ingredients: [(String, String?)])
@@ -45,7 +45,7 @@ final class RecipeRepository {
     let dto: RecipeDTO = try await api.send(
       "/v1/recipes/\(id)", method: "PATCH",
       body: Body(title: title, genre: genre?.rawValue, ingredients: ingredients.map(Item.init)))
-    return try upsert(dto)
+    return try await upsert(dto)
   }
 
   func delete(id: String) async throws {
@@ -73,14 +73,14 @@ final class RecipeRepository {
     let dto: RecipeDTO = try await api.send(
       "/v1/recipes/\(recipeID)/tags/batch", method: "POST",
       body: Body(tagIds: existingTagIDs, newTagNames: newTagNames))
-    return try upsert(dto)
+    return try await upsert(dto)
   }
 
   func attach(tagID: String, recipeID: String) async throws -> LocalRecipe {
     struct Body: Encodable, Sendable { let tagId: String }
     let dto: RecipeDTO = try await api.send(
       "/v1/recipes/\(recipeID)/tags", method: "POST", body: Body(tagId: tagID))
-    return try upsert(dto)
+    return try await upsert(dto)
   }
 
   func detach(tagID: String, recipeID: String) async throws {
@@ -105,14 +105,14 @@ final class RecipeRepository {
     }
   }
 
-  @discardableResult func upsert(_ dto: RecipeDTO) throws -> LocalRecipe {
+  @discardableResult func upsert(_ dto: RecipeDTO) async throws -> LocalRecipe {
     let local =
       try recipe(id: dto.id)
       ?? LocalRecipe(
         id: dto.id, originalUrl: dto.originalUrl, sourceType: dto.sourceType, title: dto.title,
         createdAt: dto.createdAt, updatedAt: dto.updatedAt)
     if local.modelContext == nil { context.insert(local) }
-    if local.imageUrl != dto.imageUrl { Task { try? await images.remove(recipeID: dto.id) } }
+    if local.imageUrl != dto.imageUrl { try? await images.remove(recipeID: dto.id) }
     local.originalUrl = dto.originalUrl
     local.sourceType = dto.sourceType
     local.title = dto.title
@@ -161,7 +161,7 @@ final class RecipeRepository {
     let id = dto.id
     let tag =
       try context.fetch(FetchDescriptor<LocalTag>(predicate: #Predicate { $0.id == id })).first
-      ?? LocalTag(id: id, name: dto.name, createdAt: dto.createdAt)
+      ?? LocalTag(id: dto.id, name: dto.name, createdAt: dto.createdAt)
     if tag.modelContext == nil { context.insert(tag) }
     tag.name = dto.name
     tag.createdAt = dto.createdAt
