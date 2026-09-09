@@ -51,6 +51,7 @@
       - 2026-09-05: 既存の `Foodfolio Internal` にbuild 5を割り当て、`IN_BETA_TESTING` をAPIで再確認。既存管理者1名によるbuild 5のインストールと実機検証は未確認
       - 2026-09-06: build 6を `Foodfolio Internal` に割り当て、`VALID`、build有効、`IN_BETA_TESTING`、日本語の「テストしてほしいこと」をAPIで再確認。内部テスターによるbuild 6のインストールと実機検証は未確認
       - 2026-09-09: build 7を `Foodfolio Internal` に割り当て、`VALID`、build有効、`IN_BETA_TESTING`、日本語の「テストしてほしいこと」をAPIで再確認。内部テスターによるbuild 7のインストールと実機検証は未確認
+      - 2026-09-09: build 8を `Foodfolio Internal` に割り当て、`VALID`、build有効、`IN_BETA_TESTING`、日本語の「テストしてほしいこと」をAPIで再確認。内部テスターによるbuild 8のインストールと実機検証は未確認
   - [ ] 外部TestFlight審査へ提出できる状態にする
     - [ ] 外部テスターグループを作成し、対象buildと「テストしてほしいこと」を設定する
     - [ ] TestFlight Test InformationとBeta App Review Informationの必須項目をすべて入力する
