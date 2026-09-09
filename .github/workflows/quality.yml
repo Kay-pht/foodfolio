@@ -44,6 +44,8 @@ jobs:
         id: main_push_policy
         if: github.event_name == 'push'
         env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
           MAIN_PUSH_BEFORE_SHA: ${{ github.event.before }}
           MAIN_PUSH_AFTER_SHA: ${{ github.sha }}
         run: node scripts/check-main-push-policy.mjs
