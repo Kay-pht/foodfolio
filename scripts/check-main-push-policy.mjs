@@ -10,14 +10,17 @@ function defaultGit(args) {
 }
 
 async function defaultApi(path, { repository, token }) {
-  const response = await fetch(`https://api.github.com/repos/${repository}${path}`, {
-    headers: {
-      Accept: "application/vnd.github+json",
-      Authorization: `Bearer ${token}`,
-      "X-GitHub-Api-Version": GITHUB_API_VERSION,
-      "User-Agent": "foodfolio-main-push-policy",
+  const response = await fetch(
+    `https://api.github.com/repos/${repository}${path}`,
+    {
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${token}`,
+        "X-GitHub-Api-Version": GITHUB_API_VERSION,
+        "User-Agent": "foodfolio-main-push-policy",
+      },
     },
-  });
+  );
 
   if (!response.ok) {
     const body = await response.text();
@@ -47,7 +50,9 @@ export async function assertMainPushPolicy({
   api = defaultApi,
 }) {
   if (!before || !after) {
-    throw new Error("MAIN_PUSH_BEFORE_SHA and MAIN_PUSH_AFTER_SHA are required.");
+    throw new Error(
+      "MAIN_PUSH_BEFORE_SHA and MAIN_PUSH_AFTER_SHA are required.",
+    );
   }
   if (!repository || !token) {
     throw new Error("GITHUB_REPOSITORY and GH_TOKEN are required.");

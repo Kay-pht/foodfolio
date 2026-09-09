@@ -175,9 +175,7 @@ function fail(errors) {
 function isOutsideRoot(path) {
   const fromRoot = relative(ROOT, path);
   return (
-    fromRoot === ".." ||
-    fromRoot.startsWith(`..${sep}`) ||
-    isAbsolute(fromRoot)
+    fromRoot === ".." || fromRoot.startsWith(`..${sep}`) || isAbsolute(fromRoot)
   );
 }
 
