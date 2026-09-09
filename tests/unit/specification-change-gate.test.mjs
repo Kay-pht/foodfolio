@@ -6,41 +6,46 @@ import { describe, expect, it } from "vitest";
 import { classifySpecificationPaths } from "../../scripts/classify-quality-changes.mjs";
 
 describe("Specification change gate", () => {
-  it("requires specs for production behavior paths", () => {
-    expect(classifySpecificationPaths(["src/api/routes.ts"])).toEqual({
-      spec_required: true,
-    });
-    expect(classifySpecificationPaths(["prisma/schema.prisma"])).toEqual({
-      spec_required: true,
-    });
-    expect(
-      classifySpecificationPaths([
-        "ios/Foodfolio/Features/Recipe/RecipeDetailView.swift",
-      ]),
-    ).toEqual({ spec_required: true });
-    expect(
-      classifySpecificationPaths([
-        "ios/FoodfolioShareExtension/ShareViewController.swift",
-      ]),
-    ).toEqual({ spec_required: true });
-    expect(classifySpecificationPaths(["ios/project.yml"])).toEqual({
-      spec_required: true,
-    });
-    expect(classifySpecificationPaths(["infra/terraform/main.tf"])).toEqual({
-      spec_required: true,
-    });
+  it("requires specs for implementation and automation behavior paths", () => {
+    const behaviorPaths = [
+      "src/api/routes.ts",
+      "prisma/schema.prisma",
+      "ios/Foodfolio/Features/Recipe/RecipeDetailView.swift",
+      "ios/FoodfolioShareExtension/ShareViewController.swift",
+      "ios/project.yml",
+      "infra/terraform/main.tf",
+      ".github/workflows/quality.yml",
+      "scripts/check-docs.mjs",
+      "package.json",
+      "new-shared-config.json",
+    ];
+
+    for (const path of behaviorPaths) {
+      expect(classifySpecificationPaths([path])).toEqual({
+        spec_required: true,
+      });
+    }
   });
 
-  it("does not require specs for tests, CI, docs, or tooling alone", () => {
-    expect(
-      classifySpecificationPaths([
-        "tests/unit/backend-domain.test.ts",
-        "ios/FoodfolioTests/RecipeTests.swift",
-        ".github/workflows/quality.yml",
-        "docs/agent/testing.md",
-        "scripts/check-docs.mjs",
-      ]),
-    ).toEqual({ spec_required: false });
+  it("exempts only mechanically non-behavior paths", () => {
+    const exemptPaths = [
+      "tests/unit/backend-domain.test.ts",
+      "ios/FoodfolioTests/RecipeTests.swift",
+      "ios/FoodfolioIntegrationTests/APIClientTests.swift",
+      "ios/FoodfolioUITests/RecipeUITests.swift",
+      "docs/agent/testing.md",
+      "specs/tasks/TASK-001.yaml",
+      ".gitignore",
+      ".prettierignore",
+      ".swift-format",
+      ".vscode/settings.json",
+    ];
+
+    for (const path of exemptPaths) {
+      expect(classifySpecificationPaths([path])).toEqual({
+        spec_required: false,
+      });
+    }
   });
 
   it("wires the change gate and exact PR range into Quality", async () => {
