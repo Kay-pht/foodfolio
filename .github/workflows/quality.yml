@@ -40,6 +40,16 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.sha }}
 
+      - name: Check direct main push policy
+        id: main_push_policy
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          MAIN_PUSH_BEFORE_SHA: ${{ github.event.before }}
+          MAIN_PUSH_AFTER_SHA: ${{ github.sha }}
+        run: node scripts/check-main-push-policy.mjs
+
       - name: Validate dispatched PR context
         if: github.event_name == 'workflow_dispatch'
         env:
@@ -73,6 +83,7 @@ jobs:
         run: node scripts/classify-quality-changes.mjs
 
       - name: Check whitespace and conflict markers
+        id: whitespace
         if: steps.proof.outputs.reusable != 'true'
         env:
           BASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.base_sha || github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
@@ -86,6 +97,7 @@ jobs:
           fi
 
       - name: Lint GitHub Actions workflows
+        id: actionlint
         if: >-
           steps.proof.outputs.reusable != 'true' &&
           steps.changes.outputs.workflows == 'true'
@@ -106,6 +118,7 @@ jobs:
           terraform_wrapper: false
 
       - name: Check Terraform formatting
+        id: terraform_format
         if: >-
           steps.proof.outputs.reusable != 'true' &&
           steps.changes.outputs.terraform == 'true'
@@ -115,7 +128,8 @@ jobs:
         if: >-
           steps.proof.outputs.reusable != 'true' &&
           (steps.changes.outputs.backend == 'true' ||
-            steps.changes.outputs.docs == 'true')
+            steps.changes.outputs.docs == 'true' ||
+            steps.changes.outputs.spec_required == 'true')
         with:
           node-version: 24.18.0
           cache: npm
@@ -128,25 +142,55 @@ jobs:
         run: npm ci
 
       - name: Check task consistency
+        id: tasks
         if: >-
           steps.proof.outputs.reusable != 'true' &&
           (steps.changes.outputs.backend == 'true' ||
             steps.changes.outputs.docs == 'true')
         run: npm run tasks:check
 
+      - name: Check specification change gate
+        id: spec_change
+        if: >-
+          steps.proof.outputs.reusable != 'true' &&
+          steps.changes.outputs.spec_required == 'true'
+        env:
+          SPEC_BASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.base_sha || github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          SPEC_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.head_sha || github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/check-spec-change.mjs
+
+      - name: Check specification contracts
+        id: specs
+        if: >-
+          steps.proof.outputs.reusable != 'true' &&
+          (steps.changes.outputs.backend == 'true' ||
+            steps.changes.outputs.docs == 'true')
+        run: npm run check:specs
+
+      - name: Run autonomous P0 guardrails
+        id: autonomous_p0
+        if: >-
+          steps.proof.outputs.reusable != 'true' &&
+          (steps.changes.outputs.backend == 'true' ||
+            steps.changes.outputs.docs == 'true')
+        run: npm run verify:autonomous-p0
+
       - name: Check backend formatting
+        id: format
         if: >-
           steps.proof.outputs.reusable != 'true' &&
           steps.changes.outputs.backend == 'true'
         run: npm run format:check
 
       - name: Run backend lint
+        id: lint
         if: >-
           steps.proof.outputs.reusable != 'true' &&
           steps.changes.outputs.backend == 'true'
         run: npm run lint
 
       - name: Check Prisma formatting
+        id: prisma_format
         if: >-
           steps.proof.outputs.reusable != 'true' &&
           steps.changes.outputs.backend == 'true'
@@ -156,12 +200,14 @@ jobs:
           git diff --exit-code -- prisma/schema.prisma
 
       - name: Run architecture guardrails
+        id: architecture
         if: >-
           steps.proof.outputs.reusable != 'true' &&
           steps.changes.outputs.backend == 'true'
         run: npm run check:architecture
 
       - name: Run documentation guardrails
+        id: docs
         if: >-
           steps.proof.outputs.reusable != 'true' &&
           (steps.changes.outputs.backend == 'true' ||
@@ -169,6 +215,7 @@ jobs:
         run: npm run check:docs
 
       - name: Check Markdown formatting
+        id: markdown_format
         if: >-
           steps.proof.outputs.reusable != 'true' &&
           steps.changes.outputs.docs == 'true'
@@ -178,6 +225,7 @@ jobs:
         run: node scripts/format-changed-markdown.mjs --check
 
       - name: Run iOS lint and format check
+        id: ios_lint
         if: >-
           steps.proof.outputs.reusable != 'true' &&
           steps.changes.outputs.ios == 'true'
@@ -190,36 +238,42 @@ jobs:
             bash scripts/lint-ios.sh
 
       - name: Generate Prisma client
+        id: prisma_generate
         if: >-
           steps.proof.outputs.reusable != 'true' &&
           steps.changes.outputs.backend == 'true'
         run: npm run prisma:generate
 
       - name: Validate Prisma schema
+        id: prisma_validate
         if: >-
           steps.proof.outputs.reusable != 'true' &&
           steps.changes.outputs.backend == 'true'
         run: npm run prisma:validate
 
       - name: Build backend
+        id: build
         if: >-
           steps.proof.outputs.reusable != 'true' &&
           steps.changes.outputs.backend == 'true'
         run: npm run build
 
       - name: Run unit tests
+        id: unit
         if: >-
           steps.proof.outputs.reusable != 'true' &&
           steps.changes.outputs.backend == 'true'
         run: npm run test:unit
 
       - name: Run integration tests
+        id: integration
         if: >-
           steps.proof.outputs.reusable != 'true' &&
           steps.changes.outputs.backend == 'true'
         run: npm run test:integration
 
       - name: Run E2E tests
+        id: e2e
         if: >-
           steps.proof.outputs.reusable != 'true' &&
           steps.changes.outputs.backend == 'true'
@@ -261,3 +315,32 @@ jobs:
           name: quality-proof-${{ steps.tree.outputs.sha }}
           path: ${{ runner.temp }}/quality-proof.json
           retention-days: 30
+
+      - name: Write Quality summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Quality summary"
+            echo
+            echo "Single-runner, fail-fast policy is preserved. Steps after the first failure may be skipped."
+            echo
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo "| Direct main push policy | ${{ steps.main_push_policy.outcome }} |"
+            echo "| Whitespace | ${{ steps.whitespace.outcome }} |"
+            echo "| Actionlint | ${{ steps.actionlint.outcome }} |"
+            echo "| Tasks | ${{ steps.tasks.outcome }} |"
+            echo "| Specification change gate | ${{ steps.spec_change.outcome }} |"
+            echo "| Specification contracts | ${{ steps.specs.outcome }} |"
+            echo "| Autonomous P0 | ${{ steps.autonomous_p0.outcome }} |"
+            echo "| Format | ${{ steps.format.outcome }} |"
+            echo "| Lint | ${{ steps.lint.outcome }} |"
+            echo "| Architecture | ${{ steps.architecture.outcome }} |"
+            echo "| Docs | ${{ steps.docs.outcome }} |"
+            echo "| iOS lint | ${{ steps.ios_lint.outcome }} |"
+            echo "| Build | ${{ steps.build.outcome }} |"
+            echo "| Unit | ${{ steps.unit.outcome }} |"
+            echo "| Integration | ${{ steps.integration.outcome }} |"
+            echo "| E2E | ${{ steps.e2e.outcome }} |"
+          } >> "${GITHUB_STEP_SUMMARY}"

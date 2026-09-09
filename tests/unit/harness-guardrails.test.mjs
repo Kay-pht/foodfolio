@@ -167,10 +167,13 @@ describe("documentation guardrail", () => {
       "docs/README.md",
       "[Guide](guide.md)\n[Architecture](architecture-boundaries.md)\n",
     );
+    await write(root, "docs/agent/autonomous-p0.md", "# Autonomous P0\n");
     await write(root, "docs/agent/development.md", "`npm run verify`\n");
+    await write(root, "docs/agent/review.md", "# Review\n");
     await write(root, "docs/agent/testing.md", "`npm run check:docs`\n");
     await write(root, "docs/agent/infrastructure.md", "# Infrastructure\n");
     await write(root, "docs/agent/release.md", "# Release\n");
+    await write(root, "specs/README.md", "# Specifications\n");
     await write(root, "AGENTS.md", "[Docs](docs/README.md)\n");
   }
 
