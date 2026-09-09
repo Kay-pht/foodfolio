@@ -28,8 +28,14 @@
     "prisma:migrate:deploy": "prisma migrate deploy",
     "tasks:sync": "node scripts/sync-task-files.mjs",
     "tasks:check": "node scripts/sync-task-files.mjs --check",
+    "hooks:install": "node scripts/install-git-hooks.mjs",
+    "check:push-policy": "node scripts/test-push-policy.mjs",
+    "check:specs": "node scripts/check-specs.mjs",
     "check:architecture": "node scripts/check-architecture.mjs",
     "check:docs": "node scripts/check-docs.mjs",
+    "verify:autonomous-p0": "node scripts/verify-autonomous-p0.mjs",
+    "review:lgtm": "node scripts/review-proof.mjs",
+    "pr:merge": "node scripts/pr-final-merge.mjs",
     "format:write": "prettier --write .",
     "format": "npm run tasks:sync && npm run format:write",
     "format:check": "prettier --check .",
@@ -53,7 +59,7 @@
     "deploy:hosting": "GOOGLE_CLOUD_QUOTA_PROJECT=foodfolio-af28aa npx --yes firebase-tools@15.29.0 deploy --only hosting --project foodfolio-af28aa",
     "test": "npm run test:unit && npm run test:integration && npm run test:e2e",
     "verify:ios": "bash scripts/verify-ios.sh",
-    "verify": "npm run tasks:check && npm run format:check && npm run lint && npm run check:architecture && npm run check:docs && npm run prisma:generate && npm run prisma:validate && npm run build && npm run test:unit && npm run test:integration && npm run test:e2e"
+    "verify": "npm run tasks:check && npm run verify:autonomous-p0 && npm run format:check && npm run lint && npm run check:architecture && npm run check:docs && npm run prisma:generate && npm run prisma:validate && npm run build && npm run test:unit && npm run test:integration && npm run test:e2e"
   },
   "dependencies": {
     "@google-cloud/storage": "^8.0.1",

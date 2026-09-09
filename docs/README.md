@@ -14,6 +14,8 @@
 | 画像再取得       | [image-recovery.md](image-recovery.md)                         |
 | Backend 層間依存 | [architecture-boundaries.md](architecture-boundaries.md)       |
 
+変更タスク単位の検証可能な契約は [../specs/README.md](../specs/README.md) と `specs/tasks/*.yaml` を使用する。
+
 ## 開発・運用
 
 | 目的                         | 文書                                                           |
@@ -29,7 +31,9 @@
 
 ## エージェント向け運用ルール
 
+- [P0 自律開発ガードレール](agent/autonomous-p0.md)
 - [開発フロー](agent/development.md)
+- [AIレビューと停止条件](agent/review.md)
 - [テストと検証](agent/testing.md)
 - [インフラと外部操作](agent/infrastructure.md)
 - [リリース管理](agent/release.md)

@@ -6,10 +6,13 @@ const AUTHORITATIVE_DOCS = [
   "AGENTS.md",
   "docs/README.md",
   "docs/architecture-boundaries.md",
+  "docs/agent/autonomous-p0.md",
   "docs/agent/development.md",
+  "docs/agent/review.md",
   "docs/agent/testing.md",
   "docs/agent/infrastructure.md",
   "docs/agent/release.md",
+  "specs/README.md",
 ];
 
 const MARKDOWN_LINK_PATTERN = /(!?)\[[^\]]*\]\(([^)]+)\)/gu;

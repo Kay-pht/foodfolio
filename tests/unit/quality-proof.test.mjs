@@ -199,7 +199,7 @@ describe("PR Quality proof", () => {
     expect(qualityWorkflow).toContain("Run unit tests");
     expect(qualityWorkflow).toContain("Run integration tests");
     expect(qualityWorkflow).toContain("Run E2E tests");
-    expect(qualityWorkflow).not.toContain("run: npm run verify");
+    expect(qualityWorkflow).not.toMatch(/^\s*run:\s+npm run verify\s*$/m);
     expect(qualityWorkflow).toContain("swift:6.3@sha256:");
     expect(qualityWorkflow).not.toContain("runs-on: macos-");
     expect(qualityWorkflow).toContain(

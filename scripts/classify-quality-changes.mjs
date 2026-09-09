@@ -13,6 +13,12 @@ const IOS_PATHS = new Set([
   "scripts/test-ios.sh",
   "scripts/verify-ios.sh",
 ]);
+const SPEC_EXEMPT_REPOSITORY_METADATA = new Set([
+  ".gitignore",
+  ".prettierignore",
+  ".prettierignore.markdown",
+  ".swift-format",
+]);
 
 function normalizePath(path) {
   return path.replace(/^\.\/+/, "");
@@ -43,6 +49,38 @@ function isWorkflowPath(path) {
   return path.startsWith(".github/workflows/");
 }
 
+function isTestOnlyPath(path) {
+  return (
+    path.startsWith("tests/") ||
+    path.startsWith("ios/FoodfolioTests/") ||
+    path.startsWith("ios/FoodfolioIntegrationTests/") ||
+    path.startsWith("ios/FoodfolioUITests/")
+  );
+}
+
+function isTaskSpecificationPath(path) {
+  return path.startsWith("specs/tasks/");
+}
+
+function isSpecificationRequiredPath(path) {
+  if (
+    isDocumentationPath(path) ||
+    isTestOnlyPath(path) ||
+    isTaskSpecificationPath(path) ||
+    SPEC_EXEMPT_REPOSITORY_METADATA.has(path) ||
+    path.startsWith(".vscode/")
+  ) {
+    return false;
+  }
+
+  // Specification enforcement must fail safe. Application code, CI workflows,
+  // developer automation, infrastructure, shared configuration, and any new
+  // implementation path can change observable behavior. Explicitly exempt only
+  // paths that are mechanically known to be documentation, tests, task specs,
+  // or editor/formatting metadata.
+  return true;
+}
+
 export function classifyQualityPaths(paths) {
   let backend = false;
   let ios = false;
@@ -66,6 +104,20 @@ export function classifyQualityPaths(paths) {
   }
 
   return { backend, ios };
+}
+
+export function classifySpecificationPaths(paths) {
+  let specRequired = false;
+
+  for (const rawPath of paths) {
+    const path = normalizePath(rawPath);
+    if (!path) {
+      continue;
+    }
+    specRequired ||= isSpecificationRequiredPath(path);
+  }
+
+  return { spec_required: specRequired };
 }
 
 export function classifyAutomationPaths(paths) {
@@ -110,6 +162,7 @@ async function writeOutput(result) {
     [
       `backend=${result.backend}`,
       `ios=${result.ios}`,
+      `spec_required=${result.spec_required}`,
       `docs=${result.docs}`,
       `documentation=${result.documentation}`,
       `terraform=${result.terraform}`,
@@ -140,10 +193,11 @@ async function main() {
     const paths = await changedPaths(baseSha, headSha);
     const result = {
       ...classifyQualityPaths(paths),
+      ...classifySpecificationPaths(paths),
       ...classifyAutomationPaths(paths),
     };
     console.log(
-      `Changed paths: ${paths.length}; backend=${result.backend}; ios=${result.ios}; docs=${result.docs}; documentation=${result.documentation}; terraform=${result.terraform}; workflows=${result.workflows}.`,
+      `Changed paths: ${paths.length}; backend=${result.backend}; ios=${result.ios}; spec_required=${result.spec_required}; docs=${result.docs}; documentation=${result.documentation}; terraform=${result.terraform}; workflows=${result.workflows}.`,
     );
     await writeOutput(result);
   } catch (error) {
@@ -153,6 +207,7 @@ async function main() {
     await writeOutput({
       backend: true,
       ios: true,
+      spec_required: true,
       docs: true,
       documentation: true,
       terraform: true,
