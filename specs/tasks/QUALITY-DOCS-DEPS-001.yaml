@@ -1,0 +1,52 @@
+id: QUALITY-DOCS-DEPS-001
+type: bug
+status: approved
+
+objective: >-
+  Ensure the Quality workflow installs the Node dependencies required by
+  specification validation when a pull request changes documentation or task files only.
+
+requirements:
+  - id: QDD-1
+    condition: Quality classifies a change as documentation-only with docs=true and backend=false.
+    expected: npm ci runs before check:specs so the validator can import Ajv and its other declared dependencies.
+    verification:
+      - .github/workflows/quality.yml
+      - tests/unit/quality-proof.test.mjs
+  - id: QDD-2
+    condition: Quality runs the task, specification, autonomous-P0, and documentation checks for a documentation-only change.
+    expected: The existing single-runner fail-fast checks execute with their declared Node dependencies available.
+    verification:
+      - .github/workflows/quality.yml
+      - tests/unit/quality-proof.test.mjs
+
+edge_cases:
+  - A pull request changes only files under docs or tasks and does not change backend files.
+  - A pull request changes both backend and documentation files.
+  - A reusable Quality proof allows the job to skip all validation work.
+
+security_invariants:
+  - Dependency installation must continue to use the repository lockfile through npm ci.
+  - The workflow must not gain write permissions or expose credentials.
+
+compatibility:
+  - Backend changes continue to install dependencies and run the existing backend checks.
+  - The existing single-runner and fail-fast Quality workflow structure remains unchanged.
+
+non_functional:
+  - The fix must reuse the existing dependency installation step rather than add another runner.
+
+out_of_scope:
+  - Changing documentation classification rules.
+  - Splitting Quality checks into separate jobs.
+  - Changing application runtime behavior.
+
+acceptance_criteria:
+  - The dependency installation condition includes documentation-only changes.
+  - A regression test asserts that npm ci is guarded by both backend and docs classifications.
+  - npm run check:specs and the repository verification entry points pass.
+
+regression:
+  required: true
+  tests:
+    - tests/unit/quality-proof.test.mjs
