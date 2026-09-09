@@ -19,9 +19,12 @@ requirements:
       - scripts/check-main-push-policy.mjs
   - id: P0-2
     condition: A feature, bug fix, or behavior-changing task is implemented.
-    expected: An approved task specification exists before implementation and passes check:specs.
+    expected: An approved task specification exists before implementation, the PR changes a task specification when production behavior paths change, and all specifications pass check:specs.
     verification:
+      - scripts/check-spec-change.mjs
       - scripts/check-specs.mjs
+      - .github/workflows/quality.yml
+      - tests/unit/specification-change-gate.test.mjs
   - id: P0-3
     condition: Agent implementation and review are performed.
     expected: Implementer, Reviewer, and Fixer responsibilities are separated by documented workflow; session separation is performed by the human operator.
@@ -81,6 +84,7 @@ out_of_scope:
 acceptance_criteria:
   - A tracked pre-push hook rejects direct pushes to main in normal operation.
   - CI contains a direct-main-push violation check.
+  - Behavior-affecting production changes require a changed task specification in the PR diff.
   - check:specs validates required task-spec structure and bug regression-test declarations.
   - Agent documentation defines LGTM, AUTOMATION_BLOCKED, role separation, and human-only merge authority.
   - Reviewer proof is written outside the tracked Git tree.
