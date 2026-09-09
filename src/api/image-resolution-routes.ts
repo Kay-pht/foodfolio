@@ -35,7 +35,7 @@ export function registerImageResolutionRoutes(
       if (!deps.imageResolver)
         throw new AppError(
           503,
-          "IMAGE_RESOLUTION_UNAVAILABLE",
+          "TEMPORARILY_UNAVAILABLE",
           "Image resolution is unavailable",
         );
 
