@@ -4,7 +4,12 @@ const baseSha = process.env.SPEC_BASE_SHA;
 const headSha = process.env.SPEC_HEAD_SHA;
 const shaPattern = /^[0-9a-f]{40,64}$/;
 
-if (!baseSha || !headSha || !shaPattern.test(baseSha) || !shaPattern.test(headSha)) {
+if (
+  !baseSha ||
+  !headSha ||
+  !shaPattern.test(baseSha) ||
+  !shaPattern.test(headSha)
+) {
   throw new Error("SPEC_BASE_SHA and SPEC_HEAD_SHA must be Git object IDs.");
 }
 
