@@ -43,6 +43,18 @@ function isWorkflowPath(path) {
   return path.startsWith(".github/workflows/");
 }
 
+function isSpecificationRequiredPath(path) {
+  return (
+    path.startsWith("src/") ||
+    path.startsWith("prisma/") ||
+    path.startsWith("infra/terraform/") ||
+    path.startsWith("ios/Foodfolio/") ||
+    path.startsWith("ios/FoodfolioShareExtension/") ||
+    path.startsWith("ios/Foodfolio.xcodeproj/") ||
+    path === "ios/project.yml"
+  );
+}
+
 export function classifyQualityPaths(paths) {
   let backend = false;
   let ios = false;
@@ -66,6 +78,20 @@ export function classifyQualityPaths(paths) {
   }
 
   return { backend, ios };
+}
+
+export function classifySpecificationPaths(paths) {
+  let specRequired = false;
+
+  for (const rawPath of paths) {
+    const path = normalizePath(rawPath);
+    if (!path) {
+      continue;
+    }
+    specRequired ||= isSpecificationRequiredPath(path);
+  }
+
+  return { spec_required: specRequired };
 }
 
 export function classifyAutomationPaths(paths) {
@@ -110,6 +136,7 @@ async function writeOutput(result) {
     [
       `backend=${result.backend}`,
       `ios=${result.ios}`,
+      `spec_required=${result.spec_required}`,
       `docs=${result.docs}`,
       `documentation=${result.documentation}`,
       `terraform=${result.terraform}`,
@@ -140,10 +167,11 @@ async function main() {
     const paths = await changedPaths(baseSha, headSha);
     const result = {
       ...classifyQualityPaths(paths),
+      ...classifySpecificationPaths(paths),
       ...classifyAutomationPaths(paths),
     };
     console.log(
-      `Changed paths: ${paths.length}; backend=${result.backend}; ios=${result.ios}; docs=${result.docs}; documentation=${result.documentation}; terraform=${result.terraform}; workflows=${result.workflows}.`,
+      `Changed paths: ${paths.length}; backend=${result.backend}; ios=${result.ios}; spec_required=${result.spec_required}; docs=${result.docs}; documentation=${result.documentation}; terraform=${result.terraform}; workflows=${result.workflows}.`,
     );
     await writeOutput(result);
   } catch (error) {
@@ -153,6 +181,7 @@ async function main() {
     await writeOutput({
       backend: true,
       ios: true,
+      spec_required: true,
       docs: true,
       documentation: true,
       terraform: true,
