@@ -1,8 +1,8 @@
 import ImageIO
 import LinkPresentation
 import SwiftUI
-import UniformTypeIdentifiers
 import UIKit
+import UniformTypeIdentifiers
 
 struct RecipeImageLoader: Sendable {
   static let maxImageBytes = 10 * 1024 * 1024
@@ -54,7 +54,7 @@ struct RecipeImageLoader: Sendable {
 
   private static func webURL(from rawURL: String?) -> URL? {
     guard let rawURL, let url = URL(string: rawURL), let scheme = url.scheme?.lowercased(),
-      (scheme == "https" || scheme == "http"), url.host != nil
+      scheme == "https" || scheme == "http", url.host != nil
     else { return nil }
     return url
   }
