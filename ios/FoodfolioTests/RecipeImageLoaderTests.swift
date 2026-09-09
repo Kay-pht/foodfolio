@@ -12,21 +12,20 @@ final class RecipeImageLoaderTests: XCTestCase {
         await recorder.recordDirect(url)
         return imageData
       },
-      metadataImageFetcher: { url in
-        await recorder.recordMetadata(url)
-        return imageData
+      imageURLResolver: {
+        await recorder.recordResolution()
+        return "https://cdn.example.com/resolved.png"
       })
 
     let result = await loader.imageData(
-      localImageData: imageData, imageURL: "https://cdn.example.com/new.png",
-      originalURL: "https://example.com/recipe")
+      localImageData: imageData, imageURL: "https://cdn.example.com/new.png")
     let directURLs = await recorder.directURLs
-    let metadataURLs = await recorder.metadataURLs
+    let resolutionCalls = await recorder.resolutionCalls
 
     XCTAssertEqual(result?.data, imageData)
     XCTAssertEqual(result?.source, .local)
     XCTAssertTrue(directURLs.isEmpty)
-    XCTAssertTrue(metadataURLs.isEmpty)
+    XCTAssertEqual(resolutionCalls, 0)
   }
 
   func testInvalidLocalImageFallsBackToStoredImageURL() async throws {
@@ -38,24 +37,23 @@ final class RecipeImageLoaderTests: XCTestCase {
         await recorder.recordDirect(url)
         return imageData
       },
-      metadataImageFetcher: { url in
-        await recorder.recordMetadata(url)
-        return imageData
+      imageURLResolver: {
+        await recorder.recordResolution()
+        return "https://cdn.example.com/resolved.png"
       })
 
     let result = await loader.imageData(
-      localImageData: Data("not an image".utf8), imageURL: directURL.absoluteString,
-      originalURL: "https://example.com/recipe")
+      localImageData: Data("not an image".utf8), imageURL: directURL.absoluteString)
     let directURLs = await recorder.directURLs
-    let metadataURLs = await recorder.metadataURLs
+    let resolutionCalls = await recorder.resolutionCalls
 
     XCTAssertEqual(result?.data, imageData)
     XCTAssertEqual(result?.source, .remote)
     XCTAssertEqual(directURLs, [directURL])
-    XCTAssertTrue(metadataURLs.isEmpty)
+    XCTAssertEqual(resolutionCalls, 0)
   }
 
-  func testStoredImageURLIsPreferredOverOriginalURLMetadata() async throws {
+  func testStoredImageURLIsPreferredOverBackendResolution() async throws {
     let directURL = try XCTUnwrap(URL(string: "https://cdn.example.com/recipe.png"))
     let recorder = ImageFetchRecorder()
     let imageData = Self.validPNGData
@@ -64,68 +62,66 @@ final class RecipeImageLoaderTests: XCTestCase {
         await recorder.recordDirect(url)
         return imageData
       },
-      metadataImageFetcher: { url in
-        await recorder.recordMetadata(url)
-        return imageData
+      imageURLResolver: {
+        await recorder.recordResolution()
+        return "https://cdn.example.com/resolved.png"
       })
 
-    let result = await loader.remoteImageData(
-      imageURL: directURL.absoluteString, originalURL: "https://example.com/recipe")
+    let result = await loader.remoteImageData(imageURL: directURL.absoluteString)
     let directURLs = await recorder.directURLs
-    let metadataURLs = await recorder.metadataURLs
+    let resolutionCalls = await recorder.resolutionCalls
 
     XCTAssertEqual(result, imageData)
     XCTAssertEqual(directURLs, [directURL])
-    XCTAssertTrue(metadataURLs.isEmpty)
+    XCTAssertEqual(resolutionCalls, 0)
   }
 
-  func testOriginalURLMetadataRecoversImageWhenStoredImageURLFails() async throws {
-    let directURL = try XCTUnwrap(URL(string: "https://cdn.example.com/expired.png"))
-    let originalURL = try XCTUnwrap(URL(string: "https://example.com/recipe"))
+  func testBackendResolutionRecoversImageWhenStoredImageURLFails() async throws {
+    let expiredURL = try XCTUnwrap(URL(string: "https://cdn.example.com/expired.png"))
+    let resolvedURL = try XCTUnwrap(URL(string: "https://cdn.example.com/resolved.png"))
     let recorder = ImageFetchRecorder()
     let imageData = Self.validPNGData
     let loader = RecipeImageLoader(
       directImageFetcher: { url in
         await recorder.recordDirect(url)
-        throw URLError(.badServerResponse)
-      },
-      metadataImageFetcher: { url in
-        await recorder.recordMetadata(url)
+        if url == expiredURL { throw URLError(.badServerResponse) }
         return imageData
+      },
+      imageURLResolver: {
+        await recorder.recordResolution()
+        return resolvedURL.absoluteString
       })
 
-    let result = await loader.remoteImageData(
-      imageURL: directURL.absoluteString, originalURL: originalURL.absoluteString)
+    let result = await loader.remoteImageData(imageURL: expiredURL.absoluteString)
     let directURLs = await recorder.directURLs
-    let metadataURLs = await recorder.metadataURLs
+    let resolutionCalls = await recorder.resolutionCalls
 
     XCTAssertEqual(result, imageData)
-    XCTAssertEqual(directURLs, [directURL])
-    XCTAssertEqual(metadataURLs, [originalURL])
+    XCTAssertEqual(directURLs, [expiredURL, resolvedURL])
+    XCTAssertEqual(resolutionCalls, 1)
   }
 
-  func testReturnsNilWhenStoredAndOriginalImageRecoveryFail() async throws {
-    let directURL = try XCTUnwrap(URL(string: "https://cdn.example.com/not-an-image"))
-    let originalURL = try XCTUnwrap(URL(string: "https://example.com/recipe"))
+  func testReturnsNilWhenStoredAndResolvedImageRecoveryFail() async throws {
+    let expiredURL = try XCTUnwrap(URL(string: "https://cdn.example.com/not-an-image"))
+    let resolvedURL = try XCTUnwrap(URL(string: "https://cdn.example.com/still-not-an-image"))
     let recorder = ImageFetchRecorder()
     let loader = RecipeImageLoader(
       directImageFetcher: { url in
         await recorder.recordDirect(url)
         return Data("not an image".utf8)
       },
-      metadataImageFetcher: { url in
-        await recorder.recordMetadata(url)
-        return nil
+      imageURLResolver: {
+        await recorder.recordResolution()
+        return resolvedURL.absoluteString
       })
 
-    let result = await loader.remoteImageData(
-      imageURL: directURL.absoluteString, originalURL: originalURL.absoluteString)
+    let result = await loader.remoteImageData(imageURL: expiredURL.absoluteString)
     let directURLs = await recorder.directURLs
-    let metadataURLs = await recorder.metadataURLs
+    let resolutionCalls = await recorder.resolutionCalls
 
     XCTAssertNil(result)
-    XCTAssertEqual(directURLs, [directURL])
-    XCTAssertEqual(metadataURLs, [originalURL])
+    XCTAssertEqual(directURLs, [expiredURL, resolvedURL])
+    XCTAssertEqual(resolutionCalls, 1)
   }
 
   private static let validPNGData = Data(
@@ -136,8 +132,8 @@ final class RecipeImageLoaderTests: XCTestCase {
 
 private actor ImageFetchRecorder {
   private(set) var directURLs: [URL] = []
-  private(set) var metadataURLs: [URL] = []
+  private(set) var resolutionCalls = 0
 
   func recordDirect(_ url: URL) { directURLs.append(url) }
-  func recordMetadata(_ url: URL) { metadataURLs.append(url) }
+  func recordResolution() { resolutionCalls += 1 }
 }
