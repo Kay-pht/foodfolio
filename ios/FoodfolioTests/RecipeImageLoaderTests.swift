@@ -4,6 +4,57 @@ import XCTest
 @testable import Foodfolio
 
 final class RecipeImageLoaderTests: XCTestCase {
+  func testValidLocalImageIsPreferredWithoutRemoteRequests() async {
+    let recorder = ImageFetchRecorder()
+    let imageData = Self.validPNGData
+    let loader = RecipeImageLoader(
+      directImageFetcher: { url in
+        await recorder.recordDirect(url)
+        return imageData
+      },
+      metadataImageFetcher: { url in
+        await recorder.recordMetadata(url)
+        return imageData
+      })
+
+    let result = await loader.imageData(
+      localImageData: imageData, imageURL: "https://cdn.example.com/new.png",
+      originalURL: "https://example.com/recipe")
+    let directURLs = await recorder.directURLs
+    let metadataURLs = await recorder.metadataURLs
+
+    XCTAssertEqual(result?.data, imageData)
+    XCTAssertEqual(result?.source, .local)
+    XCTAssertTrue(directURLs.isEmpty)
+    XCTAssertTrue(metadataURLs.isEmpty)
+  }
+
+  func testInvalidLocalImageFallsBackToStoredImageURL() async throws {
+    let directURL = try XCTUnwrap(URL(string: "https://cdn.example.com/recipe.png"))
+    let recorder = ImageFetchRecorder()
+    let imageData = Self.validPNGData
+    let loader = RecipeImageLoader(
+      directImageFetcher: { url in
+        await recorder.recordDirect(url)
+        return imageData
+      },
+      metadataImageFetcher: { url in
+        await recorder.recordMetadata(url)
+        return imageData
+      })
+
+    let result = await loader.imageData(
+      localImageData: Data("not an image".utf8), imageURL: directURL.absoluteString,
+      originalURL: "https://example.com/recipe")
+    let directURLs = await recorder.directURLs
+    let metadataURLs = await recorder.metadataURLs
+
+    XCTAssertEqual(result?.data, imageData)
+    XCTAssertEqual(result?.source, .remote)
+    XCTAssertEqual(directURLs, [directURL])
+    XCTAssertTrue(metadataURLs.isEmpty)
+  }
+
   func testStoredImageURLIsPreferredOverOriginalURLMetadata() async throws {
     let directURL = try XCTUnwrap(URL(string: "https://cdn.example.com/recipe.png"))
     let recorder = ImageFetchRecorder()

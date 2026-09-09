@@ -2032,7 +2032,11 @@ Library/Application Support/Foodfolio/RecipeImages/{recipeId}
 
 ```text
 ローカル画像あり
-→ 即表示
+→ decode可能なら即表示
+
+ローカル画像がdecode不可
+→ 壊れたローカル画像を削除
+→ ローカル画像なしとして続行
 
 ローカル画像なし
 → onlineかつimageUrlあり
@@ -2048,13 +2052,15 @@ imageUrlから取得不可
 
 originalUrlからも取得不可
 → placeholder
+→ 次回の画面表示時に再試行
 ```
 
 `originalUrl` から復旧した画像はRecipe ID単位でローカル保存し、Backend管理の `imageUrl` はClient側で書き換えない。
+取得画像の表示に成功し、Application Supportへの保存だけに失敗した場合は現在の画面では表示を継続し、次回の画面表示時に再取得する。失敗状態は永続保存せず、同じ画面内で自動再試行を繰り返さない。
 
 画像ファイルはバックアップ対象から除外する。
 
-同期により `imageUrl` が別URLへ変更された場合は既存ローカル画像を削除し、新しいURLからの再取得対象とする。ローカル画像削除は完了を待ってからupsertを返し、後から削除Taskが走って再取得済み画像を消す競合を作らない。
+同期により `imageUrl` または `originalUrl` が変更されても、有効な既存ローカル画像は削除しない。URL変更前に開始してまだ保存されていない取得だけを無効化し、次回の画像ロードでは既存ローカル画像がなければ更新後のURLから再取得する。
 
 ### 25.8 ログアウト時のLocal Data
 

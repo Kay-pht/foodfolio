@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
 readonly REPOSITORY_DIR="${SCRIPT_DIR}/.."
 readonly DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
-readonly IOS_EXPECTED_TEST_COUNT="${IOS_EXPECTED_TEST_COUNT:-86}"
+readonly IOS_EXPECTED_TEST_COUNT="${IOS_EXPECTED_TEST_COUNT:-89}"
 
 if [[ ! "${IOS_EXPECTED_TEST_COUNT}" =~ ^[1-9][0-9]*$ ]]; then
   echo "IOS_EXPECTED_TEST_COUNT must be a positive integer" >&2
