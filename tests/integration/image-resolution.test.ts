@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildApi } from "../../src/api/build-api.js";
 import {
   AnalysisError,
-  type SourceContentExtractor,
+  type RepresentativeImageResolver,
 } from "../../src/application/analysis/types.js";
 import type { AuthVerifier } from "../../src/infrastructure/auth/auth-verifier.js";
 import type { AnalysisTaskQueue } from "../../src/infrastructure/tasks/task-queue.js";
@@ -29,17 +29,12 @@ describe("recipe image resolution API", () => {
     await stopPostgres(context);
   }, 120_000);
 
-  it("reuses source extraction for the owned recipe and returns its representative image URL", async () => {
+  it("reuses the representative image resolver for the owned recipe", async () => {
     const requestedURLs: string[] = [];
-    const sourceExtractor: SourceContentExtractor = {
-      extract: async (url) => {
+    const imageResolver: RepresentativeImageResolver = {
+      resolveImageUrl: async (url) => {
         requestedURLs.push(url.toString());
-        return {
-          sourceType: "youtube",
-          resolvedUrl: url.toString(),
-          imageUrl: "https://i.ytimg.com/vi/example/maxresdefault.jpg",
-          textForAi: null,
-        };
+        return "https://i.ytimg.com/vi/example/maxresdefault.jpg";
       },
     };
     const app = buildApi({
@@ -47,7 +42,7 @@ describe("recipe image resolution API", () => {
       authVerifier: auth,
       firebaseUsers: { deleteUser: async () => {} },
       taskQueue: noOpQueue,
-      sourceExtractor,
+      imageResolver,
     });
     const originalUrl = "https://www.youtube.com/watch?v=0to72EbNg8A";
     const created = await app.inject({
@@ -80,9 +75,9 @@ describe("recipe image resolution API", () => {
     await app.close();
   });
 
-  it("returns no image when the existing source resolver cannot recover metadata", async () => {
-    const sourceExtractor: SourceContentExtractor = {
-      extract: async () => {
+  it("returns no image when representative image metadata cannot be recovered", async () => {
+    const imageResolver: RepresentativeImageResolver = {
+      resolveImageUrl: async () => {
         throw new AnalysisError(
           "SOURCE_CONTENT_UNAVAILABLE",
           false,
@@ -95,7 +90,7 @@ describe("recipe image resolution API", () => {
       authVerifier: auth,
       firebaseUsers: { deleteUser: async () => {} },
       taskQueue: noOpQueue,
-      sourceExtractor,
+      imageResolver,
     });
     const created = await app.inject({
       method: "POST",
