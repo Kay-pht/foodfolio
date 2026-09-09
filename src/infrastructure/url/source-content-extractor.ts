@@ -125,8 +125,10 @@ export class ProductionSourceContentExtractor
 
   async resolveImageUrl(url: URL): Promise<string | null> {
     const sourceType = sourceTypeForUrl(url);
-    if (sourceType === "youtube") return (await this.extractYoutube(url)).imageUrl;
-    if (sourceType === "tiktok") return (await this.extractTikTok(url)).imageUrl;
+    if (sourceType === "youtube")
+      return (await this.extractYoutube(url)).imageUrl;
+    if (sourceType === "tiktok")
+      return (await this.extractTikTok(url)).imageUrl;
     const response = await this.http.get(url);
     const imageUrl = htmlContent(response.body).imageUrl;
     return imageUrl ? new URL(imageUrl, response.finalUrl).toString() : null;

@@ -28,7 +28,8 @@ actor APIClient {
   func get<Response: Decodable & Sendable>(_ path: String) async throws -> Response {
     try await request(path, method: "GET", body: Optional<String>.none)
   }
-  func send<Response: Decodable & Sendable>(_ path: String, method: String) async throws -> Response {
+  func send<Response: Decodable & Sendable>(_ path: String, method: String) async throws -> Response
+  {
     try await request(path, method: method, body: Optional<String>.none)
   }
   func send<Body: Encodable & Sendable, Response: Decodable & Sendable>(
