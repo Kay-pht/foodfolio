@@ -1,5 +1,5 @@
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
-import type { SourceContentExtractor } from "../application/analysis/types.js";
+import type { RepresentativeImageResolver } from "../application/analysis/types.js";
 import { InvalidRecipeUrlError } from "../domain/recipe/url.js";
 import type { PrismaClient } from "../generated/prisma/client.js";
 import type {
@@ -17,7 +17,7 @@ export interface ApiDependencies {
   authVerifier: AuthVerifier;
   firebaseUsers: FirebaseUserManager;
   taskQueue: AnalysisTaskQueue;
-  sourceExtractor?: SourceContentExtractor;
+  imageResolver?: RepresentativeImageResolver;
 }
 
 function bearerToken(request: FastifyRequest): string {
