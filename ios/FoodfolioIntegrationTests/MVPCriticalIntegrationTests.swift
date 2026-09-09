@@ -19,7 +19,7 @@ import XCTest
         session: URLSession(configuration: configuration)),
       images: images)
     let date = Date()
-    try repository.upsert(
+    try await repository.upsert(
       RecipeDTO(
         id: "offline-recipe", originalUrl: "https://example.com/offline", sourceType: "web",
         title: "鶏肉カレー", imageUrl: nil, servingsValue: 2, servingsRaw: "2人分",
@@ -48,11 +48,11 @@ import XCTest
     XCTAssertNotNil(retainedOfflineImage)
   }
 
-  func testLocalSearchCoversTitleIngredientAndCombinedFiltersWithoutFalseMatches() throws {
+  func testLocalSearchCoversTitleIngredientAndCombinedFiltersWithoutFalseMatches() async throws {
     let container = try ModelContainerFactory.make(inMemory: true)
     let repository = try makeRepository(container: container)
     let date = Date()
-    try repository.upsert(
+    try await repository.upsert(
       RecipeDTO(
         id: "search-a", originalUrl: "https://example.com/a", sourceType: "web", title: "鶏肉カレー",
         imageUrl: nil, servingsValue: nil, servingsRaw: nil, cookingTimeMinutes: nil, genre: "主菜",
@@ -60,7 +60,7 @@ import XCTest
         ingredients: [IngredientDTO(id: "ia", name: "玉ねぎ", amount: nil, sortOrder: 0)],
         steps: [], tags: [TagDTO(id: "easy", name: "簡単", createdAt: date)], createdAt: date,
         updatedAt: date))
-    try repository.upsert(
+    try await repository.upsert(
       RecipeDTO(
         id: "search-b", originalUrl: "https://example.com/b", sourceType: "web", title: "冷やしうどん",
         imageUrl: nil, servingsValue: nil, servingsRaw: nil, cookingTimeMinutes: nil, genre: "麺",
@@ -96,7 +96,7 @@ import XCTest
       images: images)
     let date = Date()
     for id in ["keep", "remove"] {
-      try repository.upsert(
+      try await repository.upsert(
         RecipeDTO(
           id: id, originalUrl: "https://example.com/\(id)", sourceType: "web", title: id,
           imageUrl: nil, servingsValue: nil, servingsRaw: nil, cookingTimeMinutes: nil, genre: nil,
