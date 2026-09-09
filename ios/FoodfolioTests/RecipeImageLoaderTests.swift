@@ -20,10 +20,12 @@ final class RecipeImageLoaderTests: XCTestCase {
 
     let result = await loader.remoteImageData(
       imageURL: directURL.absoluteString, originalURL: "https://example.com/recipe")
+    let directURLs = await recorder.directURLs
+    let metadataURLs = await recorder.metadataURLs
 
     XCTAssertEqual(result, imageData)
-    XCTAssertEqual(await recorder.directURLs, [directURL])
-    XCTAssertTrue(await recorder.metadataURLs.isEmpty)
+    XCTAssertEqual(directURLs, [directURL])
+    XCTAssertTrue(metadataURLs.isEmpty)
   }
 
   func testOriginalURLMetadataRecoversImageWhenStoredImageURLFails() async throws {
@@ -43,10 +45,12 @@ final class RecipeImageLoaderTests: XCTestCase {
 
     let result = await loader.remoteImageData(
       imageURL: directURL.absoluteString, originalURL: originalURL.absoluteString)
+    let directURLs = await recorder.directURLs
+    let metadataURLs = await recorder.metadataURLs
 
     XCTAssertEqual(result, imageData)
-    XCTAssertEqual(await recorder.directURLs, [directURL])
-    XCTAssertEqual(await recorder.metadataURLs, [originalURL])
+    XCTAssertEqual(directURLs, [directURL])
+    XCTAssertEqual(metadataURLs, [originalURL])
   }
 
   func testReturnsNilWhenStoredAndOriginalImageRecoveryFail() async throws {
@@ -65,10 +69,12 @@ final class RecipeImageLoaderTests: XCTestCase {
 
     let result = await loader.remoteImageData(
       imageURL: directURL.absoluteString, originalURL: originalURL.absoluteString)
+    let directURLs = await recorder.directURLs
+    let metadataURLs = await recorder.metadataURLs
 
     XCTAssertNil(result)
-    XCTAssertEqual(await recorder.directURLs, [directURL])
-    XCTAssertEqual(await recorder.metadataURLs, [originalURL])
+    XCTAssertEqual(directURLs, [directURL])
+    XCTAssertEqual(metadataURLs, [originalURL])
   }
 
   private static let validPNGData = Data(
