@@ -1,29 +1,14 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 
-const ROOT = process.cwd();
+import Ajv2020 from "ajv/dist/2020.js";
+
+const ROOT = realpathSync(process.cwd());
 const SPECS_DIR = join(ROOT, "specs", "tasks");
-const REQUIRED_TOP_LEVEL = [
-  "id",
-  "type",
-  "status",
-  "objective",
-  "requirements",
-  "edge_cases",
-  "security_invariants",
-  "compatibility",
-  "non_functional",
-  "out_of_scope",
-  "acceptance_criteria",
-  "regression",
-];
-const ALLOWED_TYPES = new Set([
-  "feature",
-  "bug",
-  "refactor",
-  "security",
-  "maintenance",
-]);
+const SCHEMA_PATH = join(ROOT, "specs", "schema.json");
+const schema = JSON.parse(readFileSync(SCHEMA_PATH, "utf8"));
+const ajv = new Ajv2020({ allErrors: true, strict: true });
+const validateSchema = ajv.compile(schema);
 
 function stripComment(line) {
   let single = false;
@@ -187,6 +172,42 @@ function fail(errors) {
   process.exitCode = 1;
 }
 
+function isOutsideRoot(path) {
+  const fromRoot = relative(ROOT, path);
+  return (
+    fromRoot === ".." ||
+    fromRoot.startsWith(`..${sep}`) ||
+    isAbsolute(fromRoot)
+  );
+}
+
+function repositoryFileIssue(path) {
+  const absolute = resolve(ROOT, path);
+  if (isOutsideRoot(absolute)) return "escapes repository";
+
+  let realPath;
+  try {
+    realPath = realpathSync(absolute);
+  } catch {
+    return "does not exist";
+  }
+
+  if (isOutsideRoot(realPath)) return "resolves outside repository";
+  if (!statSync(realPath).isFile()) return "is not a file";
+  return undefined;
+}
+
+function appendSchemaErrors(errors, relativePath) {
+  for (const error of validateSchema.errors ?? []) {
+    const location = error.instancePath || "/";
+    const additionalProperty = error.params?.additionalProperty;
+    const suffix = additionalProperty ? ` (${additionalProperty})` : "";
+    errors.push(
+      `${relativePath}: schema ${location}: ${error.message ?? error.keyword}${suffix}`,
+    );
+  }
+}
+
 const files = readdirSync(SPECS_DIR)
   .filter((name) => name.endsWith(".yaml") || name.endsWith(".yml"))
   .sort();
@@ -198,112 +219,64 @@ if (files.length === 0) {
   const seenRequirementIds = new Map();
 
   for (const filename of files) {
-    const relative = `specs/tasks/${filename}`;
+    const relativePath = `specs/tasks/${filename}`;
     let spec;
     try {
       spec = parseYamlSubset(
         readFileSync(join(SPECS_DIR, filename), "utf8"),
-        relative,
+        relativePath,
       );
     } catch (error) {
       errors.push(error.message);
       continue;
     }
 
-    for (const key of REQUIRED_TOP_LEVEL) {
-      if (!(key in spec))
-        errors.push(`${relative}: missing required field '${key}'`);
+    if (!validateSchema(spec)) {
+      appendSchemaErrors(errors, relativePath);
+      continue;
     }
-    if (!spec.id || typeof spec.id !== "string")
-      errors.push(`${relative}: id must be a non-empty string`);
-    if (seenSpecIds.has(spec.id))
-      errors.push(
-        `${relative}: duplicate spec id '${spec.id}' also used by ${seenSpecIds.get(spec.id)}`,
-      );
-    else if (spec.id) seenSpecIds.set(spec.id, relative);
-    if (!ALLOWED_TYPES.has(spec.type))
-      errors.push(`${relative}: unsupported type '${spec.type}'`);
-    if (spec.status !== "approved")
-      errors.push(
-        `${relative}: status must be 'approved' before implementation`,
-      );
-    if (!spec.objective || typeof spec.objective !== "string")
-      errors.push(`${relative}: objective must be non-empty`);
 
-    if (!Array.isArray(spec.requirements) || spec.requirements.length === 0) {
-      errors.push(`${relative}: requirements must contain at least one item`);
+    if (seenSpecIds.has(spec.id)) {
+      errors.push(
+        `${relativePath}: duplicate spec id '${spec.id}' also used by ${seenSpecIds.get(spec.id)}`,
+      );
     } else {
-      for (const requirement of spec.requirements) {
-        if (!requirement || typeof requirement !== "object") {
-          errors.push(`${relative}: every requirement must be an object`);
-          continue;
-        }
-        for (const key of ["id", "condition", "expected", "verification"]) {
-          if (!(key in requirement))
-            errors.push(`${relative}: requirement is missing '${key}'`);
-        }
-        if (requirement.id) {
-          if (seenRequirementIds.has(requirement.id)) {
-            errors.push(
-              `${relative}: duplicate requirement id '${requirement.id}' also used by ${seenRequirementIds.get(requirement.id)}`,
-            );
-          } else {
-            seenRequirementIds.set(requirement.id, relative);
-          }
-        }
-        if (
-          !Array.isArray(requirement.verification) ||
-          requirement.verification.length === 0
-        ) {
+      seenSpecIds.set(spec.id, relativePath);
+    }
+
+    for (const requirement of spec.requirements) {
+      if (seenRequirementIds.has(requirement.id)) {
+        errors.push(
+          `${relativePath}: duplicate requirement id '${requirement.id}' also used by ${seenRequirementIds.get(requirement.id)}`,
+        );
+      } else {
+        seenRequirementIds.set(requirement.id, relativePath);
+      }
+
+      for (const path of requirement.verification) {
+        const issue = repositoryFileIssue(path);
+        if (issue) {
           errors.push(
-            `${relative}:${requirement.id ?? "<unknown>"}: verification must contain at least one path`,
+            `${relativePath}:${requirement.id}: verification path ${issue}: ${path}`,
           );
-        } else {
-          for (const path of requirement.verification) {
-            if (typeof path !== "string" || !existsSync(join(ROOT, path))) {
-              errors.push(
-                `${relative}:${requirement.id ?? "<unknown>"}: verification path does not exist: ${path}`,
-              );
-            }
-          }
         }
       }
     }
 
-    for (const key of [
-      "edge_cases",
-      "security_invariants",
-      "compatibility",
-      "non_functional",
-      "out_of_scope",
-      "acceptance_criteria",
-    ]) {
-      if (!Array.isArray(spec[key]))
-        errors.push(`${relative}: ${key} must be an array`);
+    if (spec.type === "bug" && spec.regression.required !== true) {
+      errors.push(
+        `${relativePath}: bug specifications must set regression.required: true`,
+      );
     }
-
-    const regression = spec.regression;
-    if (!regression || typeof regression !== "object") {
-      errors.push(`${relative}: regression must be an object`);
-    } else {
-      if (spec.type === "bug" && regression.required !== true) {
-        errors.push(
-          `${relative}: bug specifications must set regression.required: true`,
-        );
-      }
-      if (
-        spec.type === "bug" &&
-        (!Array.isArray(regression.tests) || regression.tests.length === 0)
-      ) {
-        errors.push(
-          `${relative}: bug specifications must list at least one regression test`,
-        );
-      }
-      if (Array.isArray(regression.tests)) {
-        for (const path of regression.tests) {
-          if (!existsSync(join(ROOT, path)))
-            errors.push(`${relative}: regression test does not exist: ${path}`);
-        }
+    if (spec.type === "bug" && spec.regression.tests.length === 0) {
+      errors.push(
+        `${relativePath}: bug specifications must list at least one regression test`,
+      );
+    }
+    for (const path of spec.regression.tests) {
+      const issue = repositoryFileIssue(path);
+      if (issue) {
+        errors.push(`${relativePath}: regression test path ${issue}: ${path}`);
       }
     }
   }
