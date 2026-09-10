@@ -34,11 +34,7 @@ describe("Share Extension compose validation", () => {
 
   it("keeps Post available for retry only when a shared URL still exists", () => {
     expect(source).toMatch(/case \.ready:\s*true/);
-    expect(source).toMatch(
-      /case \.failure:\s*creationGate\.sharedURL != nil/,
-    );
-    expect(source).toMatch(
-      /case \.loading, \.submitting, \.success:\s*false/,
-    );
+    expect(source).toMatch(/case \.failure:\s*creationGate\.sharedURL != nil/);
+    expect(source).toMatch(/case \.loading, \.submitting, \.success:\s*false/);
   });
 });
