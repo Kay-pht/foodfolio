@@ -10,6 +10,10 @@ const source = await readFile(
   ),
   "utf8",
 );
+const project = await readFile(
+  new URL("../../ios/project.yml", import.meta.url),
+  "utf8",
+);
 
 describe("Share Extension compose validation", () => {
   it("revalidates the system Post action whenever async state changes", () => {
@@ -27,14 +31,32 @@ describe("Share Extension compose validation", () => {
     expect(source).not.toContain("navigationItem.rightBarButtonItem");
     expect(source).not.toContain("configureNavigationItems()");
     expect(source).not.toContain("setCreateButton(");
-    expect(source).toMatch(
-      /override func didSelectPost\(\) \{\s*createRecipe\(\)\s*\}/,
+    const didSelectPost = source.match(
+      /override func didSelectPost\(\) \{([\s\S]*?)\n\s*\}/,
     );
+    expect(didSelectPost?.[1]).toContain("presentSubmittingAlert()");
+    expect(didSelectPost?.[1]).toContain("createRecipe()");
   });
 
   it("keeps Post available for retry only when a shared URL still exists", () => {
     expect(source).toMatch(/case \.ready:\s*true/);
     expect(source).toMatch(/case \.failure:\s*creationGate\.sharedURL != nil/);
     expect(source).toMatch(/case \.loading, \.submitting, \.success:\s*false/);
+  });
+
+  it("acknowledges success before completing the extension request", () => {
+    expect(source).toContain("state = .success");
+    expect(source).toContain("showSuccessResult()");
+    expect(source).toContain('title: "閉じる"');
+    expect(source).toContain('title: "再試行"');
+  });
+
+  it("uses Light appearance for the Share Extension", () => {
+    const extensionTarget = project.slice(
+      project.indexOf("  FoodfolioShareExtension:"),
+      project.indexOf("  FoodfolioTests:"),
+    );
+
+    expect(extensionTarget).toContain("UIUserInterfaceStyle: Light");
   });
 });
