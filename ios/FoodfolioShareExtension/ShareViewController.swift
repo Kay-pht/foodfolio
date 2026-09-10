@@ -14,7 +14,10 @@ final class ShareViewController: SLComposeServiceViewController {
   }
 
   private var state: State = .loading {
-    didSet { updateUI() }
+    didSet {
+      updateUI()
+      validateContent()
+    }
   }
   private var creationGate = ShareCreationGate()
 
@@ -23,8 +26,8 @@ final class ShareViewController: SLComposeServiceViewController {
     title = "Foodfolio"
     placeholder = "共有するレシピURLを確認してください"
     textView.isEditable = false
-    configureNavigationItems()
     updateUI()
+    validateContent()
 
     Task { @MainActor in
       await loadSharedURL()
@@ -32,10 +35,14 @@ final class ShareViewController: SLComposeServiceViewController {
   }
 
   override func isContentValid() -> Bool {
-    if case .ready = state {
-      return true
+    switch state {
+    case .ready:
+      true
+    case .failure:
+      creationGate.sharedURL != nil
+    case .loading, .submitting, .success:
+      false
     }
-    return false
   }
 
   override func didSelectPost() {
@@ -57,7 +64,7 @@ final class ShareViewController: SLComposeServiceViewController {
     }
   }
 
-  @objc private func createRecipe() {
+  private func createRecipe() {
     guard !isSubmittingOrFinished else { return }
     guard let url = creationGate.confirm() else { return }
     state = .submitting
@@ -85,6 +92,7 @@ final class ShareViewController: SLComposeServiceViewController {
       let token = try await user.getIDToken()
       try await SharedRecipeAPI.add(url: url, token: token)
       state = .success
+      extensionContext?.completeRequest(returningItems: nil)
     } catch {
       creationGate.resetConfirmation()
       let fallback = "レシピの追加に失敗しました。"
@@ -104,64 +112,19 @@ final class ShareViewController: SLComposeServiceViewController {
     try Auth.auth().useUserAccessGroup("group.com.keyukt.foodfolio")
   }
 
-  private func configureNavigationItems() {
-    navigationItem.leftBarButtonItem = UIBarButtonItem(
-      title: "キャンセル",
-      style: .plain,
-      target: self,
-      action: #selector(closeExtension))
-    navigationItem.rightBarButtonItem = UIBarButtonItem(
-      title: "作成",
-      style: .done,
-      target: self,
-      action: #selector(createRecipe))
-  }
-
   private func updateUI() {
     switch state {
     case .loading:
       textView.text = "共有するURLを確認しています…"
-      navigationItem.leftBarButtonItem?.isEnabled = true
-      setCreateButton(title: "作成", isEnabled: false)
     case .ready(let url):
       textView.text = url.absoluteString
-      navigationItem.leftBarButtonItem?.isEnabled = true
-      setCreateButton(title: "作成", isEnabled: true)
     case .submitting:
       textView.text = "レシピを作成しています…"
-      navigationItem.leftBarButtonItem?.isEnabled = false
-      setCreateButton(title: "作成中…", isEnabled: false)
     case .success:
       textView.text = "Foodfolioにレシピを追加しました。"
-      navigationItem.leftBarButtonItem = nil
-      navigationItem.rightBarButtonItem = UIBarButtonItem(
-        title: "閉じる",
-        style: .done,
-        target: self,
-        action: #selector(closeExtension))
     case .failure(let message):
       textView.text = message
-      navigationItem.leftBarButtonItem?.isEnabled = true
-      if creationGate.sharedURL == nil {
-        navigationItem.rightBarButtonItem = nil
-      } else {
-        setCreateButton(title: "再試行", isEnabled: true)
-      }
     }
-  }
-
-  private func setCreateButton(title: String, isEnabled: Bool) {
-    let button = UIBarButtonItem(
-      title: title,
-      style: .done,
-      target: self,
-      action: #selector(createRecipe))
-    button.isEnabled = isEnabled
-    navigationItem.rightBarButtonItem = button
-  }
-
-  @objc private func closeExtension() {
-    extensionContext?.completeRequest(returningItems: nil)
   }
 }
 
