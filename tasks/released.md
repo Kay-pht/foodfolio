@@ -5,6 +5,16 @@
 
 ## 2026-09-09
 
+- [x] `REL-20260909-03` 画像再取得で初回解析と同じ代表画像解決を使用する
+  - 内容: 端末内の保存画像と保存済み画像URLの両方から画像を復旧できない場合に、Backendが初回解析と同じ媒体別ロジックで代表画像URLを再解決する。LinkPresentationのプレビュー画像は使用せず、再取得画像にも通常の中央拡大・トリミングを適用する。
+  - PR: [#84](https://github.com/Kay-pht/foodfolio/pull/84)
+  - main反映: `26732f4ec5554f2891e1916c9afa80150709d723`
+  - 必要な反映先:
+    - [x] TestFlight内部テスト — 反映日: `2026-09-09`、version: `1.0 (9)`、Build ID: `1d7c06fc-fc52-43ea-b1c8-7ad9567bd8ef`、group: `Foodfolio Internal`
+    - [x] Cloud Run（現在利用中のdev） — 反映日: `2026-09-09`、version: `87e9ffb6621ef758b5f85d26b614205f7a8917a4`、API `foodfolio-dev-api-00029-x8x` / Worker `foodfolio-dev-worker-00031-c5x`、traffic 100%
+  - 配布build source: `f40b20736a64575b66dfcb5069ef8d894d231be6`
+  - 備考: Cloud Run APIが既存の `foodfolio-dev-youtube-api-key` Secretを参照することを確認済み。
+
 - [x] `REL-20260909-02` 欠損したレシピ画像を元URLから復旧する
   - 内容: 保存済みの画像URLから表示できない場合に、元レシピURLの代表画像を取得して端末内へキャッシュする。端末内キャッシュ、保存済み画像URL、元URL、既定プレースホルダーの順で表示を試み、同期時のキャッシュ削除と再読込の競合も防ぐ。
   - PR: [#79](https://github.com/Kay-pht/foodfolio/pull/79)
