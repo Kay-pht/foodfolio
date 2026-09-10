@@ -1,0 +1,71 @@
+id: IOS-SHARE-POST-VALIDATION-001
+type: bug
+status: approved
+
+objective: >-
+  Keep the iOS Share Extension on SLComposeServiceViewController while ensuring the
+  system-managed Post button is revalidated after asynchronous URL loading and remains
+  the single explicit action that starts recipe creation.
+
+requirements:
+  - id: ISPV-1
+    condition: The Share Extension finishes loading a valid shared HTTP or HTTPS URL asynchronously.
+    expected: The compose controller revalidates its content so the system Post button becomes enabled when isContentValid returns true.
+    verification:
+      - ios/FoodfolioShareExtension/ShareViewController.swift
+      - tests/unit/share-extension-proof.test.mjs
+  - id: ISPV-2
+    condition: The Share Extension is loading, submitting, or cannot recover from a missing shared URL.
+    expected: The system Post button remains disabled because isContentValid returns false and state transitions trigger content revalidation.
+    verification:
+      - ios/FoodfolioShareExtension/ShareViewController.swift
+      - tests/unit/share-extension-proof.test.mjs
+  - id: ISPV-3
+    condition: The user explicitly taps the system Post button after a valid URL is ready.
+    expected: didSelectPost starts the existing authenticated recipe creation flow exactly once, without custom Post or Cancel navigation items.
+    verification:
+      - ios/FoodfolioShareExtension/ShareViewController.swift
+      - tests/unit/share-extension-proof.test.mjs
+  - id: ISPV-4
+    condition: Recipe creation fails after a valid URL was prepared.
+    expected: The failure message is shown, confirmation is reset, content is revalidated, and the system Post button can be used to retry.
+    verification:
+      - ios/FoodfolioShareExtension/ShareViewController.swift
+      - tests/unit/share-extension-proof.test.mjs
+
+edge_cases:
+  - The extension starts in loading state before the item provider returns a URL.
+  - The shared item contains no HTTP or HTTPS URL.
+  - The user taps Post while a submission is already in progress.
+  - Firebase authentication or the recipe API fails after a URL has already been prepared.
+
+security_invariants:
+  - A recipe must not be submitted before the user explicitly selects the system Post action.
+  - Existing Firebase Auth, App Group, bearer token, and HTTPS API behavior must remain unchanged.
+  - The fix must not broaden the Share Extension activation rule or accepted URL schemes.
+
+compatibility:
+  - The Share Extension remains based on SLComposeServiceViewController.
+  - The existing recipe API endpoint and backend analysis flow remain unchanged.
+  - Existing URL extraction and duplicate-submission gate behavior remain unchanged.
+
+non_functional:
+  - Prefer the smallest change that follows the system compose-controller lifecycle instead of replacing the extension UI.
+  - Keep the Share Extension compatible with the repository's current iOS 26 deployment target and Swift 6 settings.
+
+out_of_scope:
+  - Diagnosing or fixing the separate real-device blank or black Share Extension screen.
+  - Changing backend recipe analysis, task queue behavior, or duplicate recipe handling.
+  - Replacing SLComposeServiceViewController with a custom UIViewController-based Share Extension.
+
+acceptance_criteria:
+  - Every Share Extension state transition refreshes both visible state and SLComposeServiceViewController content validation.
+  - A ready URL enables the system Post action; loading and submitting states do not.
+  - A recoverable submission failure permits retry through the same system Post action.
+  - Custom navigation-item management for Post and Cancel is removed.
+  - The regression proof test passes and repository iOS lint/format checks pass.
+
+regression:
+  required: true
+  tests:
+    - tests/unit/share-extension-proof.test.mjs
