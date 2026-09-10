@@ -14,6 +14,7 @@ import { FirebaseNotificationSender } from "../infrastructure/notifications/fire
 import { NoopNotificationSender } from "../infrastructure/notifications/noop-notification-sender.js";
 import { GcsTemporaryVideoStore } from "../infrastructure/tiktok/gcs-temporary-video-store.js";
 import { ProductionTikTokVideoRecipeFallback } from "../infrastructure/tiktok/tiktok-video-recipe-fallback.js";
+import { ProductionTikTokPhotoRecipeAnalysis } from "../infrastructure/tiktok/tiktok-photo-recipe-analysis.js";
 import { YtDlpTikTokVideoDownloader } from "../infrastructure/tiktok/yt-dlp-video-downloader.js";
 import { SafeHttpClient } from "../infrastructure/url/safe-http-client.js";
 import { ProductionSourceContentExtractor } from "../infrastructure/url/source-content-extractor.js";
@@ -30,7 +31,21 @@ const routedRecipeExtractor = new YoutubeAwareRecipeExtractor(
     ? new GeminiYoutubeRecipeExtractor(config.geminiApiKey)
     : null,
 );
-const tiktokVideoFallback = config.tiktokVideoFallbackEnabled
+const tiktokMediaStore = config.tiktokMediaAnalysisEnabled
+  ? new GcsTemporaryMediaStore({
+      bucketName: config.tiktokVideoBucket,
+      signedUrlLifetimeMs: 30 * 60 * 1000,
+      publishFailure: {
+        code: "TIKTOK_PHOTO_PUBLISH_FAILED",
+        retryable: true,
+        message: "Temporary TikTok photo publishing failed",
+      },
+    })
+  : null;
+const tiktokPhotoAnalysis = tiktokMediaStore
+  ? new ProductionTikTokPhotoRecipeAnalysis(tiktokMediaStore, recipeExtractor)
+  : null;
+const tiktokVideoFallback = config.tiktokMediaAnalysisEnabled
   ? new ProductionTikTokVideoRecipeFallback(
       new YtDlpTikTokVideoDownloader({
         binaryPath: config.ytDlpPath,
@@ -78,6 +93,7 @@ const service = new RecipeAnalysisService({
   ),
   recipeExtractor: routedRecipeExtractor,
   ...(tiktokVideoFallback ? { tiktokVideoFallback } : {}),
+  ...(tiktokPhotoAnalysis ? { tiktokPhotoAnalysis } : {}),
   ...(instagramMediaFallback ? { instagramMediaFallback } : {}),
   notifications,
   maxAttempts: config.maxAnalysisAttempts,

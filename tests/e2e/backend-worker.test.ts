@@ -6,6 +6,7 @@ import {
   type NotificationSender,
   type RecipeExtractor,
   type SourceContentExtractor,
+  type TikTokPhotoRecipeAnalysis,
   type TikTokVideoRecipeFallback,
 } from "../../src/application/analysis/types.js";
 import {
@@ -447,6 +448,79 @@ describe("API/Worker application E2E", () => {
       include: { ingredients: true, steps: true },
     });
     expect(updated.analysisStatus).toBe("completed");
+    expect(updated.ingredients).toHaveLength(1);
+    expect(updated.steps).toHaveLength(1);
+    await worker.close();
+  });
+
+  it("routes a TikTok photo post directly to one caption-and-image analysis", async () => {
+    const user = await context.prisma.user.create({
+      data: {
+        firebaseUid: "tiktok-photo-analysis-user",
+        setting: { create: {} },
+      },
+    });
+    const recipe = await context.prisma.recipe.create({
+      data: {
+        userId: user.id,
+        originalUrl: "https://www.tiktok.com/@chef/photo/12345?_r=1",
+        normalizedUrl: "https://www.tiktok.com/@chef/photo/12345",
+        sourceType: "tiktok",
+      },
+    });
+    const extractText = vi.fn();
+    const extractPhoto = vi.fn<TikTokPhotoRecipeAnalysis["extract"]>(
+      async () => ({
+        recipe: {
+          title: "肉巻きポテト",
+          servings: null,
+          cookingTimeMinutes: 20,
+          genre: "主菜",
+          ingredients: [{ name: "じゃがいも", amount: "2個" }],
+          steps: ["豚肉で巻いて焼く"],
+        },
+        provider: "zai",
+        providerRequestId: "photo-request",
+        inputTokens: 30,
+        outputTokens: 40,
+        latencyMs: 50,
+      }),
+    );
+    const worker = buildWorker(
+      new RecipeAnalysisService({
+        prisma: context.prisma,
+        sourceExtractor: {
+          extract: async () => ({
+            sourceType: "tiktok",
+            resolvedUrl: "https://www.tiktok.com/@chef/photo/12345",
+            imageUrl: "https://images.example/first.jpg",
+            textForAi: "DESCRIPTION\n肉巻きポテト #レシピ",
+            tiktokMediaKind: "photo",
+            tiktokPhotoImageUrls: ["https://images.example/first.jpg"],
+          }),
+        },
+        recipeExtractor: { extract: extractText },
+        tiktokPhotoAnalysis: { extract: extractPhoto },
+        notifications: new FakeNotifications(),
+        maxAttempts: 3,
+      }),
+    );
+
+    const response = await worker.inject({
+      method: "POST",
+      url: "/internal/tasks/recipe-analysis",
+      payload: { recipeId: recipe.id },
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(extractText).not.toHaveBeenCalled();
+    expect(extractPhoto).toHaveBeenCalledOnce();
+    const updated = await context.prisma.recipe.findUniqueOrThrow({
+      where: { id: recipe.id },
+      include: { ingredients: true, steps: true },
+    });
+    expect(updated.analysisStatus).toBe("completed");
+    expect(updated.imageUrl).toBe("https://images.example/first.jpg");
     expect(updated.ingredients).toHaveLength(1);
     expect(updated.steps).toHaveLength(1);
     await worker.close();

@@ -86,9 +86,11 @@ export class ZaiRecipeExtractor
     content.push({
       type: "text",
       text: [
-        "Extract one recipe from these Instagram media items.",
-        "The media blocks are in the original post order. Consider every item and never treat only a successful subset as the complete post.",
-        "Use the source metadata only as supporting context.",
+        `Extract one recipe from these ${input.sourceType} media items.`,
+        input.sourceType === "instagram"
+          ? "The media blocks are in the original post order. Consider every item and never treat only a successful subset as the complete post."
+          : "The media blocks are the available items in original post order. Consider every supplied item.",
+        "Treat visible media evidence as primary and source metadata as supporting context. If they conflict, do not override explicit media evidence with metadata.",
         `SOURCE METADATA\n${input.textForAi ?? "(none)"}`,
       ].join("\n"),
     });

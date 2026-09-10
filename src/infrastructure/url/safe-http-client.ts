@@ -87,10 +87,25 @@ export interface SafeHttpResponse {
   body: string;
 }
 
+export interface SafeHttpBinaryResponse {
+  finalUrl: string;
+  statusCode: number;
+  contentType: string | null;
+  body: Buffer;
+}
+
 export class SafeHttpClient {
   private readonly dispatcher = safeDispatcher();
 
   async get(input: URL): Promise<SafeHttpResponse> {
+    const response = await this.getBuffer(input);
+    return { ...response, body: response.body.toString("utf8") };
+  }
+
+  async getBuffer(
+    input: URL,
+    maxBytes = MAX_BYTES,
+  ): Promise<SafeHttpBinaryResponse> {
     let current = new URL(input);
     for (let redirects = 0; redirects <= 5; redirects += 1) {
       if (!["http:", "https:"].includes(current.protocol))
@@ -161,7 +176,7 @@ export class SafeHttpClient {
         );
       }
       const contentLength = Number(response.headers["content-length"] ?? 0);
-      if (contentLength > MAX_BYTES) {
+      if (contentLength > maxBytes) {
         await response.body.dump();
         throw new AnalysisError(
           "SOURCE_CONTENT_UNAVAILABLE",
@@ -174,7 +189,7 @@ export class SafeHttpClient {
       for await (const chunk of response.body) {
         const buffer = Buffer.from(chunk);
         total += buffer.length;
-        if (total > MAX_BYTES)
+        if (total > maxBytes)
           throw new AnalysisError(
             "SOURCE_CONTENT_UNAVAILABLE",
             false,
@@ -189,7 +204,7 @@ export class SafeHttpClient {
         contentType: Array.isArray(rawContentType)
           ? (rawContentType[0] ?? null)
           : (rawContentType ?? null),
-        body: Buffer.concat(chunks).toString("utf8"),
+        body: Buffer.concat(chunks),
       };
     }
     throw new AnalysisError(

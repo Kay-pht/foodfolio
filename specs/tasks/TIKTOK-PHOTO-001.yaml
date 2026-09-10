@@ -1,0 +1,131 @@
+id: TIKTOK-PHOTO-001
+type: bug
+status: approved
+
+objective: >-
+  Analyze public TikTok photo posts from their caption, hashtags, and available ordered
+  images instead of failing at the video-oriented oEmbed entry point.
+
+requirements:
+  - id: TTP-1
+    condition: A canonical TikTok URL path identifies a photo post.
+    expected: The Worker routes directly to photo-media analysis without calling TikTok oEmbed.
+    verification:
+      - tests/integration/url-extraction.test.ts
+      - tests/e2e/backend-worker.test.ts
+  - id: TTP-2
+    condition: A public TikTok photo post contains one or more images.
+    expected: >-
+      At most the first ten images are considered in source order, every successfully
+      retrieved image and the post caption including hashtags are sent to Z.ai once, and
+      image evidence is primary while caption text is supporting evidence.
+    verification:
+      - tests/unit/tiktok-photo-analysis.test.ts
+      - tests/unit/zai-video-extraction.test.ts
+      - tests/e2e/backend-worker.test.ts
+  - id: TTP-3
+    condition: One or more of the first ten TikTok photo assets cannot be retrieved or published.
+    expected: >-
+      Analysis continues with the successfully published ordered subset when at least one
+      image remains; unavailable assets do not make the entire post fail and do not create
+      gaps in the ordering sent to Z.ai.
+    verification:
+      - tests/unit/tiktok-photo-analysis.test.ts
+      - tests/e2e/backend-worker.test.ts
+  - id: TTP-4
+    condition: None of the first ten TikTok photo assets can be retrieved.
+    expected: The analysis fails without calling Z.ai media extraction.
+    verification:
+      - tests/unit/tiktok-photo-analysis.test.ts
+  - id: TTP-5
+    condition: TikTok photo media is prepared for Z.ai analysis.
+    expected: >-
+      Each available image is downloaded, published to private temporary GCS, deleted
+      locally, and deleted from GCS after analysis; comments, creator profile data, and
+      music metadata are not included in the AI prompt.
+    verification:
+      - tests/unit/tiktok-photo-analysis.test.ts
+      - tests/unit/zai-video-extraction.test.ts
+  - id: TTP-6
+    condition: A TikTok photo analysis or later image recovery needs a representative image.
+    expected: >-
+      The first source image URL is stored or returned as the representative image while
+      temporary signed GCS URLs remain transient and are never stored on Recipe.
+    verification:
+      - tests/e2e/backend-worker.test.ts
+      - tests/integration/image-resolution.test.ts
+  - id: TTP-7
+    condition: A TikTok photo or video URL contains a stable post ID and share tracking parameters.
+    expected: >-
+      Photo and video URLs normalize to an HTTPS www.tiktok.com canonical path containing
+      the author and post ID, without share query parameters.
+    verification:
+      - tests/integration/backend-postgres.test.ts
+  - id: TTP-8
+    condition: TikTok media analysis configuration is loaded.
+    expected: >-
+      TIKTOK_MEDIA_ANALYSIS_ENABLED controls both the existing video fallback and the new
+      photo primary path, replacing the video-only configuration name.
+    verification:
+      - tests/unit/env.test.ts
+  - id: TTP-9
+    condition: A TikTok video URL is analyzed after this change.
+    expected: Existing oEmbed-first text extraction and conditional video fallback behavior remains compatible.
+    verification:
+      - tests/integration/url-extraction.test.ts
+      - tests/e2e/backend-worker.test.ts
+
+edge_cases:
+  - The photo post has more than ten images; only the first ten are attempted.
+  - Some attempted images fail while at least one image succeeds.
+  - All attempted images fail.
+  - Published image indexes become sparse after failures and must be compacted for the AI request.
+  - The post has an empty caption or caption-only hashtags.
+  - Caption text and image text conflict; image evidence remains primary and unsupported reconciliation is forbidden.
+  - A TikTok video URL must retain its current behavior.
+
+security_invariants:
+  - Only public TikTok posts explicitly submitted to Foodfolio are retrieved.
+  - Private or authenticated-access bypass is forbidden.
+  - TikTok media, CDN URLs, signed URLs, captions, and raw yt-dlp output are not written to normal logs.
+  - Temporary local and GCS media is deleted after normal success or failure, with the existing lifecycle rule as a safety net.
+  - User and authentication identifiers are not added to Z.ai requests.
+
+compatibility:
+  - Existing TikTok video analysis remains oEmbed-first and uses media only when text extraction is incomplete.
+  - Existing Instagram media analysis behavior remains unchanged.
+  - Existing failed recipes are not automatically requeued or modified.
+  - The existing private temporary media bucket may be reused.
+
+non_functional:
+  - Process images sequentially so Worker memory does not grow with carousel size.
+  - Make at most one Z.ai media request for a TikTok photo post.
+  - Preserve current request timeouts, retry bounds, and maximum image byte limits where applicable.
+  - Avoid duplicating caption normalization, temporary-media publication, and AI media-input construction.
+
+out_of_scope:
+  - Reprocessing recipes that were already marked failed.
+  - TikTok comments, creator profile data, or music metadata as recipe evidence.
+  - Private TikTok posts or authenticated scraping.
+  - Permanent storage of TikTok photo assets in Foodfolio-managed storage.
+  - TikTok mixed image-and-video carousel support.
+
+acceptance_criteria:
+  - A TikTok /photo/ URL no longer fails because oEmbed rejects the URL.
+  - Caption text including hashtags and one to ten available ordered images are submitted in one Z.ai request.
+  - A partially available first-ten image set is analyzed and a completely unavailable set fails.
+  - The first source image is used for Recipe.imageUrl and image resolution without storing a temporary GCS URL.
+  - TikTok photo and video share URLs normalize without tracking parameters.
+  - Existing TikTok video and Instagram regression tests pass.
+  - Documentation and the task checklist reflect the photo-specific primary path and media-analysis configuration.
+
+regression:
+  required: true
+  tests:
+    - tests/integration/url-extraction.test.ts
+    - tests/unit/tiktok-photo-analysis.test.ts
+    - tests/unit/zai-video-extraction.test.ts
+    - tests/e2e/backend-worker.test.ts
+    - tests/integration/image-resolution.test.ts
+    - tests/integration/backend-postgres.test.ts
+    - tests/unit/env.test.ts

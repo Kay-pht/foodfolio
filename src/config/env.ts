@@ -29,7 +29,7 @@ export interface AppConfig {
   geminiApiKey: string;
   aiModel: string;
   maxAnalysisAttempts: number;
-  tiktokVideoFallbackEnabled: boolean;
+  tiktokMediaAnalysisEnabled: boolean;
   youtubeGeminiFallbackEnabled: boolean;
   tiktokVideoBucket: string;
   tiktokVideoMaxAttempts: number;
@@ -60,18 +60,18 @@ export function loadConfig(role: AppRole, source = process.env): AppConfig {
   if (!Number.isInteger(maxAnalysisAttempts) || maxAnalysisAttempts < 1) {
     throw new Error("MAX_ANALYSIS_ATTEMPTS must be a positive integer");
   }
-  const tiktokVideoFallbackEnabled = parseBoolean(
-    "TIKTOK_VIDEO_FALLBACK_ENABLED",
-    source.TIKTOK_VIDEO_FALLBACK_ENABLED ?? "false",
+  const tiktokMediaAnalysisEnabled = parseBoolean(
+    "TIKTOK_MEDIA_ANALYSIS_ENABLED",
+    source.TIKTOK_MEDIA_ANALYSIS_ENABLED ?? "false",
   );
   const youtubeGeminiFallbackEnabled = parseBoolean(
     "YOUTUBE_GEMINI_FALLBACK_ENABLED",
     source.YOUTUBE_GEMINI_FALLBACK_ENABLED ?? "false",
   );
   const tiktokVideoBucket = source.TIKTOK_VIDEO_BUCKET?.trim() ?? "";
-  if (tiktokVideoFallbackEnabled && !tiktokVideoBucket)
+  if (tiktokMediaAnalysisEnabled && !tiktokVideoBucket)
     throw new Error(
-      "TIKTOK_VIDEO_BUCKET is required when TikTok video fallback is enabled",
+      "TIKTOK_VIDEO_BUCKET is required when TikTok media analysis is enabled",
     );
   const tiktokVideoMaxAttempts = Number(
     source.TIKTOK_VIDEO_MAX_ATTEMPTS ?? "5",
@@ -126,7 +126,7 @@ export function loadConfig(role: AppRole, source = process.env): AppConfig {
     geminiApiKey: source.GEMINI_API_KEY ?? "",
     aiModel: source.AI_MODEL ?? "glm-5.3-flash",
     maxAnalysisAttempts,
-    tiktokVideoFallbackEnabled,
+    tiktokMediaAnalysisEnabled,
     youtubeGeminiFallbackEnabled,
     tiktokVideoBucket,
     tiktokVideoMaxAttempts,

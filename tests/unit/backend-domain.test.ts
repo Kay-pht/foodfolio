@@ -33,6 +33,19 @@ describe("recipe URL", () => {
       "https://www.youtube.com/watch?v=abcDEF_1234",
     );
   });
+
+  it.each(["photo", "video"])(
+    "uses the TikTok author, %s kind, and post id as canonical identity",
+    (kind) => {
+      const parsed = parseAndNormalizeRecipeUrl(
+        `https://m.tiktok.com/@chef/${kind}/7526427403409689874?_r=1&_t=share&utm_source=test`,
+      );
+
+      expect(parsed.normalizedUrl).toBe(
+        `https://www.tiktok.com/@chef/${kind}/7526427403409689874`,
+      );
+    },
+  );
   it("rejects non HTTP URLs", () =>
     expect(() => parseAndNormalizeRecipeUrl("file:///etc/passwd")).toThrow(
       "HTTP(S)",
