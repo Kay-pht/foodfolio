@@ -18,8 +18,8 @@ describe("Share Extension compose validation", () => {
     );
 
     expect(stateObserver).not.toBeNull();
-    expect(stateObserver?.[1]).toContain("updateUI() ");
-    expect(stateObserver?.[1]).toContain("validateContent() ");
+    expect(stateObserver?.[1]).toContain("updateUI()");
+    expect(stateObserver?.[1]).toContain("validateContent()");
   });
 
   it("uses the system Post and Cancel controls instead of custom navigation items", () => {
@@ -33,9 +33,7 @@ describe("Share Extension compose validation", () => {
   });
 
   it("keeps Post available for retry only when a shared URL still exists", () => {
-    expect(source).toMatch(
-      /case \.ready:\s*true/,
-    );
+    expect(source).toMatch(/case \.ready:\s*true/);
     expect(source).toMatch(
       /case \.failure:\s*creationGate\.sharedURL != nil/,
     );
