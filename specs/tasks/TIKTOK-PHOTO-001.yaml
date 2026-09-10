@@ -79,6 +79,14 @@ requirements:
     verification:
       - tests/integration/url-extraction.test.ts
       - tests/e2e/backend-worker.test.ts
+  - id: TTP-10
+    condition: DNS returns an RFC 6052 NAT64 address for a public source.
+    expected: >-
+      The NAT64 address is accepted only when its embedded IPv4 address is public. NAT64
+      addresses embedding private, loopback, or otherwise non-public IPv4 addresses remain
+      blocked by the SSRF guard.
+    verification:
+      - tests/unit/safe-http-client.test.ts
 
 edge_cases:
   - The photo post has more than ten images; only the first ten are attempted.
@@ -89,6 +97,7 @@ edge_cases:
   - Caption text and image text conflict; image evidence remains primary and unsupported reconciliation is forbidden.
   - A TikTok video URL must retain its current behavior.
   - Temporary GCS cleanup fails after Z.ai has already returned a successful recipe result.
+  - DNS returns both a public IPv4 address and its RFC 6052 NAT64 representation.
 
 security_invariants:
   - Only public TikTok posts explicitly submitted to Foodfolio are retrieved.
@@ -96,6 +105,7 @@ security_invariants:
   - TikTok media, CDN URLs, signed URLs, captions, and raw yt-dlp output are not written to normal logs.
   - TikTok temporary signed URLs expire after ten minutes.
   - Temporary local media is deleted after processing; GCS cleanup is attempted after normal success or failure, with the existing lifecycle rule as a safety net.
+  - RFC 6052 NAT64 handling must validate the embedded IPv4 address and must not allow access to non-public networks.
   - User and authentication identifiers are not added to Z.ai requests.
 
 compatibility:
@@ -126,6 +136,7 @@ acceptance_criteria:
   - With TIKTOK_MEDIA_ANALYSIS_ENABLED=false, neither Worker analysis nor API image resolution contacts the TikTok photo metadata endpoint.
   - TikTok photo signed URLs use the ten-minute retention contract.
   - A GCS cleanup failure after successful Z.ai analysis does not trigger another analysis attempt or discard the successful result.
+  - Public RFC 6052 NAT64 DNS answers do not block source retrieval, while NAT64 embeddings of non-public IPv4 remain rejected.
   - Existing TikTok video and Instagram regression tests pass.
   - Documentation and the task checklist reflect the photo-specific primary path and media-analysis configuration.
 
@@ -135,6 +146,7 @@ regression:
     - tests/integration/url-extraction.test.ts
     - tests/unit/tiktok-photo-analysis.test.ts
     - tests/unit/gcs-temporary-media-store.test.ts
+    - tests/unit/safe-http-client.test.ts
     - tests/unit/zai-video-extraction.test.ts
     - tests/e2e/backend-worker.test.ts
     - tests/integration/image-resolution.test.ts
