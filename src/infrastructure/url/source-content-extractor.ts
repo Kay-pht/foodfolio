@@ -102,6 +102,7 @@ export class ProductionSourceContentExtractor
     private readonly http: SafeHttpClient,
     private readonly youtubeApiKey: string,
     private readonly fetchImpl: typeof fetch = fetch,
+    private readonly tiktokMediaAnalysisEnabled = false,
   ) {}
 
   async extract(url: URL): Promise<SourceContent> {
@@ -177,6 +178,12 @@ export class ProductionSourceContentExtractor
     author: string;
     postId: string;
   }): Promise<SourceContent> {
+    if (!this.tiktokMediaAnalysisEnabled)
+      throw new AnalysisError(
+        "TIKTOK_MEDIA_ANALYSIS_DISABLED",
+        false,
+        "TikTok photo metadata extraction is disabled",
+      );
     const endpoint = new URL("https://www.tiktok.com/player/api/v1/items");
     endpoint.searchParams.set("item_ids", post.postId);
     const response = await this.http.get(endpoint);

@@ -127,4 +127,41 @@ describe("ProductionTikTokPhotoRecipeAnalysis", () => {
     ).rejects.toThrow("provider failed");
     expect(dispose).toHaveBeenCalledOnce();
   });
+
+  it("keeps a successful Z.ai result when GCS cleanup fails", async () => {
+    const dispose = vi.fn(async () => {
+      throw new Error("cleanup failed");
+    });
+    const extractMedia = vi.fn<MediaRecipeExtractor["extractMedia"]>(
+      async () => recipeResult,
+    );
+    const analysis = new ProductionTikTokPhotoRecipeAnalysis(
+      {
+        publish: async (media) => ({
+          url: "https://signed.example/1",
+          kind: "image",
+          contentType: media.contentType,
+          dispose,
+        }),
+      },
+      { extractMedia },
+      async () => ({
+        contentType: "image/jpeg",
+        data: Buffer.from("photo"),
+      }),
+    );
+
+    await expect(
+      analysis.extract({
+        sourceType: "tiktok",
+        resolvedUrl: "https://www.tiktok.com/@chef/photo/12345",
+        imageUrl: "https://images.example/1.jpg",
+        textForAi: "DESCRIPTION\n肉巻きポテト",
+        tiktokMediaKind: "photo",
+        tiktokPhotoImageUrls: ["https://images.example/1.jpg"],
+      }),
+    ).resolves.toEqual(recipeResult);
+    expect(extractMedia).toHaveBeenCalledOnce();
+    expect(dispose).toHaveBeenCalledOnce();
+  });
 });

@@ -69,7 +69,7 @@ export function loadConfig(role: AppRole, source = process.env): AppConfig {
     source.YOUTUBE_GEMINI_FALLBACK_ENABLED ?? "false",
   );
   const tiktokVideoBucket = source.TIKTOK_VIDEO_BUCKET?.trim() ?? "";
-  if (tiktokMediaAnalysisEnabled && !tiktokVideoBucket)
+  if (role === "worker" && tiktokMediaAnalysisEnabled && !tiktokVideoBucket)
     throw new Error(
       "TIKTOK_VIDEO_BUCKET is required when TikTok media analysis is enabled",
     );

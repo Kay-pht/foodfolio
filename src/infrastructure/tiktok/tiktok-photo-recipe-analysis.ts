@@ -6,7 +6,6 @@ import {
   type LocalMediaItem,
   type MediaRecipeExtractor,
   type OrderedPublishedMedia,
-  type RecipeExtractionResult,
   type SourceContent,
   type TemporaryMediaStore,
   type TikTokPhotoRecipeAnalysis,
@@ -44,8 +43,6 @@ export class ProductionTikTokPhotoRecipeAnalysis implements TikTokPhotoRecipeAna
 
     const directory = await mkdtemp(join(tmpdir(), "foodfolio-tiktok-photo-"));
     const published: OrderedPublishedMedia[] = [];
-    let result: RecipeExtractionResult | null = null;
-    let extractionError: unknown = null;
     try {
       for (const sourceUrl of sourceUrls) {
         let downloaded: DownloadedTikTokPhoto;
@@ -82,28 +79,13 @@ export class ProductionTikTokPhotoRecipeAnalysis implements TikTokPhotoRecipeAna
           true,
           "No TikTok photo images could be prepared for analysis",
         );
-      result = await this.recipeExtractor.extractMedia(input, published);
-    } catch (error) {
-      extractionError = error;
+      return await this.recipeExtractor.extractMedia(input, published);
+    } finally {
+      await Promise.allSettled([
+        rm(directory, { recursive: true, force: true }),
+        ...published.map((item) => item.dispose()),
+      ]);
     }
-    const cleanup = await Promise.allSettled([
-      rm(directory, { recursive: true, force: true }),
-      ...published.map((item) => item.dispose()),
-    ]);
-    if (cleanup.some((cleanupResult) => cleanupResult.status === "rejected"))
-      throw new AnalysisError(
-        "TIKTOK_PHOTO_CLEANUP_FAILED",
-        true,
-        "Temporary TikTok photo cleanup failed",
-      );
-    if (extractionError) throw extractionError;
-    if (!result)
-      throw new AnalysisError(
-        "TIKTOK_PHOTO_ANALYSIS_FAILED",
-        true,
-        "TikTok photo analysis returned no result",
-      );
-    return result;
   }
 }
 

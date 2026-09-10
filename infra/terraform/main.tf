@@ -328,6 +328,10 @@ resource "google_cloud_run_v2_service" "api" {
         value = var.project_id
       }
       env {
+        name  = "TIKTOK_MEDIA_ANALYSIS_ENABLED"
+        value = "true"
+      }
+      env {
         name  = "CLOUD_TASKS_LOCATION"
         value = var.region
       }

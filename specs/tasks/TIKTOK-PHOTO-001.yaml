@@ -40,11 +40,14 @@ requirements:
   - id: TTP-5
     condition: TikTok photo media is prepared for Z.ai analysis.
     expected: >-
-      Each available image is downloaded, published to private temporary GCS, deleted
-      locally, and deleted from GCS after analysis; comments, creator profile data, and
-      music metadata are not included in the AI prompt.
+      Each available image is downloaded, published to private temporary GCS with a
+      ten-minute signed URL, deleted locally, and scheduled for best-effort GCS cleanup
+      after analysis. Cleanup failure does not discard a successful Z.ai result, and the
+      existing bucket lifecycle remains the safety net for residual objects. Comments,
+      creator profile data, and music metadata are not included in the AI prompt.
     verification:
       - tests/unit/tiktok-photo-analysis.test.ts
+      - tests/unit/gcs-temporary-media-store.test.ts
       - tests/unit/zai-video-extraction.test.ts
   - id: TTP-6
     condition: A TikTok photo analysis or later image recovery needs a representative image.
@@ -65,9 +68,11 @@ requirements:
     condition: TikTok media analysis configuration is loaded.
     expected: >-
       TIKTOK_MEDIA_ANALYSIS_ENABLED controls both the existing video fallback and the new
-      photo primary path, replacing the video-only configuration name.
+      photo primary path. When disabled, TikTok photo metadata retrieval is rejected before
+      the unofficial metadata endpoint is contacted, including the API image-resolution path.
     verification:
       - tests/unit/env.test.ts
+      - tests/integration/url-extraction.test.ts
   - id: TTP-9
     condition: A TikTok video URL is analyzed after this change.
     expected: Existing oEmbed-first text extraction and conditional video fallback behavior remains compatible.
@@ -83,12 +88,14 @@ edge_cases:
   - The post has an empty caption or caption-only hashtags.
   - Caption text and image text conflict; image evidence remains primary and unsupported reconciliation is forbidden.
   - A TikTok video URL must retain its current behavior.
+  - Temporary GCS cleanup fails after Z.ai has already returned a successful recipe result.
 
 security_invariants:
   - Only public TikTok posts explicitly submitted to Foodfolio are retrieved.
   - Private or authenticated-access bypass is forbidden.
   - TikTok media, CDN URLs, signed URLs, captions, and raw yt-dlp output are not written to normal logs.
-  - Temporary local and GCS media is deleted after normal success or failure, with the existing lifecycle rule as a safety net.
+  - TikTok temporary signed URLs expire after ten minutes.
+  - Temporary local media is deleted after processing; GCS cleanup is attempted after normal success or failure, with the existing lifecycle rule as a safety net.
   - User and authentication identifiers are not added to Z.ai requests.
 
 compatibility:
@@ -116,6 +123,9 @@ acceptance_criteria:
   - A partially available first-ten image set is analyzed and a completely unavailable set fails.
   - The first source image is used for Recipe.imageUrl and image resolution without storing a temporary GCS URL.
   - TikTok photo and video share URLs normalize without tracking parameters.
+  - With TIKTOK_MEDIA_ANALYSIS_ENABLED=false, neither Worker analysis nor API image resolution contacts the TikTok photo metadata endpoint.
+  - TikTok photo signed URLs use the ten-minute retention contract.
+  - A GCS cleanup failure after successful Z.ai analysis does not trigger another analysis attempt or discard the successful result.
   - Existing TikTok video and Instagram regression tests pass.
   - Documentation and the task checklist reflect the photo-specific primary path and media-analysis configuration.
 
@@ -124,6 +134,7 @@ regression:
   tests:
     - tests/integration/url-extraction.test.ts
     - tests/unit/tiktok-photo-analysis.test.ts
+    - tests/unit/gcs-temporary-media-store.test.ts
     - tests/unit/zai-video-extraction.test.ts
     - tests/e2e/backend-worker.test.ts
     - tests/integration/image-resolution.test.ts

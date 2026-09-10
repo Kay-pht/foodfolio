@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { extractUrl } from "../../poc/url-extraction/extract.js";
 import { ProductionSourceContentExtractor } from "../../src/infrastructure/url/source-content-extractor.js";
 import type { SafeHttpClient } from "../../src/infrastructure/url/safe-http-client.js";
@@ -81,6 +81,25 @@ describe("extractUrl integration", () => {
     });
   });
 
+  it("does not contact TikTok photo metadata when media analysis is disabled", async () => {
+    const get = vi.fn();
+    const extractor = new ProductionSourceContentExtractor(
+      { get } as unknown as SafeHttpClient,
+      "unused",
+    );
+    const photoUrl = new URL("https://www.tiktok.com/@chef/photo/12345");
+
+    await expect(extractor.extract(photoUrl)).rejects.toMatchObject({
+      code: "TIKTOK_MEDIA_ANALYSIS_DISABLED",
+      retryable: false,
+    });
+    await expect(extractor.resolveImageUrl(photoUrl)).rejects.toMatchObject({
+      code: "TIKTOK_MEDIA_ANALYSIS_DISABLED",
+      retryable: false,
+    });
+    expect(get).not.toHaveBeenCalled();
+  });
+
   it("routes TikTok photo posts to ordered public image metadata without oEmbed", async () => {
     const imageUrls = Array.from(
       { length: 12 },
@@ -113,7 +132,12 @@ describe("extractUrl integration", () => {
         };
       },
     } as SafeHttpClient;
-    const extractor = new ProductionSourceContentExtractor(http, "unused");
+    const extractor = new ProductionSourceContentExtractor(
+      http,
+      "unused",
+      fetch,
+      true,
+    );
 
     const photoUrl = new URL(
       "https://www.tiktok.com/@ma___na_18/photo/7526427403409689874?_r=1&_t=share",
