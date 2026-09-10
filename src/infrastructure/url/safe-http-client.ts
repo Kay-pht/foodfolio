@@ -14,7 +14,13 @@ export function isPublicAddress(address: string): boolean {
   try {
     const parsed = ipaddr.parse(address);
     const range = parsed.range();
-    return range === "unicast";
+    if (range === "unicast") return true;
+    if (range !== "rfc6052") return false;
+
+    const bytes = parsed.toByteArray();
+    if (bytes.length !== 16) return false;
+    const embeddedIpv4 = bytes.slice(12).join(".");
+    return isPublicAddress(embeddedIpv4);
   } catch {
     return false;
   }
