@@ -219,6 +219,25 @@ describe("PR Quality proof", () => {
     expect(qualityWorkflow).toContain("classify-quality-changes.mjs");
     expect(qualityWorkflow).not.toContain("main-push-context-${{");
 
+    const installDependenciesStart = qualityWorkflow.indexOf(
+      "- name: Install dependencies",
+    );
+    const installDependenciesEnd = qualityWorkflow.indexOf(
+      "\n      - name:",
+      installDependenciesStart + 1,
+    );
+    const installDependenciesStep = qualityWorkflow.slice(
+      installDependenciesStart,
+      installDependenciesEnd,
+    );
+    expect(installDependenciesStart).toBeGreaterThan(-1);
+    expect(installDependenciesStep).toContain(
+      "steps.changes.outputs.backend == 'true'",
+    );
+    expect(installDependenciesStep).toContain(
+      "steps.changes.outputs.docs == 'true'",
+    );
+
     expect(documentationWorkflow).not.toContain("\n    paths:\n");
     expect(documentationWorkflow).toContain("Classify changed files");
     expect(documentationWorkflow).toContain(
