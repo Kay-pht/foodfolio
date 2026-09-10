@@ -2,6 +2,7 @@ import FirebaseAuth
 import FirebaseCore
 import Foundation
 import Social
+import UIKit
 import UniformTypeIdentifiers
 
 final class ShareViewController: SLComposeServiceViewController {
@@ -14,17 +15,21 @@ final class ShareViewController: SLComposeServiceViewController {
   }
 
   private var state: State = .loading {
-    didSet { updateUI() }
+    didSet {
+      updateUI()
+      validateContent()
+    }
   }
   private var creationGate = ShareCreationGate()
+  private var submissionAlert: UIAlertController?
 
   override func viewDidLoad() {
     super.viewDidLoad()
     title = "Foodfolio"
     placeholder = "共有するレシピURLを確認してください"
     textView.isEditable = false
-    configureNavigationItems()
     updateUI()
+    validateContent()
 
     Task { @MainActor in
       await loadSharedURL()
@@ -32,13 +37,18 @@ final class ShareViewController: SLComposeServiceViewController {
   }
 
   override func isContentValid() -> Bool {
-    if case .ready = state {
-      return true
+    switch state {
+    case .ready:
+      true
+    case .failure:
+      creationGate.sharedURL != nil
+    case .loading, .submitting, .success:
+      false
     }
-    return false
   }
 
   override func didSelectPost() {
+    presentSubmittingAlert()
     createRecipe()
   }
 
@@ -57,7 +67,7 @@ final class ShareViewController: SLComposeServiceViewController {
     }
   }
 
-  @objc private func createRecipe() {
+  private func createRecipe() {
     guard !isSubmittingOrFinished else { return }
     guard let url = creationGate.confirm() else { return }
     state = .submitting
@@ -85,10 +95,13 @@ final class ShareViewController: SLComposeServiceViewController {
       let token = try await user.getIDToken()
       try await SharedRecipeAPI.add(url: url, token: token)
       state = .success
+      showSuccessResult()
     } catch {
       creationGate.resetConfirmation()
       let fallback = "レシピの追加に失敗しました。"
-      state = .failure((error as? LocalizedError)?.errorDescription ?? fallback)
+      let message = (error as? LocalizedError)?.errorDescription ?? fallback
+      state = .failure(message)
+      showFailureResult(message: message, retryable: isRetryable(error))
     }
   }
 
@@ -104,64 +117,68 @@ final class ShareViewController: SLComposeServiceViewController {
     try Auth.auth().useUserAccessGroup("group.com.keyukt.foodfolio")
   }
 
-  private func configureNavigationItems() {
-    navigationItem.leftBarButtonItem = UIBarButtonItem(
-      title: "キャンセル",
-      style: .plain,
-      target: self,
-      action: #selector(closeExtension))
-    navigationItem.rightBarButtonItem = UIBarButtonItem(
-      title: "作成",
-      style: .done,
-      target: self,
-      action: #selector(createRecipe))
-  }
-
   private func updateUI() {
     switch state {
     case .loading:
       textView.text = "共有するURLを確認しています…"
-      navigationItem.leftBarButtonItem?.isEnabled = true
-      setCreateButton(title: "作成", isEnabled: false)
     case .ready(let url):
       textView.text = url.absoluteString
-      navigationItem.leftBarButtonItem?.isEnabled = true
-      setCreateButton(title: "作成", isEnabled: true)
     case .submitting:
       textView.text = "レシピを作成しています…"
-      navigationItem.leftBarButtonItem?.isEnabled = false
-      setCreateButton(title: "作成中…", isEnabled: false)
     case .success:
-      textView.text = "Foodfolioにレシピを追加しました。"
-      navigationItem.leftBarButtonItem = nil
-      navigationItem.rightBarButtonItem = UIBarButtonItem(
-        title: "閉じる",
-        style: .done,
-        target: self,
-        action: #selector(closeExtension))
+      textView.text = "Foodfolioへの追加を受け付けました。"
     case .failure(let message):
       textView.text = message
-      navigationItem.leftBarButtonItem?.isEnabled = true
-      if creationGate.sharedURL == nil {
-        navigationItem.rightBarButtonItem = nil
-      } else {
-        setCreateButton(title: "再試行", isEnabled: true)
-      }
     }
   }
 
-  private func setCreateButton(title: String, isEnabled: Bool) {
-    let button = UIBarButtonItem(
-      title: title,
-      style: .done,
-      target: self,
-      action: #selector(createRecipe))
-    button.isEnabled = isEnabled
-    navigationItem.rightBarButtonItem = button
+  private func presentSubmittingAlert() {
+    let alert = UIAlertController(
+      title: "送信中",
+      message: "FoodfolioのBackendへ送信しています…",
+      preferredStyle: .alert)
+    submissionAlert = alert
+    present(alert, animated: true)
   }
 
-  @objc private func closeExtension() {
-    extensionContext?.completeRequest(returningItems: nil)
+  private func showSuccessResult() {
+    guard let alert = submissionAlert else { return }
+    alert.title = "送信完了"
+    alert.message = "Foodfolioへの追加を受け付けました。"
+    alert.addAction(
+      UIAlertAction(title: "閉じる", style: .default) { [weak self] _ in
+        self?.extensionContext?.completeRequest(returningItems: nil)
+      })
+  }
+
+  private func showFailureResult(message: String, retryable: Bool) {
+    guard let alert = submissionAlert else { return }
+    alert.title = "追加できませんでした"
+    alert.message = message
+    if retryable {
+      alert.addAction(
+        UIAlertAction(title: "再試行", style: .default) { [weak self] _ in
+          self?.submissionAlert?.dismiss(animated: true) { [weak self] in
+            self?.submissionAlert = nil
+            self?.presentSubmittingAlert()
+            self?.createRecipe()
+          }
+        })
+    }
+    alert.addAction(
+      UIAlertAction(title: "閉じる", style: .cancel) { [weak self] _ in
+        self?.extensionContext?.completeRequest(returningItems: nil)
+      })
+  }
+
+  private func isRetryable(_ error: Error) -> Bool {
+    if let failure = error as? SharedRecipeSubmissionFailure {
+      return failure.isRetryable
+    }
+    if error is ShareExtensionError {
+      return false
+    }
+    return true
   }
 }
 
@@ -169,7 +186,6 @@ enum ShareExtensionError: LocalizedError {
   case urlNotFound
   case loginRequired
   case configurationMissing
-  case invalidResponse
 
   var errorDescription: String? {
     switch self {
@@ -179,8 +195,6 @@ enum ShareExtensionError: LocalizedError {
       "Foodfolioアプリでログインしてください。"
     case .configurationMissing:
       "Foodfolioの共有機能を初期化できませんでした。"
-    case .invalidResponse:
-      "レシピの追加に失敗しました。"
     }
   }
 }
@@ -232,30 +246,6 @@ enum SharedURLExtractor {
           continuation.resume(returning: item as? String)
         }
       }
-    }
-  }
-}
-
-enum SharedRecipeAPI {
-  private struct RequestBody: Encodable { let url: String }
-
-  static func add(url: URL, token: String) async throws {
-    guard let baseURLString = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String,
-      let baseURL = URL(string: baseURLString),
-      let endpoint = URL(string: "/v1/recipes", relativeTo: baseURL)
-    else {
-      throw ShareExtensionError.invalidResponse
-    }
-    var request = URLRequest(url: endpoint)
-    request.httpMethod = "POST"
-    request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-    request.httpBody = try JSONEncoder().encode(RequestBody(url: url.absoluteString))
-    let (_, response) = try await URLSession.shared.data(for: request)
-    guard let httpResponse = response as? HTTPURLResponse,
-      (200..<300).contains(httpResponse.statusCode)
-    else {
-      throw ShareExtensionError.invalidResponse
     }
   }
 }

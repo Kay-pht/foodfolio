@@ -30,6 +30,7 @@
 		56D72CA4CDC8CC33F230B019 /* RecipeDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F887C254F5EECBEBA303261E /* RecipeDetailView.swift */; };
 		5E48C972753FEC11B4EB76AC /* RecipeSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60BC2D1E912334476503B5C6 /* RecipeSearchView.swift */; };
 		5E711F8F05A148290D133357 /* RecipeEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14DAEA41833367104FF7D07F /* RecipeEditView.swift */; };
+		60688C18F69380F6B0C4BBED /* SharedRecipeSubmission.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72160A1CF97322CF327D7038 /* SharedRecipeSubmission.swift */; };
 		628669D150E5EECDBBF1968A /* SharedURLParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6728F424121FB7A2A4184BD0 /* SharedURLParser.swift */; };
 		63559B602E8DB2A378A55CC8 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 63CD05CEABDE5165FA8021FA /* GoogleService-Info.plist */; };
 		6D86554E3483C8CFE203ABB5 /* RecipeSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16416C01D36C6837DD180225 /* RecipeSyncService.swift */; };
@@ -50,10 +51,12 @@
 		AFBC2450A9901304BCEF0FF3 /* FoodfolioApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8CC27A1E7A83EDF3D5DCA5D /* FoodfolioApp.swift */; };
 		BDB7217D02DBAF13750F39EC /* AddRecipeClipboardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DB494F130BE396550C119E /* AddRecipeClipboardTests.swift */; };
 		C065F2D8B65FAC97BB9D5366 /* SharedURLParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91341891D7B2DCB74DB48E96 /* SharedURLParserTests.swift */; };
+		C34BB038268B8AF33C61782C /* SharedRecipeSubmission.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72160A1CF97322CF327D7038 /* SharedRecipeSubmission.swift */; };
 		CB538FEC036B38FE5EDD8BCE /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 817BBC9D2C78EFB8A37E2906 /* ShareViewController.swift */; };
 		CD213DE5CE8957F5EAC78576 /* FoodfolioShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 816E5E19C049E744E52F7E12 /* FoodfolioShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		D5EEEAA3CA86F0AA3824CC98 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D3965347199E92FB3A7B3DC /* HomeView.swift */; };
 		DCE688A31D77A27FC23E2599 /* SharedURLParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6728F424121FB7A2A4184BD0 /* SharedURLParser.swift */; };
+		DCED1629C270BA3D86F00C49 /* SharedRecipeSubmissionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E6E95CB6DAE2CD14850F9B9 /* SharedRecipeSubmissionTests.swift */; };
 		DDC062F93A445AC294F9A984 /* MajorFlowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44051BF0E339B00667317CE8 /* MajorFlowUITests.swift */; };
 		E309C40D30ED28AB2FFB9013 /* AddRecipeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECFCFC4094A6F7C43D207BD9 /* AddRecipeViewModel.swift */; };
 		F25394EB806BCE22853BCAE9 /* SyncMetadataTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBF3526581A7044E633DDAEA /* SyncMetadataTests.swift */; };
@@ -127,6 +130,7 @@
 		6728F424121FB7A2A4184BD0 /* SharedURLParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedURLParser.swift; sourceTree = "<group>"; };
 		6CFD56D317E356B19C633C6C /* ModelContainerFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelContainerFactory.swift; sourceTree = "<group>"; };
 		714D8FFF176E44C7BE411F8D /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		72160A1CF97322CF327D7038 /* SharedRecipeSubmission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedRecipeSubmission.swift; sourceTree = "<group>"; };
 		76447FF5A3BCD1B25A07391B /* MVPBoundaryUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MVPBoundaryUITests.swift; sourceTree = "<group>"; };
 		7650A5DE07E3569A2715BE56 /* NotificationActivationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationActivationTests.swift; sourceTree = "<group>"; };
 		77E206B9A670C493E5148F90 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
@@ -143,6 +147,7 @@
 		94DB494F130BE396550C119E /* AddRecipeClipboardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddRecipeClipboardTests.swift; sourceTree = "<group>"; };
 		97E393135C6D202AAC694AE1 /* FoodfolioRelease.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FoodfolioRelease.entitlements; sourceTree = "<group>"; };
 		9CCB34B2AEF6DCBDACF84C60 /* PersistenceIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceIntegrationTests.swift; sourceTree = "<group>"; };
+		9E6E95CB6DAE2CD14850F9B9 /* SharedRecipeSubmissionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedRecipeSubmissionTests.swift; sourceTree = "<group>"; };
 		AA1F87C3FD70DC1781AD9FBD /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		B6B24ECE24D1D8A45D134687 /* FoodfolioUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FoodfolioUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		BBF3526581A7044E633DDAEA /* SyncMetadataTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncMetadataTests.swift; sourceTree = "<group>"; };
@@ -313,6 +318,7 @@
 				FB7164CA62061513D5F3DFF7 /* CoreLogicTests.swift */,
 				7650A5DE07E3569A2715BE56 /* NotificationActivationTests.swift */,
 				948B7C14B5DD321F65FDBE07 /* RecipeImageLoaderTests.swift */,
+				9E6E95CB6DAE2CD14850F9B9 /* SharedRecipeSubmissionTests.swift */,
 				91341891D7B2DCB74DB48E96 /* SharedURLParserTests.swift */,
 			);
 			path = FoodfolioTests;
@@ -416,6 +422,7 @@
 		D2A71F241045B3F3B1EAF68B /* Sharing */ = {
 			isa = PBXGroup;
 			children = (
+				72160A1CF97322CF327D7038 /* SharedRecipeSubmission.swift */,
 				6728F424121FB7A2A4184BD0 /* SharedURLParser.swift */,
 			);
 			path = Sharing;
@@ -668,6 +675,7 @@
 				6D86554E3483C8CFE203ABB5 /* RecipeSyncService.swift in Sources */,
 				430B804610B32089D4A42990 /* SearchHistoryStore.swift in Sources */,
 				9CE85E02B1B8ACDEF70E053D /* SettingsView.swift in Sources */,
+				60688C18F69380F6B0C4BBED /* SharedRecipeSubmission.swift in Sources */,
 				628669D150E5EECDBBF1968A /* SharedURLParser.swift in Sources */,
 				F53B2150F1EE7921A3F2AE3F /* UITestURLProtocol.swift in Sources */,
 			);
@@ -700,6 +708,7 @@
 				43CC20594DBBC6F5E1B7575E /* CoreLogicTests.swift in Sources */,
 				4F03F3DE45321B4815E73986 /* NotificationActivationTests.swift in Sources */,
 				0746E21D7B94E1A392C05FFA /* RecipeImageLoaderTests.swift in Sources */,
+				DCED1629C270BA3D86F00C49 /* SharedRecipeSubmissionTests.swift in Sources */,
 				C065F2D8B65FAC97BB9D5366 /* SharedURLParserTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -709,6 +718,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				CB538FEC036B38FE5EDD8BCE /* ShareViewController.swift in Sources */,
+				C34BB038268B8AF33C61782C /* SharedRecipeSubmission.swift in Sources */,
 				DCE688A31D77A27FC23E2599 /* SharedURLParser.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
