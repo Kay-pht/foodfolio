@@ -68,11 +68,11 @@ describe("backend environment drivers", () => {
   });
 });
 
-describe("TikTok video fallback environment", () => {
+describe("TikTok media analysis environment", () => {
   it("is disabled by default and uses five total download attempts", () => {
     const config = loadConfig("worker", workerEnvironment);
 
-    expect(config.tiktokVideoFallbackEnabled).toBe(false);
+    expect(config.tiktokMediaAnalysisEnabled).toBe(false);
     expect(config.tiktokVideoMaxAttempts).toBe(5);
     expect(config.tiktokVideoBucket).toBe("");
   });
@@ -81,21 +81,21 @@ describe("TikTok video fallback environment", () => {
     expect(() =>
       loadConfig("worker", {
         ...workerEnvironment,
-        TIKTOK_VIDEO_FALLBACK_ENABLED: "true",
+        TIKTOK_MEDIA_ANALYSIS_ENABLED: "true",
       }),
     ).toThrow(
-      "TIKTOK_VIDEO_BUCKET is required when TikTok video fallback is enabled",
+      "TIKTOK_VIDEO_BUCKET is required when TikTok media analysis is enabled",
     );
   });
 
   it("accepts an enabled configuration with an explicit bucket", () => {
     const config = loadConfig("worker", {
       ...workerEnvironment,
-      TIKTOK_VIDEO_FALLBACK_ENABLED: "true",
+      TIKTOK_MEDIA_ANALYSIS_ENABLED: "true",
       TIKTOK_VIDEO_BUCKET: "foodfolio-dev-tiktok-video-fallback",
     });
 
-    expect(config.tiktokVideoFallbackEnabled).toBe(true);
+    expect(config.tiktokMediaAnalysisEnabled).toBe(true);
     expect(config.tiktokVideoBucket).toBe(
       "foodfolio-dev-tiktok-video-fallback",
     );

@@ -1,5 +1,9 @@
 import * as cheerio from "cheerio";
-import { sourceTypeForUrl, youtubeVideoId } from "../../domain/recipe/url.js";
+import {
+  sourceTypeForUrl,
+  tiktokPostRef,
+  youtubeVideoId,
+} from "../../domain/recipe/url.js";
 import {
   AnalysisError,
   type RepresentativeImageResolver,
@@ -15,7 +19,6 @@ const normalize = (value: unknown): string | null =>
   typeof value === "string" && value.replace(/\s+/g, " ").trim()
     ? value.replace(/\s+/g, " ").trim()
     : null;
-
 function jsonLdRecipes(html: string): unknown[] {
   const $ = cheerio.load(html);
   const recipes: unknown[] = [];
@@ -135,6 +138,8 @@ export class ProductionSourceContentExtractor
   }
 
   private async extractTikTok(url: URL): Promise<SourceContent> {
+    const post = tiktokPostRef(url);
+    if (post?.kind === "photo") return this.extractTikTokPhoto(post);
     const endpoint = new URL("https://www.tiktok.com/oembed");
     endpoint.searchParams.set("url", url.toString());
     const response = await this.http.get(endpoint);
@@ -164,6 +169,55 @@ export class ProductionSourceContentExtractor
         ? new URL(thumbnailUrl, response.finalUrl).toString()
         : null,
       textForAi: title ? `TITLE\n${title}`.slice(0, MAX_AI_CHARS) : null,
+      ...(post ? { tiktokMediaKind: "video" as const } : {}),
+    };
+  }
+
+  private async extractTikTokPhoto(post: {
+    author: string;
+    postId: string;
+  }): Promise<SourceContent> {
+    const endpoint = new URL("https://www.tiktok.com/player/api/v1/items");
+    endpoint.searchParams.set("item_ids", post.postId);
+    const response = await this.http.get(endpoint);
+    let value: unknown;
+    try {
+      value = JSON.parse(response.body);
+    } catch {
+      throw new AnalysisError(
+        "SOURCE_CONTENT_UNAVAILABLE",
+        false,
+        "TikTok photo metadata response is invalid",
+      );
+    }
+    const root = asRecord(value);
+    const items = Array.isArray(root?.items) ? root.items : [];
+    const item = items
+      .map(asRecord)
+      .find((entry) => entry?.id_str === post.postId);
+    const photoInfo = asRecord(item?.image_post_info);
+    const images = Array.isArray(photoInfo?.images) ? photoInfo.images : [];
+    const imageUrls = images
+      .slice(0, 10)
+      .map(asRecord)
+      .map((image) => firstPublicImageUrl(asRecord(image?.display_image)))
+      .filter((imageUrl): imageUrl is string => imageUrl !== null);
+    if (!imageUrls.length)
+      throw new AnalysisError(
+        "SOURCE_CONTENT_UNAVAILABLE",
+        false,
+        "TikTok photo images are unavailable",
+      );
+    const description = normalize(item?.desc);
+    return {
+      sourceType: "tiktok",
+      resolvedUrl: `https://www.tiktok.com/${post.author}/photo/${post.postId}`,
+      imageUrl: imageUrls[0]!,
+      textForAi: description
+        ? `DESCRIPTION\n${description}`.slice(0, MAX_AI_CHARS)
+        : null,
+      tiktokMediaKind: "photo",
+      tiktokPhotoImageUrls: imageUrls,
     };
   }
 
@@ -241,4 +295,27 @@ export class ProductionSourceContentExtractor
       youtubeDescription: snippet.description ?? "",
     };
   }
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function firstPublicImageUrl(
+  record: Record<string, unknown> | null,
+): string | null {
+  const values = Array.isArray(record?.url_list) ? record.url_list : [];
+  for (const value of values) {
+    const normalized = normalize(value);
+    if (!normalized) continue;
+    try {
+      const parsed = new URL(normalized);
+      if (parsed.protocol === "https:") return parsed.toString();
+    } catch {
+      // Ignore invalid provider media URLs.
+    }
+  }
+  return null;
 }

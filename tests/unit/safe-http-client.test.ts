@@ -47,4 +47,28 @@ describe("SafeHttpClient hostname validation", () => {
     expect(requestMock).toHaveBeenCalledTimes(1);
     expect(dump).toHaveBeenCalledTimes(1);
   });
+
+  it("returns bounded binary content for media retrieval", async () => {
+    const body = Buffer.from([0, 1, 2, 255]);
+    requestMock.mockResolvedValueOnce({
+      statusCode: 200,
+      headers: {
+        "content-type": "image/jpeg",
+        "content-length": String(body.length),
+      },
+      body: {
+        async *[Symbol.asyncIterator]() {
+          yield body;
+        },
+      },
+    });
+    const client = new SafeHttpClient();
+
+    await expect(
+      client.getBuffer(new URL("https://images.example/photo.jpg"), 4),
+    ).resolves.toMatchObject({
+      contentType: "image/jpeg",
+      body,
+    });
+  });
 });

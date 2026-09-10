@@ -215,7 +215,7 @@ resource "google_cloud_run_v2_service" "worker" {
         value = "glm-5.3-flash"
       }
       env {
-        name  = "TIKTOK_VIDEO_FALLBACK_ENABLED"
+        name  = "TIKTOK_MEDIA_ANALYSIS_ENABLED"
         value = "true"
       }
       env {
