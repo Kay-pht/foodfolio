@@ -75,6 +75,7 @@ targets:
     sources:
       - path: FoodfolioShareExtension
       - path: Foodfolio/Core/Sharing/SharedURLParser.swift
+      - path: Foodfolio/Core/Sharing/SharedRecipeSubmission.swift
     info:
       path: FoodfolioShareExtension/Info.plist
       properties:
@@ -82,6 +83,7 @@ targets:
         CFBundleDisplayName: Foodfolio
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UIUserInterfaceStyle: Light
         NSExtension:
           NSExtensionAttributes:
             NSExtensionActivationRule:

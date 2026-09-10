@@ -28,9 +28,28 @@ requirements:
       - tests/unit/share-extension-proof.test.mjs
   - id: ISPV-4
     condition: Recipe creation fails after a valid URL was prepared.
-    expected: The failure message is shown, confirmation is reset, content is revalidated, and the system Post button can be used to retry.
+    expected: The failure reason is shown in a result dialog, confirmation is reset, and transient transport or server failures can be retried from that dialog.
     verification:
       - ios/FoodfolioShareExtension/ShareViewController.swift
+      - tests/unit/share-extension-proof.test.mjs
+  - id: ISPV-5
+    condition: The recipe API accepts the submitted URL with an HTTP 2xx response.
+    expected: The Share Extension shows that Foodfolio accepted the addition and closes only after the user acknowledges the result, without waiting for recipe analysis.
+    verification:
+      - ios/FoodfolioShareExtension/ShareViewController.swift
+      - ios/FoodfolioTests/SharedRecipeSubmissionTests.swift
+  - id: ISPV-6
+    condition: The recipe API rejects or cannot receive the submitted URL.
+    expected: The Share Extension remains open and distinguishes duplicate URL, analysis admission limit, authentication, invalid request, transport, and other server failures with actionable Japanese messages.
+    verification:
+      - ios/Foodfolio/Core/Sharing/SharedRecipeSubmission.swift
+      - ios/FoodfolioShareExtension/ShareViewController.swift
+      - ios/FoodfolioTests/SharedRecipeSubmissionTests.swift
+  - id: ISPV-7
+    condition: The Share Extension is presented while the device uses Dark appearance.
+    expected: The extension content uses Light appearance consistently with the Foodfolio application.
+    verification:
+      - ios/project.yml
       - tests/unit/share-extension-proof.test.mjs
 
 edge_cases:
@@ -38,16 +57,20 @@ edge_cases:
   - The shared item contains no HTTP or HTTPS URL.
   - The user taps Post while a submission is already in progress.
   - Firebase authentication or the recipe API fails after a URL has already been prepared.
+  - The backend rejects a normalized duplicate even if the URL text differs by tracking parameters.
+  - The backend accepts recipe creation while asynchronous recipe analysis is still pending.
 
 security_invariants:
   - A recipe must not be submitted before the user explicitly selects the system Post action.
   - Existing Firebase Auth, App Group, bearer token, and HTTPS API behavior must remain unchanged.
+  - Backend duplicate detection remains authoritative; a stale device cache must not decide submission success.
   - The fix must not broaden the Share Extension activation rule or accepted URL schemes.
 
 compatibility:
   - The Share Extension remains based on SLComposeServiceViewController.
   - The existing recipe API endpoint and backend analysis flow remain unchanged.
   - Existing URL extraction and duplicate-submission gate behavior remain unchanged.
+  - Submission success means an HTTP 2xx response from the recipe API, not successful recipe analysis.
 
 non_functional:
   - Prefer the smallest change that follows the system compose-controller lifecycle instead of replacing the extension UI.
@@ -56,12 +79,16 @@ non_functional:
 out_of_scope:
   - Diagnosing or fixing the separate real-device blank or black Share Extension screen.
   - Changing backend recipe analysis, task queue behavior, or duplicate recipe handling.
+  - Waiting for recipe analysis to complete before reporting submission success.
   - Replacing SLComposeServiceViewController with a custom UIViewController-based Share Extension.
 
 acceptance_criteria:
   - Every Share Extension state transition refreshes both visible state and SLComposeServiceViewController content validation.
   - A ready URL enables the system Post action; loading and submitting states do not.
-  - A recoverable submission failure permits retry through the same system Post action.
+  - A transient transport or server failure permits retry through the result dialog without reopening the Share Extension.
+  - A successful API response is visibly acknowledged before the user closes the extension.
+  - Duplicate, limit, authentication, invalid-request, transport, and server failures show distinct messages where the API provides the distinction.
+  - The Share Extension declares Light appearance.
   - Custom navigation-item management for Post and Cancel is removed.
   - The regression proof test passes and repository iOS lint/format checks pass.
 
@@ -69,3 +96,4 @@ regression:
   required: true
   tests:
     - tests/unit/share-extension-proof.test.mjs
+    - ios/FoodfolioTests/SharedRecipeSubmissionTests.swift
