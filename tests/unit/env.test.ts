@@ -88,7 +88,7 @@ describe("TikTok media analysis environment", () => {
     );
   });
 
-  it("accepts an enabled configuration with an explicit bucket", () => {
+  it("accepts an enabled worker configuration with an explicit bucket", () => {
     const config = loadConfig("worker", {
       ...workerEnvironment,
       TIKTOK_MEDIA_ANALYSIS_ENABLED: "true",
@@ -99,6 +99,16 @@ describe("TikTok media analysis environment", () => {
     expect(config.tiktokVideoBucket).toBe(
       "foodfolio-dev-tiktok-video-fallback",
     );
+  });
+
+  it("allows API photo metadata resolution without a media bucket", () => {
+    const config = loadConfig("api", {
+      ...cloudApiEnvironment,
+      TIKTOK_MEDIA_ANALYSIS_ENABLED: "true",
+    });
+
+    expect(config.tiktokMediaAnalysisEnabled).toBe(true);
+    expect(config.tiktokVideoBucket).toBe("");
   });
 
   it("does not allow Cloud Tasks deliveries to raise the five-attempt cap", () => {

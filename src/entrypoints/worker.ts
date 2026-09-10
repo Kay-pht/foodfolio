@@ -34,7 +34,6 @@ const routedRecipeExtractor = new YoutubeAwareRecipeExtractor(
 const tiktokMediaStore = config.tiktokMediaAnalysisEnabled
   ? new GcsTemporaryMediaStore({
       bucketName: config.tiktokVideoBucket,
-      signedUrlLifetimeMs: 30 * 60 * 1000,
       publishFailure: {
         code: "TIKTOK_PHOTO_PUBLISH_FAILED",
         retryable: true,
@@ -90,6 +89,8 @@ const service = new RecipeAnalysisService({
   sourceExtractor: new ProductionSourceContentExtractor(
     new SafeHttpClient(),
     config.youtubeApiKey,
+    fetch,
+    config.tiktokMediaAnalysisEnabled,
   ),
   recipeExtractor: routedRecipeExtractor,
   ...(tiktokVideoFallback ? { tiktokVideoFallback } : {}),
