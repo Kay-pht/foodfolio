@@ -66,7 +66,7 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 
 ## 既存TestFlight配布履歴
 
-- 最新の内部配布はversion `1.0`、build `9`、iPhone、iOS `26.0` 以上。接続先は既存のFoodfolio dev API。
+- 次回内部配布はversion `1.0`、build `10`、iPhone、iOS `26.0` 以上。接続先は既存のFoodfolio dev API。
 - build 2 (`bc3cca8b-6824-4ffc-bac0-708c6862325c`): Archive / export / Apple validation / upload成功。
 - build 3 (`cb9cbeec-da15-4e08-b2a1-79b1a86ef79e`): 当時の判断に基づくAI送信同意を含むbuild。Archive / export / Apple validation / upload成功。
 - build 5 (`aaf7a5b6-645c-4cc1-aa39-c9c5f9cffef5`): Share ExtensionとApp Group対応、および当時のAI同意実装を含む。Apple processing `VALID`、内部 `IN_BETA_TESTING`、外部 `READY_FOR_BETA_SUBMISSION` を確認済み。
@@ -126,9 +126,9 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 
 Foodfolioは、公開されているレシピのURLを保存し、材料や作り方を整理して、自分のレシピ帳として検索・編集できるアプリです。Webページや対応する動画の内容をAIで解析し、完了時にPush通知でお知らせします。解析結果は必ず元のレシピと照らし合わせて確認してください。初期テスト版のため、データや機能が変更される場合があります。
 
-### What to Test（build 9）
+### What to Test（build 10）
 
-build 9では、端末内の保存画像と保存済み画像URLの両方から画像を復旧できない場合に、Backendが初回解析と同じ媒体別の処理で代表画像を再取得するようにしました。画像が欠損した既存レシピで、YouTube・TikTok・Instagram・Webページの代表画像が復旧し、一覧と詳細で中央拡大・トリミング表示されることをご確認ください。あわせて、起動・ログイン、URLからのレシピ作成、検索・同期、Push通知、Share Extensionをご確認ください。
+build 10では、Share Extensionで共有URLの取得完了後に標準のPostが有効になり、送信結果を確認してから閉じられるようにしました。成功、重複、受付上限、認証、不正URL、通信・サーバー失敗が適切に表示され、一時的な失敗では再試行できることをご確認ください。また、TikTokの写真投稿から画像とキャプションを使ってレシピを解析できるようにしました。あわせて、起動・ログイン、URLからのレシピ作成、検索・同期、Push通知をご確認ください。
 
 ### Review Notes
 

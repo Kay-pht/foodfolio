@@ -3,6 +3,16 @@
 `tasks/unreleased.md` で指定した必要な反映先がすべて反映済みになった項目を、日付とversion情報を保ったまま記録する。
 日付は日本時間（JST）の `YYYY-MM-DD`、iOSは `version (build)`、Cloud RunはGit SHAとservice revisionを記載する。
 
+## 2026-09-11
+
+- [x] `REL-20260911-01` TikTok写真投稿を画像優先で解析する
+  - 内容: TikTokの写真投稿URLを正式な対応URLとして扱い、Embed Playerの画像一覧とキャプションを取得して、投稿順を維持した画像優先のAI解析へ渡す。取得先URLは既存のSSRF防御を通し、解析後の一時オブジェクトを削除する。
+  - PR: [#89](https://github.com/Kay-pht/foodfolio/pull/89)
+  - main反映: `b160924cc5c4f4477112b3836dadbd0bec959c08`
+  - 必要な反映先:
+    - [x] Cloud Run（現在利用中のdev） — 反映日: `2026-09-11`、version: `b160924cc5c4f4477112b3836dadbd0bec959c08`、API `foodfolio-dev-api-00031-mxm` / Worker `foodfolio-dev-worker-00034-v8p`、traffic 100%
+  - 備考: API / Workerの両方で `TIKTOK_MEDIA_ANALYSIS_ENABLED=true`、旧 `TIKTOK_VIDEO_FALLBACK_ENABLED` 未設定、API `/health` 成功を確認済み。
+
 ## 2026-09-09
 
 - [x] `REL-20260909-03` 画像再取得で初回解析と同じ代表画像解決を使用する
