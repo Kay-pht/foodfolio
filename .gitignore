@@ -22,3 +22,4 @@ ios/TestResults/
 ios/.derived-data*/
 xcuserdata/
 src/generated/prisma/
+mail-list.md
