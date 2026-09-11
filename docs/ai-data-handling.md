@@ -1,6 +1,6 @@
 # AI解析におけるデータ送信方針
 
-最終更新日: 2026-09-06
+最終更新日: 2026-09-10
 
 ## 1. 結論
 
@@ -35,6 +35,7 @@ BackendはRecipeの所有者として `recipe.userId` を保持するが、こ�
 - 元ページから抽出したタイトル、説明、Recipe JSON-LDまたはページ本文
 - YouTubeの場合は公開メタデータから構成した解析用テキスト
 - TikTok動画fallbackでは解析対象動画の一時signed URLと公開メタデータ
+- TikTok写真では投稿文・ハッシュタグと、先頭10枚のうち取得できた画像の一時signed URL。コメント、投稿者プロフィール、楽曲情報は含めない
 
 実装根拠:
 
@@ -42,6 +43,7 @@ BackendはRecipeの所有者として `recipe.userId` を保持するが、こ�
 - `src/infrastructure/url/source-content-extractor.ts`
 - `src/infrastructure/ai/zai-recipe-extractor.ts`
 - `src/infrastructure/tiktok/tiktok-video-recipe-fallback.ts`
+- `src/infrastructure/tiktok/tiktok-photo-recipe-analysis.ts`
 
 ### Google Gemini
 
@@ -56,9 +58,9 @@ YouTube説明欄だけで材料・工程を確認できない場合、主に以�
 
 - `src/infrastructure/ai/gemini-youtube-recipe-extractor.ts`
 
-### TikTok動画の一時保存
+### TikTokメディアの一時保存
 
-TikTok動画fallbackでは、動画を非公開のGoogle Cloud Storageへ一時配置し、ランダムUUIDを使ったobject名のsigned URLをZ.aiへ渡す。
+TikTok動画fallbackと写真解析では、動画または画像を非公開のGoogle Cloud Storageへ一時配置し、ランダムUUIDを使ったobject名のsigned URLをZ.aiへ渡す。写真は先頭10枚を上限とし、一部が取得できなくても成功分が1枚以上あれば解析を続ける。
 
 - object名にFoodfolioのUser IDやRecipe IDを埋め込まない
 - signed URLの有効期間は10分
@@ -68,6 +70,8 @@ TikTok動画fallbackでは、動画を非公開のGoogle Cloud Storageへ一時�
 実装根拠:
 
 - `src/infrastructure/tiktok/gcs-temporary-video-store.ts`
+- `src/infrastructure/media/gcs-temporary-media-store.ts`
+- `src/infrastructure/tiktok/tiktok-photo-recipe-analysis.ts`
 
 ## 4. アカウント情報とAI入力の分離
 
@@ -87,6 +91,8 @@ SourceContent
   - textForAi
   - youtubeTitle
   - youtubeDescription
+  - tiktokMediaKind
+  - tiktokPhotoImageUrls
         ↓
 Z.ai / Gemini Adapter
 ```

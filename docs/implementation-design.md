@@ -1159,20 +1159,25 @@ Gemini出力は、説明欄材料一覧由来と手順・動画だけに登場�
 
 説明欄と動画内の命令は信頼しない。API key、Authorization header、説明欄全文、生のGemini responseを通常ログへ出さない。Gemini呼び出しは1レシピにつき1回に固定し、timeout、HTTP 429、HTTP 5xxを含む失敗でも再試行しない。これらは`retryable=false`の解析失敗として記録し、Workerは成功応答を返してCloud Tasksの再配送を終了する。1解析内でGeminiを複数回呼ぶ照合処理や、Z.aiとGeminiを往復する処理も追加しない。
 
-### 14.2 TikTok動画フォールバック
+### 14.2 TikTokメディア解析
 
 処理順は以下に固定する。
 
 ```text
-TikTok oEmbed title
-↓
-GLM-5.3-Flashでテキスト解析
-├─ ingredients 1件以上 かつ steps 1件以上 → 通常保存
-└─ ingredientsまたはstepsが0件
-   ├─ TIKTOK_VIDEO_FALLBACK_ENABLED=false → 解析失敗
-   └─ true → yt-dlpで動画取得 → 署名URL → GLM-5.3-Flash動画解析
-              ├─ ingredients 1件以上 かつ steps 1件以上 → 保存
-              └─ いずれか0件 → 解析失敗
+TikTok URL
+├─ /video/
+│  └─ oEmbed title → GLM-5.3-Flashでテキスト解析
+│     ├─ ingredients 1件以上 かつ steps 1件以上 → 通常保存
+│     └─ ingredientsまたはstepsが0件
+│        ├─ TIKTOK_MEDIA_ANALYSIS_ENABLED=false → 解析失敗
+│        └─ true → yt-dlpで動画取得 → 署名URL → GLM-5.3-Flash動画解析
+└─ /photo/
+   ├─ TIKTOK_MEDIA_ANALYSIS_ENABLED=false → 解析失敗
+   └─ true → TikTok Embed Player用の公開メタデータから投稿文と画像URLを取得
+              → 先頭10枚を順番に取得・一時公開
+              → 投稿文＋取得成功画像をGLM-5.3-Flashへ1回入力
+                 ├─ 1枚以上取得成功、ingredients・steps非空 → 保存
+                 └─ 全画像取得失敗、またはingredients・steps不足 → 解析失敗
 ```
 
 - `yt-dlp`は`2026.08.19`へ固定し、実行ファイルのSHA-256をDocker build時に検証する
@@ -1183,6 +1188,12 @@ GLM-5.3-Flashでテキスト解析
 - AI処理終了後はGCS objectとWorker一時ファイルを削除し、異常終了時もbucket lifecycleで1日後に削除する。動画を保持し続けないよう、この専用bucketのsoft deleteは無効化する
 - 動画、署名URL、yt-dlpの生出力は通常ログへ記録しない
 - テストは自作または利用許可済み動画を使用する
+- 写真投稿はoEmbedを通さず、`/photo/<postId>`を主経路として処理する。投稿文にレシピ情報が十分でも画像解析を省略しない
+- 写真投稿は元の順序の先頭10枚だけを試行し、一部の取得または一時公開に失敗しても、1枚以上成功すれば成功分を連番へ詰めて解析を続ける
+- Z.aiには投稿文・ハッシュタグと取得成功画像だけを渡す。画像を主根拠、投稿文を補助情報とし、コメント、投稿者プロフィール、楽曲情報は渡さない
+- 写真の代表画像は一時署名URLではなく、先頭の取得元画像URLとする。`image/resolve`でも同じ公開メタデータから先頭画像を再解決する
+- 写真も動画もcanonical URLを`https://www.tiktok.com/@<author>/<photo|video>/<postId>`とし、共有・tracking queryを除去する
+- 写真の一時画像は動画と同じ非公開GCS bucketを使用し、処理後に削除する
 
 ### 14.3 SourceContent
 
@@ -1195,6 +1206,8 @@ interface SourceContent {
   imageUrl: string | null;
   textForAi: string | null;
   youtubeDescription?: string | null;
+  tiktokMediaKind?: "photo" | "video";
+  tiktokPhotoImageUrls?: string[];
 }
 ```
 
@@ -2373,7 +2386,7 @@ GEMINI_API_KEY
 YOUTUBE_GEMINI_FALLBACK_ENABLED=false
 AI_MODEL=glm-5.3-flash
 MAX_ANALYSIS_ATTEMPTS=3
-TIKTOK_VIDEO_FALLBACK_ENABLED=true # dev。新規環境の既定値はfalse
+TIKTOK_MEDIA_ANALYSIS_ENABLED=true # dev。新規環境の既定値はfalse
 TIKTOK_VIDEO_BUCKET
 TIKTOK_VIDEO_MAX_ATTEMPTS=5
 YT_DLP_PATH=/usr/local/bin/yt-dlp
@@ -2383,7 +2396,7 @@ YT_DLP_PATH=/usr/local/bin/yt-dlp
 
 `ZAI_API_KEY` / `YOUTUBE_API_KEY` / `GEMINI_API_KEY` / DB接続情報はSecret ManagerからCloud Runへ渡す。`YOUTUBE_GEMINI_FALLBACK_ENABLED`は既定で`false`とし、`true`でも実際にGeminiが必要になるまでAPI keyは使用しない。fallbackが必要な時点でkeyが未設定なら、識別可能な設定エラーとして解析を失敗させる。
 
-`TIKTOK_VIDEO_FALLBACK_ENABLED`は書面許可を確認した環境だけで`true`とする。dev環境は許可確認済みのため有効化する。`TIKTOK_VIDEO_BUCKET`は公開アクセス禁止の一時保存専用bucket名であり、動画本体や署名URLをDBへ保存しない。
+`TIKTOK_MEDIA_ANALYSIS_ENABLED`は書面許可を確認した環境だけで`true`とし、TikTok動画フォールバックと写真投稿の主経路をまとめて制御する。dev環境は許可確認済みのため有効化する。`TIKTOK_VIDEO_BUCKET`は名前を維持した公開アクセス禁止の一時保存専用bucketであり、動画・写真本体や署名URLをDBへ保存しない。
 
 Firebase Admin / Cloud Tasks等のGCP認証にはCloud Run Service AccountのApplication Default Credentialsを基本とし、Service Account JSON key fileを配布しない。
 

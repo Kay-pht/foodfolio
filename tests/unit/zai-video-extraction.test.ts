@@ -185,4 +185,50 @@ describe("ZaiRecipeExtractor media input", () => {
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it("sends TikTok caption with the available ordered images and makes images primary", async () => {
+    const fetchMock = vi.fn(async (_url: string | URL, init?: RequestInit) => {
+      const request = JSON.parse(String(init?.body)) as {
+        messages: Array<{ role: string; content: unknown }>;
+      };
+      const user = request.messages.find((message) => message.role === "user");
+      expect(user?.content).toEqual([
+        {
+          type: "image_url",
+          image_url: { url: "https://storage.example/1.jpg" },
+        },
+        expect.objectContaining({
+          type: "text",
+          text: expect.stringMatching(
+            /TikTok media items[\s\S]*visible media evidence as primary[\s\S]*DESCRIPTION\n肉巻きポテト #レシピ/i,
+          ),
+        }),
+      ]);
+      return successfulResponse("tiktok-photo-request");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const extractor = new ZaiRecipeExtractor("test-api-key");
+
+    await extractor.extractMedia(
+      {
+        sourceType: "tiktok",
+        resolvedUrl: "https://www.tiktok.com/@chef/photo/12345",
+        imageUrl: "https://images.example/1.jpg",
+        textForAi: "DESCRIPTION\n肉巻きポテト #レシピ",
+        tiktokMediaKind: "photo",
+        tiktokPhotoImageUrls: ["https://images.example/1.jpg"],
+      },
+      [
+        {
+          index: 1,
+          kind: "image",
+          url: "https://storage.example/1.jpg",
+          contentType: "image/jpeg",
+          dispose: async () => {},
+        },
+      ],
+    );
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
 });

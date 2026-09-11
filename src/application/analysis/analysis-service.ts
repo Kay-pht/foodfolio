@@ -10,6 +10,7 @@ import {
   type RecipeExtractor,
   type SourceContent,
   type SourceContentExtractor,
+  type TikTokPhotoRecipeAnalysis,
   type TikTokVideoRecipeFallback,
 } from "./types.js";
 
@@ -20,6 +21,7 @@ export interface AnalysisDependencies {
   sourceExtractor: SourceContentExtractor;
   recipeExtractor: RecipeExtractor;
   tiktokVideoFallback?: TikTokVideoRecipeFallback;
+  tiktokPhotoAnalysis?: TikTokPhotoRecipeAnalysis;
   instagramMediaFallback?: InstagramMediaRecipeFallback;
   instagramVideoFallback?: InstagramVideoRecipeFallback;
   notifications: NotificationSender;
@@ -185,9 +187,26 @@ export class RecipeAnalysisService {
   private async extractRecipe(
     source: SourceContent,
   ): Promise<{ result: RecipeExtractionResult; videoFallbackUsed: boolean }> {
+    if (source.sourceType === "tiktok" && source.tiktokMediaKind === "photo") {
+      if (!this.deps.tiktokPhotoAnalysis)
+        throw new AnalysisError(
+          "TIKTOK_MEDIA_ANALYSIS_DISABLED",
+          false,
+          "TikTok photo analysis is disabled",
+        );
+      const result = await this.deps.tiktokPhotoAnalysis.extract(source);
+      if (!hasRequiredRecipeContent(result))
+        throw new AnalysisError(
+          "SOURCE_CONTENT_UNAVAILABLE",
+          false,
+          "TikTok photos did not contain enough recipe information",
+        );
+      return { result, videoFallbackUsed: true };
+    }
+
     if (source.sourceType === "tiktok")
       return this.extractWithFallback(source, this.deps.tiktokVideoFallback, {
-        disabledCode: "TIKTOK_VIDEO_FALLBACK_DISABLED",
+        disabledCode: "TIKTOK_MEDIA_ANALYSIS_DISABLED",
         disabledMessage:
           "TikTok title did not contain enough recipe information and video fallback is disabled",
         incompleteMessage:

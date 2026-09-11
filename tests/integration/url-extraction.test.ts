@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { extractUrl } from "../../poc/url-extraction/extract.js";
 import { ProductionSourceContentExtractor } from "../../src/infrastructure/url/source-content-extractor.js";
 import type { SafeHttpClient } from "../../src/infrastructure/url/safe-http-client.js";
@@ -79,6 +79,81 @@ describe("extractUrl integration", () => {
       imageUrl: "https://images.example/tiktok.jpg",
       textForAi: "TITLE\n材料 豚肉 200g 作り方 焼く",
     });
+  });
+
+  it("does not contact TikTok photo metadata when media analysis is disabled", async () => {
+    const get = vi.fn();
+    const extractor = new ProductionSourceContentExtractor(
+      { get } as unknown as SafeHttpClient,
+      "unused",
+    );
+    const photoUrl = new URL("https://www.tiktok.com/@chef/photo/12345");
+
+    await expect(extractor.extract(photoUrl)).rejects.toMatchObject({
+      code: "TIKTOK_MEDIA_ANALYSIS_DISABLED",
+      retryable: false,
+    });
+    await expect(extractor.resolveImageUrl(photoUrl)).rejects.toMatchObject({
+      code: "TIKTOK_MEDIA_ANALYSIS_DISABLED",
+      retryable: false,
+    });
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it("routes TikTok photo posts to ordered public image metadata without oEmbed", async () => {
+    const imageUrls = Array.from(
+      { length: 12 },
+      (_, index) => `https://images.example/photo-${index + 1}.jpg`,
+    );
+    const http = {
+      async get(url: URL) {
+        expect(url.origin + url.pathname).toBe(
+          "https://www.tiktok.com/player/api/v1/items",
+        );
+        expect(url.searchParams.get("item_ids")).toBe("7526427403409689874");
+        return {
+          finalUrl: url.toString(),
+          statusCode: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            status_code: 0,
+            items: [
+              {
+                id_str: "7526427403409689874",
+                desc: "肉巻きポテト #レシピ #簡単",
+                image_post_info: {
+                  images: imageUrls.map((imageUrl) => ({
+                    display_image: { url_list: [imageUrl] },
+                  })),
+                },
+              },
+            ],
+          }),
+        };
+      },
+    } as SafeHttpClient;
+    const extractor = new ProductionSourceContentExtractor(
+      http,
+      "unused",
+      fetch,
+      true,
+    );
+
+    const photoUrl = new URL(
+      "https://www.tiktok.com/@ma___na_18/photo/7526427403409689874?_r=1&_t=share",
+    );
+    await expect(extractor.extract(photoUrl)).resolves.toEqual({
+      sourceType: "tiktok",
+      resolvedUrl:
+        "https://www.tiktok.com/@ma___na_18/photo/7526427403409689874",
+      imageUrl: imageUrls[0],
+      textForAi: "DESCRIPTION\n肉巻きポテト #レシピ #簡単",
+      tiktokMediaKind: "photo",
+      tiktokPhotoImageUrls: imageUrls.slice(0, 10),
+    });
+    await expect(extractor.resolveImageUrl(photoUrl)).resolves.toBe(
+      imageUrls[0],
+    );
   });
 
   it.each([

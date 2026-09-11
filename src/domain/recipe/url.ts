@@ -46,6 +46,29 @@ export function youtubeVideoId(url: URL): string | null {
     : null;
 }
 
+export interface TikTokPostRef {
+  author: string;
+  kind: "photo" | "video";
+  postId: string;
+}
+
+export function tiktokPostRef(url: URL): TikTokPostRef | null {
+  const host = url.hostname.toLowerCase().replace(/\.$/, "");
+  if (host !== "tiktok.com" && !host.endsWith(".tiktok.com")) return null;
+  const segments = url.pathname.split("/").filter(Boolean);
+  const author = segments[0];
+  const kind = segments[1];
+  const postId = segments[2];
+  if (
+    !author?.startsWith("@") ||
+    (kind !== "photo" && kind !== "video") ||
+    !postId ||
+    !/^\d{5,30}$/u.test(postId)
+  )
+    return null;
+  return { author, kind, postId };
+}
+
 export function sourceTypeForUrl(url: URL): SourceType {
   const host = url.hostname.toLowerCase().replace(/^www\./, "");
   if (youtubeVideoId(url)) return "youtube";
@@ -87,6 +110,14 @@ export function parseAndNormalizeRecipeUrl(input: string): {
     return {
       originalUrl: input,
       normalizedUrl: `https://www.youtube.com/watch?v=${videoId}`,
+      sourceType,
+    };
+  }
+  const tiktok = tiktokPostRef(url);
+  if (sourceType === "tiktok" && tiktok) {
+    return {
+      originalUrl: input,
+      normalizedUrl: `https://www.tiktok.com/${tiktok.author}/${tiktok.kind}/${tiktok.postId}`,
       sourceType,
     };
   }

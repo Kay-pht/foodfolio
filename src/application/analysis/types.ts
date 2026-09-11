@@ -7,6 +7,8 @@ export interface SourceContent {
   textForAi: string | null;
   youtubeTitle?: string | null;
   youtubeDescription?: string | null;
+  tiktokMediaKind?: "photo" | "video";
+  tiktokPhotoImageUrls?: string[];
 }
 export interface ExtractedRecipe {
   title: string | null;
@@ -41,6 +43,9 @@ export interface VideoRecipeExtractor {
   ): Promise<RecipeExtractionResult>;
 }
 export interface TikTokVideoRecipeFallback {
+  extract(input: SourceContent): Promise<RecipeExtractionResult>;
+}
+export interface TikTokPhotoRecipeAnalysis {
   extract(input: SourceContent): Promise<RecipeExtractionResult>;
 }
 export interface InstagramVideoRecipeFallback {
