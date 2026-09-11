@@ -9,9 +9,9 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
 - [ ] `REL-20260910-01` Share Extensionの標準Postと送信結果表示を修正する
   - 内容: 共有URLの非同期取得後に `SLComposeServiceViewController` のcontent validationを更新し、標準Postを有効化する。Post / Cancelはシステム標準へ統一する。Backendが追加を受理した場合は成功ダイアログを表示し、利用者が確認してから閉じる。重複・受付上限・認証・不正URL・通信・その他の失敗理由を区別し、一時的な通信・サーバー失敗だけ再試行を表示する。Share ExtensionはFoodfolio本体と同じLight外観に統一する。
   - PR: [#88](https://github.com/Kay-pht/foodfolio/pull/88)
-  - main反映: 未反映
+  - main反映: `937de361ebed5c1ec21c1b4c208e17bf3696ae44`
   - 必要な反映先:
-    - [ ] TestFlight内部テスト — 対象version/build: 未定
+    - [ ] TestFlight内部テスト — 対象version/build: `1.0 (10)`
   - 備考: 実機で発生しているShare Extensionの全面blank/black画面の原因調査と修正は別タスクとして残す。
 
 ## 追加時の書式
