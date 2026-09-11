@@ -3,7 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 import { GcsTemporaryMediaStore } from "../../src/infrastructure/media/gcs-temporary-media-store.js";
 
 describe("GcsTemporaryMediaStore", () => {
-  it("publishes image media with its content type and keeps media metadata", async () => {
+  it("publishes image media with its content type and a ten-minute signed URL by default", async () => {
+    const now = 1_000_000;
+    const dateNow = vi.spyOn(Date, "now").mockReturnValue(now);
     const deleteObject = vi.fn(async () => {});
     const getSignedUrl = vi.fn(async () => ["https://storage.example/image"]);
     const file = vi.fn(() => ({
@@ -48,7 +50,13 @@ describe("GcsTemporaryMediaStore", () => {
         metadata: expect.objectContaining({ contentType: "image/jpeg" }),
       }),
     );
+    expect(getSignedUrl).toHaveBeenCalledWith({
+      version: "v4",
+      action: "read",
+      expires: now + 10 * 60 * 1000,
+    });
     await published.dispose();
     expect(deleteObject).toHaveBeenCalledWith({ ignoreNotFound: true });
+    dateNow.mockRestore();
   });
 });

@@ -48,3 +48,4 @@
 - [x] instaのリール対策
 - [x] instaの画像取得
 - [x] instaの画像と動画のカルーセル
+- [x] tiktokの画像投稿対策

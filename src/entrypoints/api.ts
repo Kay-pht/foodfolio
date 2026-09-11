@@ -33,6 +33,8 @@ const app = buildApi({
   imageResolver: new ProductionSourceContentExtractor(
     new SafeHttpClient(),
     config.youtubeApiKey,
+    fetch,
+    config.tiktokMediaAnalysisEnabled,
   ),
 });
 
