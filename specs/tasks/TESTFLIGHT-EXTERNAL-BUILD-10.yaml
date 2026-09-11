@@ -1,0 +1,102 @@
+id: TESTFLIGHT-EXTERNAL-BUILD-10
+type: maintenance
+status: approved
+
+objective: >-
+  Prepare Foodfolio 1.0 build 10 for controlled external TestFlight testing,
+  submit it to TestFlight App Review, and invite the locally configured tester
+  after Apple approval without publishing the app to the App Store.
+
+requirements:
+  - id: TFEXT10-1
+    condition: Build 10 is selected for external testing.
+    expected: App Store Connect reports build 10 as VALID, unexpired, APP_STORE_ELIGIBLE, and READY_FOR_BETA_SUBMISSION.
+    verification:
+      - docs/testflight-preparation.md
+  - id: TFEXT10-2
+    condition: External TestFlight metadata is prepared.
+    expected: >-
+      Japanese Beta App Description, Feedback Email, Privacy Policy URL, build 10 What to Test,
+      review contact information, review login details, and review notes are stored and read back.
+      The known Share Extension failure is disclosed and the in-app add flow is the review fallback.
+    verification:
+      - docs/testflight-preparation.md
+  - id: TFEXT10-3
+    condition: A review login account is supplied to Apple.
+    expected: >-
+      The dedicated Firebase review account receives a newly generated password, the new login succeeds,
+      and the password remains only in ignored local credentials and App Store Connect.
+    verification:
+      - docs/testflight-preparation.md
+  - id: TFEXT10-4
+    condition: External testing is configured for build 10.
+    expected: >-
+      An external group named Foodfolio External exists with public links disabled, feedback enabled,
+      automatic notification enabled, build 10 assigned, and each unique valid address from the ignored
+      local mail-list.md associated as an external tester.
+    verification:
+      - docs/testflight-preparation.md
+      - .gitignore
+  - id: TFEXT10-5
+    condition: Build 10 is submitted for TestFlight App Review.
+    expected: >-
+      App Store Connect accepts exactly one beta review submission for build 10 and its current review state
+      is read back; after approval, the configured external testers are invited automatically.
+    verification:
+      - docs/testflight-preparation.md
+      - tasks/todo.md
+  - id: TFEXT10-6
+    condition: Repository tracking is updated from external evidence.
+    expected: >-
+      The preparation record and TODO distinguish metadata completion, submission, Apple approval,
+      tester invitation, physical-device results, the known Share Extension defect, and deferred App Privacy work.
+    verification:
+      - docs/testflight-preparation.md
+      - tasks/todo.md
+
+edge_cases:
+  - The current App Store Connect API key can read resources but receives 403 for a required write.
+  - A beta app localization or external group already exists from a previous partial attempt.
+  - The tester list contains blank lines, duplicate addresses, or an invalid address.
+  - The tester already exists in App Store Connect but is not assigned to Foodfolio External.
+  - Apple rejects metadata because a required review field is missing or invalid.
+  - Build 10 remains waiting for review, enters review, or is rejected instead of approved.
+  - Automatic notification is enabled but Apple has not yet sent an invitation after approval.
+
+security_invariants:
+  - API keys, JWTs, tester addresses, review credentials, and generated passwords must not be committed or printed.
+  - mail-list.md and review credentials remain outside Git tracking with owner-only filesystem permissions.
+  - The tester list is validated before any tester resource is created.
+  - Public TestFlight links remain disabled and only explicitly listed testers are associated with the group.
+  - Existing internal groups, testers, builds, and unrelated App Store Connect resources are not modified.
+
+compatibility:
+  - The selected binary remains Foodfolio version 1.0 build 10 with Bundle ID com.keyukt.foodfolio.
+  - External testing continues to use the existing Foodfolio backend environment used by build 10.
+  - The existing Foodfolio Internal distribution remains unchanged.
+
+non_functional:
+  - App Store Connect writes are idempotent and followed by API read-back.
+  - A permission failure stops further writes before creating dependent resources.
+  - Apple review, tester invitation, repository checks, and physical-device behavior remain separate proof layers.
+  - Detailed App Privacy answers remain tracked for App Store publication and are not claimed complete here.
+
+out_of_scope:
+  - App Store production submission or public release.
+  - Enabling a public TestFlight invitation link.
+  - Fixing the known Share Extension failure in build 10.
+  - Changing the build 10 binary, version, signing, backend, or internal TestFlight group.
+  - Completing detailed App Privacy answers for App Store publication.
+
+acceptance_criteria:
+  - The ignored tester list passes strict local validation without printing personal data.
+  - The rotated review account credential succeeds and no old credential is retained as the active password.
+  - Required external TestFlight metadata is read back from App Store Connect.
+  - Foodfolio External has public links disabled, feedback enabled, build 10, and the configured testers.
+  - App Store Connect accepts the build 10 beta review submission and its state is recorded.
+  - After Apple approval, each configured tester is confirmed invited, accepted, or installed.
+  - Repository documentation records only non-secret identifiers, states, dates, and remaining limitations.
+
+regression:
+  required: false
+  tests: []
