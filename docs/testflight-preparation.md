@@ -66,7 +66,7 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 
 ## 既存TestFlight配布履歴
 
-- 次回内部配布はversion `1.0`、build `10`、iPhone、iOS `26.0` 以上。接続先は既存のFoodfolio dev API。
+- 最新の内部配布はversion `1.0`、build `10`、iPhone、iOS `26.0` 以上。接続先は既存のFoodfolio dev API。
 - build 2 (`bc3cca8b-6824-4ffc-bac0-708c6862325c`): Archive / export / Apple validation / upload成功。
 - build 3 (`cb9cbeec-da15-4e08-b2a1-79b1a86ef79e`): 当時の判断に基づくAI送信同意を含むbuild。Archive / export / Apple validation / upload成功。
 - build 5 (`aaf7a5b6-645c-4cc1-aa39-c9c5f9cffef5`): Share ExtensionとApp Group対応、および当時のAI同意実装を含む。Apple processing `VALID`、内部 `IN_BETA_TESTING`、外部 `READY_FOR_BETA_SUBMISSION` を確認済み。
@@ -74,6 +74,7 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 - build 7 (`063c15a7-b6fb-4034-8860-203185b377f7`): クリップボード優先のレシピ追加導線と月次AI解析受付上限のiOS表示を含む。Apple processing `VALID`、build有効、内部 `IN_BETA_TESTING`、外部 `READY_FOR_BETA_SUBMISSION` を確認し、`Foodfolio Internal`へ割り当て済み。日本語の「テストしてほしいこと」も保存・再取得確認済み。
 - build 8 (`4d337a07-fd2d-46c4-80c6-73bc2bf8d61c`): 欠損したレシピ画像の元URLからの復旧を含む。Apple processing `VALID`、build有効、内部 `IN_BETA_TESTING`、外部 `READY_FOR_BETA_SUBMISSION` を確認し、`Foodfolio Internal`へ割り当て済み。日本語の「テストしてほしいこと」も保存・再取得確認済み。
 - build 9 (`1d7c06fc-fc52-43ea-b1c8-7ad9567bd8ef`): 画像再取得で初回解析と同じ媒体別の代表画像解決を使用する変更を含む。Apple processing `VALID`、build有効、内部 `IN_BETA_TESTING`、外部 `READY_FOR_BETA_SUBMISSION` を確認し、`Foodfolio Internal`へ割り当て済み。日本語の「テストしてほしいこと」も保存・再取得確認済み。
+- build 10 (`32d303fd-1280-4f75-ad38-16d061d79654`): Share Extensionの標準Postと送信結果表示、およびTikTok写真投稿の画像優先解析を含む。Apple processing `VALID`、build有効、内部 `IN_BETA_TESTING`、外部 `READY_FOR_BETA_SUBMISSION` を確認し、`Foodfolio Internal`へ割り当て済み。日本語の「テストしてほしいこと」も保存・再取得確認済み。
 - build 3 / 5に含まれるAI同意実装は配布履歴として残るが、現在のソース仕様では廃止対象であり、次回buildでは利用しない。
 - 内部グループ `Foodfolio Internal` に既存App Store Connect管理者1名を登録済み。
 
@@ -108,6 +109,14 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 - `npm run verify:ios`: 91件成功、失敗0、skip 0。Swift format/lint、Debug build、unit・integration・UI E2Eを含む。
 - 画像再取得Backendを含むSHA `87e9ffb6621ef758b5f85d26b614205f7a8917a4` はdevのAPI `foodfolio-dev-api-00029-x8x`、Worker `foodfolio-dev-worker-00031-c5x`でtraffic 100%。APIが既存の `foodfolio-dev-youtube-api-key` Secretを参照することも確認。
 - Release Archive、IPA export、uploadに成功。upload後に実行完了した単独validationは既存build 9として重複エラーになったが、App Store Connect APIでbuild ID `1d7c06fc-fc52-43ea-b1c8-7ad9567bd8ef`のprocessing `VALID`、build有効、内部 `IN_BETA_TESTING`、外部 `READY_FOR_BETA_SUBMISSION`、`Foodfolio Internal`への割り当て、日本語の「テストしてほしいこと」の再取得を確認。
+
+## build 10の配布結果
+
+- 配布ソースはmain `80c6bc5b361f018ee24aea666403a5f45b5be074`。
+- `npm run verify`: unit 238、integration 40、E2E 29、およびPrisma、lint、format check、TypeScript build成功。
+- `npm run verify:ios`: 99件成功、失敗0、skip 0。Swift format/lint、Debug build、unit・integration・UI E2Eを含む。
+- TikTok写真解析BackendのSHA `b160924cc5c4f4477112b3836dadbd0bec959c08` はdevのAPI `foodfolio-dev-api-00031-mxm`、Worker `foodfolio-dev-worker-00034-v8p`でtraffic 100%。両serviceで `TIKTOK_MEDIA_ANALYSIS_ENABLED=true`、旧フラグ未設定、API health成功を確認。
+- Release Archive、署名・entitlement確認、IPA export、uploadに成功。upload前の単独validationはローカル実行時のissuer変数名誤りにより401、upload後の正しい再実行は既存build 10として重複エラーになった。App Store Connect APIでbuild ID `32d303fd-1280-4f75-ad38-16d061d79654`のprocessing `VALID`、build有効、内部 `IN_BETA_TESTING`、外部 `READY_FOR_BETA_SUBMISSION`、`Foodfolio Internal`への割り当て、日本語の「テストしてほしいこと」の再取得を確認。
 
 ## 外部審査前に残る確認
 
