@@ -1,0 +1,91 @@
+id: IOS-SHARED-TAGS-001
+type: bug
+status: approved
+
+objective: >-
+  Preserve a shared tag on every recipe that references it in the iOS SwiftData cache,
+  return every matching recipe from tag search, and repair previously corrupted local tag
+  relationships from the server after upgrading.
+
+requirements:
+  - id: IST-1
+    condition: Two or more local recipes reference the same tag ID.
+    expected: >-
+      SwiftData persists an explicit many-to-many relationship so assigning the shared tag
+      to one recipe does not remove it from any other recipe, including when an existing
+      recipe is upserted again with that shared tag.
+    verification:
+      - ios/FoodfolioIntegrationTests/PersistenceIntegrationTests.swift
+  - id: IST-2
+    condition: Multiple recipes reference the same tag and tag-filtered search is performed.
+    expected: Every recipe that references the requested tag ID is returned by local search.
+    verification:
+      - ios/FoodfolioIntegrationTests/PersistenceIntegrationTests.swift
+  - id: IST-3
+    condition: An existing installation may contain tag relationships corrupted by the previous SwiftData model.
+    expected: >-
+      The first sync after this fix ignores any stored differential-sync cursor and performs
+      a full sync so authoritative server recipe-tag relationships are upserted locally.
+      The repair marker is persisted only after that full sync succeeds.
+    verification:
+      - ios/FoodfolioIntegrationTests/SyncMetadataTests.swift
+  - id: IST-4
+    condition: The one-time tag relationship repair has already completed successfully.
+    expected: Subsequent syncs continue using the existing differential-sync cursor behavior.
+    verification:
+      - ios/FoodfolioIntegrationTests/SyncMetadataTests.swift
+  - id: IST-5
+    condition: The app opens an on-disk SwiftData store created by the previous recipe/tag schema.
+    expected: >-
+      The current production model schema and ModelContainerFactory open the legacy store
+      without data loss, preserving existing recipe, ingredient, step, tag, and recipe-tag
+      data before the repair full sync runs.
+    verification:
+      - scripts/test-ios-swiftdata-migration.sh
+
+edge_cases:
+  - The same tag is attached to two recipes in sequential upserts.
+  - A recipe is upserted again with the same shared tag.
+  - An on-disk store was created before LocalTag gained its recipes inverse relationship.
+  - A stored sync cursor exists from a version that used the broken relationship model.
+  - The repair full sync fails before returning a response.
+  - A fresh installation has no stored sync cursor.
+
+security_invariants:
+  - Authentication, ownership checks, and backend tag APIs remain unchanged.
+  - The repair uses only the authenticated sync endpoints already used by the app.
+  - No user identifiers, recipe contents, or tag names are added to logs.
+
+compatibility:
+  - Tag IDs remain unique LocalTag identifiers and backend TagDTO semantics do not change.
+  - Existing recipe, ingredient, step, tag, and recipe-tag data must survive opening a pre-fix SwiftData store with the current schema.
+  - Existing differential sync resumes after the one-time repair succeeds.
+  - Backend persistence and API contracts remain unchanged.
+
+non_functional:
+  - Do not create duplicate LocalTag rows for the same tag ID.
+  - Perform at most one additional full sync per installation for this repair version.
+  - Keep the repair idempotent so a failed sync retries safely on the next sync attempt.
+  - Run the legacy-store migration check as part of npm run verify:ios before the Xcode test suite.
+
+out_of_scope:
+  - Backend tag schema or endpoint changes.
+  - Tag creation, renaming, or deletion UX changes.
+  - General replacement of SwiftData or the local repository architecture.
+  - Repairing unrelated local cache inconsistencies.
+
+acceptance_criteria:
+  - The same tag remains visible on every recipe to which it is attached after sequential upserts and a repeated upsert of an existing recipe.
+  - Tag-filtered search returns all recipes carrying the shared tag.
+  - A pre-fix on-disk SwiftData store opens with the current production schema without losing existing recipe or tag data.
+  - An installation with an existing differential-sync cursor performs one full sync after upgrading and restores server tag relationships.
+  - A failed repair sync does not mark repair complete and retries with a full sync later.
+  - After repair succeeds, subsequent sync calls use the server-provided cursor again.
+  - npm run verify:ios requires all 101 XCTest cases and the legacy-store migration check to pass.
+
+regression:
+  required: true
+  tests:
+    - ios/FoodfolioIntegrationTests/PersistenceIntegrationTests.swift
+    - ios/FoodfolioIntegrationTests/SyncMetadataTests.swift
+    - scripts/test-ios-swiftdata-migration.sh
