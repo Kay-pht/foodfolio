@@ -26,6 +26,7 @@
 | AI データ取扱い              | [ai-data-handling.md](ai-data-handling.md)                     |
 | Share Extension セットアップ | [share-extension-setup.md](share-extension-setup.md)           |
 | TestFlight 準備              | [testflight-preparation.md](testflight-preparation.md)         |
+| TestFlight 実機検証          | [manual-device-test-checklist.md](manual-device-test-checklist.md) |
 | テストケース改善方針         | [test-case-improvement.md](test-case-improvement.md)           |
 | デザイン改善メモ             | [../design-improvement.md](../design-improvement.md)           |
 
