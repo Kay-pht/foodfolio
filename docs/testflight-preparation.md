@@ -1,6 +1,6 @@
 # TestFlight準備の確認記録
 
-最終更新日: 2026-09-09。自動テスト、署名済みArchive、Apple側の処理状態、実機確認は別の証跡として扱う。
+最終更新日: 2026-09-11。自動テスト、署名済みArchive、Apple側の処理状態、実機確認は別の証跡として扱う。
 
 ## 公開ページ
 
@@ -120,14 +120,25 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 
 ## 外部審査前に残る確認
 
-1. AI同意機能を削除した次回TestFlight buildで、新規起動時に不要な同意画面が出ず、ログイン後にURL保存・AI解析・同期・検索・Push通知・Share Extensionが動作することを実機確認する。
+1. build 10の実機で起動・認証・URL保存・AI解析・Push通知はユーザー確認済み。Share Extensionは正常に動作しなかったため既知の不具合として外部テスト情報へ開示し、アプリ内の追加ボタンを代替手順とする。Share Extensionの修正と再検証は後続buildで行う。
 2. 同意APIとRecipe作成gateを削除したBackendをDB変更より先に対象環境へ反映する。旧iOS buildは互換対象外とし、Backend反映後に新iOSだけを利用する。
 3. 新iOSへの切替後、旧Backend revisionへrollbackしないことを確認してから、`aiConsentedAt`をdropするmigrationを独立した後続リリースとして適用する。migrationはアプリ起動時には実行しない。
-4. 更新したプライバシーポリシーをFirebase Hostingへ反映し、App Store ConnectのPrivacy Policy URLから最新内容へ到達できることを確認する。
-5. App Store ConnectのApp Privacyを、Foodfolio本体と組み込みSDKが実際に扱うデータ、利用目的、ユーザーとの紐付け、tracking有無に合わせて回答・公開する。
-6. 作成済みの審査専用ログインアカウントをTest Informationへ設定する。認証情報はリポジトリへ記載しない。
-7. 外部動画のダウンロード・解析について、提供元の利用許諾と公開対象の範囲を確認する。AI同意の有無とは別に扱う。
-8. 外部グループ・What to Test・必須情報を揃えた後にTestFlight App Reviewへ提出する。
+4. 更新したプライバシーポリシーはFirebase HostingでHTTP 200を確認し、外部TestFlightの日本語Test InformationへPrivacy Policy URLを保存・再取得済み。
+5. App Store Connectの詳細なApp Privacy回答は、ユーザー承認によりApp Store一般公開前のタスクへ延期する。外部TestFlight完了をApp Privacy回答完了とは扱わない。
+6. 審査専用ログインアカウントのパスワードをローテーションし、新しい認証情報によるFirebaseログイン成功を確認したうえでBeta App Review Informationへ保存・再取得済み。認証情報はリポジトリへ記載しない。
+7. 外部動画のダウンロード・解析は、提供元から利用許諾を取得済みであることをユーザー確認済み。
+8. 外部グループ `Foodfolio External`、build 10、テスター1件、What to Test、Test Information、Beta App Review Informationを設定し、TestFlight App Reviewへ提出済み。Apple承認と招待送信を待つ。
+
+## build 10の外部TestFlight提出結果
+
+- App Store Connect Team APIキーはApp Manager権限の専用キーを使用し、秘密鍵とenvはリポジトリ外で所有者のみ読み書き可能にした。キーID・秘密鍵・JWTはリポジトリや実行結果へ記録しない。
+- 審査専用Firebaseアカウントのパスワードを2026-09-11にローテーションし、新しいパスワードでのログイン成功を確認した。認証情報はリポジトリ外にのみ保存する。
+- 日本語Beta App Description、Feedback Email、Privacy Policy URL、build 10のWhat to Test、審査連絡先、審査アカウント、Review NotesをApp Store Connectへ保存し、APIで再取得して一致を確認した。
+- 外部グループ `Foodfolio External` (`4f1c12bb-b63b-422e-a063-90cd7b94e4f7`) を作成し、公開リンク無効、feedback有効、build 10割り当て済み、ローカルのGit除外リストにあるテスター1件を関連付けた。
+- build 10をTestFlight App Reviewへ提出。2026-09-11時点でsubmission ID `32d303fd-1280-4f75-ad38-16d061d79654`、review `WAITING_FOR_REVIEW`、external build `WAITING_FOR_BETA_REVIEW`、自動通知有効。
+- 審査待ちのためテスター状態は `NOT_INVITED`。Apple承認後の招待送信とテスター状態の再取得は未確認であり、外部配布完了とは扱わない。
+- 実機では起動・認証・URL保存・AI解析・Push通知をユーザー確認済み。Share Extensionは正常に動作せず、既知の制限とアプリ内追加の代替手順をWhat to TestとReview Notesへ明記した。
+- 外部提出後の `npm run verify:ios` は99件成功、失敗0、skip 0。`npm run verify` はunit 238件、lint、format、build等に成功した後、既存のsync cursor順序テストがintegration 40件中1件失敗し、単独再実行でも再現した。今回の文書・App Store Connect設定変更とは分離して未解決とし、全体検証成功とは扱わない。
 
 ## 入力文面の控え（認証情報を除く）
 
@@ -137,12 +148,14 @@ Foodfolioは、公開されているレシピのURLを保存し、材料や作�
 
 ### What to Test（build 10）
 
-build 10では、Share Extensionで共有URLの取得完了後に標準のPostが有効になり、送信結果を確認してから閉じられるようにしました。成功、重複、受付上限、認証、不正URL、通信・サーバー失敗が適切に表示され、一時的な失敗では再試行できることをご確認ください。また、TikTokの写真投稿から画像とキャプションを使ってレシピを解析できるようにしました。あわせて、起動・ログイン、URLからのレシピ作成、検索・同期、Push通知をご確認ください。
+build 10では、起動・メール／Apple／Googleログイン、アプリ内の追加ボタンからのURL保存、AI解析後の材料・手順表示、検索・編集・同期、解析完了時のPush通知、およびTikTok写真投稿の画像とキャプションを用いた解析をご確認ください。既知の制限として、Share Extensionからの追加は現在正常に完了しない場合があります。今回のテストではアプリ内の追加ボタンを使用してください。Share Extensionは後続buildで修正予定です。
 
 ### Review Notes
 
 Foodfolio is a Japanese recipe organizer for iPhone running iOS 26 or later. Sign in with the review account using the email sign-in option. Apple and Google sign-in are also supported.
 
-Save a public recipe URL using the add button or share a URL to Foodfolio from the iOS share sheet. The app analyzes the public source content using external AI services and then displays the extracted ingredients and instructions. Foodfolio account identifiers such as the app user ID, Firebase UID, email address, authentication token, and push-notification token are not included in the Z.ai or Google Gemini analysis requests. The source page or public video itself may contain publisher information. Please verify AI-generated results against the original source.
+Save a public recipe URL using the Add button inside the app. The app analyzes public source content using external AI services and displays extracted ingredients and instructions. Foodfolio account identifiers such as the app user ID, Firebase UID, email address, authentication token, and push-notification token are not included in the Z.ai or Google Gemini analysis requests. The source page or public video itself may contain publisher information, and the developer has confirmed permission for the external video analysis used in this beta. Please verify AI-generated results against the original source.
 
 Enable notifications to receive analysis-completion alerts. Recipes can be searched and edited. Account deletion is available in the Account screen. No purchase or subscription is required.
+
+Known limitation in build 10: the Share Extension may not complete URL submission. Please use the in-app Add button during review. This limitation will be fixed in a later beta build.
