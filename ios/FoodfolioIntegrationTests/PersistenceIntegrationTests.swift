@@ -55,6 +55,7 @@ import XCTest
     try await repository.upsert(makeRecipe(id: "r1", date: date, tags: [sharedTag]))
     try await repository.upsert(
       makeRecipe(id: "r2", date: date.addingTimeInterval(1), tags: [sharedTag]))
+    try await repository.upsert(makeRecipe(id: "r1", date: date, tags: [sharedTag]))
 
     XCTAssertEqual(try repository.recipe(id: "r1")?.tags.map(\.id), ["kei"])
     XCTAssertEqual(try repository.recipe(id: "r2")?.tags.map(\.id), ["kei"])
