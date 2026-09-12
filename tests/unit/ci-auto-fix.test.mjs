@@ -8,6 +8,31 @@ import { classifyAutomationPaths } from "../../scripts/classify-quality-changes.
 import { selectMarkdownPaths } from "../../scripts/format-changed-markdown.mjs";
 
 describe("CI auto-fix coverage", () => {
+  it("keeps local and changed-Markdown Prettier versions aligned", async () => {
+    const [packageSource, lockSource, formatterSource] = await Promise.all([
+      readFile(new URL("../../package.json", import.meta.url), "utf8"),
+      readFile(new URL("../../package-lock.json", import.meta.url), "utf8"),
+      readFile(
+        new URL("../../scripts/format-changed-markdown.mjs", import.meta.url),
+        "utf8",
+      ),
+    ]);
+    const packageJson = JSON.parse(packageSource);
+    const packageLock = JSON.parse(lockSource);
+    const formatterVersion = formatterSource.match(
+      /prettier@(\d+\.\d+\.\d+)/,
+    )?.[1];
+
+    expect(formatterVersion).toBeDefined();
+    expect(packageJson.devDependencies.prettier).toBe(formatterVersion);
+    expect(packageLock.packages[""].devDependencies.prettier).toBe(
+      formatterVersion,
+    );
+    expect(packageLock.packages["node_modules/prettier"].version).toBe(
+      formatterVersion,
+    );
+  });
+
   it("classifies deterministic fix and lightweight validation paths", () => {
     expect(
       classifyAutomationPaths([
