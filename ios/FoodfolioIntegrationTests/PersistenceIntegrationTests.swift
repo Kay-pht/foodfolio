@@ -41,6 +41,29 @@ import XCTest
     XCTAssertTrue(try repository.allRecipes().isEmpty)
   }
 
+  func testSharedTagRemainsAttachedToMultipleRecipesAndSearchReturnsAll() async throws {
+    let container = try ModelContainerFactory.make(inMemory: true)
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    let repository = RecipeRepository(
+      context: container.mainContext,
+      api: APIClient(
+        baseURL: URL(string: "https://example.invalid")!, tokenProvider: TestTokenProvider()),
+      images: try RecipeImageStore(root: root))
+    let date = Date()
+    let sharedTag = TagDTO(id: "kei", name: "Kei", createdAt: date)
+
+    try await repository.upsert(makeRecipe(id: "r1", date: date, tags: [sharedTag]))
+    try await repository.upsert(
+      makeRecipe(id: "r2", date: date.addingTimeInterval(1), tags: [sharedTag]))
+
+    XCTAssertEqual(try repository.recipe(id: "r1")?.tags.map(\.id), ["kei"])
+    XCTAssertEqual(try repository.recipe(id: "r2")?.tags.map(\.id), ["kei"])
+    XCTAssertEqual(
+      try repository.search(query: "", genre: nil, tagID: "kei").map(\.id).sorted(), ["r1", "r2"])
+    let tag = try XCTUnwrap(try repository.allTags().first { $0.id == "kei" })
+    XCTAssertEqual(tag.recipes.map(\.id).sorted(), ["r1", "r2"])
+  }
+
   func testImageStoreWritesReadsAndCleansUp() async throws {
     let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
     let store = try RecipeImageStore(root: root)
@@ -194,6 +217,7 @@ import XCTest
     try await service.sync(now: date)
     XCTAssertEqual(requestedPaths, ["/v1/sync"])
     XCTAssertEqual(defaults.string(forKey: "recipeSyncCursor"), "cursor-1")
+    XCTAssertEqual(defaults.integer(forKey: "tagRelationshipRepairVersion"), 1)
     XCTAssertEqual(try repository.allRecipes().map(\.id), ["server"])
     XCTAssertEqual(try repository.allTags().map(\.id).sorted(), ["unused-tag"])
 
@@ -209,11 +233,13 @@ private let validPNGData = Data(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
 )!
 
-private func makeRecipe(id: String, date: Date, imageUrl: String? = nil) -> RecipeDTO {
+private func makeRecipe(
+  id: String, date: Date, imageUrl: String? = nil, tags: [TagDTO] = []
+) -> RecipeDTO {
   RecipeDTO(
     id: id, originalUrl: "https://example.com/\(id)", sourceType: "web", title: id,
     imageUrl: imageUrl, servingsValue: nil, servingsRaw: nil, cookingTimeMinutes: nil, genre: nil,
-    analysisStatus: .completed, ingredients: [], steps: [], tags: [], createdAt: date,
+    analysisStatus: .completed, ingredients: [], steps: [], tags: tags, createdAt: date,
     updatedAt: date)
 }
 
