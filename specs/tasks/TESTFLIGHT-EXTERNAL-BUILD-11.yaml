@@ -1,0 +1,106 @@
+id: TESTFLIGHT-EXTERNAL-BUILD-11
+type: maintenance
+status: approved
+
+objective: >-
+  Keep MARKETING_VERSION at 1.0, increment the iOS build number from 10 to 11,
+  upload the current main source as a signed TestFlight build, and distribute it
+  through the existing Foodfolio External group without publishing to the App Store.
+
+requirements:
+  - id: TFEXT11-1
+    condition: The build 11 release project is generated.
+    expected: >-
+      ios/project.yml remains at MARKETING_VERSION 1.0 and sets CURRENT_PROJECT_VERSION 11;
+      the generated project applies both values to Foodfolio and FoodfolioShareExtension.
+    verification:
+      - ios/project.yml
+      - ios/Foodfolio.xcodeproj/project.pbxproj
+  - id: TFEXT11-2
+    condition: The release candidate is validated before upload.
+    expected: >-
+      Backend and iOS verification entry points pass, including unit, integration, E2E,
+      lint, format, build, and the SwiftData migration checks added after build 10.
+    verification:
+      - package.json
+      - scripts/verify-ios.sh
+      - scripts/test-ios-swiftdata-migration.sh
+  - id: TFEXT11-3
+    condition: Apple accepts and processes build 11.
+    expected: >-
+      App Store Connect reports build 11 as VALID and unexpired, and the signed archive
+      contains the expected production entitlements for the app and Share Extension.
+    verification:
+      - docs/testflight-preparation.md
+  - id: TFEXT11-4
+    condition: Existing TestFlight groups are updated for build 11.
+    expected: >-
+      Build 11 is assigned to Foodfolio Internal and Foodfolio External, the external
+      public link remains disabled, existing tester membership remains unchanged, and
+      the Japanese What to Test text is stored and read back.
+    verification:
+      - docs/testflight-preparation.md
+      - tasks/todo.md
+  - id: TFEXT11-5
+    condition: Build 11 is eligible for external testing.
+    expected: >-
+      If App Store Connect requires Beta App Review, exactly one submission is accepted
+      and its state is read back; otherwise Apple already reports the build available to
+      the configured external group. Automatic tester notification remains enabled.
+    verification:
+      - docs/testflight-preparation.md
+      - tasks/todo.md
+  - id: TFEXT11-6
+    condition: Distribution evidence is recorded from current read-back.
+    expected: >-
+      Repository records distinguish local verification, archive and upload, Apple
+      processing, group assignment, Beta App Review, tester invitation, and physical-device behavior.
+    verification:
+      - docs/testflight-preparation.md
+      - tasks/released.md
+      - tasks/todo.md
+
+edge_cases:
+  - Build 11 already exists and Apple rejects a duplicate upload.
+  - The upload is accepted before build 11 is queryable through the App Store Connect API.
+  - Apple reports processingState INVALID, marks the build expired, or requires export compliance information.
+  - Foodfolio External still references build 10 while build 11 is being processed.
+  - Apple requires another Beta App Review and leaves build 11 waiting, in review, or rejected.
+  - Automatic notification is enabled but a configured tester remains not invited after approval.
+
+security_invariants:
+  - App Store Connect keys, JWTs, tester addresses, review credentials, and signing material are not committed or printed.
+  - Public TestFlight links remain disabled and existing tester membership is not broadened.
+  - Existing builds, groups, testers, and unrelated App Store Connect resources are not deleted.
+  - App Store production submission and public release are not performed.
+
+compatibility:
+  - MARKETING_VERSION remains 1.0 and the Bundle ID remains com.keyukt.foodfolio.
+  - The minimum supported iOS version and existing backend environment remain unchanged.
+  - Existing Foodfolio Internal and Foodfolio External memberships remain unchanged.
+
+non_functional:
+  - App Store Connect writes are idempotent and followed by API read-back.
+  - Upload success alone is not evidence of external distribution completion.
+  - Apple state, local verification, CI, and physical-device behavior remain separate proof layers.
+  - The archive and exported IPA are stored outside the repository.
+
+out_of_scope:
+  - App Store production submission or public release.
+  - Enabling a public TestFlight invitation link.
+  - Adding, removing, or changing external tester email addresses.
+  - Rotating App Store Connect keys or review-account credentials.
+  - Deploying or changing the existing backend environment.
+
+acceptance_criteria:
+  - Foodfolio and FoodfolioShareExtension both build as version 1.0 build 11.
+  - npm run verify succeeds.
+  - npm run verify:ios succeeds with no failed or skipped repository-defined checks.
+  - Apple validation and upload succeed and App Store Connect reports build 11 VALID and unexpired.
+  - Foodfolio Internal and Foodfolio External both include build 11 with expected metadata.
+  - Apple approval is confirmed when required, and each existing external tester is invited, accepted, or installed.
+  - Repository documentation records only non-secret identifiers, states, dates, and remaining limitations.
+
+regression:
+  required: false
+  tests: []
