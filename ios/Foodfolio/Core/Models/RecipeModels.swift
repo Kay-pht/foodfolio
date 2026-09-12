@@ -58,10 +58,13 @@ enum GenreBadgeColor: String, CaseIterable {
   @Attribute(.unique) var id: String
   var name: String
   var createdAt: Date
-  init(id: String, name: String, createdAt: Date) {
+  var recipes: [LocalRecipe]
+
+  init(id: String, name: String, createdAt: Date, recipes: [LocalRecipe] = []) {
     self.id = id
     self.name = name
     self.createdAt = createdAt
+    self.recipes = recipes
   }
 }
 
@@ -80,7 +83,7 @@ enum GenreBadgeColor: String, CaseIterable {
   var updatedAt: Date
   @Relationship(deleteRule: .cascade) var ingredients: [LocalIngredient]
   @Relationship(deleteRule: .cascade) var steps: [LocalRecipeStep]
-  var tags: [LocalTag]
+  @Relationship(inverse: \LocalTag.recipes) var tags: [LocalTag]
 
   var analysisStatus: AnalysisStatus { AnalysisStatus(rawValue: analysisStatusRaw) ?? .failed }
   var genre: RecipeGenre? { genreRaw.flatMap(RecipeGenre.init(rawValue:)) }
