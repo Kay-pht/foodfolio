@@ -3,6 +3,18 @@
 `tasks/unreleased.md` で指定した必要な反映先がすべて反映済みになった項目を、日付とversion情報を保ったまま記録する。
 日付は日本時間（JST）の `YYYY-MM-DD`、iOSは `version (build)`、Cloud RunはGit SHAとservice revisionを記載する。
 
+## 2026-09-12
+
+- [x] `REL-20260912-01` iOSの共有タグ永続化と旧store移行を修正する
+  - 内容: 複数レシピが同じタグを共有できるSwiftData関係へ修正し、既存storeのタグ関係を一度だけfull syncで復旧する。重複upsert、同期、検索、legacy-store migrationを検証する。
+  - PR: [#94](https://github.com/Kay-pht/foodfolio/pull/94)
+  - main反映: `ae743c872f3417924f6f97374657b077cfbe4ff3`
+  - 必要な反映先:
+    - [x] TestFlight内部テスト — 反映日: `2026-09-12`、version: `1.0 (11)`、Build ID: `00863d38-fc2a-4ae8-a331-f64959c54fca`、group: `Foodfolio Internal`
+    - [x] TestFlight外部テスト — 反映日: `2026-09-12`、version: `1.0 (11)`、Build ID: `00863d38-fc2a-4ae8-a331-f64959c54fca`、group: `Foodfolio External`、Beta App Review `APPROVED`
+  - 配布build source: `a49703f26b6f2ebb5c6a297596d613dbc11f1122`
+  - 備考: 外部グループの公開リンク有効状態と既存テスター2件はユーザー指示により維持。実機でのbuild 11更新と動作確認は `tasks/todo.md` で別管理する。
+
 ## 2026-09-11
 
 - [x] `REL-20260910-01` Share Extensionの標準Postと送信結果表示を修正する
