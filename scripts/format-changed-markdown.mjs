@@ -68,7 +68,7 @@ async function runPrettier(mode, paths) {
     "npx",
     [
       "--yes",
-      "prettier@3.6.2",
+      "prettier@3.9.6",
       "--ignore-path",
       ".prettierignore.markdown",
       mode,

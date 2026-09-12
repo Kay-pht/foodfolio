@@ -18,16 +18,17 @@
 
 ## 開発・運用
 
-| 目的                         | 文書                                                           |
-| ---------------------------- | -------------------------------------------------------------- |
-| 開発プロセス                 | [dev-flow.md](dev-flow.md)                                     |
-| ローカル Backend             | [local-development.md](local-development.md)                   |
-| 解析依頼の受付制御           | [analysis-admission-control.md](analysis-admission-control.md) |
-| AI データ取扱い              | [ai-data-handling.md](ai-data-handling.md)                     |
-| Share Extension セットアップ | [share-extension-setup.md](share-extension-setup.md)           |
-| TestFlight 準備              | [testflight-preparation.md](testflight-preparation.md)         |
-| テストケース改善方針         | [test-case-improvement.md](test-case-improvement.md)           |
-| デザイン改善メモ             | [../design-improvement.md](../design-improvement.md)           |
+| 目的                         | 文書                                                               |
+| ---------------------------- | ------------------------------------------------------------------ |
+| 開発プロセス                 | [dev-flow.md](dev-flow.md)                                         |
+| ローカル Backend             | [local-development.md](local-development.md)                       |
+| 解析依頼の受付制御           | [analysis-admission-control.md](analysis-admission-control.md)     |
+| AI データ取扱い              | [ai-data-handling.md](ai-data-handling.md)                         |
+| Share Extension セットアップ | [share-extension-setup.md](share-extension-setup.md)               |
+| TestFlight 準備              | [testflight-preparation.md](testflight-preparation.md)             |
+| TestFlight 実機検証          | [manual-device-test-checklist.md](manual-device-test-checklist.md) |
+| テストケース改善方針         | [test-case-improvement.md](test-case-improvement.md)               |
+| デザイン改善メモ             | [../design-improvement.md](../design-improvement.md)               |
 
 ## エージェント向け運用ルール
 
