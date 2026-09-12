@@ -1,0 +1,55 @@
+id: PRETTIER-VERSION-ALIGNMENT-001
+type: bug
+status: approved
+
+objective: >-
+  Prevent local formatting verification and changed-Markdown CI from using different
+  Prettier versions and producing contradictory results.
+
+requirements:
+  - id: PVA-1
+    condition: A developer installs dependencies from the repository lockfile and runs the local formatting commands.
+    expected: The installed Prettier version exactly matches the version invoked by changed-Markdown CI and Auto Fix.
+    verification:
+      - package.json
+      - package-lock.json
+      - scripts/format-changed-markdown.mjs
+      - tests/unit/ci-auto-fix.test.mjs
+  - id: PVA-2
+    condition: The repository's Prettier dependency or changed-Markdown formatter version is changed in the future.
+    expected: A regression test fails unless the dependency declaration, lockfile, and formatter invocation remain aligned.
+    verification:
+      - tests/unit/ci-auto-fix.test.mjs
+
+edge_cases:
+  - A compatible-version range resolves a newer Prettier release with different Markdown table formatting.
+  - Auto Fix formats Markdown without installing repository dependencies.
+  - A local checkout installs dependencies exclusively from package-lock.json.
+
+security_invariants:
+  - CI continues to execute a fixed, reviewable Prettier version.
+  - The workflows gain no write permissions or additional credential access.
+
+compatibility:
+  - Existing format:write, format:check, and changed-Markdown commands remain available.
+  - Auto Fix and Documentation retain their current changed-file behavior.
+
+non_functional:
+  - The fix must not add a new runtime dependency.
+  - The version-alignment regression test must not access the network.
+
+out_of_scope:
+  - Changing formatting tools other than Prettier.
+  - Changing application runtime behavior.
+  - Changing Markdown formatting rules or ignore paths.
+
+acceptance_criteria:
+  - package.json declares the exact Prettier version used by changed-Markdown CI.
+  - package-lock.json resolves that same version.
+  - A unit test verifies the dependency declaration, lockfile, and CI formatter invocation stay aligned.
+  - npm run verify succeeds.
+
+regression:
+  required: true
+  tests:
+    - tests/unit/ci-auto-fix.test.mjs
