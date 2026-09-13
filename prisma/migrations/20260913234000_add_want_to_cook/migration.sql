@@ -1,0 +1,2 @@
+ALTER TABLE "Recipe"
+ADD COLUMN "wantToCookAt" TIMESTAMPTZ(3);

@@ -23,6 +23,7 @@ export function recipeDto(recipe: FullRecipe) {
     cookingTimeMinutes: recipe.cookingTimeMinutes,
     genre: recipe.genre ? GENRE_LABELS[recipe.genre] : null,
     analysisStatus: recipe.analysisStatus,
+    wantToCookAt: recipe.wantToCookAt?.toISOString() ?? null,
     ingredients: recipe.ingredients.map(({ id, name, amount, sortOrder }) => ({
       id,
       name,
