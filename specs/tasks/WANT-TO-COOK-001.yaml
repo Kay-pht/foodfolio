@@ -19,7 +19,9 @@ requirements:
   - id: WTC-2
     condition: A recipe detail screen is displayed for a locally synced recipe.
     expected: >-
-      The screen exposes a clear "作りたい" toggle near the recipe summary. Tapping it persists
+      The trailing recipe menu exposes the "作りたい" action together with ordinary recipe editing
+      when editing is available. Marked recipes show a compact "作りたい" status near the recipe
+      summary, while unmarked recipes do not render that status. Tapping the menu action persists
       the new state through RecipeRepository, updates the local recipe from the returned DTO, and
       prevents duplicate submissions while the request is in flight.
     verification:
@@ -74,7 +76,8 @@ out_of_scope:
   - Adding a direct want-to-cook control to recipe cards in this iteration.
 
 acceptance_criteria:
-  - A user can toggle "作りたい" from recipe detail and the state survives a subsequent sync.
+  - A user can toggle "作りたい" from the recipe detail overflow menu and the state survives a subsequent sync.
+  - Marked recipes show a compact "作りたい" status in recipe detail; unmarked recipes do not.
   - Marked recipes appear in a distinct top section on Home, newest mark first, without duplication below.
   - Removing the mark returns the recipe to the normal recipe section.
   - Pending or processing recipes can still be marked without enabling ordinary recipe editing.
