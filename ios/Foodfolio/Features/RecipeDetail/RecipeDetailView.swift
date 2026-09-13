@@ -7,6 +7,7 @@ struct RecipeDetailView: View {
   @State private var displayServings: Double?
   @State private var showTags = false
   @State private var showDelete = false
+  @State private var showEdit = false
   @State private var errorMessage: String?
   @State private var showsCompactTitle = false
   @State private var isUpdatingWantToCook = false
@@ -93,14 +94,35 @@ struct RecipeDetailView: View {
         }
       }
       ToolbarItem(placement: .topBarTrailing) {
-        if RecipeDetailPresentation.canEdit(status: recipe.analysisStatus) {
-          NavigationLink(destination: RecipeEditView(recipe: recipe)) {
-            Image(systemName: "pencil")
+        Menu {
+          Button {
+            toggleWantToCook()
+          } label: {
+            Label(
+              recipe.wantToCookAt == nil ? "作りたいに追加" : "作りたいから外す",
+              systemImage: recipe.wantToCookAt == nil ? "plus.circle" : "checkmark.circle.fill"
+            )
           }
-          .accessibilityLabel("レシピを編集")
-          .accessibilityIdentifier("detail.edit")
+          .disabled(isUpdatingWantToCook)
+          .accessibilityIdentifier("detail.wantToCook")
+
+          if RecipeDetailPresentation.canEdit(status: recipe.analysisStatus) {
+            Button {
+              showEdit = true
+            } label: {
+              Label("レシピを編集", systemImage: "pencil")
+            }
+            .accessibilityIdentifier("detail.edit")
+          }
+        } label: {
+          Image(systemName: "ellipsis")
         }
+        .accessibilityLabel("レシピのメニュー")
+        .accessibilityIdentifier("detail.moreMenu")
       }
+    }
+    .navigationDestination(isPresented: $showEdit) {
+      RecipeEditView(recipe: recipe)
     }
     .sheet(isPresented: $showTags) { TagPickerSheet(recipe: recipe) }
     .alert(
@@ -133,6 +155,13 @@ struct RecipeDetailView: View {
         .fixedSize(horizontal: false, vertical: true)
         .accessibilityIdentifier("detail.title")
 
+      if recipe.wantToCookAt != nil {
+        Label("作りたい", systemImage: "checkmark.circle.fill")
+          .font(.caption.weight(.semibold))
+          .foregroundStyle(FoodfolioTheme.terracotta)
+          .accessibilityIdentifier("detail.wantToCookStatus")
+      }
+
       HStack(spacing: 10) {
         if let minutes = recipe.cookingTimeMinutes {
           Label("\(minutes)分", systemImage: "clock")
@@ -144,36 +173,6 @@ struct RecipeDetailView: View {
 
         servingsControl
       }
-
-      Button {
-        toggleWantToCook()
-      } label: {
-        HStack(spacing: 10) {
-          Label(
-            "作りたい",
-            systemImage: recipe.wantToCookAt == nil ? "plus.circle" : "checkmark.circle.fill"
-          )
-          .font(.body.weight(.semibold))
-
-          Spacer(minLength: 0)
-
-          if isUpdatingWantToCook {
-            ProgressView()
-              .controlSize(.small)
-          }
-        }
-        .foregroundStyle(
-          recipe.wantToCookAt == nil ? FoodfolioTheme.ink : FoodfolioTheme.terracotta
-        )
-        .padding(.horizontal, 16)
-        .frame(maxWidth: .infinity, minHeight: 50)
-        .glassEffect(
-          .regular.interactive(), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-      }
-      .buttonStyle(.plain)
-      .disabled(isUpdatingWantToCook)
-      .accessibilityValue(recipe.wantToCookAt == nil ? "未追加" : "追加済み")
-      .accessibilityIdentifier("detail.wantToCook")
 
       ScrollView(.horizontal) {
         HStack(spacing: 8) {
@@ -695,80 +694,5 @@ private struct TagPickerSheet: View {
 
   private func sameName(_ lhs: String, _ rhs: String) -> Bool {
     lhs.localizedCaseInsensitiveCompare(rhs) == .orderedSame
-  }
-}
-
-private struct TagFlowLayout: Layout {
-  let horizontalSpacing: CGFloat
-  let verticalSpacing: CGFloat
-
-  init(horizontalSpacing: CGFloat = 8, verticalSpacing: CGFloat = 10) {
-    self.horizontalSpacing = horizontalSpacing
-    self.verticalSpacing = verticalSpacing
-  }
-
-  func sizeThatFits(
-    proposal: ProposedViewSize,
-    subviews: Subviews,
-    cache: inout ()
-  ) -> CGSize {
-    let availableWidth = proposal.width ?? .infinity
-    let subviewProposal = ProposedViewSize(
-      width: availableWidth.isFinite ? availableWidth : nil,
-      height: nil
-    )
-    var rowWidth: CGFloat = 0
-    var rowHeight: CGFloat = 0
-    var measuredWidth: CGFloat = 0
-    var measuredHeight: CGFloat = 0
-
-    for subview in subviews {
-      let size = subview.sizeThatFits(subviewProposal)
-      let proposedRowWidth =
-        rowWidth == 0 ? size.width : rowWidth + horizontalSpacing + size.width
-
-      if rowWidth > 0 && proposedRowWidth > availableWidth {
-        measuredWidth = max(measuredWidth, rowWidth)
-        measuredHeight += rowHeight + verticalSpacing
-        rowWidth = size.width
-        rowHeight = size.height
-      } else {
-        rowWidth = proposedRowWidth
-        rowHeight = max(rowHeight, size.height)
-      }
-    }
-
-    measuredWidth = max(measuredWidth, rowWidth)
-    measuredHeight += rowHeight
-    return CGSize(width: proposal.width ?? measuredWidth, height: measuredHeight)
-  }
-
-  func placeSubviews(
-    in bounds: CGRect,
-    proposal: ProposedViewSize,
-    subviews: Subviews,
-    cache: inout ()
-  ) {
-    let subviewProposal = ProposedViewSize(width: bounds.width, height: nil)
-    var x = bounds.minX
-    var y = bounds.minY
-    var rowHeight: CGFloat = 0
-
-    for subview in subviews {
-      let size = subview.sizeThatFits(subviewProposal)
-      if x > bounds.minX && x + size.width > bounds.maxX {
-        x = bounds.minX
-        y += rowHeight + verticalSpacing
-        rowHeight = 0
-      }
-
-      subview.place(
-        at: CGPoint(x: x, y: y),
-        anchor: .topLeading,
-        proposal: ProposedViewSize(width: size.width, height: size.height)
-      )
-      x += size.width + horizontalSpacing
-      rowHeight = max(rowHeight, size.height)
-    }
   }
 }
