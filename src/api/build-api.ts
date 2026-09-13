@@ -11,6 +11,7 @@ import { AppError } from "./errors/app-error.js";
 import { registerImageResolutionRoutes } from "./image-resolution-routes.js";
 import { registerRoutes } from "./routes.js";
 import { registerTagBatchRoutes } from "./tag-batch-routes.js";
+import { registerWantToCookRoutes } from "./want-to-cook-routes.js";
 
 export interface ApiDependencies {
   prisma: PrismaClient;
@@ -79,6 +80,7 @@ export function buildApi(deps: ApiDependencies): FastifyInstance {
   registerRoutes(app, deps);
   registerImageResolutionRoutes(app, deps);
   registerTagBatchRoutes(app, deps);
+  registerWantToCookRoutes(app, deps);
   return app;
 }
 
