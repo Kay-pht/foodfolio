@@ -696,3 +696,78 @@ private struct TagPickerSheet: View {
     lhs.localizedCaseInsensitiveCompare(rhs) == .orderedSame
   }
 }
+
+private struct TagFlowLayout: Layout {
+  let horizontalSpacing: CGFloat
+  let verticalSpacing: CGFloat
+
+  init(horizontalSpacing: CGFloat = 8, verticalSpacing: CGFloat = 10) {
+    self.horizontalSpacing = horizontalSpacing
+    self.verticalSpacing = verticalSpacing
+  }
+
+  func sizeThatFits(
+    proposal: ProposedViewSize,
+    subviews: Subviews,
+    cache: inout ()
+  ) -> CGSize {
+    let availableWidth = proposal.width ?? .infinity
+    let subviewProposal = ProposedViewSize(
+      width: availableWidth.isFinite ? availableWidth : nil,
+      height: nil
+    )
+    var rowWidth: CGFloat = 0
+    var rowHeight: CGFloat = 0
+    var measuredWidth: CGFloat = 0
+    var measuredHeight: CGFloat = 0
+
+    for subview in subviews {
+      let size = subview.sizeThatFits(subviewProposal)
+      let proposedRowWidth =
+        rowWidth == 0 ? size.width : rowWidth + horizontalSpacing + size.width
+
+      if rowWidth > 0 && proposedRowWidth > availableWidth {
+        measuredWidth = max(measuredWidth, rowWidth)
+        measuredHeight += rowHeight + verticalSpacing
+        rowWidth = size.width
+        rowHeight = size.height
+      } else {
+        rowWidth = proposedRowWidth
+        rowHeight = max(rowHeight, size.height)
+      }
+    }
+
+    measuredWidth = max(measuredWidth, rowWidth)
+    measuredHeight += rowHeight
+    return CGSize(width: proposal.width ?? measuredWidth, height: measuredHeight)
+  }
+
+  func placeSubviews(
+    in bounds: CGRect,
+    proposal: ProposedViewSize,
+    subviews: Subviews,
+    cache: inout ()
+  ) {
+    let subviewProposal = ProposedViewSize(width: bounds.width, height: nil)
+    var x = bounds.minX
+    var y = bounds.minY
+    var rowHeight: CGFloat = 0
+
+    for subview in subviews {
+      let size = subview.sizeThatFits(subviewProposal)
+      if x > bounds.minX && x + size.width > bounds.maxX {
+        x = bounds.minX
+        y += rowHeight + verticalSpacing
+        rowHeight = 0
+      }
+
+      subview.place(
+        at: CGPoint(x: x, y: y),
+        anchor: .topLeading,
+        proposal: ProposedViewSize(width: size.width, height: size.height)
+      )
+      x += size.width + horizontalSpacing
+      rowHeight = max(rowHeight, size.height)
+    }
+  }
+}
