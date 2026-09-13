@@ -18,7 +18,7 @@ import XCTest
     let dto = RecipeDTO(
       id: "r1", originalUrl: "https://example.com", sourceType: "web", title: "鶏肉カレー",
       imageUrl: nil, servingsValue: 2, servingsRaw: "2人分", cookingTimeMinutes: 30, genre: "主菜",
-      analysisStatus: .completed,
+      analysisStatus: .completed, wantToCookAt: nil,
       ingredients: [IngredientDTO(id: "i1", name: "玉ねぎ", amount: "1個", sortOrder: 0)], steps: [],
       tags: [TagDTO(id: "t1", name: "簡単", createdAt: date)], createdAt: date, updatedAt: date)
     try await repository.upsert(dto)
@@ -28,7 +28,7 @@ import XCTest
     let updated = RecipeDTO(
       id: "r1", originalUrl: "https://example.com", sourceType: "web", title: "更新後のカレー",
       imageUrl: nil, servingsValue: 4, servingsRaw: "4人分", cookingTimeMinutes: 25, genre: "主菜",
-      analysisStatus: .completed,
+      analysisStatus: .completed, wantToCookAt: nil,
       ingredients: [
         IngredientDTO(id: "i1", name: "玉ねぎ", amount: "2個", sortOrder: 0),
         IngredientDTO(id: "i2", name: "鶏肉", amount: "400g", sortOrder: 1),
@@ -63,6 +63,41 @@ import XCTest
       try repository.search(query: "", genre: nil, tagID: "kei").map(\.id).sorted(), ["r1", "r2"])
     let tag = try XCTUnwrap(try repository.allTags().first { $0.id == "kei" })
     XCTAssertEqual(tag.recipes.map(\.id).sorted(), ["r1", "r2"])
+  }
+
+  func testWantToCookStateIsUpsertedAndPartitionedNewestFirst() async throws {
+    let container = try ModelContainerFactory.make(inMemory: true)
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    let repository = RecipeRepository(
+      context: container.mainContext,
+      api: APIClient(
+        baseURL: URL(string: "https://example.invalid")!, tokenProvider: TestTokenProvider()),
+      images: try RecipeImageStore(root: root))
+    let date = Date(timeIntervalSince1970: 1_800_000_000)
+    let olderMark = date.addingTimeInterval(10)
+    let newerMark = date.addingTimeInterval(20)
+
+    try await repository.upsert(
+      makeRecipe(id: "older", date: date, wantToCookAt: olderMark))
+    try await repository.upsert(
+      makeRecipe(id: "newer", date: date.addingTimeInterval(1), wantToCookAt: newerMark))
+    try await repository.upsert(
+      makeRecipe(id: "normal", date: date.addingTimeInterval(2)))
+
+    let recipes = try repository.allRecipes()
+    XCTAssertEqual(
+      RecipeListPresentation.wantToCookRecipes(recipes).map(\.id), ["newer", "older"])
+    XCTAssertEqual(RecipeListPresentation.otherRecipes(recipes).map(\.id), ["normal"])
+    XCTAssertEqual(try repository.recipe(id: "older")?.wantToCookAt, olderMark)
+
+    try await repository.upsert(makeRecipe(id: "older", date: date, wantToCookAt: nil))
+    let updatedRecipes = try repository.allRecipes()
+    XCTAssertEqual(RecipeListPresentation.wantToCookRecipes(updatedRecipes).map(\.id), ["newer"])
+    XCTAssertEqual(
+      Set(RecipeListPresentation.otherRecipes(updatedRecipes).map(\.id)), Set(["normal", "older"]))
+    XCTAssertTrue(
+      RecipeListPresentation.wantToCookRecipes([try XCTUnwrap(repository.recipe(id: "normal"))])
+        .isEmpty)
   }
 
   func testImageStoreWritesReadsAndCleansUp() async throws {
@@ -235,13 +270,14 @@ private let validPNGData = Data(
 )!
 
 private func makeRecipe(
-  id: String, date: Date, imageUrl: String? = nil, tags: [TagDTO] = []
+  id: String, date: Date, imageUrl: String? = nil, wantToCookAt: Date? = nil,
+  tags: [TagDTO] = []
 ) -> RecipeDTO {
   RecipeDTO(
     id: id, originalUrl: "https://example.com/\(id)", sourceType: "web", title: id,
     imageUrl: imageUrl, servingsValue: nil, servingsRaw: nil, cookingTimeMinutes: nil, genre: nil,
-    analysisStatus: .completed, ingredients: [], steps: [], tags: tags, createdAt: date,
-    updatedAt: date)
+    analysisStatus: .completed, wantToCookAt: wantToCookAt, ingredients: [], steps: [], tags: tags,
+    createdAt: date, updatedAt: date)
 }
 
 private struct TestTokenProvider: IDTokenProvider {

@@ -9,6 +9,23 @@ enum AnalysisAutoRefreshPolicy {
   }
 }
 
+enum RecipeListPresentation {
+  static func wantToCookRecipes(_ recipes: [LocalRecipe]) -> [LocalRecipe] {
+    recipes
+      .filter { $0.wantToCookAt != nil }
+      .sorted { lhs, rhs in
+        let lhsDate = lhs.wantToCookAt ?? .distantPast
+        let rhsDate = rhs.wantToCookAt ?? .distantPast
+        if lhsDate != rhsDate { return lhsDate > rhsDate }
+        return lhs.id > rhs.id
+      }
+  }
+
+  static func otherRecipes(_ recipes: [LocalRecipe]) -> [LocalRecipe] {
+    recipes.filter { $0.wantToCookAt == nil }
+  }
+}
+
 struct RootView: View {
   @Environment(AppSession.self) private var session
   var body: some View {
@@ -36,6 +53,14 @@ struct HomeView: View {
     GridItem(.flexible(), spacing: 12, alignment: .top),
     GridItem(.flexible(), spacing: 12, alignment: .top),
   ]
+
+  private var wantToCookRecipes: [LocalRecipe] {
+    RecipeListPresentation.wantToCookRecipes(recipes)
+  }
+
+  private var otherRecipes: [LocalRecipe] {
+    RecipeListPresentation.otherRecipes(recipes)
+  }
 
   private var analyzingRecipeIDs: [String] {
     recipes
@@ -90,11 +115,29 @@ struct HomeView: View {
           } else {
             ScrollView {
               LazyVGrid(columns: columns, spacing: 20) {
-                ForEach(recipes) { recipe in
-                  NavigationLink(destination: RecipeDetailView(recipe: recipe)) {
-                    RecipeCard(recipe: recipe)
+                if wantToCookRecipes.isEmpty {
+                  ForEach(recipes) { recipe in
+                    recipeLink(recipe)
                   }
-                  .buttonStyle(.plain)
+                } else {
+                  Section {
+                    ForEach(wantToCookRecipes) { recipe in
+                      recipeLink(recipe)
+                    }
+                  } header: {
+                    sectionHeader("作りたい", accessibilityIdentifier: "home.wantToCookHeading")
+                  }
+
+                  if !otherRecipes.isEmpty {
+                    Section {
+                      ForEach(otherRecipes) { recipe in
+                        recipeLink(recipe)
+                      }
+                    } header: {
+                      sectionHeader(
+                        "その他のレシピ", accessibilityIdentifier: "home.otherRecipesHeading")
+                    }
+                  }
                 }
               }
               .padding(.horizontal, 20)
@@ -202,6 +245,24 @@ struct HomeView: View {
         }
       }
     }
+  }
+
+  private func recipeLink(_ recipe: LocalRecipe) -> some View {
+    NavigationLink(destination: RecipeDetailView(recipe: recipe)) {
+      RecipeCard(recipe: recipe)
+    }
+    .buttonStyle(.plain)
+  }
+
+  private func sectionHeader(
+    _ title: String, accessibilityIdentifier: String
+  ) -> some View {
+    Text(title)
+      .font(.title3.bold())
+      .foregroundStyle(FoodfolioTheme.ink)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .padding(.top, 8)
+      .accessibilityIdentifier(accessibilityIdentifier)
   }
 
   private func pollAnalyzingRecipes() async {

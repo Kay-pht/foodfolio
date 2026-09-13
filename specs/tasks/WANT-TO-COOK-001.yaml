@@ -15,7 +15,7 @@ requirements:
       resulting state in recipe DTOs and sync responses. Repeating an already-enabled request is
       idempotent and does not refresh the original timestamp.
     verification:
-      - tests/integration/mvp-critical.test.ts
+      - tests/integration/want-to-cook.test.ts
   - id: WTC-2
     condition: A recipe detail screen is displayed for a locally synced recipe.
     expected: >-
@@ -23,20 +23,20 @@ requirements:
       the new state through RecipeRepository, updates the local recipe from the returned DTO, and
       prevents duplicate submissions while the request is in flight.
     verification:
-      - ios/FoodfolioTests/CoreLogicTests.swift
+      - ios/FoodfolioIntegrationTests/PersistenceIntegrationTests.swift
   - id: WTC-3
     condition: One or more locally cached recipes have a want-to-cook timestamp.
     expected: >-
       Home shows a dedicated "作りたい" section before the other recipes, ordered by the timestamp
       from newest to oldest. Marked recipes are not duplicated in the remaining recipe section.
     verification:
-      - ios/FoodfolioTests/CoreLogicTests.swift
+      - ios/FoodfolioIntegrationTests/PersistenceIntegrationTests.swift
   - id: WTC-4
     condition: No locally cached recipe is marked as want-to-cook.
     expected: >-
       Home keeps the existing recipe-grid experience and does not render an empty "作りたい" section.
     verification:
-      - ios/FoodfolioTests/CoreLogicTests.swift
+      - ios/FoodfolioIntegrationTests/PersistenceIntegrationTests.swift
   - id: WTC-5
     condition: An existing installation opens a SwiftData store created before want-to-cook existed.
     expected: >-
@@ -84,6 +84,6 @@ acceptance_criteria:
 regression:
   required: false
   tests:
-    - tests/integration/mvp-critical.test.ts
-    - ios/FoodfolioTests/CoreLogicTests.swift
+    - tests/integration/want-to-cook.test.ts
+    - ios/FoodfolioIntegrationTests/PersistenceIntegrationTests.swift
     - scripts/test-ios-swiftdata-migration.sh

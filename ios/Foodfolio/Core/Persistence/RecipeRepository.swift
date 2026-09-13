@@ -48,6 +48,13 @@ final class RecipeRepository {
     return try await upsert(dto)
   }
 
+  func setWantToCook(id: String, enabled: Bool) async throws -> LocalRecipe {
+    struct Body: Encodable, Sendable { let enabled: Bool }
+    let dto: RecipeDTO = try await api.send(
+      "/v1/recipes/\(id)/want-to-cook", method: "PATCH", body: Body(enabled: enabled))
+    return try await upsert(dto)
+  }
+
   func delete(id: String) async throws {
     try await api.sendWithoutResponse(
       "/v1/recipes/\(id)", method: "DELETE", body: Optional<String>.none)
@@ -124,6 +131,7 @@ final class RecipeRepository {
     local.cookingTimeMinutes = dto.cookingTimeMinutes
     local.genreRaw = dto.genre
     local.analysisStatusRaw = dto.analysisStatus.rawValue
+    local.wantToCookAt = dto.wantToCookAt
     local.createdAt = dto.createdAt
     local.updatedAt = dto.updatedAt
     local.ingredients.forEach(context.delete)

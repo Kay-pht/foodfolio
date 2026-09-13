@@ -79,6 +79,7 @@ enum GenreBadgeColor: String, CaseIterable {
   var cookingTimeMinutes: Int?
   var genreRaw: String?
   var analysisStatusRaw: String
+  var wantToCookAt: Date?
   var createdAt: Date
   var updatedAt: Date
   @Relationship(deleteRule: .cascade) var ingredients: [LocalIngredient]
@@ -91,8 +92,8 @@ enum GenreBadgeColor: String, CaseIterable {
   init(
     id: String, originalUrl: String, sourceType: String, title: String, imageUrl: String? = nil,
     servingsValue: Double? = nil, servingsRaw: String? = nil, cookingTimeMinutes: Int? = nil,
-    genreRaw: String? = nil, analysisStatus: AnalysisStatus = .pending, createdAt: Date,
-    updatedAt: Date,
+    genreRaw: String? = nil, analysisStatus: AnalysisStatus = .pending, wantToCookAt: Date? = nil,
+    createdAt: Date, updatedAt: Date,
     ingredients: [LocalIngredient] = [], steps: [LocalRecipeStep] = [], tags: [LocalTag] = []
   ) {
     self.id = id
@@ -105,6 +106,7 @@ enum GenreBadgeColor: String, CaseIterable {
     self.cookingTimeMinutes = cookingTimeMinutes
     self.genreRaw = genreRaw
     self.analysisStatusRaw = analysisStatus.rawValue
+    self.wantToCookAt = wantToCookAt
     self.createdAt = createdAt
     self.updatedAt = updatedAt
     self.ingredients = ingredients

@@ -158,6 +158,9 @@ guard tags.count == 1, let sharedTag = tags.first else {
 guard first.id == "r1", first.title == "Legacy recipe" else {
   fatalError("Legacy recipe identity or title was not preserved")
 }
+guard first.wantToCookAt == nil else {
+  fatalError("Legacy recipe must default to an unmarked want-to-cook state")
+}
 guard first.ingredients.map(\.id) == ["ingredient-1"] else {
   fatalError("Legacy ingredients were not preserved")
 }

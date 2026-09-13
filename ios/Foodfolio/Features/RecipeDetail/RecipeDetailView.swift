@@ -9,6 +9,7 @@ struct RecipeDetailView: View {
   @State private var showDelete = false
   @State private var errorMessage: String?
   @State private var showsCompactTitle = false
+  @State private var isUpdatingWantToCook = false
 
   var body: some View {
     GeometryReader { geometry in
@@ -143,6 +144,36 @@ struct RecipeDetailView: View {
 
         servingsControl
       }
+
+      Button {
+        toggleWantToCook()
+      } label: {
+        HStack(spacing: 10) {
+          Label(
+            "作りたい",
+            systemImage: recipe.wantToCookAt == nil ? "plus.circle" : "checkmark.circle.fill"
+          )
+          .font(.body.weight(.semibold))
+
+          Spacer(minLength: 0)
+
+          if isUpdatingWantToCook {
+            ProgressView()
+              .controlSize(.small)
+          }
+        }
+        .foregroundStyle(
+          recipe.wantToCookAt == nil ? FoodfolioTheme.ink : FoodfolioTheme.terracotta
+        )
+        .padding(.horizontal, 16)
+        .frame(maxWidth: .infinity, minHeight: 50)
+        .glassEffect(
+          .regular.interactive(), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+      }
+      .buttonStyle(.plain)
+      .disabled(isUpdatingWantToCook)
+      .accessibilityValue(recipe.wantToCookAt == nil ? "未追加" : "追加済み")
+      .accessibilityIdentifier("detail.wantToCook")
 
       ScrollView(.horizontal) {
         HStack(spacing: 8) {
@@ -321,6 +352,20 @@ struct RecipeDetailView: View {
     case 0: FoodfolioTheme.sage.opacity(0.18)
     case 1: FoodfolioTheme.butter.opacity(0.22)
     default: FoodfolioTheme.terracotta.opacity(0.14)
+    }
+  }
+
+  private func toggleWantToCook() {
+    guard !isUpdatingWantToCook else { return }
+    let enabled = recipe.wantToCookAt == nil
+    isUpdatingWantToCook = true
+    Task {
+      do {
+        _ = try await session.repository.setWantToCook(id: recipe.id, enabled: enabled)
+      } catch {
+        errorMessage = error.localizedDescription
+      }
+      isUpdatingWantToCook = false
     }
   }
 
