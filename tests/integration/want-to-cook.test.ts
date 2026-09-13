@@ -81,7 +81,9 @@ describe("want-to-cook API", () => {
     });
     expect(sync.statusCode).toBe(200);
     expect(
-      sync.json().recipes.find((recipe: { id: string }) => recipe.id === recipeId)
+      sync
+        .json()
+        .recipes.find((recipe: { id: string }) => recipe.id === recipeId)
         ?.wantToCookAt,
     ).toBe(firstTimestamp);
 
