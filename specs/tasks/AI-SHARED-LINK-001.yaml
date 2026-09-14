@@ -15,8 +15,8 @@ requirements:
       gemini.google.com/share/<id> or share.gemini.google/<token> is classified as
       SourceType gemini. Other ChatGPT or Gemini pages remain ordinary web URLs.
     verification:
-      - tests/unit/url-classification.test.ts
-      - tests/integration/backend-postgres.test.ts
+      - tests/unit/ai-shared-conversation.test.ts
+      - tests/integration/ai-shared-link-postgres.test.ts
   - id: ASL-2
     condition: A Gemini short share URL is submitted before Recipe creation.
     expected: >-
@@ -26,7 +26,7 @@ requirements:
       cannot create two Recipe rows for the same user.
     verification:
       - tests/unit/ai-shared-conversation.test.ts
-      - tests/integration/backend-postgres.test.ts
+      - tests/integration/ai-shared-link-postgres.test.ts
   - id: ASL-3
     condition: A public ChatGPT share is analyzed.
     expected: >-
@@ -36,7 +36,7 @@ requirements:
       account token, Authorization header, or authenticated Cookie is used.
     verification:
       - tests/unit/ai-shared-conversation.test.ts
-      - tests/integration/url-extraction.test.ts
+      - tests/unit/ai-shared-source-content-extractor.test.ts
   - id: ASL-4
     condition: A public Gemini share is analyzed.
     expected: >-
@@ -47,7 +47,7 @@ requirements:
       unchanged.
     verification:
       - tests/unit/ai-shared-conversation.test.ts
-      - tests/integration/url-extraction.test.ts
+      - tests/unit/ai-shared-source-content-extractor.test.ts
   - id: ASL-5
     condition: Either supported provider returns a valid shared conversation.
     expected: >-
@@ -57,8 +57,7 @@ requirements:
       the same dish while carrying forward unchanged recipe facts into one final Recipe.
     verification:
       - tests/unit/ai-shared-conversation.test.ts
-      - tests/unit/zai-video-extraction.test.ts
-      - tests/e2e/backend-worker.test.ts
+      - tests/unit/ai-shared-source-content-extractor.test.ts
   - id: ASL-6
     condition: A provider payload no longer matches the verified public-share format.
     expected: >-
@@ -67,7 +66,7 @@ requirements:
       5xx failures remain retryable where the existing analysis retry contract allows it.
     verification:
       - tests/unit/ai-shared-conversation.test.ts
-      - tests/integration/url-extraction.test.ts
+      - tests/unit/ai-shared-source-content-extractor.test.ts
   - id: ASL-7
     condition: A supported AI share is stored as a Recipe.
     expected: >-
@@ -75,8 +74,8 @@ requirements:
       separately specified representative-image source is added, and existing non-AI URL
       analysis behavior remains compatible.
     verification:
-      - tests/e2e/backend-worker.test.ts
-      - tests/integration/backend-postgres.test.ts
+      - tests/integration/ai-shared-link-postgres.test.ts
+      - tests/unit/ai-shared-source-content-extractor.test.ts
 
 edge_cases:
   - ChatGPT contains edited or regenerated branches; only the current active branch is used.
@@ -126,9 +125,9 @@ acceptance_criteria:
 regression:
   required: true
   tests:
-    - tests/unit/url-classification.test.ts
     - tests/unit/ai-shared-conversation.test.ts
+    - tests/unit/ai-shared-source-content-extractor.test.ts
+    - tests/integration/ai-shared-link-postgres.test.ts
     - tests/unit/zai-video-extraction.test.ts
     - tests/integration/url-extraction.test.ts
-    - tests/integration/backend-postgres.test.ts
     - tests/e2e/backend-worker.test.ts
