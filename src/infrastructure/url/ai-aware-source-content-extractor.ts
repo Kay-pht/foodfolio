@@ -4,10 +4,8 @@ import type {
   SourceContentExtractor,
 } from "../../application/analysis/types.js";
 import { sourceTypeForUrl } from "../../domain/recipe/url.js";
-import {
-  serializeSharedConversation,
-  type SharedConversationAdapter,
-} from "./ai-shared-conversation.js";
+import type { SharedConversationAdapter } from "./ai-shared-conversation.js";
+import { serializeSharedConversation } from "./shared-conversation-serializer.js";
 
 export class AiAwareSourceContentExtractor
   implements SourceContentExtractor, RepresentativeImageResolver
