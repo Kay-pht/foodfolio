@@ -77,17 +77,13 @@ describe("CI auto-fix coverage", () => {
     ).resolves.toMatchObject({ ignored: true });
   });
 
-  it("keeps automatic fixes deterministic and re-verifies the fixed head", async () => {
+  it("serializes ready PR auto-fix before Quality", async () => {
     const autoFixWorkflow = await readFile(
       new URL("../../.github/workflows/auto-format.yml", import.meta.url),
       "utf8",
     );
     const qualityWorkflow = await readFile(
       new URL("../../.github/workflows/quality.yml", import.meta.url),
-      "utf8",
-    );
-    const documentationWorkflow = await readFile(
-      new URL("../../.github/workflows/documentation.yml", import.meta.url),
       "utf8",
     );
 
@@ -101,35 +97,27 @@ describe("CI auto-fix coverage", () => {
       "node scripts/format-changed-markdown.mjs --write",
     );
     expect(autoFixWorkflow).toContain("node scripts/sync-task-files.mjs");
+    expect(autoFixWorkflow).toContain(
+      "github.event.pull_request.draft == false",
+    );
     expect(autoFixWorkflow).toContain("gh workflow run quality.yml");
-    expect(autoFixWorkflow).toContain("gh workflow run documentation.yml");
+    expect(autoFixWorkflow).not.toContain("gh workflow run documentation.yml");
+    expect(autoFixWorkflow).not.toContain("gh workflow run auto-format.yml");
     expect(autoFixWorkflow).toContain("workflow_dispatch:");
     expect(autoFixWorkflow).toContain("Validate dispatched PR context");
     expect(autoFixWorkflow).toContain(
       "Reject remaining fixes on dispatched head",
     );
-    expect(autoFixWorkflow).toContain("gh workflow run auto-format.yml");
-    expect(autoFixWorkflow).toContain("verify-{0}");
+    expect(autoFixWorkflow).toContain("Dispatch Quality for final ready head");
+    expect(autoFixWorkflow).toContain('"${draft}" != "false"');
 
-    expect(qualityWorkflow).toContain("Check whitespace and conflict markers");
-    expect(qualityWorkflow).toContain("git diff --check");
-    expect(qualityWorkflow).toContain("rhysd/actionlint:1.7.12");
-    expect(qualityWorkflow).toContain("Check Terraform formatting");
-    expect(qualityWorkflow).toContain("terraform fmt -check -recursive");
-    expect(qualityWorkflow).toContain("Check Prisma formatting");
-    expect(qualityWorkflow).toContain(
-      "git diff --exit-code -- prisma/schema.prisma",
-    );
+    expect(qualityWorkflow).not.toContain("\n  pull_request:\n");
+    expect(qualityWorkflow).toContain("workflow_dispatch:");
+    expect(qualityWorkflow).toContain("Validate dispatched PR context");
+    expect(qualityWorkflow).toContain("Check task consistency");
+    expect(qualityWorkflow).toContain("Run documentation guardrails");
     expect(qualityWorkflow).toContain("Check Markdown formatting");
     expect(qualityWorkflow).toContain(
-      "node scripts/format-changed-markdown.mjs --check",
-    );
-
-    expect(documentationWorkflow).toContain("workflow_dispatch:");
-    expect(documentationWorkflow).toContain("Validate dispatched PR context");
-    expect(documentationWorkflow).toContain("Check task consistency");
-    expect(documentationWorkflow).toContain("stale-dispatch-{0}");
-    expect(documentationWorkflow).toContain(
       "node scripts/format-changed-markdown.mjs --check",
     );
   });
