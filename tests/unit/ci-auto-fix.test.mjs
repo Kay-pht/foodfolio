@@ -105,7 +105,9 @@ describe("CI auto-fix coverage", () => {
     expect(autoFixWorkflow).toContain("github.event.action == 'synchronize'");
     expect(autoFixWorkflow).toContain("github.event.sender.type == 'Bot'");
     expect(autoFixWorkflow).toContain("style: apply automatic formatting");
-    expect(autoFixWorkflow).toContain("Dispatch Quality for Auto Fix bot head");
+    expect(autoFixWorkflow).toContain(
+      "Dispatch Quality for Auto Fix bot head",
+    );
     expect(autoFixWorkflow).toContain("steps.commit.outputs.pushed != 'true'");
     expect(autoFixWorkflow).toContain(
       "steps.app-config.outputs.configured != 'true'",
