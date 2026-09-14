@@ -286,7 +286,9 @@ describe("PR Quality proof", () => {
       /git push(?:\s|\\\n)*--force(?:\s|$)/,
     );
     expect(autoFormatWorkflow).toContain("gh workflow run quality.yml");
-    expect(autoFormatWorkflow).not.toContain("gh workflow run documentation.yml");
+    expect(autoFormatWorkflow).not.toContain(
+      "gh workflow run documentation.yml",
+    );
     expect(autoFormatWorkflow).not.toContain("gh workflow run auto-format.yml");
     expect(autoFormatWorkflow).toContain(
       "The pull request advanced, became draft, closed, or changed repository",
