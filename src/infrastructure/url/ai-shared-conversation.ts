@@ -207,7 +207,9 @@ function findConversationData(root: unknown): Record<string, unknown> | null {
   return null;
 }
 
-function textFromChatGptMessage(message: Record<string, unknown>): string | null {
+function textFromChatGptMessage(
+  message: Record<string, unknown>,
+): string | null {
   const content = asRecord(message.content);
   if (!content || !Array.isArray(content.parts)) return null;
   const parts: string[] = [];
@@ -276,9 +278,10 @@ function messagesFromChatGptData(
 }
 
 function legacyChatGptData(html: string): Record<string, unknown> | null {
-  const match = /<script\b[^>]*id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i.exec(
-    html,
-  );
+  const match =
+    /<script\b[^>]*id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i.exec(
+      html,
+    );
   if (!match?.[1]) return null;
   try {
     return findConversationData(JSON.parse(match[1]));
@@ -309,9 +312,7 @@ export function parseChatGptShareHtml(
   return messages;
 }
 
-export class ChatGptSharedConversationAdapter
-  implements SharedConversationAdapter
-{
+export class ChatGptSharedConversationAdapter implements SharedConversationAdapter {
   constructor(private readonly http: TextHttpClient) {}
 
   async extract(url: URL): Promise<SharedConversation> {
@@ -329,7 +330,9 @@ export class ChatGptSharedConversationAdapter
   }
 }
 
-async function bodyToBoundedText(body: AsyncIterable<unknown>): Promise<string> {
+async function bodyToBoundedText(
+  body: AsyncIterable<unknown>,
+): Promise<string> {
   const chunks: Buffer[] = [];
   let total = 0;
   for await (const chunk of body) {
@@ -491,16 +494,15 @@ export function parseGeminiBatchResponse(
   return messages;
 }
 
-export class GeminiSharedConversationAdapter
-  implements SharedConversationAdapter
-{
+export class GeminiSharedConversationAdapter implements SharedConversationAdapter {
   constructor(
     private readonly transport: GeminiTransport = new UndiciGeminiTransport(),
   ) {}
 
   async canonicalize(input: URL): Promise<URL> {
     const existingPath = geminiCanonicalPath(input);
-    if (existingPath) return new URL(`https://gemini.google.com${existingPath}`);
+    if (existingPath)
+      return new URL(`https://gemini.google.com${existingPath}`);
 
     const host = input.hostname.toLowerCase().replace(/^www\./, "");
     const segments = input.pathname.split("/").filter(Boolean);
