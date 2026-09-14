@@ -110,4 +110,52 @@ describe("want-to-cook API", () => {
 
     await app.close();
   });
+
+  it("preserves one timestamp when enable requests run concurrently", async () => {
+    const app = buildApi({
+      prisma: context.prisma,
+      authVerifier: auth,
+      firebaseUsers,
+      taskQueue,
+    });
+    const ownerHeaders = headers("want-to-cook-concurrent-owner");
+    const created = await app.inject({
+      method: "POST",
+      url: "/v1/recipes",
+      headers: ownerHeaders,
+      payload: { url: "https://example.com/want-to-cook-concurrent" },
+    });
+    expect(created.statusCode).toBe(201);
+    const recipeId = created.json().id as string;
+
+    const responses = await Promise.all(
+      Array.from({ length: 12 }, () =>
+        app.inject({
+          method: "PATCH",
+          url: `/v1/recipes/${recipeId}/want-to-cook`,
+          headers: ownerHeaders,
+          payload: { enabled: true },
+        }),
+      ),
+    );
+
+    expect(responses.every((response) => response.statusCode === 200)).toBe(
+      true,
+    );
+    const timestamps = responses.map(
+      (response) => response.json().wantToCookAt as string,
+    );
+    expect(timestamps.every((timestamp) => typeof timestamp === "string")).toBe(
+      true,
+    );
+    expect(new Set(timestamps)).toHaveSize(1);
+
+    const stored = await context.prisma.recipe.findUnique({
+      where: { id: recipeId },
+      select: { wantToCookAt: true },
+    });
+    expect(stored?.wantToCookAt?.toISOString()).toBe(timestamps[0]);
+
+    await app.close();
+  });
 });
