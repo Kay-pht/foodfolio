@@ -38,7 +38,12 @@ function bearerToken(request: FastifyRequest): string {
 
 function sharedConversationAppError(error: AnalysisError): AppError | null {
   if (!error.code.startsWith("SHARED_CONVERSATION_")) return null;
-  return new AppError(error.retryable ? 503 : 422, error.code, error.message);
+  return new AppError(
+    error.retryable ? 503 : 422,
+    error.retryable ? "TEMPORARILY_UNAVAILABLE" : "VALIDATION_ERROR",
+    error.message,
+    { reason: error.code },
+  );
 }
 
 export function buildApi(deps: ApiDependencies): FastifyInstance {
