@@ -1,6 +1,9 @@
 import XCTest
 
 @MainActor final class WantToCookUITests: FoodfolioUITestCase {
+  private let seedTitle = "親子丼"
+  private let otherTitle = "キャベツステーキ 簡単レシピ！シンプルだけど香ばしい"
+
   func testWantToCookMovesRecipeIntoDedicatedHomeSectionAndCanBeRemoved() {
     let app = launch(arguments: ["-ui-testing-mixed-title-grid"])
     openSeedRecipe(in: app)
@@ -15,19 +18,18 @@ import XCTest
 
     let wantHeading = app.staticTexts["home.wantToCookHeading"]
     let otherHeading = app.staticTexts["home.otherRecipesHeading"]
-    let markedCard = recipeCard(id: "ui-recipe", in: app)
-    let otherCard = recipeCard(id: "ui-recipe-long", in: app)
+    let markedTitle = app.staticTexts[seedTitle]
+    let normalTitle = app.staticTexts[otherTitle]
     XCTAssertTrue(wantHeading.waitForExistence(timeout: 3))
     XCTAssertTrue(otherHeading.waitForExistence(timeout: 3))
-    XCTAssertTrue(markedCard.waitForExistence(timeout: 3))
-    XCTAssertTrue(otherCard.waitForExistence(timeout: 3))
-    XCTAssertEqual(
-      app.descendants(matching: .any).matching(identifier: "recipe.card.ui-recipe").count, 1)
-    XCTAssertLessThan(wantHeading.frame.minY, markedCard.frame.minY)
-    XCTAssertLessThan(markedCard.frame.minY, otherHeading.frame.minY)
-    XCTAssertLessThan(otherHeading.frame.minY, otherCard.frame.minY)
+    XCTAssertTrue(markedTitle.waitForExistence(timeout: 3))
+    XCTAssertTrue(normalTitle.waitForExistence(timeout: 3))
+    XCTAssertEqual(textCount(seedTitle, in: app), 1)
+    XCTAssertLessThan(wantHeading.frame.minY, markedTitle.frame.minY)
+    XCTAssertLessThan(markedTitle.frame.minY, otherHeading.frame.minY)
+    XCTAssertLessThan(otherHeading.frame.minY, normalTitle.frame.minY)
 
-    markedCard.tap()
+    markedTitle.tap()
     XCTAssertTrue(app.staticTexts["detail.wantToCookStatus"].waitForExistence(timeout: 3))
     openRecipeMenu(in: app)
     let removeWantToCook = app.buttons["detail.wantToCook"]
@@ -41,9 +43,8 @@ import XCTest
     returnToHome(in: app)
     XCTAssertFalse(wantHeading.waitForExistence(timeout: 1))
     XCTAssertFalse(otherHeading.exists)
-    XCTAssertTrue(recipeCard(id: "ui-recipe", in: app).waitForExistence(timeout: 3))
-    XCTAssertEqual(
-      app.descendants(matching: .any).matching(identifier: "recipe.card.ui-recipe").count, 1)
+    XCTAssertTrue(app.staticTexts[seedTitle].waitForExistence(timeout: 3))
+    XCTAssertEqual(textCount(seedTitle, in: app), 1)
   }
 
   func testWantToCookRemainsAvailableWhileAnalysisIsPending() {
@@ -88,14 +89,10 @@ import XCTest
   }
 
   private func openSeedRecipe(in app: XCUIApplication) {
-    let card = recipeCard(id: "ui-recipe", in: app)
-    XCTAssertTrue(card.waitForExistence(timeout: 5))
-    card.tap()
+    let title = app.staticTexts[seedTitle]
+    XCTAssertTrue(title.waitForExistence(timeout: 5))
+    title.tap()
     XCTAssertTrue(app.staticTexts["detail.title"].waitForExistence(timeout: 3))
-  }
-
-  private func recipeCard(id: String, in app: XCUIApplication) -> XCUIElement {
-    app.descendants(matching: .any)["recipe.card.\(id)"]
   }
 
   private func openRecipeMenu(in app: XCUIApplication) {
@@ -107,11 +104,15 @@ import XCTest
   private func returnToHome(in app: XCUIApplication) {
     let navigationBar = app.navigationBars.firstMatch
     XCTAssertTrue(navigationBar.waitForExistence(timeout: 3))
-    let backButton = navigationBar.buttons.matching(
-      NSPredicate(format: "identifier != %@", "detail.moreMenu")
-    ).firstMatch
-    XCTAssertTrue(backButton.waitForExistence(timeout: 3))
-    backButton.tap()
+    let backButtons = navigationBar.buttons.allElementsBoundByIndex.filter {
+      $0.identifier != "detail.moreMenu"
+    }
+    XCTAssertFalse(backButtons.isEmpty)
+    backButtons[0].tap()
     XCTAssertTrue(app.buttons["home.search"].waitForExistence(timeout: 3))
+  }
+
+  private func textCount(_ label: String, in app: XCUIApplication) -> Int {
+    app.staticTexts.allElementsBoundByIndex.filter { $0.label == label }.count
   }
 }
