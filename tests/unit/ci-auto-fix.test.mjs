@@ -77,7 +77,7 @@ describe("CI auto-fix coverage", () => {
     ).resolves.toMatchObject({ ignored: true });
   });
 
-  it("serializes ready PR auto-fix before Quality", async () => {
+  it("serializes ready PR auto-fix and hands fixed bot heads to Quality", async () => {
     const autoFixWorkflow = await readFile(
       new URL("../../.github/workflows/auto-format.yml", import.meta.url),
       "utf8",
@@ -100,7 +100,21 @@ describe("CI auto-fix coverage", () => {
     expect(autoFixWorkflow).toContain(
       "github.event.pull_request.draft == false",
     );
-    expect(autoFixWorkflow).toContain("gh workflow run quality.yml");
+    expect(autoFixWorkflow).toContain("github.event.sender.type != 'Bot'");
+    expect(autoFixWorkflow).toContain("handoff-quality:");
+    expect(autoFixWorkflow).toContain("github.event.action == 'synchronize'");
+    expect(autoFixWorkflow).toContain("github.event.sender.type == 'Bot'");
+    expect(autoFixWorkflow).toContain("style: apply automatic formatting");
+    expect(autoFixWorkflow).toContain(
+      "Dispatch Quality for Auto Fix bot head",
+    );
+    expect(autoFixWorkflow).toContain("steps.commit.outputs.pushed != 'true'");
+    expect(autoFixWorkflow).toContain(
+      "steps.app-config.outputs.configured != 'true'",
+    );
+    expect(
+      autoFixWorkflow.match(/gh workflow run quality\.yml/g) ?? [],
+    ).toHaveLength(2);
     expect(autoFixWorkflow).not.toContain("gh workflow run documentation.yml");
     expect(autoFixWorkflow).not.toContain("gh workflow run auto-format.yml");
     expect(autoFixWorkflow).toContain("workflow_dispatch:");
@@ -108,8 +122,12 @@ describe("CI auto-fix coverage", () => {
     expect(autoFixWorkflow).toContain(
       "Reject remaining fixes on dispatched head",
     );
-    expect(autoFixWorkflow).toContain("Dispatch Quality for final ready head");
     expect(autoFixWorkflow).toContain('"${draft}" != "false"');
+
+    const handoffJob = autoFixWorkflow.split("\n  handoff-quality:\n")[1];
+    expect(handoffJob).toBeDefined();
+    expect(handoffJob).not.toContain("npm run lint:fix");
+    expect(handoffJob).not.toContain("actions/checkout");
 
     expect(qualityWorkflow).not.toContain("\n  pull_request:\n");
     expect(qualityWorkflow).toContain("workflow_dispatch:");
