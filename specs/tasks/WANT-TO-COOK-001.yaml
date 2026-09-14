@@ -26,6 +26,7 @@ requirements:
       prevents duplicate submissions while the request is in flight.
     verification:
       - ios/FoodfolioIntegrationTests/PersistenceIntegrationTests.swift
+      - ios/FoodfolioUITests/WantToCookUITests.swift
   - id: WTC-3
     condition: One or more locally cached recipes have a want-to-cook timestamp.
     expected: >-
@@ -33,12 +34,14 @@ requirements:
       from newest to oldest. Marked recipes are not duplicated in the remaining recipe section.
     verification:
       - ios/FoodfolioIntegrationTests/PersistenceIntegrationTests.swift
+      - ios/FoodfolioUITests/WantToCookUITests.swift
   - id: WTC-4
     condition: No locally cached recipe is marked as want-to-cook.
     expected: >-
       Home keeps the existing recipe-grid experience and does not render an empty "作りたい" section.
     verification:
       - ios/FoodfolioIntegrationTests/PersistenceIntegrationTests.swift
+      - ios/FoodfolioUITests/WantToCookUITests.swift
   - id: WTC-5
     condition: An existing installation opens a SwiftData store created before want-to-cook existed.
     expected: >-
@@ -89,4 +92,5 @@ regression:
   tests:
     - tests/integration/want-to-cook.test.ts
     - ios/FoodfolioIntegrationTests/PersistenceIntegrationTests.swift
+    - ios/FoodfolioUITests/WantToCookUITests.swift
     - scripts/test-ios-swiftdata-migration.sh
