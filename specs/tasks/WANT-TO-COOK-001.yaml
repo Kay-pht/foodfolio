@@ -86,9 +86,11 @@ out_of_scope:
   - Notifications or automatic removal after cooking.
   - Grouping multiple recipes into one meal or menu.
   - Adding a direct want-to-cook control to recipe cards in this iteration.
+  - Resolving the pre-existing race where an older sync response arrives after a newer local mutation.
+  - Resolving this shared sync issue for recipe editing, tagging, and deletion; tracked in tasks/todo.md.
 
 acceptance_criteria:
-  - A user can toggle "作りたい" from the recipe detail overflow menu and the state survives a subsequent sync.
+  - A user can toggle "作りたい" from the recipe detail overflow menu and the state survives a subsequent non-overlapping sync.
   - Marked recipes show a compact "作りたい" status in recipe detail; unmarked recipes do not.
   - Marked recipes appear in a distinct top section on Home, newest mark first, without duplication below.
   - Removing the mark returns the recipe to the normal recipe section.
