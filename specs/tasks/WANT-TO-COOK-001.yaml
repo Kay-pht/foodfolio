@@ -50,7 +50,7 @@ requirements:
       - scripts/test-ios-swiftdata-migration.sh
 
 edge_cases:
-  - A recipe is marked while its AI analysis is still pending or processing.
+  - A recipe is marked while its AI analysis is still pending or processing; each state is verified in an isolated UI test launch.
   - The same recipe receives an enabled request more than once.
   - Every recipe in the library is marked as want-to-cook.
   - A legacy local recipe has no want-to-cook field.
