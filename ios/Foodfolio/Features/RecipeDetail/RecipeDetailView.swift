@@ -7,8 +7,10 @@ struct RecipeDetailView: View {
   @State private var displayServings: Double?
   @State private var showTags = false
   @State private var showDelete = false
+  @State private var showEdit = false
   @State private var errorMessage: String?
   @State private var showsCompactTitle = false
+  @State private var isUpdatingWantToCook = false
 
   var body: some View {
     GeometryReader { geometry in
@@ -92,14 +94,35 @@ struct RecipeDetailView: View {
         }
       }
       ToolbarItem(placement: .topBarTrailing) {
-        if RecipeDetailPresentation.canEdit(status: recipe.analysisStatus) {
-          NavigationLink(destination: RecipeEditView(recipe: recipe)) {
-            Image(systemName: "pencil")
+        Menu {
+          Button {
+            toggleWantToCook()
+          } label: {
+            Label(
+              recipe.wantToCookAt == nil ? "作りたいに追加" : "作りたいから外す",
+              systemImage: recipe.wantToCookAt == nil ? "plus.circle" : "checkmark.circle.fill"
+            )
           }
-          .accessibilityLabel("レシピを編集")
-          .accessibilityIdentifier("detail.edit")
+          .disabled(isUpdatingWantToCook)
+          .accessibilityIdentifier("detail.wantToCook")
+
+          if RecipeDetailPresentation.canEdit(status: recipe.analysisStatus) {
+            Button {
+              showEdit = true
+            } label: {
+              Label("レシピを編集", systemImage: "pencil")
+            }
+            .accessibilityIdentifier("detail.edit")
+          }
+        } label: {
+          Image(systemName: "ellipsis")
         }
+        .accessibilityLabel("レシピのメニュー")
+        .accessibilityIdentifier("detail.moreMenu")
       }
+    }
+    .navigationDestination(isPresented: $showEdit) {
+      RecipeEditView(recipe: recipe)
     }
     .sheet(isPresented: $showTags) { TagPickerSheet(recipe: recipe) }
     .alert(
@@ -131,6 +154,13 @@ struct RecipeDetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
         .accessibilityIdentifier("detail.title")
+
+      if recipe.wantToCookAt != nil {
+        Label("作りたい", systemImage: "checkmark.circle.fill")
+          .font(.caption.weight(.semibold))
+          .foregroundStyle(FoodfolioTheme.terracotta)
+          .accessibilityIdentifier("detail.wantToCookStatus")
+      }
 
       HStack(spacing: 10) {
         if let minutes = recipe.cookingTimeMinutes {
@@ -321,6 +351,20 @@ struct RecipeDetailView: View {
     case 0: FoodfolioTheme.sage.opacity(0.18)
     case 1: FoodfolioTheme.butter.opacity(0.22)
     default: FoodfolioTheme.terracotta.opacity(0.14)
+    }
+  }
+
+  private func toggleWantToCook() {
+    guard !isUpdatingWantToCook else { return }
+    let enabled = recipe.wantToCookAt == nil
+    isUpdatingWantToCook = true
+    Task {
+      do {
+        _ = try await session.repository.setWantToCook(id: recipe.id, enabled: enabled)
+      } catch {
+        errorMessage = error.localizedDescription
+      }
+      isUpdatingWantToCook = false
     }
   }
 

@@ -81,7 +81,11 @@ import XCTest
     XCTAssertEqual(genreBadge.label, "主菜")
     XCTAssertGreaterThanOrEqual(genreBadge.frame.minY, hero.frame.maxY - 1)
     XCTAssertGreaterThan(expandedTitle.frame.minY, genreBadge.frame.maxY)
-    XCTAssertTrue(app.buttons["detail.edit"].exists)
+    let moreMenu = app.buttons["detail.moreMenu"]
+    XCTAssertTrue(moreMenu.exists)
+    moreMenu.tap()
+    XCTAssertTrue(app.buttons["detail.edit"].waitForExistence(timeout: 2))
+    app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.55)).tap()
     XCTAssertFalse(app.staticTexts["ジャンル"].exists)
 
     for _ in 0..<4 where !compactTitle.exists {
@@ -362,6 +366,8 @@ import XCTest
     XCTAssertEqual(createdTag.frame.midY, tagHeading.frame.midY, accuracy: 3)
     XCTAssertEqual(addTagButton.frame.midY, createdTag.frame.midY, accuracy: 3)
 
+    app.buttons["detail.moreMenu"].tap()
+    XCTAssertTrue(app.buttons["detail.edit"].waitForExistence(timeout: 2))
     app.buttons["detail.edit"].tap()
     XCTAssertTrue(app.textFields["edit.title"].waitForExistence(timeout: 3))
     app.textFields["edit.title"].tap()

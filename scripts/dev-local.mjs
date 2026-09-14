@@ -12,6 +12,7 @@ import {
 } from "./dev-local-support.mjs";
 
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
+const baseEnvironmentPath = resolve(repositoryRoot, ".env");
 const environmentPath = resolve(
   repositoryRoot,
   process.env.FOODFOLIO_LOCAL_ENV ?? ".env.local",
@@ -19,13 +20,16 @@ const environmentPath = resolve(
 
 if (!existsSync(environmentPath)) {
   console.error(
-    `Missing ${environmentPath}. Copy .env.local.example to .env.local and fill the required API keys.`,
+    `Missing ${environmentPath}. Copy .env.local.example to .env.local.`,
   );
   process.exit(1);
 }
 
 const environment = mergeLocalEnvironment(
   process.env,
+  existsSync(baseEnvironmentPath)
+    ? parse(readFileSync(baseEnvironmentPath))
+    : {},
   parse(readFileSync(environmentPath)),
 );
 

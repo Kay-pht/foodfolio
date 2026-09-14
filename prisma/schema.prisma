@@ -73,6 +73,7 @@ model Recipe {
   genre                    Genre?
   analysisStatus           AnalysisStatus @default(pending)
   analysisProvider         AiProvider?
+  wantToCookAt             DateTime?      @db.Timestamptz(3)
   processingRunId          String?        @db.Uuid
   processingLeaseExpiresAt DateTime?      @db.Timestamptz(3)
   createdAt                DateTime       @default(now()) @db.Timestamptz(3)
