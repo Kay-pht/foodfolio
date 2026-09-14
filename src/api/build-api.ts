@@ -1,5 +1,8 @@
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
-import type { RepresentativeImageResolver } from "../application/analysis/types.js";
+import {
+  AnalysisError,
+  type RepresentativeImageResolver,
+} from "../application/analysis/types.js";
 import { InvalidRecipeUrlError } from "../domain/recipe/url.js";
 import type { PrismaClient } from "../generated/prisma/client.js";
 import type {
@@ -13,12 +16,17 @@ import { registerRoutes } from "./routes.js";
 import { registerTagBatchRoutes } from "./tag-batch-routes.js";
 import { registerWantToCookRoutes } from "./want-to-cook-routes.js";
 
+export interface RecipeUrlCanonicalizer {
+  canonicalize(input: string): Promise<string>;
+}
+
 export interface ApiDependencies {
   prisma: PrismaClient;
   authVerifier: AuthVerifier;
   firebaseUsers: FirebaseUserManager;
   taskQueue: AnalysisTaskQueue;
   imageResolver?: RepresentativeImageResolver;
+  recipeUrlCanonicalizer?: RecipeUrlCanonicalizer;
 }
 
 function bearerToken(request: FastifyRequest): string {
@@ -26,6 +34,16 @@ function bearerToken(request: FastifyRequest): string {
   if (!value?.startsWith("Bearer ") || value.length <= 7)
     throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
   return value.slice(7);
+}
+
+function sharedConversationAppError(error: AnalysisError): AppError | null {
+  if (!error.code.startsWith("SHARED_CONVERSATION_")) return null;
+  return new AppError(
+    error.retryable ? 503 : 422,
+    error.retryable ? "TEMPORARILY_UNAVAILABLE" : "VALIDATION_ERROR",
+    error.message,
+    { reason: error.code },
+  );
 }
 
 export function buildApi(deps: ApiDependencies): FastifyInstance {
@@ -52,18 +70,31 @@ export function buildApi(deps: ApiDependencies): FastifyInstance {
       update: {},
       create: { firebaseUid: request.firebaseUid, setting: { create: {} } },
     });
+
+    const body = request.body as { url?: unknown } | null;
+    if (
+      deps.recipeUrlCanonicalizer &&
+      request.method === "POST" &&
+      request.routeOptions.url === "/v1/recipes" &&
+      typeof body?.url === "string"
+    )
+      body.url = await deps.recipeUrlCanonicalizer.canonicalize(body.url);
   });
 
   app.setErrorHandler((error, request, reply) => {
+    const sharedError =
+      error instanceof AnalysisError ? sharedConversationAppError(error) : null;
     const appError =
       error instanceof AppError
         ? error
         : error instanceof InvalidRecipeUrlError
           ? new AppError(400, "INVALID_URL", error.message)
-          : new AppError(500, "INTERNAL_ERROR", "Unexpected error");
+          : (sharedError ??
+            new AppError(500, "INTERNAL_ERROR", "Unexpected error"));
     if (
       !(error instanceof AppError) &&
-      !(error instanceof InvalidRecipeUrlError)
+      !(error instanceof InvalidRecipeUrlError) &&
+      !sharedError
     )
       request.log.error({ err: error }, "unhandled request error");
     void reply.status(appError.statusCode).send({

@@ -16,6 +16,11 @@ import { GcsTemporaryVideoStore } from "../infrastructure/tiktok/gcs-temporary-v
 import { ProductionTikTokVideoRecipeFallback } from "../infrastructure/tiktok/tiktok-video-recipe-fallback.js";
 import { ProductionTikTokPhotoRecipeAnalysis } from "../infrastructure/tiktok/tiktok-photo-recipe-analysis.js";
 import { YtDlpTikTokVideoDownloader } from "../infrastructure/tiktok/yt-dlp-video-downloader.js";
+import {
+  ChatGptSharedConversationAdapter,
+  GeminiSharedConversationAdapter,
+} from "../infrastructure/url/ai-shared-conversation.js";
+import { AiAwareSourceContentExtractor } from "../infrastructure/url/ai-aware-source-content-extractor.js";
 import { SafeHttpClient } from "../infrastructure/url/safe-http-client.js";
 import { ProductionSourceContentExtractor } from "../infrastructure/url/source-content-extractor.js";
 
@@ -84,14 +89,20 @@ const notifications =
   config.notificationDriver === "noop"
     ? new NoopNotificationSender()
     : new FirebaseNotificationSender();
-const service = new RecipeAnalysisService({
-  prisma,
-  sourceExtractor: new ProductionSourceContentExtractor(
-    new SafeHttpClient(),
+const safeHttp = new SafeHttpClient();
+const sourceExtractor = new AiAwareSourceContentExtractor(
+  new ProductionSourceContentExtractor(
+    safeHttp,
     config.youtubeApiKey,
     fetch,
     config.tiktokMediaAnalysisEnabled,
   ),
+  new ChatGptSharedConversationAdapter(safeHttp),
+  new GeminiSharedConversationAdapter(),
+);
+const service = new RecipeAnalysisService({
+  prisma,
+  sourceExtractor,
   recipeExtractor: routedRecipeExtractor,
   ...(tiktokVideoFallback ? { tiktokVideoFallback } : {}),
   ...(tiktokPhotoAnalysis ? { tiktokPhotoAnalysis } : {}),

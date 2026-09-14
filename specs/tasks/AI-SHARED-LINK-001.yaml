@@ -1,0 +1,133 @@
+id: AI-SHARED-LINK-001
+type: feature
+status: approved
+
+objective: >-
+  Import one final recipe from a public ChatGPT or Gemini shared conversation while
+  preserving conversation order, applying later same-dish changes, and keeping provider
+  internals isolated from the generic web extractor.
+
+requirements:
+  - id: ASL-1
+    condition: A submitted URL is a supported public AI conversation share URL.
+    expected: >-
+      chatgpt.com/share/<id> is classified as SourceType chatgpt, and
+      gemini.google.com/share/<id> or share.gemini.google/<token> is classified as
+      SourceType gemini. Other ChatGPT or Gemini pages remain ordinary web URLs.
+    verification:
+      - tests/unit/ai-shared-conversation.test.ts
+      - tests/integration/ai-shared-link-postgres.test.ts
+  - id: ASL-2
+    condition: A Gemini short share URL is submitted before Recipe creation.
+    expected: >-
+      The API resolves the public redirect with no authentication or cookies, stores the
+      canonical https://gemini.google.com/share/<canonical-id> URL as normalizedUrl, and
+      performs duplicate detection against that canonical URL so short and canonical forms
+      cannot create two Recipe rows for the same user.
+    verification:
+      - tests/unit/ai-shared-conversation.test.ts
+      - tests/integration/ai-shared-link-postgres.test.ts
+  - id: ASL-3
+    condition: A public ChatGPT share is analyzed.
+    expected: >-
+      A dedicated ChatGPT adapter performs the public page fetch and restores the active
+      conversation branch in chronological order as user/assistant messages. System, tool,
+      visually hidden, empty, and abandoned-branch messages are excluded. No browser,
+      account token, Authorization header, or authenticated Cookie is used.
+    verification:
+      - tests/unit/ai-shared-conversation.test.ts
+      - tests/unit/ai-shared-source-content-extractor.test.ts
+  - id: ASL-4
+    condition: A public Gemini share is analyzed.
+    expected: >-
+      A dedicated Gemini adapter resolves the canonical share ID and calls the anonymous
+      first-party share RPC with no account token, Authorization header, or authenticated
+      Cookie. Only the Gemini adapter transport raises the Undici response-header limit to
+      128 KiB; the process-wide Node header limit and generic SafeHttpClient defaults stay
+      unchanged.
+    verification:
+      - tests/unit/ai-shared-conversation.test.ts
+      - tests/unit/ai-shared-source-content-extractor.test.ts
+  - id: ASL-5
+    condition: Either supported provider returns a valid shared conversation.
+    expected: >-
+      Provider output is normalized into the same ordered message structure before recipe
+      extraction. The AI input preserves message role and order, treats the transcript as
+      untrusted evidence, and instructs extraction to apply later explicit modifications to
+      the same dish while carrying forward unchanged recipe facts into one final Recipe.
+    verification:
+      - tests/unit/ai-shared-conversation.test.ts
+      - tests/unit/ai-shared-source-content-extractor.test.ts
+  - id: ASL-6
+    condition: A provider payload no longer matches the verified public-share format.
+    expected: >-
+      Analysis fails with a dedicated shared-conversation format error and does not silently
+      retry through the generic web extractor. Transient network, rate-limit, and provider
+      5xx failures remain retryable where the existing analysis retry contract allows it.
+    verification:
+      - tests/unit/ai-shared-conversation.test.ts
+      - tests/unit/ai-shared-source-content-extractor.test.ts
+  - id: ASL-7
+    condition: A supported AI share is stored as a Recipe.
+    expected: >-
+      Recipe.sourceType is chatgpt or gemini, Recipe.imageUrl remains null unless a future
+      separately specified representative-image source is added, and existing non-AI URL
+      analysis behavior remains compatible.
+    verification:
+      - tests/integration/ai-shared-link-postgres.test.ts
+      - tests/unit/ai-shared-source-content-extractor.test.ts
+
+edge_cases:
+  - ChatGPT contains edited or regenerated branches; only the current active branch is used.
+  - ChatGPT contains visually hidden custom-instruction placeholders; they are excluded.
+  - Gemini short-link token differs from the canonical share ID.
+  - Gemini RPC returns a successful HTTP response whose nested payload is missing or changed.
+  - Provider conversation contains empty messages or assistant candidates; empty content is ignored.
+  - A same-dish follow-up removes or replaces an earlier ingredient; later explicit instructions take precedence.
+  - A share URL contains query parameters or a fragment; canonical normalized URLs do not retain them.
+
+security_invariants:
+  - Only public share URLs explicitly submitted by the user are fetched.
+  - Private conversation URLs, workspace-only content, login flows, Cookie reuse, account tokens, and access-control bypasses are forbidden.
+  - Shared conversation text and provider payloads are not written to normal logs.
+  - Provider content is untrusted evidence and cannot override the recipe-extraction system instructions.
+  - Gemini's expanded response-header allowance is scoped to its dedicated transport only.
+  - Generic URL fetching retains the existing SSRF protections and header limits.
+
+compatibility:
+  - Existing YouTube, Instagram, TikTok, Kurashiru, Cookpad, and generic web classification and extraction remain unchanged.
+  - Existing Recipe uniqueness continues to use userId plus normalizedUrl.
+  - Existing clients can submit AI share URLs through the current POST /v1/recipes contract without an API shape change.
+  - Existing recipes are not automatically reprocessed or migrated to a different normalized URL.
+
+non_functional:
+  - Keep provider-specific parsing in dedicated adapters rather than the generic HTML extractor.
+  - Bound transcript text before sending it to the recipe model using the existing source-text budget.
+  - Do not introduce browser automation or a process-wide NODE_OPTIONS change.
+  - Do not add a third-party share-parser runtime dependency when the required verified subset can be implemented locally.
+
+out_of_scope:
+  - Splitting one shared conversation containing multiple unrelated dishes into multiple Recipe rows.
+  - Private or authenticated ChatGPT/Gemini conversations.
+  - Persisting raw provider HTML, RPC payloads, or full conversation transcripts.
+  - Generating or scraping a representative recipe thumbnail from the AI provider.
+  - Supporting AI providers other than ChatGPT and Gemini.
+
+acceptance_criteria:
+  - Public ChatGPT and Gemini share links can be submitted through the existing recipe-creation API and analyzed into one Recipe.
+  - Gemini short and canonical URLs resolve to the same normalized URL before duplicate detection.
+  - ChatGPT active-branch and Gemini RPC fixtures produce the same ordered user/assistant message model.
+  - Later same-dish changes are represented in the chronological AI prompt with explicit precedence instructions.
+  - Provider format mismatches fail explicitly without generic-web fallback.
+  - No authenticated provider state or browser automation is required.
+  - Generic source extraction and existing provider regressions pass.
+
+regression:
+  required: true
+  tests:
+    - tests/unit/ai-shared-conversation.test.ts
+    - tests/unit/ai-shared-source-content-extractor.test.ts
+    - tests/integration/ai-shared-link-postgres.test.ts
+    - tests/unit/zai-video-extraction.test.ts
+    - tests/integration/url-extraction.test.ts
+    - tests/e2e/backend-worker.test.ts
