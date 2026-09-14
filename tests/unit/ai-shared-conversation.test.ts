@@ -195,9 +195,9 @@ describe("Gemini public share parsing", () => {
   });
 
   it("fails explicitly instead of accepting an assistant-only transcript", () => {
-    expect(() => parseGeminiBatchResponse(geminiBatchBody("missing"))).toThrowError(
-      /user messages were not recognized/u,
-    );
+    expect(() =>
+      parseGeminiBatchResponse(geminiBatchBody("missing")),
+    ).toThrowError(/user messages were not recognized/u);
   });
 
   it("resolves a short share before the RPC and exposes only the canonical URL", async () => {
