@@ -8,7 +8,8 @@ import XCTest
   func testLateMutationResponseDoesNotRestoreDeletedRecipe() async throws {
     let repository = try makeRepository()
     let createdAt = Date(timeIntervalSince1970: 1_800_000_000)
-    try await repository.upsert(recipeDTO(createdAt: createdAt, updatedAt: createdAt.addingTimeInterval(30)))
+    try await repository.upsert(
+      recipeDTO(createdAt: createdAt, updatedAt: createdAt.addingTimeInterval(30)))
     try await repository.removeLocalRecipes(notIn: [])
 
     do {
