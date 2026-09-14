@@ -3,6 +3,19 @@
 `tasks/unreleased.md` で指定した必要な反映先がすべて反映済みになった項目を、日付とversion情報を保ったまま記録する。
 日付は日本時間（JST）の `YYYY-MM-DD`、iOSは `version (build)`、Cloud RunはGit SHAとservice revisionを記載する。
 
+## 2026-09-14
+
+- [x] `REL-20260914-01` 「作りたい」レシピと同期・操作競合対策を提供する
+  - 内容: レシピ詳細から「作りたい」を追加・解除し、対象レシピをホーム上部へ新しい順で表示する。BackendとSwiftDataで状態を同期し、旧storeを移行する。古い同期・mutation応答が新しい編集・タグ・削除・「作りたい」操作を上書きしたり、削除済みレシピを復活させたりしないようにする。
+  - PR: [#97](https://github.com/Kay-pht/foodfolio/pull/97)、配布準備 [#99](https://github.com/Kay-pht/foodfolio/pull/99)
+  - main反映: 機能 `340a7c4cc772b790477dcb006a95f502579885f5`、build番号 `8833bc2ac6fb9ec0f1af7a51ba3a0993397994f5`
+  - 必要な反映先:
+    - [x] Cloud Run（現在利用中のdev） — 反映日: `2026-09-14`、version: `340a7c4cc772b790477dcb006a95f502579885f5`、image `sha256:0c214db23861c991b35c08f9e870da3a4eae0da5fe97c690f7592ae16c864513`、API `foodfolio-dev-api-00033-jvb` / Worker `foodfolio-dev-worker-00036-hvr`、Ready、traffic 100%、API health成功
+    - [x] TestFlight内部テスト — 反映日: `2026-09-14`、version: `1.0 (12)`、Build ID: `366c4a95-5fc5-449b-962f-a124b577bb47`、group: `Foodfolio Internal`
+    - [x] TestFlight外部テスト — 反映日: `2026-09-14`、version: `1.0 (12)`、Build ID: `366c4a95-5fc5-449b-962f-a124b577bb47`、group: `Foodfolio External`、Beta App Review `APPROVED`
+  - 配布build source: `8833bc2ac6fb9ec0f1af7a51ba3a0993397994f5`
+  - 備考: 外部グループの公開リンク有効状態と既存テスター2件は維持。実機でのbuild 12更新と動作確認は `tasks/todo.md` で別管理する。
+
 ## 2026-09-12
 
 - [x] `REL-20260912-01` iOSの共有タグ永続化と旧store移行を修正する
