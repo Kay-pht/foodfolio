@@ -17,7 +17,7 @@ requirements:
       - tests/unit/ci-auto-fix.test.mjs
   - id: CIC-2
     condition: A repository-owned pull request becomes Ready for review or is updated while Ready.
-    expected: Auto Fix runs first and dispatches Quality exactly for the current final Ready head after automatic fixes are settled.
+    expected: Auto Fix runs first. If no GitHub App fix push occurs, the originating run dispatches Quality for the current Ready head; if the Auto Fix App pushes a formatting commit, the resulting bot synchronize run becomes the latest owner, skips Auto Fix work, validates the current head, and dispatches Quality once.
     verification:
       - .github/workflows/auto-format.yml
       - .github/workflows/quality.yml
@@ -45,7 +45,8 @@ requirements:
 
 edge_cases:
   - Ready produces no automatic fixes and Quality must verify the original current head once.
-  - Auto Fix creates a formatting commit and Quality must verify that new head rather than the pre-format head.
+  - The Auto Fix App creates a formatting commit; the resulting bot synchronize run may cancel the originating run, must not execute Auto Fix again, and must dispatch Quality for the new head exactly once.
+  - The Auto Fix GitHub App is not configured and GITHUB_TOKEN performs the fallback push; no bot synchronize run is expected, so the originating run must dispatch Quality for the pushed head.
   - The pull request advances while Auto Fix is running; stale fixes and stale Quality dispatches must be skipped.
   - The pull request is converted back to Draft while Auto Fix is running; Quality must not be dispatched.
   - A fix is accidentally pushed while the pull request is still Ready; synchronize remains a safety fallback and converges on the new final head.
@@ -54,6 +55,7 @@ edge_cases:
 security_invariants:
   - Automatic commits remain limited to pull requests whose head repository is the current repository.
   - Automatic pushes continue to use force-with-lease and stale-head checks rather than an unconditional force push.
+  - Bot handoff only accepts a Ready repository-owned synchronize event whose current head still matches the event and whose head commit carries the Auto Fix commit message marker.
   - Quality dispatch validates the repository-owned pull request number, base SHA, head ref, and head SHA before trusting the run.
   - Workflow permissions must not be broadened beyond the existing actions, contents, and pull-request access needed by each workflow.
 
@@ -62,10 +64,12 @@ compatibility:
   - Quality continues to run on main pushes and preserves reusable exact-tree proof artifacts.
   - Backend, iOS, Terraform, specification, architecture, unit, integration, E2E, and documentation checks retain their existing coverage conditions.
   - Ready-state synchronize remains supported as a fail-safe even though the documented agent flow returns the PR to Draft before fixes.
+  - The GITHUB_TOKEN bootstrap fallback remains functional even though only GitHub App pushes create the bot handoff run.
 
 non_functional:
   - Draft pull request updates must consume no PR validation runner minutes.
-  - A normal Ready transition should use one Auto Fix runner followed by one Quality runner, not parallel pre-fix and post-fix Quality runs.
+  - A Ready transition with no automatic fix uses one Auto Fix runner followed by one Quality runner.
+  - A Ready transition with an Auto Fix App commit may add one lightweight bot handoff runner, but that run must not repeat formatting, dependency installation, or other Auto Fix work and must not create a duplicate Quality dispatch.
   - Documentation validation must reuse the Quality runner rather than start an additional runner.
   - Quality remains single-runner and fail-fast.
 
@@ -78,10 +82,13 @@ out_of_scope:
 acceptance_criteria:
   - Draft PR events leave Auto Fix skipped and do not directly trigger Quality.
   - Ready PR validation is ordered Auto Fix then Quality for the current final head.
+  - An Auto Fix App formatting commit transfers Quality dispatch responsibility to the bot synchronize run; the originating run does not dispatch Quality if it survives the push.
+  - The bot synchronize handoff validates the latest Ready head, skips Auto Fix work, and dispatches Quality once.
+  - The GITHUB_TOKEN fallback path dispatches Quality from the originating run because it does not produce the bot synchronize handoff.
   - The standalone Documentation workflow is removed and its checks remain in Quality.
   - Auto Fix no longer re-dispatches itself or a Documentation workflow after writing a fix commit.
   - Agent documentation requires grouped cloud pushes and returning Ready PRs to Draft before fix pushes.
-  - CI regression tests cover the new trigger and dispatch topology.
+  - CI regression tests cover the new trigger, handoff, and dispatch topology.
 
 regression:
   required: false
