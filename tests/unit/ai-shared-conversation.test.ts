@@ -8,10 +8,10 @@ import {
   ProductionRecipeUrlCanonicalizer,
   parseChatGptShareHtml,
   parseGeminiBatchResponse,
-  serializeSharedConversation,
   type GeminiTransport,
   type GeminiTransportResponse,
 } from "../../src/infrastructure/url/ai-shared-conversation.js";
+import { serializeSharedConversation } from "../../src/infrastructure/url/shared-conversation-serializer.js";
 
 function chatGptMessage(
   role: "user" | "assistant" | "system",
