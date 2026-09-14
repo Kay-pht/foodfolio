@@ -38,11 +38,7 @@ function bearerToken(request: FastifyRequest): string {
 
 function sharedConversationAppError(error: AnalysisError): AppError | null {
   if (!error.code.startsWith("SHARED_CONVERSATION_")) return null;
-  return new AppError(
-    error.retryable ? 503 : 422,
-    error.code,
-    error.message,
-  );
+  return new AppError(error.retryable ? 503 : 422, error.code, error.message);
 }
 
 export function buildApi(deps: ApiDependencies): FastifyInstance {
@@ -82,15 +78,14 @@ export function buildApi(deps: ApiDependencies): FastifyInstance {
 
   app.setErrorHandler((error, request, reply) => {
     const sharedError =
-      error instanceof AnalysisError
-        ? sharedConversationAppError(error)
-        : null;
+      error instanceof AnalysisError ? sharedConversationAppError(error) : null;
     const appError =
       error instanceof AppError
         ? error
         : error instanceof InvalidRecipeUrlError
           ? new AppError(400, "INVALID_URL", error.message)
-          : sharedError ?? new AppError(500, "INTERNAL_ERROR", "Unexpected error");
+          : (sharedError ??
+            new AppError(500, "INTERNAL_ERROR", "Unexpected error"));
     if (
       !(error instanceof AppError) &&
       !(error instanceof InvalidRecipeUrlError) &&

@@ -13,7 +13,8 @@ export class AiAwareSourceContentExtractor
   implements SourceContentExtractor, RepresentativeImageResolver
 {
   constructor(
-    private readonly fallback: SourceContentExtractor & RepresentativeImageResolver,
+    private readonly fallback: SourceContentExtractor &
+      RepresentativeImageResolver,
     private readonly chatgpt: SharedConversationAdapter,
     private readonly gemini: SharedConversationAdapter,
   ) {}

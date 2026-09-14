@@ -79,7 +79,9 @@ describe("AI shared-link URL handling", () => {
   it("classifies only supported public share paths", () => {
     expect(
       sourceTypeForUrl(
-        new URL("https://chatgpt.com/share/6aa7b428-1b5c-83e8-80c8-ade0e5e863c7"),
+        new URL(
+          "https://chatgpt.com/share/6aa7b428-1b5c-83e8-80c8-ade0e5e863c7",
+        ),
       ),
     ).toBe("chatgpt");
     expect(
@@ -143,7 +145,10 @@ describe("ChatGPT public share parsing", () => {
         },
         assistant2: {
           parent: "hidden",
-          ...chatGptMessage("assistant", "トマト缶なし、ごま油ありに変更します"),
+          ...chatGptMessage(
+            "assistant",
+            "トマト缶なし、ごま油ありに変更します",
+          ),
         },
       },
       current_node: "assistant2",
