@@ -4,10 +4,11 @@
 
 - 開発は必ずタスク専用のブランチを作成してから開始する。`main` 上で直接開発またはpushしない。
 - 初回セットアップでは `npm run hooks:install` を実行し、tracked `.githooks/pre-push` を有効化する。`--no-verify` などでdirect-main-push guardrailを回避しない。
-- ブランチ名は原則として `codex/<task-name>` とし、タスクの内容が分かる短い名前にする。
+- ブランチ名は原則 `codex/<task-name>` とし、タスクの内容が分かる短い名前にする。
 - ブランチ作成前に Git の状態を確認する。既存の未コミット変更がある場合は、それが今回のタスクに含まれるかを確認し、無断で破棄、上書き、退避しない。
 - ユーザーが使用するブランチを明示した場合は、その指示を優先する。
 - コミットは変更を論理的かつレビュー可能な単位に分け、無関係な変更を混ぜない。
+- クラウド開発ではコミットごとにpushせず、実装・テスト・spec・ドキュメントなどまとまった変更単位でpushする。途中経過のcheckpointだけを目的としたpushは避ける。
 
 ## Specification as Code
 
@@ -23,7 +24,9 @@
 - 既存の設計、命名、型、フォーマット、テストの慣例に合わせる。
 - バグ修正では、修正前に回帰テストが失敗することを確認してから修正し、修正後に同じテストが成功することを確認する。
 - ユーザーの既存変更を尊重し、無断で元に戻さない。
-- Pull Request は Draft で作成し、実装と必要な検証が完了するまで Draft のまま更新する。完了条件を満たした後に Ready for review へ変更する。
+- Pull Request は Draft で作成し、実装とReady前に実行可能な検証が完了するまで Draft のまま更新する。Draft中のPR更新ではAuto FixとQualityのrunnerを起動しない。
+- 最終CIを開始するときにReady for reviewへ変更する。ReadyではAuto Fixを先に実行し、自動修正後の最終HEADに対してQualityを1回実行する。
+- Ready後に修正が必要になった場合は、修正をpushする前にPRをDraftへ戻す。修正をまとめてpushし、Ready前の確認を終えてから再度Readyへ変更する。
 - Implementerは自分の実装へ最終LGTMを出さない。実装後のレビューは人間がfresh contextの別Reviewerセッションへ依頼する。
 
 Backend の層間依存は [../architecture-boundaries.md](../architecture-boundaries.md) に従う。レビュー責務、LGTM証跡、停止条件は [review.md](review.md) に従う。
@@ -31,7 +34,7 @@ Backend の層間依存は [../architecture-boundaries.md](../architecture-bound
 ## レビューと修正
 
 - Reviewerはコードを変更せず、仕様・最新HEAD SHA・差分・関連コード・テスト結果を独立に確認する。
-- Reviewerにblockerがあれば `AUTOMATION_BLOCKED` として停止する。Fixerは指摘された内容を修正し、必要な検証を再実行する。
+- Reviewerにblockerがあれば `AUTOMATION_BLOCKED` として停止する。FixerはPRをDraftへ戻してから指摘された内容を修正・pushし、Readyへ戻した後の最終HEADで必要な検証を再実行する。
 - Fixerがコミットした後は以前のLGTMを使用せず、別Reviewerセッションで最新HEADを再レビューする。
 - 問題がなければReviewerは `npm run review:lgtm` で最新HEADにLGTM証跡を作成する。
 - AIエージェントの作業は `LGTM` または `AUTOMATION_BLOCKED` で終了する。最終マージは人間だけが `npm run pr:merge` で行い、AIはこのコマンドを実行しない。
