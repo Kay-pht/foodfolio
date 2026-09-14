@@ -24,7 +24,7 @@ enum AnalysisLimitType: String, Equatable {
   case globalDaily = "global_daily"
 }
 
-enum APIError: Error, Equatable {
+enum APIError: LocalizedError, Equatable {
   case unauthenticated, invalidURL
   case duplicateRecipe(String?)
   case analysisLimitExceeded(AnalysisLimitType, Int?)
@@ -73,4 +73,6 @@ enum APIError: Error, Equatable {
     case .server, .decoding: "通信に失敗しました。もう一度お試しください。"
     }
   }
+
+  var errorDescription: String? { userMessage }
 }
