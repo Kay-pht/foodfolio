@@ -13,6 +13,8 @@ enum SourceType {
   tiktok
   kurashiru
   cookpad
+  chatgpt
+  gemini
   web
 }
 

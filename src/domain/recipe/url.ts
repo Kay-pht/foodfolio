@@ -69,8 +69,33 @@ export function tiktokPostRef(url: URL): TikTokPostRef | null {
   return { author, kind, postId };
 }
 
+export function chatGptShareId(url: URL): string | null {
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  const segments = url.pathname.split("/").filter(Boolean);
+  if (host !== "chatgpt.com" || segments[0] !== "share" || !segments[1])
+    return null;
+  return segments[1];
+}
+
+export interface GeminiShareRef {
+  kind: "canonical" | "short";
+  id: string;
+}
+
+export function geminiShareRef(url: URL): GeminiShareRef | null {
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  const segments = url.pathname.split("/").filter(Boolean);
+  if (host === "gemini.google.com" && segments[0] === "share" && segments[1])
+    return { kind: "canonical", id: segments[1] };
+  if (host === "share.gemini.google" && segments[0])
+    return { kind: "short", id: segments[0] };
+  return null;
+}
+
 export function sourceTypeForUrl(url: URL): SourceType {
   const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  if (chatGptShareId(url)) return "chatgpt";
+  if (geminiShareRef(url)) return "gemini";
   if (youtubeVideoId(url)) return "youtube";
   if (host === "instagram.com" || host.endsWith(".instagram.com"))
     return "instagram";
@@ -105,6 +130,25 @@ export function parseAndNormalizeRecipeUrl(input: string): {
   )
     url.port = "";
   const sourceType = sourceTypeForUrl(url);
+  const chatGptId = chatGptShareId(url);
+  if (sourceType === "chatgpt" && chatGptId) {
+    return {
+      originalUrl: input,
+      normalizedUrl: `https://chatgpt.com/share/${chatGptId}`,
+      sourceType,
+    };
+  }
+  const gemini = geminiShareRef(url);
+  if (sourceType === "gemini" && gemini) {
+    return {
+      originalUrl: input,
+      normalizedUrl:
+        gemini.kind === "canonical"
+          ? `https://gemini.google.com/share/${gemini.id}`
+          : `https://share.gemini.google/${gemini.id}`,
+      sourceType,
+    };
+  }
   const videoId = youtubeVideoId(url);
   if (sourceType === "youtube" && videoId) {
     return {
