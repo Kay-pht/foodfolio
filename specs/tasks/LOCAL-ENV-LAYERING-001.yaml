@@ -1,0 +1,66 @@
+id: LOCAL-ENV-LAYERING-001
+type: bug
+status: approved
+
+objective: >-
+  Let the local backend reuse shared secrets from .env while keeping localhost-only runtime
+  settings in .env.local, without duplicating secrets or weakening the local database guard.
+
+requirements:
+  - id: LOCAL-ENV-1
+    condition: npm run dev:local loads its environment files.
+    expected: >-
+      The launcher merges the ambient process environment, an optional repository .env base file,
+      and the required local override file in that order.
+    verification:
+      - tests/unit/dev-local-support.test.mjs
+  - id: LOCAL-ENV-2
+    condition: The same variable is present in .env and .env.local.
+    expected: The value from .env.local wins, while base values omitted from .env.local remain available.
+    verification:
+      - tests/unit/dev-local-support.test.mjs
+  - id: LOCAL-ENV-3
+    condition: A developer prepares the documented local environment files.
+    expected: >-
+      API secrets live in .env and localhost database, queue, worker, and notification overrides
+      live in .env.local without duplicating the API-secret placeholders.
+    verification:
+      - docs/local-development.md
+      - .env.example
+      - .env.local.example
+
+edge_cases:
+  - The optional .env base file does not exist.
+  - An ambient value is overridden by .env and then by .env.local.
+  - A secret exists only in .env.
+  - A localhost database setting exists only in .env.local.
+
+security_invariants:
+  - No real API key is committed or printed.
+  - DATABASE_URL and DATABASE_DIRECT_URL must still pass the localhost Foodfolio database guard before migration.
+  - Environment values must not be logged by the launcher.
+
+compatibility:
+  - FOODFOLIO_LOCAL_ENV continues to select the local override file.
+  - Existing ambient-only values remain supported.
+  - npm run dev:local remains the standard entry point.
+
+non_functional:
+  - Do not add a runtime dependency.
+  - Keep precedence deterministic and covered by a unit test.
+
+out_of_scope:
+  - Provisioning or rotating API keys.
+  - Changing production, Cloud Run, Neon, or GitHub Actions environment handling.
+  - Changing Simulator persistence or bundle identifiers.
+
+acceptance_criteria:
+  - A ZAI_API_KEY present only in .env is available to the local Worker.
+  - Local database and queue values from .env.local override base or ambient values.
+  - The documented setup does not require duplicating API secrets into .env.local.
+  - The regression test, specification check, and standard repository verification pass.
+
+regression:
+  required: true
+  tests:
+    - tests/unit/dev-local-support.test.mjs

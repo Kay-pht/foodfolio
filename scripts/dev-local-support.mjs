@@ -19,11 +19,8 @@ WITH recovered AS (
 SELECT count(*) FROM recovered;
 `;
 
-export function mergeLocalEnvironment(ambientEnvironment, localEnvironment) {
-  return {
-    ...ambientEnvironment,
-    ...localEnvironment,
-  };
+export function mergeLocalEnvironment(...environmentLayers) {
+  return Object.assign({}, ...environmentLayers);
 }
 
 export function assertLocalDatabase(name, value) {
