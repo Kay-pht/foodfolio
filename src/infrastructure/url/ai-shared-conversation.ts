@@ -376,10 +376,10 @@ export class UndiciGeminiTransport implements GeminiTransport {
       const response = await request(url, {
         method,
         dispatcher: this.dispatcher,
-        headers,
-        body,
         headersTimeout: 30_000,
         bodyTimeout: 30_000,
+        ...(headers ? { headers } : {}),
+        ...(body !== undefined ? { body } : {}),
       });
       return {
         statusCode: response.statusCode,
