@@ -45,14 +45,14 @@ final class RecipeRepository {
     let dto: RecipeDTO = try await api.send(
       "/v1/recipes/\(id)", method: "PATCH",
       body: Body(title: title, genre: genre?.rawValue, ingredients: ingredients.map(Item.init)))
-    return try await upsert(dto)
+    return try await applyMutationResponse(dto)
   }
 
   func setWantToCook(id: String, enabled: Bool) async throws -> LocalRecipe {
     struct Body: Encodable, Sendable { let enabled: Bool }
     let dto: RecipeDTO = try await api.send(
       "/v1/recipes/\(id)/want-to-cook", method: "PATCH", body: Body(enabled: enabled))
-    return try await upsert(dto)
+    return try await applyMutationResponse(dto)
   }
 
   func delete(id: String) async throws {
@@ -80,14 +80,14 @@ final class RecipeRepository {
     let dto: RecipeDTO = try await api.send(
       "/v1/recipes/\(recipeID)/tags/batch", method: "POST",
       body: Body(tagIds: existingTagIDs, newTagNames: newTagNames))
-    return try await upsert(dto)
+    return try await applyMutationResponse(dto)
   }
 
   func attach(tagID: String, recipeID: String) async throws -> LocalRecipe {
     struct Body: Encodable, Sendable { let tagId: String }
     let dto: RecipeDTO = try await api.send(
       "/v1/recipes/\(recipeID)/tags", method: "POST", body: Body(tagId: tagID))
-    return try await upsert(dto)
+    return try await applyMutationResponse(dto)
   }
 
   func detach(tagID: String, recipeID: String) async throws {
@@ -113,15 +113,52 @@ final class RecipeRepository {
   }
 
   @discardableResult func upsert(_ dto: RecipeDTO) async throws -> LocalRecipe {
-    let local =
-      try recipe(id: dto.id)
-      ?? LocalRecipe(
+    try await store(dto, insertIfMissing: true)
+  }
+
+  @discardableResult func applyMutationResponse(_ dto: RecipeDTO) async throws -> LocalRecipe {
+    try await store(dto, insertIfMissing: false)
+  }
+
+  func removeLocalRecipes(notIn serverIDs: Set<String>) async throws {
+    for recipe in try allRecipes() where !serverIDs.contains(recipe.id) {
+      context.delete(recipe)
+      try await images.remove(recipeID: recipe.id)
+    }
+    try context.save()
+  }
+
+  func upsert(tags: [TagDTO]) throws {
+    for tag in tags { _ = try upsertTag(tag) }
+    try context.save()
+  }
+
+  func clearLocalData() async throws {
+    try context.delete(model: LocalRecipe.self)
+    try context.delete(model: LocalTag.self)
+    try context.save()
+    try await images.removeAll()
+  }
+
+  private func store(_ dto: RecipeDTO, insertIfMissing: Bool) async throws -> LocalRecipe {
+    let local: LocalRecipe
+    if let existing = try recipe(id: dto.id) {
+      local = existing
+    } else {
+      guard insertIfMissing else { throw APIError.notFound }
+      local = LocalRecipe(
         id: dto.id, originalUrl: dto.originalUrl, sourceType: dto.sourceType, title: dto.title,
         createdAt: dto.createdAt, updatedAt: dto.updatedAt)
-    if local.modelContext == nil { context.insert(local) }
+      context.insert(local)
+    }
+
     if local.imageUrl != dto.imageUrl || local.originalUrl != dto.originalUrl {
       await images.invalidatePendingRemoteLoad(recipeID: dto.id)
     }
+    if !insertIfMissing, try recipe(id: dto.id) == nil {
+      throw APIError.notFound
+    }
+
     local.originalUrl = dto.originalUrl
     local.sourceType = dto.sourceType
     local.title = dto.title
@@ -145,26 +182,6 @@ final class RecipeRepository {
     local.tags = try dto.tags.map(upsertTag)
     try context.save()
     return local
-  }
-
-  func removeLocalRecipes(notIn serverIDs: Set<String>) async throws {
-    for recipe in try allRecipes() where !serverIDs.contains(recipe.id) {
-      context.delete(recipe)
-      try await images.remove(recipeID: recipe.id)
-    }
-    try context.save()
-  }
-
-  func upsert(tags: [TagDTO]) throws {
-    for tag in tags { _ = try upsertTag(tag) }
-    try context.save()
-  }
-
-  func clearLocalData() async throws {
-    try context.delete(model: LocalRecipe.self)
-    try context.delete(model: LocalTag.self)
-    try context.save()
-    try await images.removeAll()
   }
 
   private func upsertTag(_ dto: TagDTO) throws -> LocalTag {
