@@ -31,7 +31,11 @@ iOS の全体検証は `npm run verify:ios` を使用する。
 
 GitHub Actions の Quality は原則1job/1runnerで実行し、依存インストールやrunner起動の重複を避ける。Format、Lint、Architecture、Unit、Integration、E2E、Documentation checksなどは個別stepとして識別可能にする。
 
-PRはDraft中に実装とReady前の確認を進め、Draftの `opened` / `synchronize` ではPR用runnerを起動しない。Ready for reviewへの変更後はAuto Fixを先に実行し、自動修正を含む最終HEADが確定した場合だけAuto FixからQualityをdispatchする。QualityはPRイベントから直接起動しないため、format前HEADとformat後HEADで二重にrunnerを消費しない。
+PRはDraft中に実装とReady前の確認を進め、Draftの `opened` / `synchronize` ではPR用runnerを起動しない。Ready for reviewへの変更後はAuto Fixを先に実行し、QualityはPRイベントから直接起動しないため、format前HEADとformat後HEADで二重にrunnerを消費しない。
+
+Auto Fixで修正が不要だった場合は、そのRunが最新HEADを確認してQualityをdispatchする。GitHub Appで自動修正commitをpushした場合は、そのpushで発生するbot起点の `synchronize` Runを最新Runとして扱う。元のRunはキャンセルされてもよく、bot RunではAuto Fix処理を繰り返さず、Auto Fixのcommit markerと最新Ready HEADを確認したうえでQualityを1回だけdispatchする。元のRunがキャンセルされずに残った場合も、App push後はQualityをdispatchせずbot Runへ責務を引き継ぐ。
+
+GitHub Appが未設定で `GITHUB_TOKEN` のbootstrap fallbackを使う場合、そのpushから新しいPR workflowは発火しない。この場合だけ、元のAuto Fix Runがpush後のHEADを再確認してQualityをdispatchする。
 
 Ready状態のPRへ追加修正が必要な場合は、push前にDraftへ戻す。修正をまとめてpushし、再度Readyへ変更してAuto Fix -> Qualityの順に最終検証を行う。誤ってReady状態でpushした場合も、Auto Fixの `synchronize` を安全策として残し、最終HEADに対するQualityへ収束させる。
 
