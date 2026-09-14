@@ -73,6 +73,8 @@ jobs:
         shell: bash
         run: |
           git checkout --detach "${QUALITY_BASE_SHA}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git merge --no-commit --no-ff "${QUALITY_HEAD_SHA}"
 
       - name: Resolve checked-out tree
