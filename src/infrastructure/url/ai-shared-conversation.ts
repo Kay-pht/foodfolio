@@ -3,7 +3,6 @@ import { AnalysisError } from "../../application/analysis/types.js";
 import { sourceTypeForUrl } from "../../domain/recipe/url.js";
 
 const MAX_PROVIDER_BODY_BYTES = 5 * 1024 * 1024;
-const MAX_TRANSCRIPT_CHARS = 18_000;
 const GEMINI_MAX_HEADER_BYTES = 128 * 1024;
 const GEMINI_RPC = "ujx1Bf";
 
@@ -59,26 +58,6 @@ function valueAt(value: unknown, path: number[]): unknown {
     current = current[index];
   }
   return current;
-}
-
-function boundedTranscript(text: string): string {
-  if (text.length <= MAX_TRANSCRIPT_CHARS) return text;
-  const marker = "\n\n[... middle of long conversation omitted ...]\n\n";
-  const available = MAX_TRANSCRIPT_CHARS - marker.length;
-  const head = Math.floor(available / 2);
-  return `${text.slice(0, head)}${marker}${text.slice(-(available - head))}`;
-}
-
-export function serializeSharedConversation(
-  messages: OrderedConversationMessage[],
-): string {
-  const transcript = messages
-    .map(
-      (message, index) =>
-        `MESSAGE ${index + 1} ROLE=${message.role}\n${message.text}`,
-    )
-    .join("\n\n");
-  return boundedTranscript(transcript);
 }
 
 function extractScripts(html: string): string[] {
@@ -178,6 +157,7 @@ function decodeLoader(loader: unknown[]): Record<string, unknown> {
       }),
     );
   };
+
   const decoded: Record<string, unknown> = {};
   for (let index = 1; index < loader.length - 1; index += 2) {
     const key = loader[index];
@@ -212,6 +192,7 @@ function textFromChatGptMessage(
 ): string | null {
   const content = asRecord(message.content);
   if (!content || !Array.isArray(content.parts)) return null;
+
   const parts: string[] = [];
   for (const part of content.parts) {
     const direct = normalizeText(part);
@@ -219,6 +200,7 @@ function textFromChatGptMessage(
       parts.push(direct);
       continue;
     }
+
     const record = asRecord(part);
     if (!record) continue;
     const text = record.text;
@@ -240,6 +222,7 @@ function messagesFromChatGptData(
 ): OrderedConversationMessage[] {
   const mapping = asRecord(data.mapping) ?? {};
   let nodes: Record<string, unknown>[] = [];
+
   if (typeof data.current_node === "string") {
     const reversed: Record<string, unknown>[] = [];
     const seen = new Set<string>();
@@ -302,6 +285,7 @@ export function parseChatGptShareHtml(
       false,
       "ChatGPT shared conversation payload was not recognized",
     );
+
   const messages = messagesFromChatGptData(conversation);
   if (!messages.length)
     throw new AnalysisError(
@@ -457,6 +441,7 @@ export function parseGeminiBatchResponse(
       // Google batches unrelated records in the same response; malformed lines are ignored.
     }
   }
+
   const turns = valueAt(payload, [0, 1]);
   if (!Array.isArray(turns))
     throw new AnalysisError(
@@ -469,6 +454,7 @@ export function parseGeminiBatchResponse(
   for (const turn of turns) {
     const user = normalizeText(valueAt(turn, [2, 0]));
     if (user) messages.push({ role: "user", text: user });
+
     const candidates = valueAt(turn, [3, 0]);
     if (!Array.isArray(candidates)) continue;
     for (const candidate of candidates) {
@@ -485,6 +471,7 @@ export function parseGeminiBatchResponse(
       }
     }
   }
+
   if (!messages.length)
     throw new AnalysisError(
       "SOURCE_CONTENT_UNAVAILABLE",
@@ -528,6 +515,7 @@ export class GeminiSharedConversationAdapter implements SharedConversationAdapte
             false,
             "Gemini short share did not resolve to a canonical share",
           );
+
         const next = new URL(location, current);
         const nextHost = next.hostname.toLowerCase().replace(/^www\./, "");
         if (
@@ -539,12 +527,14 @@ export class GeminiSharedConversationAdapter implements SharedConversationAdapte
             false,
             "Gemini short share redirected outside the public share hosts",
           );
+
         const canonicalPath = geminiCanonicalPath(next);
         if (canonicalPath)
           return new URL(`https://gemini.google.com${canonicalPath}`);
         current = next;
         continue;
       }
+
       ensureProviderResponse(response.statusCode, "Gemini");
       const canonicalPath = geminiCanonicalPath(current);
       if (canonicalPath)
@@ -555,6 +545,7 @@ export class GeminiSharedConversationAdapter implements SharedConversationAdapte
         "Gemini short share did not resolve to a canonical share",
       );
     }
+
     throw new AnalysisError(
       "SHARED_CONVERSATION_FORMAT_CHANGED",
       false,
