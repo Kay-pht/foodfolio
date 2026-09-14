@@ -77,7 +77,7 @@ describe("CI auto-fix coverage", () => {
     ).resolves.toMatchObject({ ignored: true });
   });
 
-  it("serializes ready PR auto-fix and hands fixed bot heads to Quality", async () => {
+  it("serializes ready PR auto-fix and preserves bot and merge-tree Quality paths", async () => {
     const autoFixWorkflow = await readFile(
       new URL("../../.github/workflows/auto-format.yml", import.meta.url),
       "utf8",
@@ -103,7 +103,9 @@ describe("CI auto-fix coverage", () => {
     expect(autoFixWorkflow).toContain("github.event.sender.type != 'Bot'");
     expect(autoFixWorkflow).toContain("handoff-quality:");
     expect(autoFixWorkflow).toContain("github.event.action == 'synchronize'");
-    expect(autoFixWorkflow).toContain("github.event.sender.type == 'Bot'");
+    expect(autoFixWorkflow).toContain(
+      "github.event.sender.login == 'kay-pht-auto-fix[bot]'",
+    );
     expect(autoFixWorkflow).toContain("style: apply automatic formatting");
     expect(autoFixWorkflow).toContain("Dispatch Quality for Auto Fix bot head");
     expect(autoFixWorkflow).toContain("steps.commit.outputs.pushed != 'true'");
@@ -128,9 +130,20 @@ describe("CI auto-fix coverage", () => {
     expect(handoffJob).not.toContain("npm run lint:fix");
     expect(handoffJob).not.toContain("actions/checkout");
 
-    expect(qualityWorkflow).not.toContain("\n  pull_request:\n");
+    expect(qualityWorkflow).toContain("\n  pull_request:\n");
+    expect(qualityWorkflow).toContain("github.event.sender.type == 'Bot'");
+    expect(qualityWorkflow).toContain(
+      "github.event.sender.login != 'kay-pht-auto-fix[bot]'",
+    );
     expect(qualityWorkflow).toContain("workflow_dispatch:");
     expect(qualityWorkflow).toContain("Validate dispatched PR context");
+    expect(qualityWorkflow).toContain("Prepare prospective merge tree");
+    expect(qualityWorkflow).toContain(
+      'git merge --no-commit --no-ff "${QUALITY_HEAD_SHA}"',
+    );
+    expect(qualityWorkflow).toContain('echo "sha=$(git write-tree)"');
+    expect(qualityWorkflow).toContain("github.event.pull_request.base.sha");
+    expect(qualityWorkflow).toContain("github.event.pull_request.head.sha");
     expect(qualityWorkflow).toContain("Check task consistency");
     expect(qualityWorkflow).toContain("Run documentation guardrails");
     expect(qualityWorkflow).toContain("Check Markdown formatting");

@@ -3,6 +3,8 @@ name: Quality
 on:
   push:
     branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
     inputs:
       base_sha:
@@ -19,7 +21,7 @@ on:
         type: string
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && github.sha != inputs.head_sha && format('stale-dispatch-{0}', github.run_id) || inputs.pr_number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && github.sha != inputs.head_sha && format('stale-dispatch-{0}', github.run_id) || github.event_name == 'workflow_dispatch' && inputs.pr_number || github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -29,6 +31,11 @@ permissions:
 
 jobs:
   checks:
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.pull_request.draft == false &&
+      github.event.sender.type == 'Bot' &&
+      github.event.sender.login != 'kay-pht-auto-fix[bot]')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -58,10 +65,20 @@ jobs:
           QUALITY_PR_NUMBER: ${{ inputs.pr_number }}
         run: node scripts/validate-quality-dispatch.mjs
 
+      - name: Prepare prospective merge tree
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          QUALITY_BASE_SHA: ${{ inputs.base_sha }}
+          QUALITY_HEAD_SHA: ${{ inputs.head_sha }}
+        shell: bash
+        run: |
+          git checkout --detach "${QUALITY_BASE_SHA}"
+          git merge --no-commit --no-ff "${QUALITY_HEAD_SHA}"
+
       - name: Resolve checked-out tree
         id: tree
         shell: bash
-        run: echo "sha=$(git rev-parse 'HEAD^{tree}')" >> "${GITHUB_OUTPUT}"
+        run: echo "sha=$(git write-tree)" >> "${GITHUB_OUTPUT}"
 
       - name: Find reusable PR Quality proof
         id: proof
@@ -75,16 +92,16 @@ jobs:
         id: changes
         if: steps.proof.outputs.reusable != 'true'
         env:
-          QUALITY_BASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.base_sha || github.event.before }}
-          QUALITY_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.head_sha || github.sha }}
+          QUALITY_BASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.base_sha || github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          QUALITY_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.head_sha || github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
         run: node scripts/classify-quality-changes.mjs
 
       - name: Check whitespace and conflict markers
         id: whitespace
         if: steps.proof.outputs.reusable != 'true'
         env:
-          BASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.base_sha || github.event.before }}
-          HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.head_sha || github.sha }}
+          BASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.base_sha || github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.head_sha || github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
         shell: bash
         run: |
           if [[ "${BASE_SHA}" =~ ^0+$ ]]; then
@@ -153,8 +170,8 @@ jobs:
           steps.proof.outputs.reusable != 'true' &&
           steps.changes.outputs.spec_required == 'true'
         env:
-          SPEC_BASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.base_sha || github.event.before }}
-          SPEC_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.head_sha || github.sha }}
+          SPEC_BASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.base_sha || github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          SPEC_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.head_sha || github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
         run: node scripts/check-spec-change.mjs
 
       - name: Check specification contracts
@@ -218,8 +235,8 @@ jobs:
           steps.proof.outputs.reusable != 'true' &&
           steps.changes.outputs.docs == 'true'
         env:
-          MARKDOWN_BASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.base_sha || github.event.before }}
-          MARKDOWN_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.head_sha || github.sha }}
+          MARKDOWN_BASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.base_sha || github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          MARKDOWN_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.head_sha || github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
         run: node scripts/format-changed-markdown.mjs --check
 
       - name: Run iOS lint and format check
@@ -278,7 +295,7 @@ jobs:
         run: npm run test:e2e
 
       - name: Record PR Quality proof
-        if: github.event_name == 'workflow_dispatch' && inputs.pr_number != ''
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
         env:
           QUALITY_TREE_SHA: ${{ steps.tree.outputs.sha }}
           QUALITY_BACKEND_REQUIRED: ${{ steps.changes.outputs.backend }}
@@ -301,7 +318,7 @@ jobs:
             > "${RUNNER_TEMP}/quality-proof.json"
 
       - name: Upload PR Quality proof
-        if: github.event_name == 'workflow_dispatch' && inputs.pr_number != ''
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
         uses: actions/upload-artifact@v7
         with:
           name: quality-proof-${{ steps.tree.outputs.sha }}

@@ -198,16 +198,27 @@ describe("PR Quality proof", () => {
     expect(qualityWorkflow).not.toMatch(/^\s*run:\s+npm run verify\s*$/m);
     expect(qualityWorkflow).toContain("swift:6.3@sha256:");
     expect(qualityWorkflow).not.toContain("runs-on: macos-");
-    expect(qualityWorkflow).not.toContain("\n  pull_request:\n");
-    expect(qualityWorkflow).not.toContain("github.event.pull_request");
+    expect(qualityWorkflow).toContain("\n  pull_request:\n");
+    expect(qualityWorkflow).toContain("github.event.pull_request");
+    expect(qualityWorkflow).toContain("github.event.sender.type == 'Bot'");
+    expect(qualityWorkflow).toContain(
+      "github.event.sender.login != 'kay-pht-auto-fix[bot]'",
+    );
     expect(qualityWorkflow).toContain("workflow_dispatch:");
     expect(qualityWorkflow).toContain("Validate dispatched PR context");
     expect(qualityWorkflow).toContain("validate-quality-dispatch.mjs");
+    expect(qualityWorkflow).toContain("Prepare prospective merge tree");
+    expect(qualityWorkflow).toContain(
+      'git merge --no-commit --no-ff "${QUALITY_HEAD_SHA}"',
+    );
+    expect(qualityWorkflow).toContain('echo "sha=$(git write-tree)"');
     expect(qualityWorkflow).toContain("stale-dispatch-{0}");
     expect(qualityWorkflow).toContain("pull-requests: read");
     expect(qualityWorkflow).toContain("ref: ${{ github.sha }}");
     expect(qualityWorkflow).not.toContain("paths-ignore:");
     expect(qualityWorkflow).toContain("github.event.before");
+    expect(qualityWorkflow).toContain("github.event.pull_request.base.sha");
+    expect(qualityWorkflow).toContain("github.event.pull_request.head.sha");
     expect(qualityWorkflow).toContain("classify-quality-changes.mjs");
     expect(qualityWorkflow).not.toContain("main-push-context-${{");
 
@@ -255,6 +266,9 @@ describe("PR Quality proof", () => {
       "github.event.pull_request.head.repo.full_name == github.repository",
     );
     expect(autoFormatWorkflow).toContain("github.event.sender.type != 'Bot'");
+    expect(autoFormatWorkflow).toContain(
+      "github.event.sender.login == 'kay-pht-auto-fix[bot]'",
+    );
     expect(autoFormatWorkflow).toContain(
       "github.event.pull_request.draft == false",
     );
