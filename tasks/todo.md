@@ -8,8 +8,8 @@
 - [ ] TikTokタイトル不足時の動画フォールバックをdevへ反映し、実アプリで許可済みURLを検証
 - [ ] MVPリリース・ユーザー検証
   - [x] Apple承認後、`Foodfolio External` の外部テスターへ招待が送信されたことをAPIで確認する
-    - 2026-09-12: build 11はBeta App Review `APPROVED`、外部 `IN_BETA_TESTING`、自動通知有効。既存テスター2件は `INSTALLED` 1件、`INVITED` 1件
-  - [ ] 外部テスターの実機でbuild 11への更新、共有タグの保持・検索、主要フローを確認する
+    - 2026-09-14: build 12はBeta App Review `APPROVED`、外部 `IN_BETA_TESTING`、自動通知有効。既存テスター2件は `INSTALLED` 1件、`INVITED` 1件
+  - [ ] 外部テスターの実機でbuild 12への更新、「作りたい」の保持・表示、同期競合時の最新状態、主要フローを確認する
 
 <!-- - [ ] タイトルがそのまま過ぎて長い。タコライスならタコライスとだけ表示して欲しい。現在は【【つどいごはん】地産地消タコライス】のようにかなり長くてリスト状態の時に表示に収まりきっていない。 -->
 
@@ -78,6 +78,7 @@
       - 2026-09-09: build 8を `Foodfolio Internal` に割り当て、`VALID`、build有効、`IN_BETA_TESTING`、日本語の「テストしてほしいこと」をAPIで再確認。内部テスターによるbuild 8のインストールと実機検証は未確認
       - 2026-09-09: build 9を `Foodfolio Internal` に割り当て、`VALID`、build有効、`IN_BETA_TESTING`、日本語の「テストしてほしいこと」をAPIで再確認。内部テスターによるbuild 9のインストールと実機検証は未確認
       - 2026-09-11: build 10を `Foodfolio Internal` に割り当て、`VALID`、build有効、`IN_BETA_TESTING`、日本語の「テストしてほしいこと」をAPIで再確認。内部テスターによるbuild 10のインストールと実機検証は未確認
+      - 2026-09-14: build 12を `Foodfolio Internal` に割り当て、`VALID`、build有効、`IN_BETA_TESTING`、日本語の「テストしてほしいこと」をAPIで再確認。内部テスターによるbuild 12のインストールと実機検証は未確認
   - [x] 外部TestFlight審査へ提出できる状態にする
     - [x] 外部テスターグループを作成し、対象buildと「テストしてほしいこと」を設定する
     - [x] TestFlight Test InformationとBeta App Review Informationの必須項目をすべて入力する

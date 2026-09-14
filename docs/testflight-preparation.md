@@ -1,6 +1,6 @@
 # TestFlight準備の確認記録
 
-最終更新日: 2026-09-12。自動テスト、署名済みArchive、Apple側の処理状態、実機確認は別の証跡として扱う。
+最終更新日: 2026-09-14。自動テスト、署名済みArchive、Apple側の処理状態、実機確認は別の証跡として扱う。
 
 ## 公開ページ
 
@@ -66,7 +66,7 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 
 ## 既存TestFlight配布履歴
 
-- 最新の内部・外部配布はversion `1.0`、build `11`、iPhone、iOS `26.0` 以上。接続先は既存のFoodfolio dev API。
+- 最新の内部・外部配布はversion `1.0`、build `12`、iPhone、iOS `26.0` 以上。接続先は既存のFoodfolio dev API。
 - build 2 (`bc3cca8b-6824-4ffc-bac0-708c6862325c`): Archive / export / Apple validation / upload成功。
 - build 3 (`cb9cbeec-da15-4e08-b2a1-79b1a86ef79e`): 当時の判断に基づくAI送信同意を含むbuild。Archive / export / Apple validation / upload成功。
 - build 5 (`aaf7a5b6-645c-4cc1-aa39-c9c5f9cffef5`): Share ExtensionとApp Group対応、および当時のAI同意実装を含む。Apple processing `VALID`、内部 `IN_BETA_TESTING`、外部 `READY_FOR_BETA_SUBMISSION` を確認済み。
@@ -76,6 +76,7 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 - build 9 (`1d7c06fc-fc52-43ea-b1c8-7ad9567bd8ef`): 画像再取得で初回解析と同じ媒体別の代表画像解決を使用する変更を含む。Apple processing `VALID`、build有効、内部 `IN_BETA_TESTING`、外部 `READY_FOR_BETA_SUBMISSION` を確認し、`Foodfolio Internal`へ割り当て済み。日本語の「テストしてほしいこと」も保存・再取得確認済み。
 - build 10 (`32d303fd-1280-4f75-ad38-16d061d79654`): Share Extensionの標準Postと送信結果表示、およびTikTok写真投稿の画像優先解析を含む。Apple processing `VALID`、build有効、内部 `IN_BETA_TESTING`、外部 `READY_FOR_BETA_SUBMISSION` を確認し、`Foodfolio Internal`へ割り当て済み。日本語の「テストしてほしいこと」も保存・再取得確認済み。
 - build 11 (`00863d38-fc2a-4ae8-a331-f64959c54fca`): 共有タグの多対多永続化と旧SwiftData storeの移行を含む。Apple processing `VALID`、build有効、内部・外部とも `IN_BETA_TESTING`、Beta App Review `APPROVED` を確認し、`Foodfolio Internal` と `Foodfolio External` へ割り当て済み。日本語の「テストしてほしいこと」も保存・再取得確認済み。
+- build 12 (`366c4a95-5fc5-449b-962f-a124b577bb47`): 「作りたい」レシピの保存・専用表示と、同期・編集操作の競合対策を含む。Apple processing `VALID`、build有効、内部・外部とも `IN_BETA_TESTING`、Beta App Review `APPROVED` を確認し、`Foodfolio Internal` と `Foodfolio External` へ割り当て済み。日本語の「テストしてほしいこと」も保存・再取得確認済み。
 - build 3 / 5に含まれるAI同意実装は配布履歴として残るが、現在のソース仕様では廃止対象であり、次回buildでは利用しない。
 - 内部グループ `Foodfolio Internal` に既存App Store Connect管理者1名を登録済み。
 
@@ -151,6 +152,16 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 - build 11を `Foodfolio Internal` と `Foodfolio External` へ割り当て、日本語の「テストしてほしいこと」を保存・再取得した。内部・外部とも `IN_BETA_TESTING`、自動通知有効、Beta App Review `APPROVED` を確認した。
 - ユーザー指示により `Foodfolio External` の公開リンク有効状態を維持した。既存テスター構成は変更せず、API再取得時点で2件（`INSTALLED` 1件、`INVITED` 1件）。実際のbuild 11インストールと実機動作は別途確認する。
 
+## build 12の外部TestFlight配布結果
+
+- 配布ソースはmain `8833bc2ac6fb9ec0f1af7a51ba3a0993397994f5`。mainのQuality、Documentation、Deploy devはいずれも成功した。Deploy devはiOS build番号のみの差分を正しくskipし、Backendを含むmain `340a7c4cc772b790477dcb006a95f502579885f5` はdevへ反映済み。
+- `npm run verify`: unit 239、integration 42、E2E 29、およびPrisma、lint、format check、TypeScript build成功。
+- `npm run verify:ios`: SwiftData legacy-store migration検証と110件のiOSテストが成功、失敗0、skip 0。
+- Release Archive、署名・entitlement確認、IPA export、Apple validation、uploadに成功。本体とShare Extensionはともに `1.0 (12)`、本体はproduction APNs、Sign in with Apple、共通App Group、Extensionは共通App Groupを保持している。
+- App Store Connect Build ID `366c4a95-5fc5-449b-962f-a124b577bb47` のprocessing `VALID`、build有効、`APP_STORE_ELIGIBLE`、暗号化申告 `false` をAPIで確認した。
+- build 12を `Foodfolio Internal` と `Foodfolio External` へ割り当て、日本語の「テストしてほしいこと」を保存・再取得した。内部・外部とも `IN_BETA_TESTING`、自動通知有効、Beta App Review `APPROVED` を確認した。
+- `Foodfolio External` の公開リンク有効状態を維持した。既存テスター構成は変更せず、API再取得時点で2件（`INSTALLED` 1件、`INVITED` 1件）。実際のbuild 12インストールと実機動作は別途確認する。
+
 ## 入力文面の控え（認証情報を除く）
 
 ### Beta App Description
@@ -164,6 +175,10 @@ build 10では、起動・メール／Apple／Googleログイン、アプリ内�
 ### What to Test（build 11）
 
 build 11では、複数のレシピで同じタグを共有しても関連付けが保持され、同期後やアプリ再起動後も各レシピのタグ表示とタグ検索が正しく動作することをご確認ください。build 10以前からアップデートした場合も、保存済みレシピのタグが復旧することをご確認ください。あわせて、起動・認証、URL保存、AI解析、検索・編集・同期、Push通知をご確認ください。既知の制限として、Share Extensionからの追加は正常に完了しない場合があります。アプリ内の追加ボタンを使用してください。
+
+### What to Test（build 12）
+
+build 12では、レシピ詳細のメニューから「作りたい」を追加・解除でき、追加したレシピがホーム上部の専用セクションへ移動し、同期後やアプリ再起動後も状態が保持されることをご確認ください。編集・削除・「作りたい」の操作と同期が前後しても最新の操作結果が保持され、削除済みレシピが再表示されないこともご確認ください。あわせて、起動・認証、URL保存、AI解析、タグ、検索、編集、同期、Push通知をご確認ください。既知の制限として、Share Extensionからの追加は正常に完了しない場合があります。アプリ内の追加ボタンを使用してください。
 
 ### Review Notes
 
