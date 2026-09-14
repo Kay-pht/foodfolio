@@ -5,13 +5,23 @@ import {
 } from "../../scripts/dev-local-support.mjs";
 
 describe("local development environment", () => {
-  it("prefers values from the local environment file", () => {
-    expect(
-      mergeLocalEnvironment(
-        { DATABASE_URL: "postgresql://remote.example/database" },
-        { DATABASE_URL: "postgresql://localhost/foodfolio" },
-      ).DATABASE_URL,
-    ).toBe("postgresql://localhost/foodfolio");
+  it("layers the base environment before local overrides without dropping shared secrets", () => {
+    const environment = mergeLocalEnvironment(
+      {
+        DATABASE_URL: "postgresql://ambient.example/database",
+        ZAI_API_KEY: "ambient-zai-key",
+      },
+      {
+        DATABASE_URL: "postgresql://base.example/database",
+        ZAI_API_KEY: "base-zai-key",
+        YOUTUBE_API_KEY: "base-youtube-key",
+      },
+      { DATABASE_URL: "postgresql://localhost/foodfolio" },
+    );
+
+    expect(environment.DATABASE_URL).toBe("postgresql://localhost/foodfolio");
+    expect(environment.ZAI_API_KEY).toBe("base-zai-key");
+    expect(environment.YOUTUBE_API_KEY).toBe("base-youtube-key");
   });
 
   it.each([

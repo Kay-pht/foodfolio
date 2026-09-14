@@ -19,17 +19,18 @@ Docker Desktop、Node.js / npm、Xcodeを用意したうえで依存関係をイ
 
 ```bash
 npm ci
-cp .env.local.example .env.local
+test -f .env || cp .env.example .env
+test -f .env.local || cp .env.local.example .env.local
 ```
 
-`.env.local` に最低限次の実APIキーを設定する。
+`.env` に最低限次の実APIキーを設定する。
 
 ```dotenv
 ZAI_API_KEY=...
 YOUTUBE_API_KEY=...
 ```
 
-YouTube Gemini fallbackをローカルでも確認するときだけ、`GEMINI_API_KEY` を設定して `YOUTUBE_GEMINI_FALLBACK_ENABLED=true` にする。
+YouTube Gemini fallbackをローカルでも確認するときだけ、`.env` に `GEMINI_API_KEY` を設定して `.env.local` の `YOUTUBE_GEMINI_FALLBACK_ENABLED=true` にする。
 
 ローカルAPIもiOSから受け取ったFirebase ID tokenを実際に検証する。Firebase Admin SDKがApplication Default Credentialsを取得できる状態にしておく。Foodfolio用の認証をまだ作成していない場合は、例えば次を実行する。
 
@@ -56,7 +57,9 @@ npm run dev:local
 
 API / Worker自体は既存のFastify entrypointをそのまま利用する。ローカル時だけ `ANALYSIS_QUEUE_DRIVER=local-http` と `NOTIFICATION_DRIVER=noop` を使う。
 
-`.env.local` は同名のシェル環境変数より優先される。`npm run dev:local` はmigration前に `DATABASE_URL` と `DATABASE_DIRECT_URL` を検証し、接続先がlocalhostのPostgreSQL 5432、ユーザーとdatabaseがともに `foodfolio` でなければ停止する。この制限はローカル起動スクリプトだけに適用され、CI/CDが直接実行する `npm run prisma:migrate:deploy` には適用されない。
+環境変数はシェル環境、`.env`、`.env.local` の順に読み込み、後から読み込んだ値を優先する。APIキーなどの共有秘密値は `.env`、localhost DB・local queue・通知などローカル固有の上書きは `.env.local` に置く。`FOODFOLIO_LOCAL_ENV` を指定した場合は、そのファイルを `.env.local` の代わりの最終上書きとして使用する。
+
+`npm run dev:local` はmigration前に `DATABASE_URL` と `DATABASE_DIRECT_URL` を検証し、接続先がlocalhostのPostgreSQL 5432、ユーザーとdatabaseがともに `foodfolio` でなければ停止する。この制限はローカル起動スクリプトだけに適用され、CI/CDが直接実行する `npm run prisma:migrate:deploy` には適用されない。
 
 ローカルHTTP queueはメモリ上にあるため、解析中にAPIまたはWorkerが再起動すると配送中のタスクが失われる場合がある。`dev:local` は30秒ごとに期限切れの解析リースを確認し、該当するレシピを `failed` にして削除・再登録できる状態へ戻す。有効なリースは、実行中のWorkerと競合しないよう変更しない。
 
