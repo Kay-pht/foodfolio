@@ -1,0 +1,58 @@
+id: IOS-WANT-TO-COOK-VERIFY-001
+type: bug
+status: approved
+
+objective: >-
+  Make the want-to-cook iOS regression tests exercise the intended behavior without stale
+  mock timestamps or a prematurely released SwiftData model container.
+
+requirements:
+  - id: IWCV-1
+    condition: A UI-test recipe is marked or unmarked through the mocked want-to-cook endpoint.
+    expected: >-
+      The mock reads the enabled request body even when URLProtocol receives it as a stream,
+      and responds with an updatedAt later than the locally seeded recipe so the repository
+      applies the returned state and Home and detail reflect the toggle.
+    verification:
+      - ios/FoodfolioUITests/WantToCookUITests.swift
+      - ios/Foodfolio/Core/API/UITestURLProtocol.swift
+  - id: IWCV-2
+    condition: A mutation race integration test creates an in-memory repository.
+    expected: >-
+      The ModelContainer remains alive while the repository fetches and updates recipes,
+      allowing the stale-response and deleted-recipe assertions to execute without a crash.
+    verification:
+      - ios/FoodfolioIntegrationTests/RecipeMutationRaceTests.swift
+
+edge_cases:
+  - A mock mutation occurs after the original fixed test-fixture date.
+  - URLSession supplies the mocked PATCH body as httpBodyStream rather than httpBody.
+  - A recipe is deleted locally before a late mutation response arrives.
+  - A newer synchronized recipe receives an older mutation response.
+
+security_invariants:
+  - Production API routing and authentication remain unchanged.
+  - Test fixtures do not contain user data or credentials.
+
+compatibility:
+  - Production recipe DTO and SwiftData schemas remain unchanged.
+  - Existing UI-test launch arguments and endpoint paths remain unchanged.
+
+non_functional:
+  - Limit changes to test fixtures and test setup.
+  - Keep mock timestamps deterministic relative to the seeded recipe.
+
+out_of_scope:
+  - Changing backend want-to-cook behavior.
+  - Changing production recipe synchronization or mutation ordering.
+
+acceptance_criteria:
+  - The previously failing want-to-cook UI tests pass.
+  - Both mutation race tests run their assertions without crashing and pass.
+  - Full iOS and repository verification pass.
+
+regression:
+  required: true
+  tests:
+    - ios/FoodfolioUITests/WantToCookUITests.swift
+    - ios/FoodfolioIntegrationTests/RecipeMutationRaceTests.swift

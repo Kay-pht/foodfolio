@@ -19,7 +19,9 @@ import XCTest
     app.staticTexts["親子丼"].tap()
     XCTAssertTrue(app.staticTexts["detail.title"].waitForExistence(timeout: 3))
     XCTAssertTrue(app.staticTexts["レシピの解析に問題がありました。"].waitForExistence(timeout: 2))
-    XCTAssertTrue(app.buttons["detail.edit"].exists)
+    XCTAssertTrue(app.buttons["detail.moreMenu"].exists)
+    app.buttons["detail.moreMenu"].tap()
+    XCTAssertTrue(app.buttons["detail.edit"].waitForExistence(timeout: 2))
     XCTAssertTrue(app.staticTexts["親子丼"].exists)
   }
 }

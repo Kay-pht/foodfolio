@@ -10,6 +10,8 @@ final class RecipeSyncService {
   private let reconciliationKey = "lastFullReconciliationAt"
   private let tagRelationshipRepairKey = "tagRelationshipRepairVersion"
   private let tagRelationshipRepairVersion = 1
+  private let recipeCacheSchemaVersionKey = "recipeCacheSchemaVersion"
+  private let recipeCacheSchemaVersion = 1
 
   init(api: APIClient, repository: RecipeRepository, defaults: UserDefaults = .standard) {
     self.repository = repository
@@ -32,7 +34,11 @@ final class RecipeSyncService {
   func sync(now: Date = Date()) async throws {
     let needsTagRelationshipRepair =
       defaults.integer(forKey: tagRelationshipRepairKey) < tagRelationshipRepairVersion
-    let cursor = needsTagRelationshipRepair ? nil : defaults.string(forKey: cursorKey)
+    let needsRecipeCacheRefresh =
+      defaults.integer(forKey: recipeCacheSchemaVersionKey) < recipeCacheSchemaVersion
+    let cursor =
+      needsTagRelationshipRepair || needsRecipeCacheRefresh
+      ? nil : defaults.string(forKey: cursorKey)
     let path =
       cursor.map {
         "/v1/sync?cursor=\($0.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? $0)"
@@ -43,6 +49,9 @@ final class RecipeSyncService {
     defaults.set(response.nextCursor, forKey: cursorKey)
     if needsTagRelationshipRepair {
       defaults.set(tagRelationshipRepairVersion, forKey: tagRelationshipRepairKey)
+    }
+    if needsRecipeCacheRefresh {
+      defaults.set(recipeCacheSchemaVersion, forKey: recipeCacheSchemaVersionKey)
     }
     let last = defaults.object(forKey: reconciliationKey) as? Date
     if last == nil || now.timeIntervalSince(last!) >= 86_400 {
@@ -56,5 +65,6 @@ final class RecipeSyncService {
     defaults.removeObject(forKey: cursorKey)
     defaults.removeObject(forKey: reconciliationKey)
     defaults.removeObject(forKey: tagRelationshipRepairKey)
+    defaults.removeObject(forKey: recipeCacheSchemaVersionKey)
   }
 }

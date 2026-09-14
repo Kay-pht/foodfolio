@@ -183,7 +183,15 @@ final class RecipeSynchronizationCoordinator {
       : "親子丼"
     let servings: (Double?, String?) = (2, "2 servings")
     let status: AnalysisStatus =
-      arguments.contains("-ui-testing-status-failed") ? .failed : .completed
+      if arguments.contains("-ui-testing-status-pending") {
+        .pending
+      } else if arguments.contains("-ui-testing-status-processing") {
+        .processing
+      } else if arguments.contains("-ui-testing-status-failed") {
+        .failed
+      } else {
+        .completed
+      }
     let steps =
       arguments.contains("-ui-testing-long-title")
       ? (0..<8).map {
