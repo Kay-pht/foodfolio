@@ -1,83 +1,11 @@
-name: Documentation
+name: Documentation (retired)
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-  push:
-    branches: [main]
   workflow_dispatch:
-    inputs:
-      base_sha:
-        description: Pull request base SHA
-        required: true
-        type: string
-      head_sha:
-        description: Fixed pull request head SHA
-        required: true
-        type: string
-      pr_number:
-        description: Pull request number when dispatched by Auto Fix
-        required: true
-        type: string
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && github.sha != inputs.head_sha && format('stale-dispatch-{0}', github.run_id) || github.event.pull_request.number || inputs.pr_number || github.ref }}
-  cancel-in-progress: true
-
-permissions:
-  contents: read
-  pull-requests: read
 
 jobs:
-  checks:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+  retired:
+    if: ${{ false }}
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          ref: ${{ github.sha }}
-
-      - name: Validate dispatched PR context
-        if: github.event_name == 'workflow_dispatch'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          QUALITY_BASE_SHA: ${{ inputs.base_sha }}
-          QUALITY_EVENT_SHA: ${{ github.sha }}
-          QUALITY_HEAD_REF: ${{ github.ref_name }}
-          QUALITY_HEAD_SHA: ${{ inputs.head_sha }}
-          QUALITY_PR_NUMBER: ${{ inputs.pr_number }}
-        run: node scripts/validate-quality-dispatch.mjs
-
-      - name: Classify changed files
-        id: changes
-        env:
-          QUALITY_BASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.base_sha || github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
-          QUALITY_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.head_sha || github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
-        run: node scripts/classify-quality-changes.mjs
-
-      - name: Documentation checks not required
-        if: steps.changes.outputs.documentation != 'true'
-        run: echo "No documentation-affecting changes were detected; Documentation remains successful without running documentation tooling."
-
-      - uses: actions/setup-node@v7
-        if: steps.changes.outputs.documentation == 'true'
-        with:
-          node-version: 24.18.0
-          package-manager-cache: false
-
-      - name: Check task consistency
-        if: steps.changes.outputs.documentation == 'true'
-        run: npm run tasks:check
-
-      - name: Run documentation guardrails
-        if: steps.changes.outputs.documentation == 'true'
-        run: npm run check:docs
-
-      - name: Check Markdown formatting
-        if: steps.changes.outputs.documentation == 'true'
-        env:
-          MARKDOWN_BASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.base_sha || github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
-          MARKDOWN_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.head_sha || github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
-        run: node scripts/format-changed-markdown.mjs --check
+      - run: echo "Documentation checks are integrated into Quality."
