@@ -24,10 +24,7 @@ function fallbackExtractor() {
   };
 }
 
-function adapter(
-  resolvedUrl: string,
-  text: string,
-): SharedConversationAdapter {
+function adapter(resolvedUrl: string, text: string): SharedConversationAdapter {
   return {
     extract: vi.fn(async () => ({
       resolvedUrl,
