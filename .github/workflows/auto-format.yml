@@ -410,6 +410,7 @@ jobs:
       - name: Dispatch Quality for Auto Fix bot head
         env:
           EVENT_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPOSITORY: ${{ github.repository }}
