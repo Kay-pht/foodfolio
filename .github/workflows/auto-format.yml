@@ -361,8 +361,11 @@ jobs:
             fi
           } >> "${GITHUB_STEP_SUMMARY}"
 
-      - name: Dispatch Quality for final ready head
-        if: github.event_name == 'pull_request'
+      - name: Dispatch Quality when no bot handoff is expected
+        if: >-
+          github.event_name == 'pull_request' &&
+          (steps.commit.outputs.pushed != 'true' ||
+          steps.app-config.outputs.configured != 'true')
         env:
           FIXED_HEAD_SHA: ${{ steps.commit.outputs.head_sha }}
           GH_TOKEN: ${{ github.token }}
@@ -385,6 +388,52 @@ jobs:
                 "${head_repo}" != "${REPOSITORY}" ||
                 "${head_sha}" != "${candidate_head}" ]]; then
             echo "The pull request advanced, became draft, closed, or changed repository; skipping stale Quality dispatch for ${candidate_head}." >> "${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
+
+          gh workflow run quality.yml \
+            --ref "${head_ref}" \
+            -f "base_sha=${base_sha}" \
+            -f "head_sha=${head_sha}" \
+            -f "pr_number=${PR_NUMBER}"
+
+  handoff-quality:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.action == 'synchronize' &&
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.sender.type == 'Bot'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Dispatch Quality for Auto Fix bot head
+        env:
+          EVENT_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          pr="$(gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}")"
+          state="$(jq -r '.state' <<< "${pr}")"
+          draft="$(jq -r '.draft' <<< "${pr}")"
+          head_repo="$(jq -r '.head.repo.full_name // empty' <<< "${pr}")"
+          head_ref="$(jq -r '.head.ref' <<< "${pr}")"
+          head_sha="$(jq -r '.head.sha' <<< "${pr}")"
+          base_sha="$(jq -r '.base.sha' <<< "${pr}")"
+
+          if [[ "${state}" != "open" ||
+                "${draft}" != "false" ||
+                "${head_repo}" != "${REPOSITORY}" ||
+                "${head_sha}" != "${EVENT_HEAD_SHA}" ]]; then
+            echo "The bot synchronize run is stale, draft, closed, or changed repository; skipping Quality handoff for ${EVENT_HEAD_SHA}." >> "${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
+
+          commit_message="$(gh api "repos/${REPOSITORY}/commits/${EVENT_HEAD_SHA}" --jq '.commit.message')"
+          if [[ "${commit_message}" != "style: apply automatic formatting" ]]; then
+            echo "The bot synchronize head is not an Auto Fix formatting commit; skipping Quality handoff for ${EVENT_HEAD_SHA}." >> "${GITHUB_STEP_SUMMARY}"
             exit 0
           fi
 
