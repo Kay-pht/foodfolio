@@ -34,8 +34,9 @@ jobs:
     if: >-
       github.event_name != 'pull_request' ||
       (github.event.pull_request.draft == false &&
-      github.event.sender.type == 'Bot' &&
-      github.event.sender.login != 'kay-pht-auto-fix[bot]')
+      (github.event.pull_request.head.repo.full_name != github.repository ||
+      (github.event.sender.type == 'Bot' &&
+      github.event.sender.login != 'kay-pht-auto-fix[bot]')))
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
