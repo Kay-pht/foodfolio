@@ -23,9 +23,11 @@ requirements:
       when editing is available. Marked recipes show a compact "作りたい" status near the recipe
       summary, while unmarked recipes do not render that status. Tapping the menu action persists
       the new state through RecipeRepository, updates the local recipe from the returned DTO, and
-      prevents duplicate submissions while the request is in flight.
+      prevents duplicate submissions while the request is in flight. A delayed mutation response
+      must not recreate a recipe that was deleted locally while the request was in flight.
     verification:
       - ios/FoodfolioIntegrationTests/PersistenceIntegrationTests.swift
+      - ios/FoodfolioIntegrationTests/RecipeMutationRaceTests.swift
       - ios/FoodfolioUITests/WantToCookUITests.swift
   - id: WTC-3
     condition: One or more locally cached recipes have a want-to-cook timestamp.
@@ -43,10 +45,13 @@ requirements:
       - ios/FoodfolioIntegrationTests/PersistenceIntegrationTests.swift
       - ios/FoodfolioUITests/WantToCookUITests.swift
   - id: WTC-5
-    condition: An existing installation opens a SwiftData store created before want-to-cook existed.
+    condition: An existing installation upgrades from a version that predates want-to-cook.
     expected: >-
-      The legacy store opens without data loss and existing recipes default to an unmarked state.
+      The legacy SwiftData store opens without data loss and existing recipes default to an unmarked
+      state. The sync cache schema version forces one cursorless sync after upgrade so a non-null
+      wantToCookAt written by another device cannot remain hidden behind an older sync cursor.
     verification:
+      - ios/FoodfolioIntegrationTests/RecipeCacheSyncVersionTests.swift
       - scripts/test-ios-swiftdata-migration.sh
 
 edge_cases:
@@ -54,6 +59,8 @@ edge_cases:
   - The same recipe receives an enabled request more than once.
   - Every recipe in the library is marked as want-to-cook.
   - A legacy local recipe has no want-to-cook field.
+  - An upgraded installation already has an advanced differential-sync cursor.
+  - A recipe is deleted while a want-to-cook mutation response is still in flight.
   - A network request to toggle the state fails.
 
 security_invariants:
@@ -63,11 +70,13 @@ security_invariants:
 
 compatibility:
   - Existing recipes default to wantToCookAt = null in PostgreSQL and SwiftData.
+  - Existing clients perform one full sync when the local recipe cache schema version advances.
   - Existing recipe creation, editing, deletion, tagging, and sync contracts remain compatible.
   - Existing title, genre, and ingredient edits remain blocked while analysis is pending or processing.
 
 non_functional:
   - Toggling want-to-cook must not create duplicate recipes or tags.
+  - Late mutation responses must not recreate locally deleted recipes.
   - The home list derives sections from the local cache and does not issue a separate network request.
   - Keep the feature limited to one temporary state; no calendar, reminder, or meal-plan model is introduced.
 
@@ -84,7 +93,8 @@ acceptance_criteria:
   - Marked recipes appear in a distinct top section on Home, newest mark first, without duplication below.
   - Removing the mark returns the recipe to the normal recipe section.
   - Pending or processing recipes can still be marked without enabling ordinary recipe editing.
-  - An existing SwiftData store migrates with legacy recipes unmarked.
+  - An existing SwiftData store migrates with legacy recipes unmarked and refreshes cached recipe fields once.
+  - Deleting a recipe while a mutation is in flight does not leave a ghost recipe in the local cache.
   - Backend integration tests, iOS tests, and the SwiftData migration check pass.
 
 regression:
@@ -92,5 +102,7 @@ regression:
   tests:
     - tests/integration/want-to-cook.test.ts
     - ios/FoodfolioIntegrationTests/PersistenceIntegrationTests.swift
+    - ios/FoodfolioIntegrationTests/RecipeCacheSyncVersionTests.swift
+    - ios/FoodfolioIntegrationTests/RecipeMutationRaceTests.swift
     - ios/FoodfolioUITests/WantToCookUITests.swift
     - scripts/test-ios-swiftdata-migration.sh
