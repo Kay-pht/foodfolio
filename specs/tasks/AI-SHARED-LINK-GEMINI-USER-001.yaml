@@ -1,0 +1,59 @@
+id: AI-SHARED-LINK-GEMINI-USER-001
+type: bug
+status: approved
+
+objective: >-
+  Preserve Gemini user prompts from the current public-share RPC payload so shared
+  conversations remain an ordered user/assistant transcript instead of silently dropping
+  every user message.
+
+requirements:
+  - id: ASL-GU-1
+    condition: A Gemini public-share turn stores its user prompt in the current nested lgd shape at turn[2][0][0].
+    expected: >-
+      The Gemini parser emits the user prompt before that turn's assistant response while
+      retaining compatibility with the previously verified direct turn[2][0] prompt shape.
+    verification:
+      - tests/unit/ai-shared-conversation.test.ts
+  - id: ASL-GU-2
+    condition: A Gemini payload yields assistant messages but no recognizable user prompt in the conversation.
+    expected: >-
+      Parsing fails with SHARED_CONVERSATION_FORMAT_CHANGED rather than accepting an
+      assistant-only transcript caused by an unrecognized provider payload shape.
+    verification:
+      - tests/unit/ai-shared-conversation.test.ts
+
+edge_cases:
+  - The previously verified direct turn[2][0] user-prompt shape remains readable.
+  - An individual regeneration or structured turn may omit a user prompt as long as the conversation still contains a recognized user prompt elsewhere.
+  - A payload with neither readable user nor assistant content retains the existing source-content-unavailable behavior.
+
+security_invariants:
+  - Gemini extraction remains anonymous and does not add cookies, account tokens, or authorization headers.
+  - Shared conversation text is not added to normal logs.
+  - Provider payloads remain untrusted input.
+
+compatibility:
+  - ChatGPT shared-link parsing is unchanged.
+  - Gemini canonicalization, RPC transport, and normalized URL behavior are unchanged.
+  - Existing direct Gemini user-prompt fixtures remain supported.
+
+non_functional:
+  - Keep positional Gemini payload handling isolated inside the dedicated Gemini adapter parser.
+  - Do not add a third-party parser dependency or browser automation.
+  - Fail explicitly when all user prompts become unreadable while assistant content is still present.
+
+out_of_scope:
+  - Supporting private or authenticated Gemini conversations.
+  - Reverse-engineering unrelated Gemini RPC fields.
+  - Changing recipe extraction semantics after transcript normalization.
+
+acceptance_criteria:
+  - A fixture matching the current nested Gemini user-prompt shape produces ordered user then assistant messages.
+  - The previous direct user-prompt shape still produces the same ordered transcript.
+  - An assistant-only parse caused by unreadable user-prompt fields raises a format-changed error.
+
+regression:
+  required: true
+  tests:
+    - tests/unit/ai-shared-conversation.test.ts

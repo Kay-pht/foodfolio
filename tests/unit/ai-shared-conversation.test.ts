@@ -60,11 +60,19 @@ class FakeGeminiTransport implements GeminiTransport {
   }
 }
 
-function geminiBatchBody(): string {
+type GeminiUserShape = "nested" | "direct" | "missing";
+
+function geminiBatchBody(userShape: GeminiUserShape = "nested"): string {
+  const user =
+    userShape === "nested"
+      ? [["オムライスのレシピを教えて"]]
+      : userShape === "direct"
+        ? ["オムライスのレシピを教えて"]
+        : [[]];
   const turn = [
     null,
     null,
-    ["オムライスのレシピを教えて"],
+    user,
     [
       [
         [null, ["材料です", "作り方です"]],
@@ -172,11 +180,24 @@ describe("ChatGPT public share parsing", () => {
 });
 
 describe("Gemini public share parsing", () => {
-  it("normalizes the first non-empty assistant candidate after each user turn", () => {
+  it("normalizes the current nested user prompt and first non-empty assistant candidate", () => {
     expect(parseGeminiBatchResponse(geminiBatchBody())).toEqual([
       { role: "user", text: "オムライスのレシピを教えて" },
       { role: "assistant", text: "材料です\n\n作り方です" },
     ]);
+  });
+
+  it("keeps the previously verified direct user prompt shape compatible", () => {
+    expect(parseGeminiBatchResponse(geminiBatchBody("direct"))).toEqual([
+      { role: "user", text: "オムライスのレシピを教えて" },
+      { role: "assistant", text: "材料です\n\n作り方です" },
+    ]);
+  });
+
+  it("fails explicitly instead of accepting an assistant-only transcript", () => {
+    expect(() => parseGeminiBatchResponse(geminiBatchBody("missing"))).toThrowError(
+      /user messages were not recognized/u,
+    );
   });
 
   it("resolves a short share before the RPC and exposes only the canonical URL", async () => {
