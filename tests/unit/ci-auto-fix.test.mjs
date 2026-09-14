@@ -77,7 +77,7 @@ describe("CI auto-fix coverage", () => {
     ).resolves.toMatchObject({ ignored: true });
   });
 
-  it("serializes ready PR auto-fix and preserves bot and merge-tree Quality paths", async () => {
+  it("serializes ready PR auto-fix and preserves bot, fork, and merge-tree Quality paths", async () => {
     const autoFixWorkflow = await readFile(
       new URL("../../.github/workflows/auto-format.yml", import.meta.url),
       "utf8",
@@ -131,6 +131,9 @@ describe("CI auto-fix coverage", () => {
     expect(handoffJob).not.toContain("actions/checkout");
 
     expect(qualityWorkflow).toContain("\n  pull_request:\n");
+    expect(qualityWorkflow).toContain(
+      "github.event.pull_request.head.repo.full_name != github.repository",
+    );
     expect(qualityWorkflow).toContain("github.event.sender.type == 'Bot'");
     expect(qualityWorkflow).toContain(
       "github.event.sender.login != 'kay-pht-auto-fix[bot]'",
