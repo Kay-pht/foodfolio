@@ -124,6 +124,7 @@ describe("CI auto-fix coverage", () => {
 
     const handoffJob = autoFixWorkflow.split("\n  handoff-quality:\n")[1];
     expect(handoffJob).toBeDefined();
+    expect(handoffJob).toContain("GH_REPO: ${{ github.repository }}");
     expect(handoffJob).not.toContain("npm run lint:fix");
     expect(handoffJob).not.toContain("actions/checkout");
 
