@@ -6,7 +6,8 @@ import XCTest
 
 @MainActor final class RecipeMutationRaceTests: XCTestCase {
   func testLateMutationResponseDoesNotRestoreDeletedRecipe() async throws {
-    let repository = try makeRepository()
+    let (container, repository) = try makeRepository()
+    defer { withExtendedLifetime(container) {} }
     let createdAt = Date(timeIntervalSince1970: 1_800_000_000)
     try await repository.upsert(
       recipeDTO(createdAt: createdAt, updatedAt: createdAt.addingTimeInterval(30)))
@@ -25,7 +26,8 @@ import XCTest
   }
 
   func testOlderMutationResponseKeepsNewerSyncedState() async throws {
-    let repository = try makeRepository()
+    let (container, repository) = try makeRepository()
+    defer { withExtendedLifetime(container) {} }
     let createdAt = Date(timeIntervalSince1970: 1_800_000_000)
     let markDate = createdAt.addingTimeInterval(20)
     let newerUpdatedAt = createdAt.addingTimeInterval(120)
@@ -47,15 +49,16 @@ import XCTest
     XCTAssertEqual(result.wantToCookAt, markDate)
   }
 
-  private func makeRepository() throws -> RecipeRepository {
+  private func makeRepository() throws -> (ModelContainer, RecipeRepository) {
     let container = try ModelContainerFactory.make(inMemory: true)
     let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
-    return RecipeRepository(
+    let repository = RecipeRepository(
       context: container.mainContext,
       api: APIClient(
         baseURL: URL(string: "https://example.invalid")!,
         tokenProvider: RecipeMutationRaceTokenProvider()),
       images: try RecipeImageStore(root: root))
+    return (container, repository)
   }
 
   private func recipeDTO(
