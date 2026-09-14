@@ -143,6 +143,9 @@ final class RecipeRepository {
   private func store(_ dto: RecipeDTO, insertIfMissing: Bool) async throws -> LocalRecipe {
     let local: LocalRecipe
     if let existing = try recipe(id: dto.id) {
+      if !insertIfMissing, dto.updatedAt < existing.updatedAt {
+        return existing
+      }
       local = existing
     } else {
       guard insertIfMissing else { throw APIError.notFound }
