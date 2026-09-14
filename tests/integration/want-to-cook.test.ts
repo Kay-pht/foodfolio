@@ -148,7 +148,7 @@ describe("want-to-cook API", () => {
     expect(timestamps.every((timestamp) => typeof timestamp === "string")).toBe(
       true,
     );
-    expect(new Set(timestamps)).toHaveSize(1);
+    expect(new Set(timestamps).size).toBe(1);
 
     const stored = await context.prisma.recipe.findUnique({
       where: { id: recipeId },
