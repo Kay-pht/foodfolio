@@ -419,6 +419,13 @@ function ensureProviderResponse(statusCode: number, provider: string): void {
     );
 }
 
+function geminiUserText(turn: unknown): string | null {
+  return (
+    normalizeText(valueAt(turn, [2, 0, 0])) ??
+    normalizeText(valueAt(turn, [2, 0]))
+  );
+}
+
 export function parseGeminiBatchResponse(
   text: string,
 ): OrderedConversationMessage[] {
@@ -451,9 +458,14 @@ export function parseGeminiBatchResponse(
     );
 
   const messages: OrderedConversationMessage[] = [];
+  let userCount = 0;
+  let assistantCount = 0;
   for (const turn of turns) {
-    const user = normalizeText(valueAt(turn, [2, 0]));
-    if (user) messages.push({ role: "user", text: user });
+    const user = geminiUserText(turn);
+    if (user) {
+      messages.push({ role: "user", text: user });
+      userCount += 1;
+    }
 
     const candidates = valueAt(turn, [3, 0]);
     if (!Array.isArray(candidates)) continue;
@@ -467,10 +479,18 @@ export function parseGeminiBatchResponse(
         .trim();
       if (assistant) {
         messages.push({ role: "assistant", text: assistant });
+        assistantCount += 1;
         break;
       }
     }
   }
+
+  if (assistantCount > 0 && userCount === 0)
+    throw new AnalysisError(
+      "SHARED_CONVERSATION_FORMAT_CHANGED",
+      false,
+      "Gemini shared conversation user messages were not recognized",
+    );
 
   if (!messages.length)
     throw new AnalysisError(
