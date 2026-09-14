@@ -37,21 +37,34 @@ export function registerWantToCookRoutes(
           "enabled must be a boolean",
         );
 
-      const current = await deps.prisma.recipe.findFirst({
-        where: { id: recipeId, userId: request.appUser.id },
-        select: { id: true, wantToCookAt: true },
-      });
-      if (!current)
-        throw new AppError(404, "NOT_FOUND", "Recipe was not found");
+      const changedAt = new Date();
+      if (enabled) {
+        await deps.prisma.recipe.updateMany({
+          where: {
+            id: recipeId,
+            userId: request.appUser.id,
+            wantToCookAt: null,
+          },
+          data: { wantToCookAt: changedAt, updatedAt: changedAt },
+        });
+      } else {
+        await deps.prisma.recipe.updateMany({
+          where: {
+            id: recipeId,
+            userId: request.appUser.id,
+            wantToCookAt: { not: null },
+          },
+          data: { wantToCookAt: null, updatedAt: changedAt },
+        });
+      }
 
-      const updated = await deps.prisma.recipe.update({
-        where: { id: current.id },
-        data: {
-          wantToCookAt: enabled ? (current.wantToCookAt ?? new Date()) : null,
-          updatedAt: new Date(),
-        },
+      const updated = await deps.prisma.recipe.findFirst({
+        where: { id: recipeId, userId: request.appUser.id },
         include: recipeInclude,
       });
+      if (!updated)
+        throw new AppError(404, "NOT_FOUND", "Recipe was not found");
+
       return recipeDto(updated);
     },
   );
