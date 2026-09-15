@@ -86,6 +86,10 @@ describe("CI auto-fix coverage", () => {
       new URL("../../.github/workflows/quality.yml", import.meta.url),
       "utf8",
     );
+    const finalMergeScript = await readFile(
+      new URL("../../scripts/pr-final-merge.mjs", import.meta.url),
+      "utf8",
+    );
 
     expect(autoFixWorkflow).toContain("name: Auto Fix");
     expect(autoFixWorkflow).toContain("npm run lint:fix");
@@ -100,7 +104,10 @@ describe("CI auto-fix coverage", () => {
     expect(autoFixWorkflow).toContain(
       "github.event.pull_request.draft == false",
     );
-    expect(autoFixWorkflow).toContain("github.event.sender.type != 'Bot'");
+    expect(autoFixWorkflow).toContain(
+      "github.event.pull_request.user.type != 'Bot'",
+    );
+    expect(autoFixWorkflow).not.toContain("github.event.sender.type != 'Bot'");
     expect(autoFixWorkflow).toContain("handoff-quality:");
     expect(autoFixWorkflow).toContain("github.event.action == 'synchronize'");
     expect(autoFixWorkflow).toContain(
@@ -110,8 +117,9 @@ describe("CI auto-fix coverage", () => {
     expect(autoFixWorkflow).toContain("Dispatch Quality for Auto Fix bot head");
     expect(autoFixWorkflow).toContain("steps.commit.outputs.pushed != 'true'");
     expect(autoFixWorkflow).toContain(
-      "steps.app-config.outputs.configured != 'true'",
+      "Auto Fix GitHub App is required for automatic fix pushes",
     );
+    expect(autoFixWorkflow).not.toContain("GITHUB_TOKEN bootstrap fallback");
     expect(
       autoFixWorkflow.match(/gh workflow run quality\.yml/g) ?? [],
     ).toHaveLength(2);
@@ -134,10 +142,14 @@ describe("CI auto-fix coverage", () => {
     expect(qualityWorkflow).toContain(
       "github.event.pull_request.head.repo.full_name != github.repository",
     );
-    expect(qualityWorkflow).toContain("github.event.sender.type == 'Bot'");
     expect(qualityWorkflow).toContain(
-      "github.event.sender.login != 'kay-pht-auto-fix[bot]'",
+      "github.event.pull_request.user.type == 'Bot'",
     );
+    expect(qualityWorkflow).toContain(
+      "github.event.pull_request.user.login != 'kay-pht-auto-fix[bot]'",
+    );
+    expect(qualityWorkflow).not.toContain("github.event.sender.type == 'Bot'");
+    expect(qualityWorkflow).toContain("'pr-gate-skipped' || 'checks'");
     expect(qualityWorkflow).toContain("workflow_dispatch:");
     expect(qualityWorkflow).toContain("Validate dispatched PR context");
     expect(qualityWorkflow).toContain("Prepare prospective merge tree");
@@ -153,5 +165,13 @@ describe("CI auto-fix coverage", () => {
     expect(qualityWorkflow).toContain(
       "node scripts/format-changed-markdown.mjs --check",
     );
+
+    expect(finalMergeScript).toContain(
+      '"--json",\n      "name,workflow,bucket"',
+    );
+    expect(finalMergeScript).toContain('check.workflow === "Quality"');
+    expect(finalMergeScript).toContain('check.name === "checks"');
+    expect(finalMergeScript).toContain('check.bucket === "pass"');
+    expect(finalMergeScript).toContain("requireSuccessfulQuality(pr.number)");
   });
 });

@@ -31,11 +31,13 @@ iOS の全体検証は `npm run verify:ios` を使用する。
 
 GitHub Actions の Quality は原則1job/1runnerで実行し、依存インストールやrunner起動の重複を避ける。Format、Lint、Architecture、Unit、Integration、E2E、Documentation checksなどは個別stepとして識別可能にする。
 
-PRはDraft中に実装とReady前の確認を進め、Draftの `opened` / `synchronize` ではPR用runnerを起動しない。Ready for reviewへの変更後は、同一repositoryの人間起点PRではAuto Fixを先に実行し、その最終HEADに対してQualityを `workflow_dispatch` する。これによりformat前HEADとformat後HEADで二重にrunnerを消費しない。例外として、Auto Fix対象外の非Auto-Fix bot PR（Dependabot等）とfork PRは、Ready時にread-only Qualityを `pull_request` から直接実行する。
+PRはDraft中に実装とReady前の確認を進め、Draftの `opened` / `synchronize` ではPR用runnerを起動しない。Ready for reviewへの変更後は、同一repositoryの人間作成PRではAuto Fixを先に実行し、その最終HEADに対してQualityを `workflow_dispatch` する。これによりformat前HEADとformat後HEADで二重にrunnerを消費しない。例外として、Auto Fix対象外の非Auto-Fix bot作成PR（Dependabot等）とfork PRは、Ready時にread-only Qualityを `pull_request` から直接実行する。bot PRの分類にはイベント送信者ではなく `pull_request.user.type` を使う。
+
+同一repository・人間作成PRで `pull_request` 起点のQualityを意図的にskipする場合、そのjob名はrequired checkの `checks` ではなく `pr-gate-skipped` とする。これによりskip済みjobを `Quality / checks` の成功として公開せず、実際のdirect Qualityまたは `workflow_dispatch` Qualityが完了したときだけrequired checkを満たす。`npm run pr:merge` も、最終HEADに成功済みの `Quality / checks` が存在することを明示確認してからmergeする。
 
 Auto Fixで修正が不要だった場合は、そのRunが最新HEADを確認してQualityをdispatchする。GitHub Appで自動修正commitをpushした場合は、そのpushで発生するbot起点の `synchronize` Runを最新Runとして扱う。元のRunはキャンセルされてもよく、bot RunではAuto Fix処理を繰り返さず、Auto Fixのcommit markerと最新Ready HEADを確認したうえでQualityを1回だけdispatchする。元のRunがキャンセルされずに残った場合も、App push後はQualityをdispatchせずbot Runへ責務を引き継ぐ。
 
-GitHub Appが未設定で `GITHUB_TOKEN` のbootstrap fallbackを使う場合、そのpushから新しいPR workflowは発火しない。この場合だけ、元のAuto Fix Runがpush後のHEADを再確認してQualityをdispatchする。
+自動修正commitのpushにはAuto Fix GitHub Appを必須とする。`AUTO_FIX_APP_ID` または `AUTO_FIX_APP_PRIVATE_KEY` が未設定の状態で自動修正が必要になった場合はfail closedとし、`GITHUB_TOKEN` を使った自動pushへfallbackしない。これにより、`GITHUB_TOKEN` pushが生成し得るapproval-required PR workflow runを通常フローへ持ち込まない。
 
 Ready状態のPRへ追加修正が必要な場合は、push前にDraftへ戻す。修正をまとめてpushし、再度Readyへ変更してAuto Fix -> Qualityの順に最終検証を行う。誤ってReady状態でpushした場合も、Auto Fixの `synchronize` を安全策として残し、最終HEADに対するQualityへ収束させる。
 
