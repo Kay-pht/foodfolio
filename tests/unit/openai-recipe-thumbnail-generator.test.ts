@@ -28,6 +28,7 @@ describe("OpenAiRecipeThumbnailGenerator", () => {
         expect(init?.headers).toEqual(
           expect.objectContaining({ authorization: "Bearer openai-test-key" }),
         );
+        expect(init?.signal).toBeInstanceOf(AbortSignal);
         expect(body).toEqual(
           expect.objectContaining({
             model: "gpt-image-2.5-flare",
@@ -61,6 +62,37 @@ describe("OpenAiRecipeThumbnailGenerator", () => {
     expect(fetcher).toHaveBeenCalledWith(
       "https://api.openai.com/v1/images/generations",
       expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("aborts image generation after the configured deadline", async () => {
+    const fetcher = vi.fn(
+      async (
+        _input: Parameters<typeof fetch>[0],
+        init?: Parameters<typeof fetch>[1],
+      ) =>
+        new Promise<Response>((_resolve, reject) => {
+          const signal = init?.signal;
+          if (!signal) {
+            reject(new Error("missing signal"));
+            return;
+          }
+          signal.addEventListener(
+            "abort",
+            () => reject(new DOMException("Aborted", "AbortError")),
+            { once: true },
+          );
+        }),
+    ) as unknown as typeof fetch;
+    const generator = new OpenAiRecipeThumbnailGenerator(
+      "openai-test-key",
+      "gpt-image-2.5-flare",
+      fetcher,
+      10,
+    );
+
+    await expect(generator.generate(recipe)).rejects.toThrow(
+      "OpenAI image generation timed out",
     );
   });
 

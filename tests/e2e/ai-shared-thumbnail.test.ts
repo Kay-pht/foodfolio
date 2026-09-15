@@ -119,6 +119,68 @@ describe("AI shared recipe thumbnail E2E", () => {
     expect(generator.generate).toHaveBeenCalledOnce();
   });
 
+  it("keeps the Recipe processing until best-effort thumbnail generation settles", async () => {
+    const recipe = await createRecipe("processing-until-thumbnail");
+    let releaseGeneration: (() => void) | undefined;
+    let markGenerationStarted: (() => void) | undefined;
+    const generationStarted = new Promise<void>((resolve) => {
+      markGenerationStarted = resolve;
+    });
+    const generationReleased = new Promise<void>((resolve) => {
+      releaseGeneration = resolve;
+    });
+    const store: GeneratedRecipeImageStore = {
+      publish: vi.fn(
+        async (recipeId) =>
+          `https://storage.googleapis.com/generated/recipe-images/${recipeId}/image.webp`,
+      ),
+      owns: () => true,
+      deleteForRecipe: vi.fn(async () => {}),
+    };
+    const service = new RecipeAnalysisService({
+      prisma: context.prisma,
+      sourceExtractor: aiSharedSource,
+      recipeExtractor: completeRecipeExtractor,
+      recipeThumbnailGenerator: {
+        generate: async () => {
+          markGenerationStarted?.();
+          await generationReleased;
+          return generatedImage;
+        },
+      },
+      generatedImageStore: store,
+      notifications: new NoopNotifications(),
+      maxAttempts: 3,
+    });
+
+    const processing = service.process(recipe.id, 1, vi.fn());
+    await generationStarted;
+
+    const duringGeneration = await context.prisma.recipe.findUniqueOrThrow({
+      where: { id: recipe.id },
+      include: { ingredients: true, steps: true },
+    });
+    expect(duringGeneration.analysisStatus).toBe("processing");
+    expect(duringGeneration.processingRunId).not.toBeNull();
+    expect(duringGeneration.processingLeaseExpiresAt).not.toBeNull();
+    expect(duringGeneration.imageUrl).toBeNull();
+    expect(duringGeneration.ingredients).toHaveLength(1);
+    expect(duringGeneration.steps).toHaveLength(2);
+
+    releaseGeneration?.();
+    await expect(processing).resolves.toEqual({ retry: false });
+
+    const completed = await context.prisma.recipe.findUniqueOrThrow({
+      where: { id: recipe.id },
+    });
+    expect(completed.analysisStatus).toBe("completed");
+    expect(completed.processingRunId).toBeNull();
+    expect(completed.processingLeaseExpiresAt).toBeNull();
+    expect(completed.imageUrl).toBe(
+      `https://storage.googleapis.com/generated/recipe-images/${recipe.id}/image.webp`,
+    );
+  });
+
   it("keeps a successfully extracted recipe completed when thumbnail generation fails", async () => {
     const recipe = await createRecipe("generation-failure");
     const generator: RecipeThumbnailGenerator = {
