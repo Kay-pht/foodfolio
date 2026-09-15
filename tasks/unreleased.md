@@ -8,7 +8,7 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
 
 - [ ] `REL-20260915-01` AI共有レシピの生成サムネイル
   - 内容: 新規のChatGPT / Gemini共有レシピで、材料と手順が取得でき、元画像がない場合にOpenAI GPT-Image-2.5 Flareで代表サムネイルを生成して表示する。画像生成失敗時もレシピ保存は継続する
-  - PR: 未作成
+  - PR: #103
   - main反映: 未反映
   - 必要な反映先:
     - [ ] GCP dev infrastructure — 生成画像bucket / IAM / OpenAI Secret / Cloud Run環境変数
