@@ -108,6 +108,9 @@ describe("CI auto-fix coverage", () => {
       "github.event.pull_request.user.type != 'Bot'",
     );
     expect(autoFixWorkflow).not.toContain("github.event.sender.type != 'Bot'");
+    expect(autoFixWorkflow).toContain(
+      "github.event.sender.login != 'kay-pht-auto-fix[bot]'",
+    );
     expect(autoFixWorkflow).toContain("handoff-quality:");
     expect(autoFixWorkflow).toContain("github.event.action == 'synchronize'");
     expect(autoFixWorkflow).toContain(
@@ -132,7 +135,11 @@ describe("CI auto-fix coverage", () => {
     );
     expect(autoFixWorkflow).toContain('"${draft}" != "false"');
 
+    const fixJob = autoFixWorkflow.split("\n  handoff-quality:\n")[0];
     const handoffJob = autoFixWorkflow.split("\n  handoff-quality:\n")[1];
+    expect(fixJob).toContain(
+      "github.event.sender.login != 'kay-pht-auto-fix[bot]'",
+    );
     expect(handoffJob).toBeDefined();
     expect(handoffJob).toContain("GH_REPO: ${{ github.repository }}");
     expect(handoffJob).not.toContain("npm run lint:fix");
