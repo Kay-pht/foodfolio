@@ -56,18 +56,18 @@ AIによる解析結果には誤りや不足が含まれる場合があります
 
 回答はFoodfolio本体、組み込みSDK、現在利用するBackendを合わせて申告した。追跡は行わず、広告目的には使用しない。2026-09-16にApp Store Connectへ公開し、画面上で公開済み表示とプロダクトページプレビューを確認した。
 
-| Appleのデータ種別 | ユーザーへの紐付け | Tracking | 利用目的 | 根拠 |
-| --- | --- | --- | --- | --- |
-| Contact Info / Name | あり | なし | App Functionality | Apple / Google認証で取得し得る氏名・プロフィール情報 |
-| Contact Info / Email Address | あり | なし | App Functionality | Firebase Authentication、メールログイン、審査用アカウント |
-| Contact Info / Phone Number | あり | なし | App Functionality | Google Sign-In 9.2.0のPrivacy Manifest |
-| Location / Coarse Location | あり | なし | App Functionality | Google Sign-In 9.2.0のPrivacy Manifest。GPS等の正確な位置情報ではない |
-| Identifiers / User ID | あり | なし | App Functionality、Analytics | Foodfolio User ID、Firebase UID、認証Provider ID、Google Sign-In 9.2.0のPrivacy Manifest |
-| Identifiers / Device ID | あり | なし | App Functionality、Analytics | FCM token、APNs token、アプリのインストールID、Google Sign-In 9.2.0のPrivacy Manifest |
-| User Content / Other User Content | あり | なし | App Functionality | 保存URL、レシピ、材料、手順、タグ、生成画像 |
-| Usage Data / Other Usage Data | あり | なし | Analytics | Google Sign-In 9.2.0のPrivacy Manifest |
-| Other Data / Other Data Types | あり | なし | App Functionality、Analytics | Google Sign-In 9.2.0とFirebase Messaging 12.18.0のPrivacy Manifest |
-| Diagnostics / Other Diagnostic Data | なし | なし | App Functionality、Analytics | Firebase Auth、Messaging、Installations 12.18.0のPrivacy ManifestとBackendの非識別運用ログ |
+| Appleのデータ種別                   | ユーザーへの紐付け | Tracking | 利用目的                     | 根拠                                                                                       |
+| ----------------------------------- | ------------------ | -------- | ---------------------------- | ------------------------------------------------------------------------------------------ |
+| Contact Info / Name                 | あり               | なし     | App Functionality            | Apple / Google認証で取得し得る氏名・プロフィール情報                                       |
+| Contact Info / Email Address        | あり               | なし     | App Functionality            | Firebase Authentication、メールログイン、審査用アカウント                                  |
+| Contact Info / Phone Number         | あり               | なし     | App Functionality            | Google Sign-In 9.2.0のPrivacy Manifest                                                     |
+| Location / Coarse Location          | あり               | なし     | App Functionality            | Google Sign-In 9.2.0のPrivacy Manifest。GPS等の正確な位置情報ではない                      |
+| Identifiers / User ID               | あり               | なし     | App Functionality、Analytics | Foodfolio User ID、Firebase UID、認証Provider ID、Google Sign-In 9.2.0のPrivacy Manifest   |
+| Identifiers / Device ID             | あり               | なし     | App Functionality、Analytics | FCM token、APNs token、アプリのインストールID、Google Sign-In 9.2.0のPrivacy Manifest      |
+| User Content / Other User Content   | あり               | なし     | App Functionality            | 保存URL、レシピ、材料、手順、タグ、生成画像                                                |
+| Usage Data / Other Usage Data       | あり               | なし     | Analytics                    | Google Sign-In 9.2.0のPrivacy Manifest                                                     |
+| Other Data / Other Data Types       | あり               | なし     | App Functionality、Analytics | Google Sign-In 9.2.0とFirebase Messaging 12.18.0のPrivacy Manifest                         |
+| Diagnostics / Other Diagnostic Data | なし               | なし     | App Functionality、Analytics | Firebase Auth、Messaging、Installations 12.18.0のPrivacy ManifestとBackendの非識別運用ログ |
 
 次は収集しない。
 
