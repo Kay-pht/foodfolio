@@ -27,7 +27,10 @@ export interface AppConfig {
   zaiApiKey: string;
   youtubeApiKey: string;
   geminiApiKey: string;
+  openAiApiKey: string;
   aiModel: string;
+  openAiImageModel: string;
+  generatedRecipeImageBucket: string;
   maxAnalysisAttempts: number;
   tiktokMediaAnalysisEnabled: boolean;
   youtubeGeminiFallbackEnabled: boolean;
@@ -124,7 +127,12 @@ export function loadConfig(role: AppRole, source = process.env): AppConfig {
     zaiApiKey: source.ZAI_API_KEY ?? "",
     youtubeApiKey: source.YOUTUBE_API_KEY ?? "",
     geminiApiKey: source.GEMINI_API_KEY ?? "",
+    openAiApiKey: source.OPENAI_API_KEY?.trim() ?? "",
     aiModel: source.AI_MODEL ?? "glm-5.3-flash",
+    openAiImageModel:
+      source.OPENAI_IMAGE_MODEL?.trim() || "gpt-image-2.5-flare",
+    generatedRecipeImageBucket:
+      source.GENERATED_RECIPE_IMAGE_BUCKET?.trim() ?? "",
     maxAnalysisAttempts,
     tiktokMediaAnalysisEnabled,
     youtubeGeminiFallbackEnabled,
