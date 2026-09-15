@@ -59,6 +59,17 @@ async function duplicateRecipeError(
   );
 }
 
+async function deleteGeneratedImages(
+  deps: ApiDependencies,
+  recipes: Array<{ id: string; imageUrl: string | null }>,
+): Promise<void> {
+  if (!deps.generatedImageStore) return;
+  for (const recipe of recipes) {
+    if (!deps.generatedImageStore.owns(recipe.imageUrl)) continue;
+    await deps.generatedImageStore.deleteForRecipe(recipe.id);
+  }
+}
+
 export function registerRoutes(
   app: FastifyInstance,
   deps: ApiDependencies,
@@ -254,7 +265,24 @@ export function registerRoutes(
         asObject(request.params).recipeId,
         "recipeId",
       );
-      await ownedRecipe(deps, request.appUser.id, recipeId);
+      const recipe = await ownedRecipe(deps, request.appUser.id, recipeId);
+      try {
+        await deleteGeneratedImages(deps, [recipe]);
+      } catch (error) {
+        request.log.error(
+          {
+            recipeId,
+            errorCode: "GENERATED_IMAGE_DELETE_FAILED",
+            errorName: error instanceof Error ? error.name : "UnknownError",
+          },
+          "generated recipe image deletion failed",
+        );
+        throw new AppError(
+          503,
+          "TEMPORARILY_UNAVAILABLE",
+          "Recipe deletion must be retried",
+        );
+      }
       await deps.prisma.recipe.delete({ where: { id: recipeId } });
       return reply.status(204).send();
     },
@@ -358,7 +386,6 @@ export function registerRoutes(
       return reply.status(201).send(tag);
     },
   );
-
   app.post(
     "/v1/recipes/:recipeId/tags",
     { preHandler: authAndUser(app) },
@@ -461,6 +488,30 @@ export function registerRoutes(
     "/v1/me",
     { preHandler: app.authenticate },
     async (request, reply) => {
+      const user = await deps.prisma.user.findUnique({
+        where: { firebaseUid: request.firebaseUid },
+        select: {
+          recipes: { select: { id: true, imageUrl: true } },
+        },
+      });
+      if (user) {
+        try {
+          await deleteGeneratedImages(deps, user.recipes);
+        } catch (error) {
+          request.log.error(
+            {
+              errorCode: "GENERATED_IMAGE_DELETE_FAILED",
+              errorName: error instanceof Error ? error.name : "UnknownError",
+            },
+            "generated recipe image deletion failed during account deletion",
+          );
+          throw new AppError(
+            503,
+            "TEMPORARILY_UNAVAILABLE",
+            "Account deletion must be retried",
+          );
+        }
+      }
       await deps.prisma.$transaction(async (tx) => {
         await tx.user.deleteMany({
           where: { firebaseUid: request.firebaseUid },

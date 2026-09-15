@@ -149,3 +149,30 @@ describe("YouTube Gemini fallback environment", () => {
     ).toThrow("YOUTUBE_GEMINI_FALLBACK_ENABLED must be true or false");
   });
 });
+
+describe("AI shared recipe thumbnail environment", () => {
+  it("keeps thumbnail generation optional and defaults to Flare", () => {
+    const worker = loadConfig("worker", workerEnvironment);
+    const api = loadConfig("api", cloudApiEnvironment);
+
+    expect(worker.openAiApiKey).toBe("");
+    expect(worker.openAiImageModel).toBe("gpt-image-2.5-flare");
+    expect(worker.generatedRecipeImageBucket).toBe("");
+    expect(api.generatedRecipeImageBucket).toBe("");
+  });
+
+  it("loads the OpenAI image model and generated-image bucket when configured", () => {
+    const config = loadConfig("worker", {
+      ...workerEnvironment,
+      OPENAI_API_KEY: "test-openai-key",
+      OPENAI_IMAGE_MODEL: "gpt-image-2.5-flare-2026-09-08",
+      GENERATED_RECIPE_IMAGE_BUCKET: "foodfolio-generated-images",
+    });
+
+    expect(config.openAiApiKey).toBe("test-openai-key");
+    expect(config.openAiImageModel).toBe("gpt-image-2.5-flare-2026-09-08");
+    expect(config.generatedRecipeImageBucket).toBe(
+      "foodfolio-generated-images",
+    );
+  });
+});

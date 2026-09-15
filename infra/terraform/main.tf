@@ -21,6 +21,7 @@ locals {
     "foodfolio-dev-database-url",
     "foodfolio-dev-database-direct-url",
     "foodfolio-dev-gemini-api-key",
+    "foodfolio-dev-openai-api-key",
     "foodfolio-dev-zai-api-key",
     "foodfolio-dev-youtube-api-key",
   ])
@@ -102,6 +103,37 @@ resource "google_service_account_iam_member" "worker_signs_tiktok_video_urls" {
   service_account_id = google_service_account.worker.name
   role               = "roles/iam.serviceAccountTokenCreator"
   member             = "serviceAccount:${google_service_account.worker.email}"
+}
+
+resource "google_storage_bucket" "generated_recipe_images" {
+  name                        = "${var.project_id}-${var.environment}-generated-recipe-images"
+  location                    = var.region
+  uniform_bucket_level_access = true
+  public_access_prevention    = "inherited"
+
+  soft_delete_policy {
+    retention_duration_seconds = 0
+  }
+
+  depends_on = [google_project_service.required]
+}
+
+resource "google_storage_bucket_iam_member" "generated_recipe_images_public_read" {
+  bucket = google_storage_bucket.generated_recipe_images.name
+  role   = "roles/storage.legacyObjectReader"
+  member = "allUsers"
+}
+
+resource "google_storage_bucket_iam_member" "worker_generated_recipe_images_objects" {
+  bucket = google_storage_bucket.generated_recipe_images.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.worker.email}"
+}
+
+resource "google_storage_bucket_iam_member" "api_generated_recipe_images_objects" {
+  bucket = google_storage_bucket.generated_recipe_images.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.api.email}"
 }
 
 resource "google_project_iam_member" "api_roles" {
@@ -215,6 +247,14 @@ resource "google_cloud_run_v2_service" "worker" {
         value = "glm-5.3-flash"
       }
       env {
+        name  = "OPENAI_IMAGE_MODEL"
+        value = "gpt-image-2.5-flare"
+      }
+      env {
+        name  = "GENERATED_RECIPE_IMAGE_BUCKET"
+        value = google_storage_bucket.generated_recipe_images.name
+      }
+      env {
         name  = "TIKTOK_MEDIA_ANALYSIS_ENABLED"
         value = "true"
       }
@@ -265,6 +305,15 @@ resource "google_cloud_run_v2_service" "worker" {
         }
       }
       env {
+        name = "OPENAI_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.app["foodfolio-dev-openai-api-key"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
         name = "GEMINI_API_KEY"
         value_source {
           secret_key_ref {
@@ -289,6 +338,8 @@ resource "google_cloud_run_v2_service" "worker" {
     google_project_iam_member.worker_roles,
     google_storage_bucket_iam_member.worker_tiktok_video_objects,
     google_service_account_iam_member.worker_signs_tiktok_video_urls,
+    google_storage_bucket_iam_member.worker_generated_recipe_images_objects,
+    google_storage_bucket_iam_member.generated_recipe_images_public_read,
   ]
 }
 
@@ -332,6 +383,10 @@ resource "google_cloud_run_v2_service" "api" {
         value = "true"
       }
       env {
+        name  = "GENERATED_RECIPE_IMAGE_BUCKET"
+        value = google_storage_bucket.generated_recipe_images.name
+      }
+      env {
         name  = "CLOUD_TASKS_LOCATION"
         value = var.region
       }
@@ -367,7 +422,11 @@ resource "google_cloud_run_v2_service" "api" {
       }
     }
   }
-  depends_on = [google_project_service.required, google_project_iam_member.api_roles]
+  depends_on = [
+    google_project_service.required,
+    google_project_iam_member.api_roles,
+    google_storage_bucket_iam_member.api_generated_recipe_images_objects,
+  ]
 }
 
 resource "google_cloud_run_v2_service_iam_member" "public_api" {

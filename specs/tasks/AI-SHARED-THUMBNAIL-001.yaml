@@ -16,7 +16,7 @@ requirements:
       recipes are not backfilled and non-AI source types never enter this generation path.
     verification:
       - tests/unit/recipe-thumbnail.test.ts
-      - tests/e2e/backend-worker.test.ts
+      - tests/e2e/ai-shared-thumbnail.test.ts
   - id: AST-2
     condition: Thumbnail generation is attempted for an eligible AI shared recipe.
     expected: >-
@@ -34,7 +34,7 @@ requirements:
       recipe analysis into a failed or retrying analysis solely because image generation failed.
     verification:
       - tests/unit/recipe-thumbnail.test.ts
-      - tests/e2e/backend-worker.test.ts
+      - tests/e2e/ai-shared-thumbnail.test.ts
   - id: AST-4
     condition: OpenAI returns a generated image for an eligible recipe.
     expected: >-
@@ -45,6 +45,7 @@ requirements:
     verification:
       - tests/unit/gcs-generated-recipe-image-store.test.ts
       - tests/unit/env.test.ts
+      - tests/e2e/ai-shared-thumbnail.test.ts
   - id: AST-5
     condition: A Recipe or account containing a Foodfolio-managed generated thumbnail is deleted.
     expected: >-
@@ -60,7 +61,7 @@ requirements:
       Foodfolio removes the just-generated recipe-scoped objects and does not retain an
       orphaned public generated image.
     verification:
-      - tests/e2e/backend-worker.test.ts
+      - tests/e2e/ai-shared-thumbnail.test.ts
 
 edge_cases:
   - ChatGPT or Gemini extraction succeeds but ingredients are empty; no thumbnail is generated.
@@ -118,4 +119,5 @@ regression:
     - tests/unit/env.test.ts
     - tests/integration/generated-recipe-image-cleanup.test.ts
     - tests/integration/ai-shared-link-postgres.test.ts
+    - tests/e2e/ai-shared-thumbnail.test.ts
     - tests/e2e/backend-worker.test.ts

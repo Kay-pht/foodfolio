@@ -2,12 +2,18 @@ import { randomUUID } from "node:crypto";
 import type { PrismaClient } from "../../generated/prisma/client.js";
 import { genreFromLabel } from "../../domain/recipe/genre.js";
 import {
+  generateAiSharedRecipeThumbnail,
+  hasRequiredRecipeContent,
+} from "./recipe-thumbnail.js";
+import {
   AnalysisError,
+  type GeneratedRecipeImageStore,
   type InstagramMediaRecipeFallback,
   type InstagramVideoRecipeFallback,
   type NotificationSender,
   type RecipeExtractionResult,
   type RecipeExtractor,
+  type RecipeThumbnailGenerator,
   type SourceContent,
   type SourceContentExtractor,
   type TikTokPhotoRecipeAnalysis,
@@ -24,6 +30,8 @@ export interface AnalysisDependencies {
   tiktokPhotoAnalysis?: TikTokPhotoRecipeAnalysis;
   instagramMediaFallback?: InstagramMediaRecipeFallback;
   instagramVideoFallback?: InstagramVideoRecipeFallback;
+  recipeThumbnailGenerator?: RecipeThumbnailGenerator;
+  generatedImageStore?: GeneratedRecipeImageStore;
   notifications: NotificationSender;
   maxAttempts: number;
 }
@@ -122,6 +130,14 @@ export class RecipeAnalysisService {
         return true;
       });
       if (!committed) return this.resultAfterLostOwnership(recipeId);
+      const thumbnailPersisted = await this.persistGeneratedThumbnail(
+        recipeId,
+        source,
+        result,
+        log,
+      );
+      if (!thumbnailPersisted)
+        return this.resultAfterLostOwnership(recipeId);
       log(
         {
           recipeId,
@@ -276,6 +292,66 @@ export class RecipeAnalysisService {
     };
   }
 
+  private async persistGeneratedThumbnail(
+    recipeId: string,
+    source: SourceContent,
+    result: RecipeExtractionResult,
+    log: (fields: Record<string, unknown>, message: string) => void,
+  ): Promise<boolean> {
+    const imageUrl = await generateAiSharedRecipeThumbnail({
+      recipeId,
+      source,
+      result,
+      generator: this.deps.recipeThumbnailGenerator,
+      store: this.deps.generatedImageStore,
+      log,
+    });
+    if (imageUrl === source.imageUrl) return true;
+
+    try {
+      const updated = await this.deps.prisma.recipe.updateMany({
+        where: { id: recipeId, analysisStatus: "completed" },
+        data: { imageUrl, updatedAt: new Date() },
+      });
+      if (updated.count === 1) {
+        log({ recipeId }, "AI shared recipe thumbnail generated");
+        return true;
+      }
+      await this.cleanupGeneratedImage(recipeId, log);
+      return false;
+    } catch (error) {
+      await this.cleanupGeneratedImage(recipeId, log);
+      log(
+        {
+          recipeId,
+          errorCode: "AI_SHARED_THUMBNAIL_PERSIST_FAILED",
+          errorName: error instanceof Error ? error.name : "UnknownError",
+        },
+        "AI shared recipe thumbnail persistence failed",
+      );
+      return true;
+    }
+  }
+
+  private async cleanupGeneratedImage(
+    recipeId: string,
+    log: (fields: Record<string, unknown>, message: string) => void,
+  ): Promise<void> {
+    if (!this.deps.generatedImageStore) return;
+    try {
+      await this.deps.generatedImageStore.deleteForRecipe(recipeId);
+    } catch (error) {
+      log(
+        {
+          recipeId,
+          errorCode: "AI_SHARED_THUMBNAIL_CLEANUP_FAILED",
+          errorName: error instanceof Error ? error.name : "UnknownError",
+        },
+        "AI shared recipe thumbnail cleanup failed",
+      );
+    }
+  }
+
   private async claim(
     recipeId: string,
     runId: string,
@@ -371,8 +447,4 @@ export class RecipeAnalysisService {
       );
     }
   }
-}
-
-function hasRequiredRecipeContent(result: RecipeExtractionResult): boolean {
-  return result.recipe.ingredients.length > 0 && result.recipe.steps.length > 0;
 }

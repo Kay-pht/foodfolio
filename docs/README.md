@@ -4,15 +4,16 @@
 
 ## 要件・設計の正本
 
-| 目的             | 文書                                                           |
-| ---------------- | -------------------------------------------------------------- |
-| MVP の要件       | [requirements-specification.md](requirements-specification.md) |
-| 基本設計         | [basic-design.md](basic-design.md)                             |
-| UI / UX          | [ui-ux-design.md](ui-ux-design.md)                             |
-| 技術選定         | [technology-selection.md](technology-selection.md)             |
-| 実装設計         | [implementation-design.md](implementation-design.md)           |
-| 画像再取得       | [image-recovery.md](image-recovery.md)                         |
-| Backend 層間依存 | [architecture-boundaries.md](architecture-boundaries.md)       |
+| 目的                     | 文書                                                                   |
+| ------------------------ | ---------------------------------------------------------------------- |
+| MVP の要件               | [requirements-specification.md](requirements-specification.md)         |
+| 基本設計                 | [basic-design.md](basic-design.md)                                     |
+| UI / UX                  | [ui-ux-design.md](ui-ux-design.md)                                     |
+| 技術選定                 | [technology-selection.md](technology-selection.md)                     |
+| 実装設計                 | [implementation-design.md](implementation-design.md)                   |
+| 画像再取得               | [image-recovery.md](image-recovery.md)                                 |
+| AI共有レシピの生成画像   | [ai-shared-thumbnail-generation.md](ai-shared-thumbnail-generation.md) |
+| Backend 層間依存         | [architecture-boundaries.md](architecture-boundaries.md)               |
 
 変更タスク単位の検証可能な契約は [../specs/README.md](../specs/README.md) と `specs/tasks/*.yaml` を使用する。
 
