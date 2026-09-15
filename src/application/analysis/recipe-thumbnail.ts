@@ -26,8 +26,8 @@ export async function generateAiSharedRecipeThumbnail(options: {
   recipeId: string;
   source: SourceContent;
   result: RecipeExtractionResult;
-  generator?: RecipeThumbnailGenerator;
-  store?: GeneratedRecipeImageStore;
+  generator?: RecipeThumbnailGenerator | undefined;
+  store?: GeneratedRecipeImageStore | undefined;
   log: (fields: Record<string, unknown>, message: string) => void;
 }): Promise<string | null> {
   const { recipeId, source, result, generator, store, log } = options;
