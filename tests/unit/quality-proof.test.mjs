@@ -177,10 +177,6 @@ describe("PR Quality proof", () => {
       new URL("../../.github/workflows/auto-format.yml", import.meta.url),
       "utf8",
     );
-    const documentationWorkflow = await readFile(
-      new URL("../../.github/workflows/documentation.yml", import.meta.url),
-      "utf8",
-    );
     const deployWorkflow = await readFile(
       new URL("../../.github/workflows/deploy-dev.yml", import.meta.url),
       "utf8",
@@ -202,20 +198,31 @@ describe("PR Quality proof", () => {
     expect(qualityWorkflow).not.toMatch(/^\s*run:\s+npm run verify\s*$/m);
     expect(qualityWorkflow).toContain("swift:6.3@sha256:");
     expect(qualityWorkflow).not.toContain("runs-on: macos-");
+    expect(qualityWorkflow).toContain("\n  pull_request:\n");
+    expect(qualityWorkflow).toContain("github.event.pull_request");
     expect(qualityWorkflow).toContain(
-      "types: [opened, synchronize, reopened, ready_for_review]",
+      "github.event.pull_request.user.type == 'Bot'",
     );
     expect(qualityWorkflow).toContain(
-      "github.event.pull_request.draft == false",
+      "github.event.pull_request.user.login != 'kay-pht-auto-fix[bot]'",
     );
+    expect(qualityWorkflow).toContain("'pr-gate-skipped' || 'checks'");
+    expect(qualityWorkflow).not.toContain("github.event.sender.type == 'Bot'");
     expect(qualityWorkflow).toContain("workflow_dispatch:");
     expect(qualityWorkflow).toContain("Validate dispatched PR context");
     expect(qualityWorkflow).toContain("validate-quality-dispatch.mjs");
+    expect(qualityWorkflow).toContain("Prepare prospective merge tree");
+    expect(qualityWorkflow).toContain(
+      'git merge --no-commit --no-ff "${QUALITY_HEAD_SHA}"',
+    );
+    expect(qualityWorkflow).toContain('echo "sha=$(git write-tree)"');
     expect(qualityWorkflow).toContain("stale-dispatch-{0}");
     expect(qualityWorkflow).toContain("pull-requests: read");
     expect(qualityWorkflow).toContain("ref: ${{ github.sha }}");
     expect(qualityWorkflow).not.toContain("paths-ignore:");
     expect(qualityWorkflow).toContain("github.event.before");
+    expect(qualityWorkflow).toContain("github.event.pull_request.base.sha");
+    expect(qualityWorkflow).toContain("github.event.pull_request.head.sha");
     expect(qualityWorkflow).toContain("classify-quality-changes.mjs");
     expect(qualityWorkflow).not.toContain("main-push-context-${{");
 
@@ -236,15 +243,6 @@ describe("PR Quality proof", () => {
     );
     expect(installDependenciesStep).toContain(
       "steps.changes.outputs.docs == 'true'",
-    );
-
-    expect(documentationWorkflow).not.toContain("\n    paths:\n");
-    expect(documentationWorkflow).toContain("Classify changed files");
-    expect(documentationWorkflow).toContain(
-      "Documentation checks not required",
-    );
-    expect(documentationWorkflow).toContain(
-      "steps.changes.outputs.documentation == 'true'",
     );
 
     const orderedQualitySteps = [
@@ -271,7 +269,18 @@ describe("PR Quality proof", () => {
     expect(autoFormatWorkflow).toContain(
       "github.event.pull_request.head.repo.full_name == github.repository",
     );
-    expect(autoFormatWorkflow).toContain("github.event.sender.type != 'Bot'");
+    expect(autoFormatWorkflow).toContain(
+      "github.event.pull_request.user.type != 'Bot'",
+    );
+    expect(autoFormatWorkflow).not.toContain(
+      "github.event.sender.type != 'Bot'",
+    );
+    expect(autoFormatWorkflow).toContain(
+      "github.event.sender.login == 'kay-pht-auto-fix[bot]'",
+    );
+    expect(autoFormatWorkflow).toContain(
+      "github.event.pull_request.draft == false",
+    );
     expect(autoFormatWorkflow).toContain("persist-credentials: false");
     expect(autoFormatWorkflow).toContain("github.event.pull_request.head.sha");
     expect(autoFormatWorkflow).toContain("npm run format:write");
@@ -283,6 +292,10 @@ describe("PR Quality proof", () => {
     expect(autoFormatWorkflow).toContain("AUTO_FIX_APP_ID");
     expect(autoFormatWorkflow).toContain("actions/create-github-app-token@v3");
     expect(autoFormatWorkflow).toContain("permission-contents: write");
+    expect(autoFormatWorkflow).toContain(
+      "Auto Fix GitHub App is required for automatic fix pushes",
+    );
+    expect(autoFormatWorkflow).not.toContain("GITHUB_TOKEN bootstrap fallback");
     expect(autoFormatWorkflow).toContain(
       'git commit -m "style: apply automatic formatting"',
     );
@@ -300,16 +313,15 @@ describe("PR Quality proof", () => {
       /git push(?:\s|\\\n)*--force(?:\s|$)/,
     );
     expect(autoFormatWorkflow).toContain("gh workflow run quality.yml");
-    expect(autoFormatWorkflow).toContain("gh workflow run documentation.yml");
-    expect(autoFormatWorkflow).toContain(
-      "skipping stale Auto Fix, Quality, and Documentation dispatches",
+    expect(autoFormatWorkflow).not.toContain(
+      "gh workflow run documentation.yml",
     );
+    expect(autoFormatWorkflow).not.toContain("gh workflow run auto-format.yml");
     expect(autoFormatWorkflow).toContain(
-      "github.event.pull_request.draft == false",
+      "The pull request advanced, became draft, closed, or changed repository",
     );
     expect(autoFormatWorkflow).toContain("workflow_dispatch:");
     expect(autoFormatWorkflow).toContain("Validate dispatched PR context");
-    expect(autoFormatWorkflow).toContain("gh workflow run auto-format.yml");
 
     expect(deployWorkflow).toContain("workflow_run:");
     expect(deployWorkflow).toContain(

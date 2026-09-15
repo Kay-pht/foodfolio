@@ -77,7 +77,7 @@ describe("CI auto-fix coverage", () => {
     ).resolves.toMatchObject({ ignored: true });
   });
 
-  it("keeps automatic fixes deterministic and re-verifies the fixed head", async () => {
+  it("serializes ready PR auto-fix and preserves bot, fork, and merge-tree Quality paths", async () => {
     const autoFixWorkflow = await readFile(
       new URL("../../.github/workflows/auto-format.yml", import.meta.url),
       "utf8",
@@ -86,8 +86,8 @@ describe("CI auto-fix coverage", () => {
       new URL("../../.github/workflows/quality.yml", import.meta.url),
       "utf8",
     );
-    const documentationWorkflow = await readFile(
-      new URL("../../.github/workflows/documentation.yml", import.meta.url),
+    const finalMergeScript = await readFile(
+      new URL("../../scripts/pr-final-merge.mjs", import.meta.url),
       "utf8",
     );
 
@@ -101,36 +101,93 @@ describe("CI auto-fix coverage", () => {
       "node scripts/format-changed-markdown.mjs --write",
     );
     expect(autoFixWorkflow).toContain("node scripts/sync-task-files.mjs");
-    expect(autoFixWorkflow).toContain("gh workflow run quality.yml");
-    expect(autoFixWorkflow).toContain("gh workflow run documentation.yml");
+    expect(autoFixWorkflow).toContain(
+      "github.event.pull_request.draft == false",
+    );
+    expect(autoFixWorkflow).toContain(
+      "github.event.pull_request.user.type != 'Bot'",
+    );
+    expect(autoFixWorkflow).not.toContain("github.event.sender.type != 'Bot'");
+    expect(autoFixWorkflow).toContain(
+      "github.event.sender.login != 'kay-pht-auto-fix[bot]'",
+    );
+    expect(autoFixWorkflow).toContain("handoff-quality:");
+    expect(autoFixWorkflow).toContain("github.event.action == 'synchronize'");
+    expect(autoFixWorkflow).toContain(
+      "github.event.sender.login == 'kay-pht-auto-fix[bot]'",
+    );
+    expect(autoFixWorkflow).toContain("style: apply automatic formatting");
+    expect(autoFixWorkflow).toContain("Dispatch Quality for Auto Fix bot head");
+    expect(autoFixWorkflow).toContain("steps.commit.outputs.pushed != 'true'");
+    expect(autoFixWorkflow).toContain(
+      "Auto Fix GitHub App is required for automatic fix pushes",
+    );
+    expect(autoFixWorkflow).not.toContain("GITHUB_TOKEN bootstrap fallback");
+    expect(
+      autoFixWorkflow.match(/gh workflow run quality\.yml/g) ?? [],
+    ).toHaveLength(2);
+    expect(autoFixWorkflow).not.toContain("gh workflow run documentation.yml");
+    expect(autoFixWorkflow).not.toContain("gh workflow run auto-format.yml");
     expect(autoFixWorkflow).toContain("workflow_dispatch:");
     expect(autoFixWorkflow).toContain("Validate dispatched PR context");
     expect(autoFixWorkflow).toContain(
       "Reject remaining fixes on dispatched head",
     );
-    expect(autoFixWorkflow).toContain("gh workflow run auto-format.yml");
-    expect(autoFixWorkflow).toContain("verify-{0}");
+    expect(autoFixWorkflow).toContain('"${draft}" != "false"');
 
-    expect(qualityWorkflow).toContain("Check whitespace and conflict markers");
-    expect(qualityWorkflow).toContain("git diff --check");
-    expect(qualityWorkflow).toContain("rhysd/actionlint:1.7.12");
-    expect(qualityWorkflow).toContain("Check Terraform formatting");
-    expect(qualityWorkflow).toContain("terraform fmt -check -recursive");
-    expect(qualityWorkflow).toContain("Check Prisma formatting");
-    expect(qualityWorkflow).toContain(
-      "git diff --exit-code -- prisma/schema.prisma",
+    const fixJob = autoFixWorkflow.split("\n  handoff-quality:\n")[0];
+    const handoffJob = autoFixWorkflow.split("\n  handoff-quality:\n")[1];
+    expect(fixJob).toContain(
+      "github.event.sender.login != 'kay-pht-auto-fix[bot]'",
     );
+    expect(handoffJob).toBeDefined();
+    expect(handoffJob).toContain("GH_REPO: ${{ github.repository }}");
+    expect(handoffJob).not.toContain("npm run lint:fix");
+    expect(handoffJob).not.toContain("actions/checkout");
+
+    expect(qualityWorkflow).toContain("\n  pull_request:\n");
+    expect(qualityWorkflow).toContain(
+      "github.event.pull_request.head.repo.full_name != github.repository",
+    );
+    expect(qualityWorkflow).toContain(
+      "github.event.pull_request.user.type == 'Bot'",
+    );
+    expect(qualityWorkflow).toContain(
+      "github.event.pull_request.user.login != 'kay-pht-auto-fix[bot]'",
+    );
+    expect(qualityWorkflow).not.toContain("github.event.sender.type == 'Bot'");
+    expect(qualityWorkflow).toContain("'pr-gate-skipped' || 'checks'");
+    expect(qualityWorkflow).toContain("workflow_dispatch:");
+    expect(qualityWorkflow).toContain("Validate dispatched PR context");
+    expect(qualityWorkflow).toContain("Prepare prospective merge tree");
+    expect(qualityWorkflow).toContain(
+      'git merge --no-commit --no-ff "${QUALITY_HEAD_SHA}"',
+    );
+    expect(qualityWorkflow).toContain('echo "sha=$(git write-tree)"');
+    expect(qualityWorkflow).toContain("github.event.pull_request.base.sha");
+    expect(qualityWorkflow).toContain("github.event.pull_request.head.sha");
+    expect(qualityWorkflow).toContain("Check task consistency");
+    expect(qualityWorkflow).toContain("Run documentation guardrails");
     expect(qualityWorkflow).toContain("Check Markdown formatting");
     expect(qualityWorkflow).toContain(
       "node scripts/format-changed-markdown.mjs --check",
     );
 
-    expect(documentationWorkflow).toContain("workflow_dispatch:");
-    expect(documentationWorkflow).toContain("Validate dispatched PR context");
-    expect(documentationWorkflow).toContain("Check task consistency");
-    expect(documentationWorkflow).toContain("stale-dispatch-{0}");
-    expect(documentationWorkflow).toContain(
-      "node scripts/format-changed-markdown.mjs --check",
+    expect(finalMergeScript).toContain(
+      'const QUALITY_WORKFLOW_PATH = ".github/workflows/quality.yml"',
     );
+    expect(finalMergeScript).toContain("`quality-proof-${treeSha}`");
+    expect(finalMergeScript).toContain("pullRequest.merge_commit_sha");
+    expect(finalMergeScript).toContain(
+      "mergeCommit.parents?.[0]?.sha !== pullRequest.base?.sha",
+    );
+    expect(finalMergeScript).toContain(
+      "mergeCommit.parents?.[1]?.sha !== expectedHeadSha",
+    );
+    expect(finalMergeScript).toContain('qualityRun.conclusion === "success"');
+    expect(finalMergeScript).toContain(
+      "requireSuccessfulQuality(repository, pr.number, proof.reviewed_sha)",
+    );
+    expect(finalMergeScript).not.toContain('"name,workflow,bucket"');
   });
 });

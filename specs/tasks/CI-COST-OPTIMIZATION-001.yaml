@@ -1,0 +1,140 @@
+id: CI-COST-OPTIMIZATION-001
+type: maintenance
+status: approved
+
+objective: >-
+  Reduce GitHub Actions runner consumption in cloud-first development without
+  weakening final pull request validation by keeping Draft updates runner-free,
+  serializing Auto Fix before Quality for repository-owned human changes,
+  preserving read-only Quality for bot and fork pull requests, validating the
+  prospective merge tree, and merging documentation checks into Quality.
+
+requirements:
+  - id: CIC-1
+    condition: A pull request is Draft and receives opened, reopened, or synchronize events.
+    expected: Auto Fix and Quality do not start runner jobs for the Draft update, and skipped Quality jobs do not publish the required checks context.
+    verification:
+      - .github/workflows/auto-format.yml
+      - .github/workflows/quality.yml
+      - tests/unit/ci-auto-fix.test.mjs
+  - id: CIC-2
+    condition: A repository-owned human-authored pull request becomes Ready for review or is updated while Ready.
+    expected: Auto Fix runs first. If no automatic fix is pushed, the originating run dispatches Quality for the current Ready head; if the Auto Fix App pushes a formatting commit, the resulting Auto Fix bot synchronize run becomes the latest owner, skips Auto Fix work, validates the current head, and dispatches Quality once.
+    verification:
+      - .github/workflows/auto-format.yml
+      - .github/workflows/quality.yml
+      - tests/unit/ci-auto-fix.test.mjs
+      - tests/unit/quality-proof.test.mjs
+  - id: CIC-3
+    condition: Quality evaluates backend or documentation-affecting changes.
+    expected: Task consistency, documentation guardrails, and changed-Markdown formatting are checked inside Quality without a separate Documentation workflow.
+    verification:
+      - .github/workflows/quality.yml
+      - tests/unit/ci-auto-fix.test.mjs
+      - tests/unit/quality-proof.test.mjs
+  - id: CIC-4
+    condition: A cloud development agent creates commits and updates a pull request.
+    expected: Commits may stay logically granular, pushes are grouped by meaningful change units, and Ready pull requests are returned to Draft before fix pushes.
+    verification:
+      - docs/agent/development.md
+      - docs/agent/testing.md
+  - id: CIC-5
+    condition: Quality runs for main after merge.
+    expected: Main push validation and exact-tree Quality proof reuse continue to work with workflow-dispatch and eligible direct pull-request proofs.
+    verification:
+      - .github/workflows/quality.yml
+      - tests/unit/quality-proof.test.mjs
+  - id: CIC-6
+    condition: A Ready pull request is authored by a bot other than the Auto Fix App, regardless of which actor sends the event.
+    expected: Auto Fix does not start a runner, while Quality runs directly from the pull_request event so Dependabot and other bot-authored PRs retain validation.
+    verification:
+      - .github/workflows/auto-format.yml
+      - .github/workflows/quality.yml
+      - tests/unit/ci-auto-fix.test.mjs
+      - tests/unit/quality-proof.test.mjs
+  - id: CIC-7
+    condition: Pull Request Quality runs after Auto Fix or from a direct pull_request fallback.
+    expected: Quality validates the prospective merge result of the current base and head rather than only the pull request head tree, and the reusable proof records that merge-result tree.
+    verification:
+      - .github/workflows/quality.yml
+      - docs/implementation-design.md
+      - tests/unit/ci-auto-fix.test.mjs
+      - tests/unit/quality-proof.test.mjs
+  - id: CIC-8
+    condition: A Ready pull request head belongs to a fork.
+    expected: Auto Fix remains disabled because it cannot safely write to the fork, while read-only Quality runs directly from the pull_request merge ref regardless of whether the sender is human or bot.
+    verification:
+      - .github/workflows/auto-format.yml
+      - .github/workflows/quality.yml
+      - tests/unit/ci-auto-fix.test.mjs
+  - id: CIC-9
+    condition: A pull_request-triggered Quality run is intentionally skipped because the PR must use the Auto Fix to workflow_dispatch path.
+    expected: The skipped job uses a non-required name, while only an actual Quality validation publishes Quality / checks; the final merge command also verifies a successful Quality / checks result before merging.
+    verification:
+      - .github/workflows/quality.yml
+      - scripts/pr-final-merge.mjs
+      - tests/unit/ci-auto-fix.test.mjs
+
+edge_cases:
+  - Ready produces no automatic fixes and Quality must verify the original current head once against the current base merge result.
+  - The Auto Fix App creates a formatting commit; the resulting bot synchronize run may cancel the originating run, must not execute Auto Fix again, and must dispatch Quality for the new head exactly once.
+  - The Auto Fix GitHub App is not configured and automatic fixes are required; Auto Fix must fail before any push rather than falling back to GITHUB_TOKEN.
+  - A non-Auto-Fix bot opens or updates a Ready pull request, or a maintainer marks it Ready; Auto Fix remains skipped based on pull_request.user.type and Quality must still run through the filtered direct pull_request path.
+  - A fork pull request opens or updates while Ready; Auto Fix remains skipped but read-only Quality must run on GitHub's prospective merge result.
+  - The pull request advances while Auto Fix is running; stale fixes and stale Quality dispatches must be skipped.
+  - The pull request is converted back to Draft while Auto Fix is running; Quality must not be dispatched.
+  - A fix is accidentally pushed while the pull request is still Ready; synchronize remains a safety fallback and converges on the new final head.
+  - Main advances between the Ready event and Quality dispatch; the current pull request base SHA is used and the prospective base/head merge is reconstructed before validation.
+  - The current base and head no longer merge cleanly; Quality must fail before code checks rather than validating the head in isolation.
+  - gh pr checks returns before a later workflow_dispatch Quality appears; pr:merge must fail closed unless the actual Quality / checks result is already successful.
+
+security_invariants:
+  - Automatic commits remain limited to pull requests whose head repository is the current repository.
+  - Automatic fix pushes require the Auto Fix GitHub App; GITHUB_TOKEN is not used as an automatic-push fallback.
+  - Automatic pushes continue to use force-with-lease and stale-head checks rather than an unconditional force push.
+  - Auto Fix bot handoff only accepts a Ready repository-owned synchronize event from kay-pht-auto-fix[bot] whose current head still matches the event and whose head commit carries the Auto Fix commit message marker.
+  - Quality dispatch validates the repository-owned pull request number, base SHA, head ref, and head SHA before trusting the run.
+  - Direct pull_request Quality is read-only, covers forks and non-Auto-Fix bot-authored PRs, and classifies PR authors by pull_request.user rather than event sender.
+  - A skipped direct Quality path must not publish the required Quality / checks name.
+  - Workflow permissions must not be broadened beyond the existing actions, contents, and pull-request access needed by each workflow.
+
+compatibility:
+  - Auto Fix keeps workflow_dispatch support for explicit fixed-head verification.
+  - Quality continues to run on main pushes, supports a filtered direct pull_request path for forks and non-Auto-Fix bot-authored PRs, and preserves reusable exact-tree proof artifacts where the proof source is trusted.
+  - Backend, iOS, Terraform, specification, architecture, unit, integration, E2E, and documentation checks retain their existing coverage conditions.
+  - Ready-state synchronize remains supported as a fail-safe even though the documented agent flow returns the PR to Draft before fixes.
+  - Repositories using this flow must configure AUTO_FIX_APP_ID and AUTO_FIX_APP_PRIVATE_KEY before automatic fix pushes are needed.
+
+non_functional:
+  - Draft pull request updates must consume no PR validation runner minutes.
+  - A Ready repository-owned human transition with no automatic fix uses one Auto Fix runner followed by one Quality runner.
+  - A Ready transition with an Auto Fix App commit may add one lightweight bot handoff runner, but that run must not repeat formatting, dependency installation, or other Auto Fix work and must not create a duplicate Quality dispatch.
+  - A Ready non-Auto-Fix bot or fork pull request uses one read-only Quality runner and no Auto Fix runner.
+  - Documentation validation must reuse the Quality runner rather than start an additional runner.
+  - Quality remains single-runner and fail-fast.
+
+out_of_scope:
+  - Reducing the number of pull requests by combining unrelated changes.
+  - Changing GitHub-hosted runner sizes or runner operating systems.
+  - Optimizing Deploy dev classification or deployment runtime.
+  - Removing final unit, integration, E2E, lint, format, build, or documentation validation.
+
+acceptance_criteria:
+  - Draft PR events do not start Auto Fix or Quality runner jobs and do not satisfy the required Quality / checks gate via a skipped job.
+  - Ready repository-owned human PR validation is ordered Auto Fix then Quality for the current final head.
+  - An Auto Fix App formatting commit transfers Quality dispatch responsibility to the Auto Fix bot synchronize run; the originating run does not dispatch Quality if it survives the push.
+  - The Auto Fix bot synchronize handoff validates the latest Ready head, skips Auto Fix work, and dispatches Quality once.
+  - A Ready pull request authored by a non-Auto-Fix bot runs Quality directly without starting Auto Fix, even when a human sends the Ready/reopen event.
+  - A Ready fork pull request runs read-only Quality directly without starting Auto Fix.
+  - Missing Auto Fix App configuration fails closed when an automatic fix push is required; no GITHUB_TOKEN push fallback is used.
+  - Workflow-dispatch Quality reconstructs and validates the prospective base/head merge tree and records proof for that tree.
+  - Direct pull_request Quality validates GitHub's pull request merge ref and records proof for that merge tree; proof reuse remains subject to trusted-run checks.
+  - Only an actual Quality validation exposes the Quality / checks gate, and pr:merge verifies that result explicitly before merge.
+  - The standalone Documentation workflow is removed and its checks remain in Quality.
+  - Auto Fix no longer re-dispatches itself or a Documentation workflow after writing a fix commit.
+  - Agent documentation requires grouped cloud pushes and returning Ready PRs to Draft before fix pushes.
+  - CI regression tests cover the trigger, handoff, bot/fork fallback, merge-tree, required-check gate, App-only push, and dispatch topology.
+
+regression:
+  required: false
+  tests: []
