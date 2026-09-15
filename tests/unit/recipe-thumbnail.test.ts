@@ -11,7 +11,9 @@ import type {
   SourceContent,
 } from "../../src/application/analysis/types.js";
 
-const result = (overrides: Partial<RecipeExtractionResult["recipe"]> = {}): RecipeExtractionResult => ({
+const result = (
+  overrides: Partial<RecipeExtractionResult["recipe"]> = {},
+): RecipeExtractionResult => ({
   recipe: {
     title: "鶏の照り焼き",
     servings: null,
@@ -60,7 +62,10 @@ describe("AI shared recipe thumbnail policy", () => {
       ),
     ).toBe(false);
     expect(
-      shouldGenerateAiSharedRecipeThumbnail(source(), result({ ingredients: [] })),
+      shouldGenerateAiSharedRecipeThumbnail(
+        source(),
+        result({ ingredients: [] }),
+      ),
     ).toBe(false);
     expect(
       shouldGenerateAiSharedRecipeThumbnail(source(), result({ steps: [] })),

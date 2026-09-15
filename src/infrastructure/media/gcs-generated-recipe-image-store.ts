@@ -7,9 +7,7 @@ import type {
 
 const PUBLIC_GCS_ORIGIN = "https://storage.googleapis.com";
 
-export class GcsGeneratedRecipeImageStore
-  implements GeneratedRecipeImageStore
-{
+export class GcsGeneratedRecipeImageStore implements GeneratedRecipeImageStore {
   constructor(
     private readonly bucketName: string,
     private readonly storage = new Storage(),
@@ -50,7 +48,9 @@ export class GcsGeneratedRecipeImageStore
   async deleteForRecipe(recipeId: string): Promise<void> {
     const prefix = `recipe-images/${safePathSegment(recipeId)}/`;
     try {
-      await this.storage.bucket(this.bucketName).deleteFiles({ prefix, force: true });
+      await this.storage
+        .bucket(this.bucketName)
+        .deleteFiles({ prefix, force: true });
     } catch {
       throw new Error("Generated recipe image deletion failed");
     }

@@ -136,8 +136,7 @@ export class RecipeAnalysisService {
         result,
         log,
       );
-      if (!thumbnailPersisted)
-        return this.resultAfterLostOwnership(recipeId);
+      if (!thumbnailPersisted) return this.resultAfterLostOwnership(recipeId);
       log(
         {
           recipeId,

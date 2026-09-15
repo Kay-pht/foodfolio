@@ -72,9 +72,9 @@ describe("generated recipe image cleanup", () => {
 
     expect(deleted.statusCode).toBe(204);
     expect(deleteForRecipe).toHaveBeenCalledWith(recipeId);
-    expect(
-      await context.prisma.recipe.count({ where: { id: recipeId } }),
-    ).toBe(0);
+    expect(await context.prisma.recipe.count({ where: { id: recipeId } })).toBe(
+      0,
+    );
     await app.close();
   });
 
@@ -113,9 +113,9 @@ describe("generated recipe image cleanup", () => {
     });
 
     expect(deleted.statusCode).toBe(503);
-    expect(
-      await context.prisma.recipe.count({ where: { id: recipeId } }),
-    ).toBe(1);
+    expect(await context.prisma.recipe.count({ where: { id: recipeId } })).toBe(
+      1,
+    );
     await app.close();
   });
 
@@ -129,7 +129,11 @@ describe("generated recipe image cleanup", () => {
       generatedImageStore: generatedImageStore({ deleteForRecipe }),
     });
     const userHeaders = headers("generated-image-account-delete-user");
-    await app.inject({ method: "GET", url: "/v1/settings", headers: userHeaders });
+    await app.inject({
+      method: "GET",
+      url: "/v1/settings",
+      headers: userHeaders,
+    });
     const user = await context.prisma.user.findUniqueOrThrow({
       where: { firebaseUid: "generated-image-account-delete-user" },
     });
