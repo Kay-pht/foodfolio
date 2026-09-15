@@ -200,10 +200,14 @@ describe("PR Quality proof", () => {
     expect(qualityWorkflow).not.toContain("runs-on: macos-");
     expect(qualityWorkflow).toContain("\n  pull_request:\n");
     expect(qualityWorkflow).toContain("github.event.pull_request");
-    expect(qualityWorkflow).toContain("github.event.sender.type == 'Bot'");
     expect(qualityWorkflow).toContain(
-      "github.event.sender.login != 'kay-pht-auto-fix[bot]'",
+      "github.event.pull_request.user.type == 'Bot'",
     );
+    expect(qualityWorkflow).toContain(
+      "github.event.pull_request.user.login != 'kay-pht-auto-fix[bot]'",
+    );
+    expect(qualityWorkflow).toContain("'pr-gate-skipped' || 'checks'");
+    expect(qualityWorkflow).not.toContain("github.event.sender.type == 'Bot'");
     expect(qualityWorkflow).toContain("workflow_dispatch:");
     expect(qualityWorkflow).toContain("Validate dispatched PR context");
     expect(qualityWorkflow).toContain("validate-quality-dispatch.mjs");
@@ -265,7 +269,10 @@ describe("PR Quality proof", () => {
     expect(autoFormatWorkflow).toContain(
       "github.event.pull_request.head.repo.full_name == github.repository",
     );
-    expect(autoFormatWorkflow).toContain("github.event.sender.type != 'Bot'");
+    expect(autoFormatWorkflow).toContain(
+      "github.event.pull_request.user.type != 'Bot'",
+    );
+    expect(autoFormatWorkflow).not.toContain("github.event.sender.type != 'Bot'");
     expect(autoFormatWorkflow).toContain(
       "github.event.sender.login == 'kay-pht-auto-fix[bot]'",
     );
@@ -283,6 +290,10 @@ describe("PR Quality proof", () => {
     expect(autoFormatWorkflow).toContain("AUTO_FIX_APP_ID");
     expect(autoFormatWorkflow).toContain("actions/create-github-app-token@v3");
     expect(autoFormatWorkflow).toContain("permission-contents: write");
+    expect(autoFormatWorkflow).toContain(
+      "Auto Fix GitHub App is required for automatic fix pushes",
+    );
+    expect(autoFormatWorkflow).not.toContain("GITHUB_TOKEN bootstrap fallback");
     expect(autoFormatWorkflow).toContain(
       'git commit -m "style: apply automatic formatting"',
     );

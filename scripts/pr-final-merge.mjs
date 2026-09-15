@@ -15,6 +15,34 @@ function readPr() {
   );
 }
 
+function readChecks(prNumber) {
+  return JSON.parse(
+    run("gh", [
+      "pr",
+      "checks",
+      String(prNumber),
+      "--json",
+      "name,workflow,bucket",
+    ]),
+  );
+}
+
+function requireSuccessfulQuality(prNumber) {
+  const checks = readChecks(prNumber);
+  const quality = checks.find(
+    (check) =>
+      check.workflow === "Quality" &&
+      check.name === "checks" &&
+      check.bucket === "pass",
+  );
+
+  if (!quality) {
+    throw new Error(
+      "Required Quality / checks has not completed successfully for the current PR head. Merge aborted.",
+    );
+  }
+}
+
 const gitDir = run("git", ["rev-parse", "--git-dir"]);
 const proofPath = join(gitDir, "foodfolio", "review-proof.json");
 
@@ -59,6 +87,7 @@ console.log("Waiting for PR checks...");
 run("gh", ["pr", "checks", String(pr.number), "--watch", "--fail-fast"], {
   inherit: true,
 });
+requireSuccessfulQuality(pr.number);
 
 pr = readPr();
 if (pr.headRefOid !== proof.reviewed_sha) {
