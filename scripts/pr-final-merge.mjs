@@ -49,7 +49,8 @@ export function isSuccessfulQualityRunForPr(
     qualityRun.path === QUALITY_WORKFLOW_PATH &&
     qualityRun.repository?.full_name === repository &&
     pullRequest?.head?.sha === headSha &&
-    (qualityRun.event !== "workflow_dispatch" || qualityRun.head_sha === headSha)
+    (qualityRun.event !== "workflow_dispatch" ||
+      qualityRun.head_sha === headSha)
   );
 }
 
@@ -67,10 +68,14 @@ export function resolveCurrentMergeTree(
     );
   }
   if (!pullRequest.merge_commit_sha) {
-    throw new Error("GitHub has not produced a merge preview commit for this PR.");
+    throw new Error(
+      "GitHub has not produced a merge preview commit for this PR.",
+    );
   }
   if (mergeCommit.sha !== pullRequest.merge_commit_sha) {
-    throw new Error("GitHub merge preview commit changed while it was being resolved.");
+    throw new Error(
+      "GitHub merge preview commit changed while it was being resolved.",
+    );
   }
   if (
     mergeCommit.parents?.[0]?.sha !== pullRequest.base?.sha ||
@@ -190,7 +195,10 @@ export function main() {
       `Review proof is for PR #${proof.pr}, but current branch belongs to PR #${pr.number}.`,
     );
   }
-  if (localHead !== proof.reviewed_sha || pr.headRefOid !== proof.reviewed_sha) {
+  if (
+    localHead !== proof.reviewed_sha ||
+    pr.headRefOid !== proof.reviewed_sha
+  ) {
     throw new Error(
       `LGTM is stale. reviewed_sha=${proof.reviewed_sha}, local_head=${localHead}, pr_head=${pr.headRefOid}. Re-review the latest HEAD.`,
     );
