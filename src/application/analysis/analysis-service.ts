@@ -4,6 +4,7 @@ import { genreFromLabel } from "../../domain/recipe/genre.js";
 import {
   generateAiSharedRecipeThumbnail,
   hasRequiredRecipeContent,
+  type AiSharedRecipeThumbnailResult,
 } from "./recipe-thumbnail.js";
 import {
   AnalysisError,
@@ -11,6 +12,7 @@ import {
   type InstagramMediaRecipeFallback,
   type InstagramVideoRecipeFallback,
   type NotificationSender,
+  type PublishedGeneratedRecipeImage,
   type RecipeExtractionResult,
   type RecipeExtractor,
   type RecipeThumbnailGenerator,
@@ -128,7 +130,7 @@ export class RecipeAnalysisService {
       });
       if (!staged) return this.resultAfterLostOwnership(recipeId);
 
-      const imageUrl = await generateAiSharedRecipeThumbnail({
+      const thumbnail = await generateAiSharedRecipeThumbnail({
         recipeId,
         source,
         result,
@@ -139,8 +141,7 @@ export class RecipeAnalysisService {
       const completed = await this.completeAnalysis(
         recipeId,
         runId,
-        source,
-        imageUrl,
+        thumbnail,
         log,
       );
       if (!completed) return this.resultAfterLostOwnership(recipeId);
@@ -302,11 +303,9 @@ export class RecipeAnalysisService {
   private async completeAnalysis(
     recipeId: string,
     runId: string,
-    source: SourceContent,
-    imageUrl: string | null,
+    thumbnail: AiSharedRecipeThumbnailResult,
     log: (fields: Record<string, unknown>, message: string) => void,
   ): Promise<boolean> {
-    const generatedImage = imageUrl !== source.imageUrl;
     try {
       const updated = await this.deps.prisma.recipe.updateMany({
         where: {
@@ -315,7 +314,7 @@ export class RecipeAnalysisService {
           processingRunId: runId,
         },
         data: {
-          imageUrl,
+          imageUrl: thumbnail.imageUrl,
           analysisStatus: "completed",
           processingRunId: null,
           processingLeaseExpiresAt: null,
@@ -323,29 +322,40 @@ export class RecipeAnalysisService {
         },
       });
       if (updated.count === 1) {
-        if (generatedImage)
+        if (thumbnail.publishedImage)
           log({ recipeId }, "AI shared recipe thumbnail generated");
         return true;
       }
-      if (generatedImage) await this.cleanupGeneratedImage(recipeId, log);
+      if (thumbnail.publishedImage)
+        await this.cleanupPublishedImage(
+          recipeId,
+          thumbnail.publishedImage,
+          log,
+        );
       return false;
     } catch (error) {
-      if (generatedImage) await this.cleanupGeneratedImage(recipeId, log);
+      if (thumbnail.publishedImage)
+        await this.cleanupPublishedImage(
+          recipeId,
+          thumbnail.publishedImage,
+          log,
+        );
       throw error;
     }
   }
 
-  private async cleanupGeneratedImage(
+  private async cleanupPublishedImage(
     recipeId: string,
+    image: PublishedGeneratedRecipeImage,
     log: (fields: Record<string, unknown>, message: string) => void,
   ): Promise<void> {
-    if (!this.deps.generatedImageStore) return;
     try {
-      await this.deps.generatedImageStore.deleteForRecipe(recipeId);
+      await image.delete();
     } catch (error) {
       log(
         {
           recipeId,
+          imageUrl: image.url,
           errorCode: "AI_SHARED_THUMBNAIL_CLEANUP_FAILED",
           errorName: error instanceof Error ? error.name : "UnknownError",
         },

@@ -89,10 +89,10 @@ describe("AI shared recipe thumbnail E2E", () => {
       generate: vi.fn(async () => generatedImage),
     };
     const store: GeneratedRecipeImageStore = {
-      publish: vi.fn(
-        async (recipeId) =>
-          `https://storage.googleapis.com/generated/recipe-images/${recipeId}/image.webp`,
-      ),
+      publish: vi.fn(async (recipeId) => ({
+        url: `https://storage.googleapis.com/generated/recipe-images/${recipeId}/image.webp`,
+        delete: async () => {},
+      })),
       owns: () => true,
       deleteForRecipe: vi.fn(async () => {}),
     };
@@ -130,10 +130,10 @@ describe("AI shared recipe thumbnail E2E", () => {
       releaseGeneration = resolve;
     });
     const store: GeneratedRecipeImageStore = {
-      publish: vi.fn(
-        async (recipeId) =>
-          `https://storage.googleapis.com/generated/recipe-images/${recipeId}/image.webp`,
-      ),
+      publish: vi.fn(async (recipeId) => ({
+        url: `https://storage.googleapis.com/generated/recipe-images/${recipeId}/image.webp`,
+        delete: async () => {},
+      })),
       owns: () => true,
       deleteForRecipe: vi.fn(async () => {}),
     };
@@ -189,7 +189,10 @@ describe("AI shared recipe thumbnail E2E", () => {
       },
     };
     const store: GeneratedRecipeImageStore = {
-      publish: vi.fn(async () => "https://storage.example/unused.webp"),
+      publish: vi.fn(async () => ({
+        url: "https://storage.example/unused.webp",
+        delete: async () => {},
+      })),
       owns: () => true,
       deleteForRecipe: vi.fn(async () => {}),
     };
@@ -214,13 +217,17 @@ describe("AI shared recipe thumbnail E2E", () => {
     expect(store.publish).not.toHaveBeenCalled();
   });
 
-  it("removes generated objects when the Recipe disappears before imageUrl persistence", async () => {
+  it("deletes only the just-published object when the Recipe disappears before imageUrl persistence", async () => {
     const recipe = await createRecipe("concurrent-delete");
+    const deletePublishedObject = vi.fn(async () => {});
     const deleteForRecipe = vi.fn(async () => {});
     const store: GeneratedRecipeImageStore = {
       publish: vi.fn(async (recipeId) => {
         await context.prisma.recipe.delete({ where: { id: recipeId } });
-        return `https://storage.googleapis.com/generated/recipe-images/${recipeId}/image.webp`;
+        return {
+          url: `https://storage.googleapis.com/generated/recipe-images/${recipeId}/image.webp`,
+          delete: deletePublishedObject,
+        };
       }),
       owns: () => true,
       deleteForRecipe,
@@ -241,6 +248,86 @@ describe("AI shared recipe thumbnail E2E", () => {
     expect(
       await context.prisma.recipe.findUnique({ where: { id: recipe.id } }),
     ).toBeNull();
-    expect(deleteForRecipe).toHaveBeenCalledWith(recipe.id);
+    expect(deletePublishedObject).toHaveBeenCalledOnce();
+    expect(deleteForRecipe).not.toHaveBeenCalled();
+  });
+
+  it("does not let a stale worker delete the image committed by a replacement worker", async () => {
+    const recipe = await createRecipe("stale-worker");
+    let releaseFirstGeneration: (() => void) | undefined;
+    let markFirstGenerationStarted: (() => void) | undefined;
+    const firstGenerationStarted = new Promise<void>((resolve) => {
+      markFirstGenerationStarted = resolve;
+    });
+    const firstGenerationReleased = new Promise<void>((resolve) => {
+      releaseFirstGeneration = resolve;
+    });
+    const deleteFirstObject = vi.fn(async () => {});
+    const deleteSecondObject = vi.fn(async () => {});
+    const deleteFirstPrefix = vi.fn(async () => {});
+    const deleteSecondPrefix = vi.fn(async () => {});
+    const firstUrl = `https://storage.googleapis.com/generated/recipe-images/${recipe.id}/first.webp`;
+    const secondUrl = `https://storage.googleapis.com/generated/recipe-images/${recipe.id}/second.webp`;
+
+    const firstService = new RecipeAnalysisService({
+      prisma: context.prisma,
+      sourceExtractor: aiSharedSource,
+      recipeExtractor: completeRecipeExtractor,
+      recipeThumbnailGenerator: {
+        generate: async () => {
+          markFirstGenerationStarted?.();
+          await firstGenerationReleased;
+          return generatedImage;
+        },
+      },
+      generatedImageStore: {
+        publish: async () => ({ url: firstUrl, delete: deleteFirstObject }),
+        owns: () => true,
+        deleteForRecipe: deleteFirstPrefix,
+      },
+      notifications: new NoopNotifications(),
+      maxAttempts: 3,
+    });
+    const secondService = new RecipeAnalysisService({
+      prisma: context.prisma,
+      sourceExtractor: aiSharedSource,
+      recipeExtractor: completeRecipeExtractor,
+      recipeThumbnailGenerator: { generate: async () => generatedImage },
+      generatedImageStore: {
+        publish: async () => ({ url: secondUrl, delete: deleteSecondObject }),
+        owns: () => true,
+        deleteForRecipe: deleteSecondPrefix,
+      },
+      notifications: new NoopNotifications(),
+      maxAttempts: 3,
+    });
+
+    const firstRun = firstService.process(recipe.id, 1, vi.fn());
+    await firstGenerationStarted;
+    await context.prisma.recipe.update({
+      where: { id: recipe.id },
+      data: { processingLeaseExpiresAt: new Date(0) },
+    });
+
+    await expect(secondService.process(recipe.id, 2, vi.fn())).resolves.toEqual({
+      retry: false,
+    });
+    const afterSecondRun = await context.prisma.recipe.findUniqueOrThrow({
+      where: { id: recipe.id },
+    });
+    expect(afterSecondRun.analysisStatus).toBe("completed");
+    expect(afterSecondRun.imageUrl).toBe(secondUrl);
+
+    releaseFirstGeneration?.();
+    await expect(firstRun).resolves.toEqual({ retry: false });
+
+    const finalRecipe = await context.prisma.recipe.findUniqueOrThrow({
+      where: { id: recipe.id },
+    });
+    expect(finalRecipe.imageUrl).toBe(secondUrl);
+    expect(deleteFirstObject).toHaveBeenCalledOnce();
+    expect(deleteSecondObject).not.toHaveBeenCalled();
+    expect(deleteFirstPrefix).not.toHaveBeenCalled();
+    expect(deleteSecondPrefix).not.toHaveBeenCalled();
   });
 });

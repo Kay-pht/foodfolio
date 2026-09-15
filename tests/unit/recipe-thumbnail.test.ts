@@ -86,12 +86,16 @@ describe("generateAiSharedRecipeThumbnail", () => {
     extension: "webp",
   };
 
-  it("publishes the generated image and returns its public URL", async () => {
+  it("publishes the generated image and returns its public URL plus ownership handle", async () => {
     const generator: RecipeThumbnailGenerator = {
       generate: vi.fn(async () => image),
     };
+    const publishedImage = {
+      url: "https://storage.example/generated.webp",
+      delete: vi.fn(async () => {}),
+    };
     const store: GeneratedRecipeImageStore = {
-      publish: vi.fn(async () => "https://storage.example/generated.webp"),
+      publish: vi.fn(async () => publishedImage),
       owns: vi.fn(() => true),
       deleteForRecipe: vi.fn(async () => {}),
     };
@@ -106,7 +110,10 @@ describe("generateAiSharedRecipeThumbnail", () => {
         store,
         log,
       }),
-    ).resolves.toBe("https://storage.example/generated.webp");
+    ).resolves.toEqual({
+      imageUrl: publishedImage.url,
+      publishedImage,
+    });
     expect(generator.generate).toHaveBeenCalledWith(result().recipe);
     expect(store.publish).toHaveBeenCalledWith("recipe-1", image);
     expect(log).not.toHaveBeenCalled();
@@ -119,7 +126,10 @@ describe("generateAiSharedRecipeThumbnail", () => {
       }),
     };
     const store: GeneratedRecipeImageStore = {
-      publish: vi.fn(async () => "https://storage.example/generated.webp"),
+      publish: vi.fn(async () => ({
+        url: "https://storage.example/generated.webp",
+        delete: async () => {},
+      })),
       owns: vi.fn(() => true),
       deleteForRecipe: vi.fn(async () => {}),
     };
@@ -134,7 +144,7 @@ describe("generateAiSharedRecipeThumbnail", () => {
         store,
         log,
       }),
-    ).resolves.toBeNull();
+    ).resolves.toEqual({ imageUrl: null, publishedImage: null });
     expect(store.publish).not.toHaveBeenCalled();
     expect(log).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -166,7 +176,7 @@ describe("generateAiSharedRecipeThumbnail", () => {
         store,
         log: vi.fn(),
       }),
-    ).resolves.toBeNull();
+    ).resolves.toEqual({ imageUrl: null, publishedImage: null });
   });
 
   it("skips generation when optional thumbnail dependencies are not configured", async () => {
@@ -177,6 +187,6 @@ describe("generateAiSharedRecipeThumbnail", () => {
         result: result(),
         log: vi.fn(),
       }),
-    ).resolves.toBeNull();
+    ).resolves.toEqual({ imageUrl: null, publishedImage: null });
   });
 });

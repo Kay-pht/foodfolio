@@ -41,11 +41,18 @@ export interface GeneratedRecipeImage {
   contentType: string;
   extension: string;
 }
+export interface PublishedGeneratedRecipeImage {
+  url: string;
+  delete(): Promise<void>;
+}
 export interface RecipeThumbnailGenerator {
   generate(recipe: ExtractedRecipe): Promise<GeneratedRecipeImage>;
 }
 export interface GeneratedRecipeImageStore {
-  publish(recipeId: string, image: GeneratedRecipeImage): Promise<string>;
+  publish(
+    recipeId: string,
+    image: GeneratedRecipeImage,
+  ): Promise<PublishedGeneratedRecipeImage>;
   owns(imageUrl: string | null): boolean;
   deleteForRecipe(recipeId: string): Promise<void>;
 }

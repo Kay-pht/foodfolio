@@ -55,6 +55,8 @@ OpenAI Image API
 
 抽出済みの材料・手順等は画像生成前にDBへ保存してよい。ただし、OpenAI / GCSのbest-effort処理を終える前に `completed` へ遷移させない。
 
+GCSへの `publish()` は、公開URLに加えて、その呼び出しで作成した単一objectだけを削除できるhandleを返す。Workerがleaseを失い、別workerが同じRecipeを再取得して別objectを確定した場合、古いworkerはRecipe ID prefix全体を削除せず、自分がpublishしたobjectだけを補償削除する。
+
 ## OpenAIへ送る内容
 
 画像生成には共有会話全文を送らない。RecipeExtractorが返した構造化済みデータのうち、次だけから固定promptを構成する。
@@ -81,8 +83,8 @@ deadline到達時はOpenAI requestをabortし、通常のbest-effort画像生成
 - OpenAI deadline到達 → 同上
 - OpenAIレスポンスに画像がない → 同上
 - GCS保存失敗 → 同上
-- 生成画像保存後にRecipeが削除済み → Recipe ID配下の生成画像を削除
-- 生成画像保存後の最終DB更新が失敗 → 生成画像を削除し、DB永続化失敗として既存の解析retry経路へ戻す
+- 生成画像保存後にRecipeが削除済み、またはworkerがownershipを失った → そのworkerが今回publishした単一objectだけを削除
+- 生成画像保存後の最終DB更新が失敗 → そのworkerが今回publishした単一objectを削除し、DB永続化失敗として既存の解析retry経路へ戻す
 
 通常ログへprompt、共有会話、OpenAIレスポンスbody、API keyを出さない。失敗ログは固定error codeとerror名を中心に残す。
 
@@ -102,17 +104,21 @@ bucketはuniform bucket-level accessを使用する。public accessは既知obje
 
 ## 削除
 
-生成画像はRecipe所有データとして扱う。
+生成画像はRecipe所有データとして扱う。削除APIは、最初に取得した `imageUrl` のスナップショットをcleanup判定に使わない。対象Recipe行をDB transaction内で `FOR UPDATE` ロックし、workerの最終更新と直列化した上でRecipe ID prefixを清掃してDB削除する。
+
+この順序により、削除処理がlockを取得した後にworkerが画像をpublishした場合でも、workerの最終DB更新はDB削除commitまで待機し、ownership不一致になったworker自身がその単一objectを削除する。逆にworkerが先に最終更新を完了した場合は、削除APIのprefix cleanupが確定済みobjectを削除する。
 
 ### Recipe削除
 
-`DELETE /v1/recipes/:recipeId` では、`imageUrl` がFoodfolio生成画像bucketのURLである場合、対象Recipe ID prefixのobjectを先に削除してからDB Recipeを削除する。
+`DELETE /v1/recipes/:recipeId` では対象Recipe行を `FOR UPDATE` でロックし、`recipe-images/{recipeId}/` prefixを削除してから同じtransaction内でDB Recipeを削除する。`imageUrl = null` の解析中Recipeでもprefix cleanupを行うため、publish済みだがDB未確定のobjectを取りこぼさない。外部サイト由来の `imageUrl` 自体は削除しない。
 
-生成画像削除に失敗した場合は503を返し、DB Recipeを残して再試行可能にする。外部サイト由来の `imageUrl` は削除対象にしない。
+生成画像削除に失敗した場合はtransactionをrollbackして503を返し、DB Recipeを残して再試行可能にする。
 
 ### アカウント削除
 
-`DELETE /v1/me` でも、所有RecipeのFoodfolio生成画像をDBのcascade deleteより前に削除する。生成画像の削除に失敗した場合はDB Userを削除せず503とする。
+`DELETE /v1/me` でもDB Userと所有Recipe行をtransaction内でロックし、各Recipe ID prefixを削除してからUserを削除する。workerの最終更新は同じRecipe row lockと競合するため、アカウント削除中に新しい生成画像だけがDB外へ残る状態を作らない。
+
+生成画像の削除に失敗した場合はtransactionをrollbackし、DB Userを削除せず503とする。
 
 ## iOSとの互換性
 

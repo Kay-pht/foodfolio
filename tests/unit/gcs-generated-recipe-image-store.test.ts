@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { GcsGeneratedRecipeImageStore } from "../../src/infrastructure/media/gcs-generated-recipe-image-store.js";
 
 describe("GcsGeneratedRecipeImageStore", () => {
-  it("stores a generated image under the recipe prefix and returns a public object URL", async () => {
+  it("stores a generated image under the recipe prefix and returns an exact-object delete handle", async () => {
     const save = vi.fn(async () => {});
     const deleteObject = vi.fn(async () => {});
     const file = vi.fn(() => ({ save, delete: deleteObject }));
@@ -16,7 +16,7 @@ describe("GcsGeneratedRecipeImageStore", () => {
       storage,
     );
 
-    const url = await store.publish("recipe-id", {
+    const published = await store.publish("recipe-id", {
       data: new Uint8Array([1, 2, 3]),
       contentType: "image/webp",
       extension: "webp",
@@ -36,11 +36,18 @@ describe("GcsGeneratedRecipeImageStore", () => {
         validation: "crc32c",
       }),
     );
-    expect(url).toMatch(
+    expect(published.url).toMatch(
       /^https:\/\/storage\.googleapis\.com\/foodfolio-generated-images\/recipe-images\/recipe-id\/.+\.webp$/,
     );
-    expect(store.owns(url)).toBe(true);
+    expect(store.owns(published.url)).toBe(true);
     expect(store.owns("https://example.com/other.webp")).toBe(false);
+    expect(deleteObject).not.toHaveBeenCalled();
+
+    await published.delete();
+
+    expect(deleteObject).toHaveBeenCalledOnce();
+    expect(deleteObject).toHaveBeenCalledWith({ ignoreNotFound: true });
+    expect(deleteFiles).not.toHaveBeenCalled();
   });
 
   it("deletes every generated object under one recipe prefix", async () => {

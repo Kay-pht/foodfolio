@@ -1,9 +1,15 @@
 import type {
   GeneratedRecipeImageStore,
+  PublishedGeneratedRecipeImage,
   RecipeExtractionResult,
   RecipeThumbnailGenerator,
   SourceContent,
 } from "./types.js";
+
+export interface AiSharedRecipeThumbnailResult {
+  imageUrl: string | null;
+  publishedImage: PublishedGeneratedRecipeImage | null;
+}
 
 export function hasRequiredRecipeContent(
   result: RecipeExtractionResult,
@@ -29,15 +35,17 @@ export async function generateAiSharedRecipeThumbnail(options: {
   generator?: RecipeThumbnailGenerator | undefined;
   store?: GeneratedRecipeImageStore | undefined;
   log: (fields: Record<string, unknown>, message: string) => void;
-}): Promise<string | null> {
+}): Promise<AiSharedRecipeThumbnailResult> {
   const { recipeId, source, result, generator, store, log } = options;
   if (!shouldGenerateAiSharedRecipeThumbnail(source, result))
-    return source.imageUrl;
-  if (!generator || !store) return source.imageUrl;
+    return { imageUrl: source.imageUrl, publishedImage: null };
+  if (!generator || !store)
+    return { imageUrl: source.imageUrl, publishedImage: null };
 
   try {
     const image = await generator.generate(result.recipe);
-    return await store.publish(recipeId, image);
+    const publishedImage = await store.publish(recipeId, image);
+    return { imageUrl: publishedImage.url, publishedImage };
   } catch (error) {
     log(
       {
@@ -47,6 +55,6 @@ export async function generateAiSharedRecipeThumbnail(options: {
       },
       "AI shared recipe thumbnail generation failed",
     );
-    return source.imageUrl;
+    return { imageUrl: source.imageUrl, publishedImage: null };
   }
 }
