@@ -2505,17 +2505,15 @@ UI automationはMVPの主要flowに限定する。
 
 ## 34. CI
 
-Pull Requestでは変更ファイルを分類し、Backendまたは共有設定へ影響する変更に限り
-仮マージ結果に対して最低限以下を実行する。未知のパスは安全側でBackend変更として
-扱う。iOS関連の変更では、Ubuntu上のSwift 6.3公式コンテナを使用して
-`swift format lint --recursive --strict`を実行する。CIではmacOS runnerを使用せず、
-iOSのbuild、test、結合テスト、UI E2Eはローカルの`npm run verify:ios`で検証する。
-Markdownまたは`docs/`だけの変更ではQuality workflow自体を起動しない。Qualityを
-required checkに設定する場合、path filterで起動しないPRが保留扱いにならないよう、
-ruleset側のrequired check設定も合わせて見直す。`main` pushでは、
-同一repositoryの成功済みPull Request Qualityが同じGit treeを検証した証跡を
-30日間再利用し、treeが一致しない場合、証跡が失効した場合、または証跡を確認
-できない場合に同じ検証を再実行する。
+Pull RequestではDraft中に実装とReady前の確認を進め、Draftの `opened` / `synchronize` ではAuto Fix / QualityのPR用runnerを起動しない。Ready後の同一repository・人間起点PRではAuto Fixを先に実行し、最新HEADを確定してからQualityを `workflow_dispatch` する。QualityはPR contextを検証したうえでbaseとHEADのprospective merge treeを構築し、その仮マージ結果に対して検証する。Auto Fix Appがformat commitをpushした場合はbot起点の最新 `synchronize` RunへQuality dispatch責務を引き継ぎ、Auto Fix処理を繰り返さずQualityを1回だけ起動する。
+
+Auto Fix対象外の非Auto-Fix bot PR（Dependabot等）とfork PRは例外とし、Ready時にread-only Qualityを `pull_request` から直接実行する。これらのdirect QualityはGitHubのpull request merge refを検証対象とする。自動修正やPR Quality proofの再利用はsame-repositoryの信頼できる経路に限定する。
+
+Qualityは変更ファイルを分類し、Backendまたは共有設定へ影響する変更ではBackend向けのformat、lint、architecture、Prisma、build、unit、integration、E2E等を実行する。未知のパスは安全側でBackend変更として扱う。iOS関連の変更では、Ubuntu上のSwift 6.3公式コンテナを使用して `swift format lint --recursive --strict` を実行する。CIではmacOS runnerを使用せず、iOSのbuild、test、結合テスト、UI E2Eはローカルの `npm run verify:ios` で検証する。
+
+Markdownまたは `docs/` だけの変更でもQuality workflowは起動するが、Backend全体向けの高コストstepは変更分類により省略する。独立したDocumentation workflowは使用せず、Qualityの同一runner内で `npm run tasks:check`、`npm run check:specs`、`npm run verify:autonomous-p0`、`npm run check:docs` と変更Markdownのformat checkを実行する。このため、required checkの設計は「docs-only PRではQualityが起動しない」前提にしない。
+
+`main` pushでは、同一repositoryの成功済みPull Request Qualityが同じGit treeを検証した証跡を30日間再利用し、treeが一致しない場合、証跡が失効した場合、または証跡を確認できない場合に同じ検証を再実行する。
 
 ```text
 npm test
