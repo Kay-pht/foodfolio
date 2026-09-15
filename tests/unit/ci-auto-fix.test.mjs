@@ -184,9 +184,7 @@ describe("CI auto-fix coverage", () => {
     expect(finalMergeScript).toContain(
       "mergeCommit.parents?.[1]?.sha !== expectedHeadSha",
     );
-    expect(finalMergeScript).toContain(
-      'qualityRun.conclusion === "success"',
-    );
+    expect(finalMergeScript).toContain('qualityRun.conclusion === "success"');
     expect(finalMergeScript).toContain(
       "requireSuccessfulQuality(repository, pr.number, proof.reviewed_sha)",
     );
