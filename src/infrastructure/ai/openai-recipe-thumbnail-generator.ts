@@ -7,6 +7,7 @@ import type {
 const OPENAI_IMAGE_ENDPOINT = "https://api.openai.com/v1/images/generations";
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_PROMPT_CHARS = 8_000;
+const DEFAULT_TIMEOUT_MS = 45_000;
 
 interface OpenAiImageResponse {
   data?: Array<{ b64_json?: unknown }>;
@@ -17,24 +18,38 @@ export class OpenAiRecipeThumbnailGenerator implements RecipeThumbnailGenerator 
     private readonly apiKey: string,
     private readonly model = "gpt-image-2.5-flare",
     private readonly fetcher: typeof fetch = fetch,
+    private readonly timeoutMs = DEFAULT_TIMEOUT_MS,
   ) {}
 
   async generate(recipe: ExtractedRecipe): Promise<GeneratedRecipeImage> {
-    const response = await this.fetcher(OPENAI_IMAGE_ENDPOINT, {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${this.apiKey}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: this.model,
-        prompt: buildRecipeThumbnailPrompt(recipe),
-        n: 1,
-        quality: "low",
-        size: "1024x1024",
-        output_format: "webp",
-      }),
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    let response: Response;
+
+    try {
+      response = await this.fetcher(OPENAI_IMAGE_ENDPOINT, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${this.apiKey}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: this.model,
+          prompt: buildRecipeThumbnailPrompt(recipe),
+          n: 1,
+          quality: "low",
+          size: "1024x1024",
+          output_format: "webp",
+        }),
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if (controller.signal.aborted)
+        throw new Error("OpenAI image generation timed out");
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!response.ok)
       throw new Error(

@@ -21,19 +21,22 @@ requirements:
     condition: Thumbnail generation is attempted for an eligible AI shared recipe.
     expected: >-
       Foodfolio calls the OpenAI Image API with gpt-image-2.5-flare by default for one
-      1024x1024 low-quality WebP image. The prompt is built only from the structured recipe
-      title, ingredients, and steps produced by recipe extraction; the raw shared transcript
-      is not forwarded to OpenAI for image generation.
+      1024x1024 low-quality WebP image. The request has an explicit 45-second application
+      deadline. The prompt is built only from the structured recipe title, ingredients, and
+      steps produced by recipe extraction; the raw shared transcript is not forwarded to
+      OpenAI for image generation.
     verification:
       - tests/unit/openai-recipe-thumbnail-generator.test.ts
   - id: AST-3
-    condition: OpenAI image generation or generated-image persistence fails.
+    condition: OpenAI image generation, its deadline, or generated-image persistence fails.
     expected: >-
-      The recipe remains successfully completed with its extracted recipe data and without a
+      The recipe is finalized successfully with its extracted recipe data and without a
       generated image URL. Thumbnail generation is best-effort and never converts a successful
-      recipe analysis into a failed or retrying analysis solely because image generation failed.
+      recipe analysis into a failed or retrying analysis solely because image generation failed
+      or exceeded its image-specific deadline.
     verification:
       - tests/unit/recipe-thumbnail.test.ts
+      - tests/unit/openai-recipe-thumbnail-generator.test.ts
       - tests/e2e/ai-shared-thumbnail.test.ts
   - id: AST-4
     condition: OpenAI returns a generated image for an eligible recipe.
@@ -62,6 +65,17 @@ requirements:
       orphaned public generated image.
     verification:
       - tests/e2e/ai-shared-thumbnail.test.ts
+  - id: AST-7
+    condition: Recipe extraction has succeeded and best-effort thumbnail generation has not yet settled.
+    expected: >-
+      The Recipe remains analysisStatus processing with its processing ownership and lease
+      intact, even though extracted recipe fields may already be persisted. After thumbnail
+      generation succeeds, fails, or times out, the owning worker performs one final update
+      that writes the final imageUrl together with analysisStatus completed and clears the
+      processing ownership. Clients polling pending or processing recipes therefore observe
+      the final thumbnail state before they stop polling.
+    verification:
+      - tests/e2e/ai-shared-thumbnail.test.ts
 
 edge_cases:
   - ChatGPT or Gemini extraction succeeds but ingredients are empty; no thumbnail is generated.
@@ -69,7 +83,8 @@ edge_cases:
   - An eligible source unexpectedly already contains an image URL; generation is skipped.
   - OPENAI_API_KEY or GENERATED_RECIPE_IMAGE_BUCKET is not configured; analysis continues without thumbnail generation.
   - OpenAI responds with a non-success status or without image bytes; the failure is logged without response-body or secret leakage.
-  - GCS upload succeeds but the Recipe disappears before imageUrl persistence; the generated recipe prefix is cleaned up.
+  - OpenAI does not settle before the image-specific deadline; its request is aborted and the recipe completes without a generated image.
+  - GCS upload succeeds but the Recipe disappears before final completion persistence; the generated recipe prefix is cleaned up.
   - Recipe deletion encounters a generated-image storage outage; the Recipe remains available for a later retry.
 
 security_invariants:
@@ -91,6 +106,7 @@ non_functional:
   - Keep recipe completeness policy in Application code and OpenAI/GCS details in Infrastructure adapters.
   - Do not add the OpenAI SDK when the existing fetch-based adapter pattern is sufficient.
   - Bound the generated prompt and generated image size before persistence.
+  - Give image generation an application deadline substantially below the 600-second Worker request timeout.
   - Log stable error codes and error names only for best-effort thumbnail failures; do not log provider response bodies, prompts, or recipe transcript content.
   - Generated thumbnails are persistent until their Recipe or account is deleted; they do not use the temporary media bucket lifecycle.
 
@@ -104,7 +120,8 @@ out_of_scope:
 acceptance_criteria:
   - Newly analyzed, complete ChatGPT and Gemini shared recipes can receive a generated thumbnail in Recipe.imageUrl.
   - Incomplete AI shared recipes and all non-AI sources do not call thumbnail generation.
-  - OpenAI/GCS failures leave successfully extracted recipes completed and usable without an image.
+  - Recipe analysis stays processing while thumbnail generation is pending and becomes completed only after the final image outcome is known.
+  - OpenAI/GCS failures or the 45-second image deadline leave successfully extracted recipes completed and usable without an image.
   - Generated thumbnails are stored in a dedicated persistent bucket and are retrievable through their public HTTPS URL without public bucket listing.
   - Recipe and account deletion remove Foodfolio-managed generated thumbnails before deleting database ownership.
   - Existing recipes receive no automatic thumbnail backfill.

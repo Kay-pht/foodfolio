@@ -27,24 +27,33 @@ ChatGPT / Gemini 公開共有URL
         ↓
 構造化済みRecipe
         ↓
+抽出済みRecipe fieldsを保存
+analysisStatus = processing のまま維持
+processingRunId / lease も維持
+        ↓
 ingredients > 0 && steps > 0 ?
         ├─ No → 画像生成なし
         └─ Yes
-             ↓
-Recipe本体をcompletedで保存
              ↓
 OpenAI Image API
   model: gpt-image-2.5-flare
   size: 1024x1024
   quality: low
   output: WebP
+  deadline: 45秒
              ↓
-専用GCS bucketへ永続保存
+成功時のみ専用GCS bucketへ永続保存
              ↓
-Recipe.imageUrlをpublic HTTPS URLへ更新
+所有権付き最終更新
+  imageUrl = 生成URL または null
+  analysisStatus = completed
+  processingRunId = null
+  processingLeaseExpiresAt = null
 ```
 
-Recipe本体の保存を画像生成より先に確定する。OpenAIやGCSの一時障害によって、既に成功したレシピ解析を `failed` や再試行状態へ戻さない。
+画像生成の成否が確定するまで `analysisStatus = processing` を維持する。iOSは `pending` / `processing` のRecipeをポーリングするため、`completed` を公開した時点で最終的な `imageUrl` も確定している状態にする。
+
+抽出済みの材料・手順等は画像生成前にDBへ保存してよい。ただし、OpenAI / GCSのbest-effort処理を終える前に `completed` へ遷移させない。
 
 ## OpenAIへ送る内容
 
@@ -58,15 +67,22 @@ Foodfolioの `User.id`、Firebase UID、メールアドレス、認証Token、�
 
 画像promptは、完成料理を中心とした自然な料理写真、人物・手・ロゴ・文字なし、レシピにない主要食材を勝手に追加しない、という制約を持つ。
 
+## deadline
+
+OpenAI画像生成には45秒のアプリケーションdeadlineを設定する。Worker全体のCloud Run request timeout 600秒より十分短い上限とし、画像生成だけで解析全体を長時間占有しない。
+
+deadline到達時はOpenAI requestをabortし、通常のbest-effort画像生成失敗として扱う。レシピ抽出結果自体は失敗にしない。
+
 ## 失敗時の扱い
 
 画像生成はbest-effortとする。
 
-- OpenAI失敗 → Recipeはcompletedのまま、`imageUrl` は `null`
+- OpenAI失敗 → `imageUrl = null` でcompletedへ最終化
+- OpenAI deadline到達 → 同上
 - OpenAIレスポンスに画像がない → 同上
 - GCS保存失敗 → 同上
 - 生成画像保存後にRecipeが削除済み → Recipe ID配下の生成画像を削除
-- `Recipe.imageUrl` 更新失敗 → 生成画像を削除し、Recipe本体はcompletedのまま維持
+- 生成画像保存後の最終DB更新が失敗 → 生成画像を削除し、DB永続化失敗として既存の解析retry経路へ戻す
 
 通常ログへprompt、共有会話、OpenAIレスポンスbody、API keyを出さない。失敗ログは固定error codeとerror名を中心に残す。
 
@@ -101,6 +117,8 @@ bucketはuniform bucket-level accessを使用する。public accessは既知obje
 ## iOSとの互換性
 
 生成成功後は既存と同じ `Recipe.imageUrl` にHTTPS URLが入るため、iOS側の `RecipeImageLoader` / `RecipeImageStore` は変更しない。端末は既存どおり `imageUrl` を直接取得してApplication Supportへキャッシュする。
+
+解析中は既存どおり `pending` / `processing` としてポーリング対象に残る。画像生成の成功・失敗・deadline到達のいずれかが確定した後に `completed` へ遷移するため、ポーリング終了時には最終的な `imageUrl` も確定している。
 
 AI共有リンク向けの `/v1/recipes/:recipeId/image/resolve` は、生成画像の再生成APIにはしない。通常は保存済み `imageUrl` が先に利用される。生成画像が将来欠損した場合の再生成は別仕様とする。
 
