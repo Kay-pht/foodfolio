@@ -174,11 +174,22 @@ describe("CI auto-fix coverage", () => {
     );
 
     expect(finalMergeScript).toContain(
-      '"--json",\n      "name,workflow,bucket"',
+      'const QUALITY_WORKFLOW_PATH = ".github/workflows/quality.yml"',
     );
-    expect(finalMergeScript).toContain('check.workflow === "Quality"');
-    expect(finalMergeScript).toContain('check.name === "checks"');
-    expect(finalMergeScript).toContain('check.bucket === "pass"');
-    expect(finalMergeScript).toContain("requireSuccessfulQuality(pr.number)");
+    expect(finalMergeScript).toContain("`quality-proof-${treeSha}`");
+    expect(finalMergeScript).toContain("pullRequest.merge_commit_sha");
+    expect(finalMergeScript).toContain(
+      "mergeCommit.parents?.[0]?.sha !== pullRequest.base?.sha",
+    );
+    expect(finalMergeScript).toContain(
+      "mergeCommit.parents?.[1]?.sha !== expectedHeadSha",
+    );
+    expect(finalMergeScript).toContain(
+      'qualityRun.conclusion === "success"',
+    );
+    expect(finalMergeScript).toContain(
+      "requireSuccessfulQuality(repository, pr.number, proof.reviewed_sha)",
+    );
+    expect(finalMergeScript).not.toContain('"name,workflow,bucket"');
   });
 });
