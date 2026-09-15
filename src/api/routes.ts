@@ -12,6 +12,7 @@ import { genreFromLabel } from "../domain/recipe/genre.js";
 import { normalizeTagName } from "../domain/tag/normalize.js";
 import { decodeSyncCursor, encodeSyncCursor } from "../shared/sync-cursor.js";
 
+const DELETE_TRANSACTION_TIMEOUT_MS = 60_000;
 const authAndUser = (app: FastifyInstance) => [
   app.authenticate,
   app.resolveUser,
@@ -254,8 +255,41 @@ export function registerRoutes(
         asObject(request.params).recipeId,
         "recipeId",
       );
-      await ownedRecipe(deps, request.appUser.id, recipeId);
-      await deps.prisma.recipe.delete({ where: { id: recipeId } });
+      await deps.prisma.$transaction(
+        async (tx) => {
+          const locked = await tx.$queryRaw<Array<{ id: string }>>`
+            SELECT "id"
+            FROM "Recipe"
+            WHERE "id" = CAST(${recipeId} AS uuid)
+              AND "userId" = CAST(${request.appUser.id} AS uuid)
+            FOR UPDATE
+          `;
+          if (locked.length === 0)
+            throw new AppError(404, "NOT_FOUND", "Recipe was not found");
+          if (deps.generatedImageStore) {
+            try {
+              await deps.generatedImageStore.deleteForRecipe(recipeId);
+            } catch (error) {
+              request.log.error(
+                {
+                  recipeId,
+                  errorCode: "GENERATED_IMAGE_DELETE_FAILED",
+                  errorName:
+                    error instanceof Error ? error.name : "UnknownError",
+                },
+                "generated recipe image deletion failed",
+              );
+              throw new AppError(
+                503,
+                "TEMPORARILY_UNAVAILABLE",
+                "Recipe deletion must be retried",
+              );
+            }
+          }
+          await tx.recipe.delete({ where: { id: recipeId } });
+        },
+        { timeout: DELETE_TRANSACTION_TIMEOUT_MS },
+      );
       return reply.status(204).send();
     },
   );
@@ -358,7 +392,6 @@ export function registerRoutes(
       return reply.status(201).send(tag);
     },
   );
-
   app.post(
     "/v1/recipes/:recipeId/tags",
     { preHandler: authAndUser(app) },
@@ -461,11 +494,47 @@ export function registerRoutes(
     "/v1/me",
     { preHandler: app.authenticate },
     async (request, reply) => {
-      await deps.prisma.$transaction(async (tx) => {
-        await tx.user.deleteMany({
-          where: { firebaseUid: request.firebaseUid },
-        });
-      });
+      await deps.prisma.$transaction(
+        async (tx) => {
+          const [user] = await tx.$queryRaw<Array<{ id: string }>>`
+            SELECT "id"
+            FROM "User"
+            WHERE "firebaseUid" = ${request.firebaseUid}
+            FOR UPDATE
+          `;
+          if (!user) return;
+          const recipes = await tx.$queryRaw<Array<{ id: string }>>`
+            SELECT "id"
+            FROM "Recipe"
+            WHERE "userId" = CAST(${user.id} AS uuid)
+            FOR UPDATE
+          `;
+          if (deps.generatedImageStore) {
+            for (const recipe of recipes) {
+              try {
+                await deps.generatedImageStore.deleteForRecipe(recipe.id);
+              } catch (error) {
+                request.log.error(
+                  {
+                    recipeId: recipe.id,
+                    errorCode: "GENERATED_IMAGE_DELETE_FAILED",
+                    errorName:
+                      error instanceof Error ? error.name : "UnknownError",
+                  },
+                  "generated recipe image deletion failed during account deletion",
+                );
+                throw new AppError(
+                  503,
+                  "TEMPORARILY_UNAVAILABLE",
+                  "Account deletion must be retried",
+                );
+              }
+            }
+          }
+          await tx.user.delete({ where: { id: user.id } });
+        },
+        { timeout: DELETE_TRANSACTION_TIMEOUT_MS },
+      );
       try {
         await deps.firebaseUsers.deleteUser(request.firebaseUid);
       } catch (error) {

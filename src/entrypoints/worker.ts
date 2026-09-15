@@ -4,17 +4,19 @@ import { finishAnalysisAdmission } from "../application/analysis/admission-servi
 import { RecipeAnalysisService } from "../application/analysis/analysis-service.js";
 import { YoutubeAwareRecipeExtractor } from "../application/analysis/youtube-aware-recipe-extractor.js";
 import { loadConfig } from "../config/env.js";
-import { ZaiRecipeExtractor } from "../infrastructure/ai/zai-recipe-extractor.js";
 import { GeminiYoutubeRecipeExtractor } from "../infrastructure/ai/gemini-youtube-recipe-extractor.js";
+import { OpenAiRecipeThumbnailGenerator } from "../infrastructure/ai/openai-recipe-thumbnail-generator.js";
+import { ZaiRecipeExtractor } from "../infrastructure/ai/zai-recipe-extractor.js";
 import { getPrisma } from "../infrastructure/db/prisma.js";
 import { ProductionInstagramMediaRecipeFallback } from "../infrastructure/instagram/instagram-media-recipe-fallback.js";
 import { YtDlpInstagramMediaRetriever } from "../infrastructure/instagram/yt-dlp-instagram-media-retriever.js";
+import { GcsGeneratedRecipeImageStore } from "../infrastructure/media/gcs-generated-recipe-image-store.js";
 import { GcsTemporaryMediaStore } from "../infrastructure/media/gcs-temporary-media-store.js";
 import { FirebaseNotificationSender } from "../infrastructure/notifications/firebase-notification-sender.js";
 import { NoopNotificationSender } from "../infrastructure/notifications/noop-notification-sender.js";
 import { GcsTemporaryVideoStore } from "../infrastructure/tiktok/gcs-temporary-video-store.js";
-import { ProductionTikTokVideoRecipeFallback } from "../infrastructure/tiktok/tiktok-video-recipe-fallback.js";
 import { ProductionTikTokPhotoRecipeAnalysis } from "../infrastructure/tiktok/tiktok-photo-recipe-analysis.js";
+import { ProductionTikTokVideoRecipeFallback } from "../infrastructure/tiktok/tiktok-video-recipe-fallback.js";
 import { YtDlpTikTokVideoDownloader } from "../infrastructure/tiktok/yt-dlp-video-downloader.js";
 import {
   ChatGptSharedConversationAdapter,
@@ -85,6 +87,16 @@ const instagramMediaFallback = config.instagramMediaFallbackEnabled
       recipeExtractor,
     )
   : null;
+const generatedImageStore = config.generatedRecipeImageBucket
+  ? new GcsGeneratedRecipeImageStore(config.generatedRecipeImageBucket)
+  : null;
+const recipeThumbnailGenerator =
+  config.openAiApiKey && generatedImageStore
+    ? new OpenAiRecipeThumbnailGenerator(
+        config.openAiApiKey,
+        config.openAiImageModel,
+      )
+    : null;
 const notifications =
   config.notificationDriver === "noop"
     ? new NoopNotificationSender()
@@ -107,6 +119,9 @@ const service = new RecipeAnalysisService({
   ...(tiktokVideoFallback ? { tiktokVideoFallback } : {}),
   ...(tiktokPhotoAnalysis ? { tiktokPhotoAnalysis } : {}),
   ...(instagramMediaFallback ? { instagramMediaFallback } : {}),
+  ...(recipeThumbnailGenerator && generatedImageStore
+    ? { recipeThumbnailGenerator, generatedImageStore }
+    : {}),
   notifications,
   maxAttempts: config.maxAnalysisAttempts,
 });
