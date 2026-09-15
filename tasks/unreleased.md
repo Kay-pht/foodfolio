@@ -12,7 +12,7 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
   - main反映: 未反映
   - 必要な反映先:
     - [ ] App Store本番 — 対象version/build: `1.0 (13)`
-  - 備考: App Privacy公開、App Review提出、一般公開は、各実行直前に保存内容とAppleの状態を再取得し、ユーザー確認後に行う
+  - 備考: 2026-09-16にApp Privacyを公開し、`1.0 (13)`をApp Reviewへ提出済み（Submission ID `2b364edb-27d0-4981-8c9b-25911c1dcb4e`、`Waiting for Review`）。Apple承認後の一般公開は、実行直前に状態を再取得し、ユーザー確認後に行う
 
 ## 追加時の書式
 
