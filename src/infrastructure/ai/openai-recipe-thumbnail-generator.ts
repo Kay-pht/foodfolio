@@ -24,10 +24,9 @@ export class OpenAiRecipeThumbnailGenerator implements RecipeThumbnailGenerator 
   async generate(recipe: ExtractedRecipe): Promise<GeneratedRecipeImage> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
-    let response: Response;
 
     try {
-      response = await this.fetcher(OPENAI_IMAGE_ENDPOINT, {
+      const response = await this.fetcher(OPENAI_IMAGE_ENDPOINT, {
         method: "POST",
         headers: {
           authorization: `Bearer ${this.apiKey}`,
@@ -43,6 +42,26 @@ export class OpenAiRecipeThumbnailGenerator implements RecipeThumbnailGenerator 
         }),
         signal: controller.signal,
       });
+
+      if (!response.ok)
+        throw new Error(
+          `OpenAI image generation failed with status ${response.status}`,
+        );
+
+      const payload = (await response.json()) as OpenAiImageResponse;
+      const encoded = payload.data?.[0]?.b64_json;
+      if (typeof encoded !== "string" || encoded.length === 0)
+        throw new Error("OpenAI image generation returned no image data");
+
+      const data = Buffer.from(encoded, "base64");
+      if (data.length === 0 || data.length > MAX_IMAGE_BYTES)
+        throw new Error("OpenAI image generation returned invalid image data");
+
+      return {
+        data,
+        contentType: "image/webp",
+        extension: "webp",
+      };
     } catch (error) {
       if (controller.signal.aborted)
         throw new Error("OpenAI image generation timed out");
@@ -50,26 +69,6 @@ export class OpenAiRecipeThumbnailGenerator implements RecipeThumbnailGenerator 
     } finally {
       clearTimeout(timeout);
     }
-
-    if (!response.ok)
-      throw new Error(
-        `OpenAI image generation failed with status ${response.status}`,
-      );
-
-    const payload = (await response.json()) as OpenAiImageResponse;
-    const encoded = payload.data?.[0]?.b64_json;
-    if (typeof encoded !== "string" || encoded.length === 0)
-      throw new Error("OpenAI image generation returned no image data");
-
-    const data = Buffer.from(encoded, "base64");
-    if (data.length === 0 || data.length > MAX_IMAGE_BYTES)
-      throw new Error("OpenAI image generation returned invalid image data");
-
-    return {
-      data,
-      contentType: "image/webp",
-      extension: "webp",
-    };
   }
 }
 
