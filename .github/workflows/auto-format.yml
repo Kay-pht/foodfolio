@@ -31,8 +31,10 @@ jobs:
   fix:
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (github.event.pull_request.head.repo.full_name == github.repository &&
-      github.event.sender.type != 'Bot')
+      (github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.type != 'Bot' &&
+      github.event.sender.login != 'kay-pht-auto-fix[bot]')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -184,7 +186,7 @@ jobs:
             exit 1
           fi
 
-      - name: Detect GitHub App configuration
+      - name: Require Auto Fix GitHub App configuration
         id: app-config
         if: >-
           github.event_name == 'pull_request' &&
@@ -194,12 +196,11 @@ jobs:
           APP_PRIVATE_KEY: ${{ secrets.AUTO_FIX_APP_PRIVATE_KEY }}
         shell: bash
         run: |
-          if [[ -n "${APP_ID}" && -n "${APP_PRIVATE_KEY}" ]]; then
-            echo "configured=true" >> "${GITHUB_OUTPUT}"
-          else
-            echo "configured=false" >> "${GITHUB_OUTPUT}"
-            echo "::warning::Auto Fix GitHub App is not configured; using the GITHUB_TOKEN bootstrap path. Configure AUTO_FIX_APP_ID and AUTO_FIX_APP_PRIVATE_KEY to remove approval-required duplicate PR runs."
+          if [[ -z "${APP_ID}" || -z "${APP_PRIVATE_KEY}" ]]; then
+            echo "::error::Auto Fix GitHub App is required for automatic fix pushes. Configure AUTO_FIX_APP_ID and AUTO_FIX_APP_PRIVATE_KEY."
+            exit 1
           fi
+          echo "configured=true" >> "${GITHUB_OUTPUT}"
 
       - name: Create Auto Fix GitHub App token
         id: app-token
@@ -264,27 +265,19 @@ jobs:
           steps.fixes.outputs.changed == 'true' &&
           steps.freshness.outputs.fresh == 'true'
         env:
-          APP_CONFIGURED: ${{ steps.app-config.outputs.configured }}
           APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
           APP_TOKEN: ${{ steps.app-token.outputs.token }}
           EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          GITHUB_TOKEN: ${{ github.token }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           REPOSITORY: ${{ github.repository }}
         shell: bash
         run: |
-          if [[ "${APP_CONFIGURED}" == "true" ]]; then
-            bot_user_id="$(
-              GH_TOKEN="${APP_TOKEN}" gh api "/users/${APP_SLUG}[bot]" --jq '.id'
-            )"
-            git config user.name "${APP_SLUG}[bot]"
-            git config user.email "${bot_user_id}+${APP_SLUG}[bot]@users.noreply.github.com"
-            push_token="${APP_TOKEN}"
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            push_token="${GITHUB_TOKEN}"
-          fi
+          bot_user_id="$(
+            GH_TOKEN="${APP_TOKEN}" gh api "/users/${APP_SLUG}[bot]" --jq '.id'
+          )"
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${bot_user_id}+${APP_SLUG}[bot]@users.noreply.github.com"
+          push_token="${APP_TOKEN}"
 
           git add --all
           git commit -m "style: apply automatic formatting"
@@ -320,7 +313,6 @@ jobs:
       - name: Summarize automatic fixes
         if: always()
         env:
-          APP_CONFIGURED: ${{ steps.app-config.outputs.configured }}
           CHANGED: ${{ steps.fixes.outputs.changed }}
           EVENT_NAME: ${{ github.event_name }}
           FILES: ${{ steps.fixes.outputs.files }}
@@ -348,11 +340,7 @@ jobs:
               echo '```'
               echo
               echo "Commit: \`${HEAD_SHA}\`"
-              if [[ "${APP_CONFIGURED}" == "true" ]]; then
-                echo "Push authentication: GitHub App"
-              else
-                echo "Push authentication: GITHUB_TOKEN bootstrap fallback"
-              fi
+              echo "Push authentication: GitHub App"
             elif [[ "${CHANGED}" == "true" ]]; then
               echo "Automatic fixes were computed but not pushed because the branch advanced during the final push race."
             else
@@ -360,44 +348,84 @@ jobs:
             fi
           } >> "${GITHUB_STEP_SUMMARY}"
 
-      - name: Re-run checks for fixed head during bootstrap
+      - name: Dispatch Quality when no bot handoff is expected
         if: >-
           github.event_name == 'pull_request' &&
-          steps.fixes.outputs.changed == 'true' &&
-          steps.commit.outputs.pushed == 'true' &&
-          steps.app-config.outputs.configured != 'true' &&
-          github.event.pull_request.draft == false
+          steps.commit.outputs.pushed != 'true'
         env:
+          FIXED_HEAD_SHA: ${{ steps.commit.outputs.head_sha }}
           GH_TOKEN: ${{ github.token }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ steps.commit.outputs.head_sha }}
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          ORIGINAL_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
         shell: bash
         run: |
-          remote_head="$(
-            git ls-remote --exit-code --refs origin "refs/heads/${HEAD_REF}" |
-              awk 'NR == 1 { print $1 }'
-          )"
-          if [[ "${remote_head}" != "${HEAD_SHA}" ]]; then
-            echo "The pull request advanced to ${remote_head}; skipping stale Auto Fix, Quality, and Documentation dispatches for ${HEAD_SHA}." >> "${GITHUB_STEP_SUMMARY}"
+          candidate_head="${FIXED_HEAD_SHA:-${ORIGINAL_HEAD_SHA}}"
+          pr="$(gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}")"
+          state="$(jq -r '.state' <<< "${pr}")"
+          draft="$(jq -r '.draft' <<< "${pr}")"
+          head_repo="$(jq -r '.head.repo.full_name // empty' <<< "${pr}")"
+          head_ref="$(jq -r '.head.ref' <<< "${pr}")"
+          head_sha="$(jq -r '.head.sha' <<< "${pr}")"
+          base_sha="$(jq -r '.base.sha' <<< "${pr}")"
+
+          if [[ "${state}" != "open" ||
+                "${draft}" != "false" ||
+                "${head_repo}" != "${REPOSITORY}" ||
+                "${head_sha}" != "${candidate_head}" ]]; then
+            echo "The pull request advanced, became draft, closed, or changed repository; skipping stale Quality dispatch for ${candidate_head}." >> "${GITHUB_STEP_SUMMARY}"
             exit 0
           fi
 
-          gh workflow run auto-format.yml \
-            --ref "${HEAD_REF}" \
-            -f "base_sha=${BASE_SHA}" \
-            -f "head_sha=${HEAD_SHA}" \
+          gh workflow run quality.yml \
+            --ref "${head_ref}" \
+            -f "base_sha=${base_sha}" \
+            -f "head_sha=${head_sha}" \
             -f "pr_number=${PR_NUMBER}"
+
+  handoff-quality:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.action == 'synchronize' &&
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.sender.login == 'kay-pht-auto-fix[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Dispatch Quality for Auto Fix bot head
+        env:
+          EVENT_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          pr="$(gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}")"
+          state="$(jq -r '.state' <<< "${pr}")"
+          draft="$(jq -r '.draft' <<< "${pr}")"
+          head_repo="$(jq -r '.head.repo.full_name // empty' <<< "${pr}")"
+          head_ref="$(jq -r '.head.ref' <<< "${pr}")"
+          head_sha="$(jq -r '.head.sha' <<< "${pr}")"
+          base_sha="$(jq -r '.base.sha' <<< "${pr}")"
+
+          if [[ "${state}" != "open" ||
+                "${draft}" != "false" ||
+                "${head_repo}" != "${REPOSITORY}" ||
+                "${head_sha}" != "${EVENT_HEAD_SHA}" ]]; then
+            echo "The bot synchronize run is stale, draft, closed, or changed repository; skipping Quality handoff for ${EVENT_HEAD_SHA}." >> "${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
+
+          commit_message="$(gh api "repos/${REPOSITORY}/commits/${EVENT_HEAD_SHA}" --jq '.commit.message')"
+          if [[ "${commit_message}" != "style: apply automatic formatting" ]]; then
+            echo "The bot synchronize head is not an Auto Fix formatting commit; skipping Quality handoff for ${EVENT_HEAD_SHA}." >> "${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
 
           gh workflow run quality.yml \
-            --ref "${HEAD_REF}" \
-            -f "base_sha=${BASE_SHA}" \
-            -f "head_sha=${HEAD_SHA}" \
-            -f "pr_number=${PR_NUMBER}"
-
-          gh workflow run documentation.yml \
-            --ref "${HEAD_REF}" \
-            -f "base_sha=${BASE_SHA}" \
-            -f "head_sha=${HEAD_SHA}" \
+            --ref "${head_ref}" \
+            -f "base_sha=${base_sha}" \
+            -f "head_sha=${head_sha}" \
             -f "pr_number=${PR_NUMBER}"
