@@ -272,7 +272,9 @@ describe("PR Quality proof", () => {
     expect(autoFormatWorkflow).toContain(
       "github.event.pull_request.user.type != 'Bot'",
     );
-    expect(autoFormatWorkflow).not.toContain("github.event.sender.type != 'Bot'");
+    expect(autoFormatWorkflow).not.toContain(
+      "github.event.sender.type != 'Bot'",
+    );
     expect(autoFormatWorkflow).toContain(
       "github.event.sender.login == 'kay-pht-auto-fix[bot]'",
     );
