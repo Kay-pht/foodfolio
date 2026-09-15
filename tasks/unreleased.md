@@ -8,7 +8,7 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
 
 - [ ] `REL-20260915-02` Foodfolio 1.0をApp Storeで初回公開する
   - 内容: 外部TestFlightで承認済みのFoodfolio 1.0 build 13を、無料のiPhoneアプリとして日本のApp Storeへ公開する。主カテゴリはFood & Drink、副カテゴリなし、Apple承認後は手動公開とする。Share Extensionの実機上の既知制限は審査情報へ明記し、アプリ内の追加ボタンを代替手順とする
-  - PR: 未作成
+  - PR: #107
   - main反映: 未反映
   - 必要な反映先:
     - [ ] App Store本番 — 対象version/build: `1.0 (13)`
