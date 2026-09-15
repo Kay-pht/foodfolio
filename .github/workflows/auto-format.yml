@@ -33,7 +33,7 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event.pull_request.draft == false &&
       github.event.pull_request.head.repo.full_name == github.repository &&
-      github.event.sender.type != 'Bot')
+      github.event.pull_request.user.type != 'Bot')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -185,7 +185,7 @@ jobs:
             exit 1
           fi
 
-      - name: Detect GitHub App configuration
+      - name: Require Auto Fix GitHub App configuration
         id: app-config
         if: >-
           github.event_name == 'pull_request' &&
@@ -195,12 +195,11 @@ jobs:
           APP_PRIVATE_KEY: ${{ secrets.AUTO_FIX_APP_PRIVATE_KEY }}
         shell: bash
         run: |
-          if [[ -n "${APP_ID}" && -n "${APP_PRIVATE_KEY}" ]]; then
-            echo "configured=true" >> "${GITHUB_OUTPUT}"
-          else
-            echo "configured=false" >> "${GITHUB_OUTPUT}"
-            echo "::warning::Auto Fix GitHub App is not configured; using the GITHUB_TOKEN bootstrap path. Configure AUTO_FIX_APP_ID and AUTO_FIX_APP_PRIVATE_KEY to remove approval-required duplicate PR runs."
+          if [[ -z "${APP_ID}" || -z "${APP_PRIVATE_KEY}" ]]; then
+            echo "::error::Auto Fix GitHub App is required for automatic fix pushes. Configure AUTO_FIX_APP_ID and AUTO_FIX_APP_PRIVATE_KEY."
+            exit 1
           fi
+          echo "configured=true" >> "${GITHUB_OUTPUT}"
 
       - name: Create Auto Fix GitHub App token
         id: app-token
@@ -265,27 +264,19 @@ jobs:
           steps.fixes.outputs.changed == 'true' &&
           steps.freshness.outputs.fresh == 'true'
         env:
-          APP_CONFIGURED: ${{ steps.app-config.outputs.configured }}
           APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
           APP_TOKEN: ${{ steps.app-token.outputs.token }}
           EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          GITHUB_TOKEN: ${{ github.token }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           REPOSITORY: ${{ github.repository }}
         shell: bash
         run: |
-          if [[ "${APP_CONFIGURED}" == "true" ]]; then
-            bot_user_id="$(
-              GH_TOKEN="${APP_TOKEN}" gh api "/users/${APP_SLUG}[bot]" --jq '.id'
-            )"
-            git config user.name "${APP_SLUG}[bot]"
-            git config user.email "${bot_user_id}+${APP_SLUG}[bot]@users.noreply.github.com"
-            push_token="${APP_TOKEN}"
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            push_token="${GITHUB_TOKEN}"
-          fi
+          bot_user_id="$(
+            GH_TOKEN="${APP_TOKEN}" gh api "/users/${APP_SLUG}[bot]" --jq '.id'
+          )"
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${bot_user_id}+${APP_SLUG}[bot]@users.noreply.github.com"
+          push_token="${APP_TOKEN}"
 
           git add --all
           git commit -m "style: apply automatic formatting"
@@ -321,7 +312,6 @@ jobs:
       - name: Summarize automatic fixes
         if: always()
         env:
-          APP_CONFIGURED: ${{ steps.app-config.outputs.configured }}
           CHANGED: ${{ steps.fixes.outputs.changed }}
           EVENT_NAME: ${{ github.event_name }}
           FILES: ${{ steps.fixes.outputs.files }}
@@ -349,11 +339,7 @@ jobs:
               echo '```'
               echo
               echo "Commit: \`${HEAD_SHA}\`"
-              if [[ "${APP_CONFIGURED}" == "true" ]]; then
-                echo "Push authentication: GitHub App"
-              else
-                echo "Push authentication: GITHUB_TOKEN bootstrap fallback"
-              fi
+              echo "Push authentication: GitHub App"
             elif [[ "${CHANGED}" == "true" ]]; then
               echo "Automatic fixes were computed but not pushed because the branch advanced during the final push race."
             else
@@ -364,8 +350,7 @@ jobs:
       - name: Dispatch Quality when no bot handoff is expected
         if: >-
           github.event_name == 'pull_request' &&
-          (steps.commit.outputs.pushed != 'true' ||
-          steps.app-config.outputs.configured != 'true')
+          steps.commit.outputs.pushed != 'true'
         env:
           FIXED_HEAD_SHA: ${{ steps.commit.outputs.head_sha }}
           GH_TOKEN: ${{ github.token }}
