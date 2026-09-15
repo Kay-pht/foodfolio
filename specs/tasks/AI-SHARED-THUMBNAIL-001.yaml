@@ -1,0 +1,121 @@
+id: AI-SHARED-THUMBNAIL-001
+type: feature
+status: approved
+
+objective: >-
+  Generate and persist one representative food thumbnail for newly analyzed public ChatGPT
+  or Gemini shared-conversation recipes when the extracted recipe is mechanically complete
+  and the source provides no representative image.
+
+requirements:
+  - id: AST-1
+    condition: A newly submitted ChatGPT or Gemini shared conversation is analyzed, its source image is null, and extraction returns at least one ingredient and one step.
+    expected: >-
+      The existing ingredients-and-steps completeness rule is reused and exactly one recipe
+      thumbnail generation attempt is made after the recipe extraction succeeds. Existing
+      recipes are not backfilled and non-AI source types never enter this generation path.
+    verification:
+      - tests/unit/recipe-thumbnail.test.ts
+      - tests/e2e/backend-worker.test.ts
+  - id: AST-2
+    condition: Thumbnail generation is attempted for an eligible AI shared recipe.
+    expected: >-
+      Foodfolio calls the OpenAI Image API with gpt-image-2.5-flare by default for one
+      1024x1024 low-quality WebP image. The prompt is built only from the structured recipe
+      title, ingredients, and steps produced by recipe extraction; the raw shared transcript
+      is not forwarded to OpenAI for image generation.
+    verification:
+      - tests/unit/openai-recipe-thumbnail-generator.test.ts
+  - id: AST-3
+    condition: OpenAI image generation or generated-image persistence fails.
+    expected: >-
+      The recipe remains successfully completed with its extracted recipe data and without a
+      generated image URL. Thumbnail generation is best-effort and never converts a successful
+      recipe analysis into a failed or retrying analysis solely because image generation failed.
+    verification:
+      - tests/unit/recipe-thumbnail.test.ts
+      - tests/e2e/backend-worker.test.ts
+  - id: AST-4
+    condition: OpenAI returns a generated image for an eligible recipe.
+    expected: >-
+      Foodfolio stores the image under a recipe-scoped, high-entropy object name in a
+      dedicated persistent Google Cloud Storage bucket and saves the resulting public HTTPS
+      URL to Recipe.imageUrl. Public access permits object reads without granting object-list
+      permission.
+    verification:
+      - tests/unit/gcs-generated-recipe-image-store.test.ts
+      - tests/unit/env.test.ts
+  - id: AST-5
+    condition: A Recipe or account containing a Foodfolio-managed generated thumbnail is deleted.
+    expected: >-
+      The generated object is deleted before the owning database row is removed. If generated
+      image cleanup fails, deletion returns a retryable service error and retains the database
+      row so cleanup can be retried. Images from external source URLs are never deleted by
+      Foodfolio.
+    verification:
+      - tests/integration/generated-recipe-image-cleanup.test.ts
+  - id: AST-6
+    condition: A generated image finishes after the recipe was concurrently deleted before Recipe.imageUrl can be persisted.
+    expected: >-
+      Foodfolio removes the just-generated recipe-scoped objects and does not retain an
+      orphaned public generated image.
+    verification:
+      - tests/e2e/backend-worker.test.ts
+
+edge_cases:
+  - ChatGPT or Gemini extraction succeeds but ingredients are empty; no thumbnail is generated.
+  - ChatGPT or Gemini extraction succeeds but steps are empty; no thumbnail is generated.
+  - An eligible source unexpectedly already contains an image URL; generation is skipped.
+  - OPENAI_API_KEY or GENERATED_RECIPE_IMAGE_BUCKET is not configured; analysis continues without thumbnail generation.
+  - OpenAI responds with a non-success status or without image bytes; the failure is logged without response-body or secret leakage.
+  - GCS upload succeeds but the Recipe disappears before imageUrl persistence; the generated recipe prefix is cleaned up.
+  - Recipe deletion encounters a generated-image storage outage; the Recipe remains available for a later retry.
+
+security_invariants:
+  - OPENAI_API_KEY is held only in server-side configuration and is never returned to clients or written to logs.
+  - Foodfolio user IDs, Firebase UID, authentication tokens, device tokens, and the raw AI shared transcript are not sent to OpenAI image generation.
+  - Recipe fields sent to the image model are treated as untrusted data and cannot override the fixed thumbnail-generation instructions.
+  - Generated object names contain a random UUID and no Foodfolio user identifier.
+  - The generated-image bucket does not grant public object-list permission; public access is limited to reading known object URLs.
+  - Only URLs owned by the configured generated-image store are eligible for deletion through generated-image cleanup.
+
+compatibility:
+  - Existing YouTube, Instagram, TikTok, Kurashiru, Cookpad, and generic web representative-image behavior remains unchanged.
+  - The existing Recipe.imageUrl API and iOS direct-image download flow remain unchanged.
+  - Existing AI shared recipes are not reprocessed or backfilled.
+  - Missing OpenAI configuration remains a supported mode and leaves existing analysis behavior operational.
+  - Existing recipe extraction continues to use Z.ai or the current routed extractor; OpenAI is introduced only for image generation.
+
+non_functional:
+  - Keep recipe completeness policy in Application code and OpenAI/GCS details in Infrastructure adapters.
+  - Do not add the OpenAI SDK when the existing fetch-based adapter pattern is sufficient.
+  - Bound the generated prompt and generated image size before persistence.
+  - Log stable error codes and error names only for best-effort thumbnail failures; do not log provider response bodies, prompts, or recipe transcript content.
+  - Generated thumbnails are persistent until their Recipe or account is deleted; they do not use the temporary media bucket lifecycle.
+
+out_of_scope:
+  - Backfilling thumbnails for already stored ChatGPT or Gemini recipes.
+  - Generating thumbnails for non-AI recipe sources.
+  - User-triggered thumbnail regeneration or thumbnail editing.
+  - Selecting among multiple generated candidates.
+  - Verifying subjective image quality against live OpenAI generation in CI.
+
+acceptance_criteria:
+  - Newly analyzed, complete ChatGPT and Gemini shared recipes can receive a generated thumbnail in Recipe.imageUrl.
+  - Incomplete AI shared recipes and all non-AI sources do not call thumbnail generation.
+  - OpenAI/GCS failures leave successfully extracted recipes completed and usable without an image.
+  - Generated thumbnails are stored in a dedicated persistent bucket and are retrievable through their public HTTPS URL without public bucket listing.
+  - Recipe and account deletion remove Foodfolio-managed generated thumbnails before deleting database ownership.
+  - Existing recipes receive no automatic thumbnail backfill.
+  - Unit, integration, architecture, documentation, build, and existing regression suites continue to pass.
+
+regression:
+  required: true
+  tests:
+    - tests/unit/recipe-thumbnail.test.ts
+    - tests/unit/openai-recipe-thumbnail-generator.test.ts
+    - tests/unit/gcs-generated-recipe-image-store.test.ts
+    - tests/unit/env.test.ts
+    - tests/integration/generated-recipe-image-cleanup.test.ts
+    - tests/integration/ai-shared-link-postgres.test.ts
+    - tests/e2e/backend-worker.test.ts
