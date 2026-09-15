@@ -31,7 +31,7 @@ iOS の全体検証は `npm run verify:ios` を使用する。
 
 GitHub Actions の Quality は原則1job/1runnerで実行し、依存インストールやrunner起動の重複を避ける。Format、Lint、Architecture、Unit、Integration、E2E、Documentation checksなどは個別stepとして識別可能にする。
 
-PRはDraft中に実装とReady前の確認を進め、Draftの `opened` / `synchronize` ではPR用runnerを起動しない。Ready for reviewへの変更後はAuto Fixを先に実行し、QualityはPRイベントから直接起動しないため、format前HEADとformat後HEADで二重にrunnerを消費しない。
+PRはDraft中に実装とReady前の確認を進め、Draftの `opened` / `synchronize` ではPR用runnerを起動しない。Ready for reviewへの変更後は、同一repositoryの人間起点PRではAuto Fixを先に実行し、その最終HEADに対してQualityを `workflow_dispatch` する。これによりformat前HEADとformat後HEADで二重にrunnerを消費しない。例外として、Auto Fix対象外の非Auto-Fix bot PR（Dependabot等）とfork PRは、Ready時にread-only Qualityを `pull_request` から直接実行する。
 
 Auto Fixで修正が不要だった場合は、そのRunが最新HEADを確認してQualityをdispatchする。GitHub Appで自動修正commitをpushした場合は、そのpushで発生するbot起点の `synchronize` Runを最新Runとして扱う。元のRunはキャンセルされてもよく、bot RunではAuto Fix処理を繰り返さず、Auto Fixのcommit markerと最新Ready HEADを確認したうえでQualityを1回だけdispatchする。元のRunがキャンセルされずに残った場合も、App push後はQualityをdispatchせずbot Runへ責務を引き継ぐ。
 
