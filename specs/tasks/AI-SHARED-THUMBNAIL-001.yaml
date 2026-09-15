@@ -44,27 +44,34 @@ requirements:
       Foodfolio stores the image under a recipe-scoped, high-entropy object name in a
       dedicated persistent Google Cloud Storage bucket and saves the resulting public HTTPS
       URL to Recipe.imageUrl. Public access permits object reads without granting object-list
-      permission.
+      permission. The publish result retains an exact-object deletion handle for compensating
+      cleanup by the worker that created that object.
     verification:
       - tests/unit/gcs-generated-recipe-image-store.test.ts
       - tests/unit/env.test.ts
       - tests/e2e/ai-shared-thumbnail.test.ts
   - id: AST-5
-    condition: A Recipe or account containing a Foodfolio-managed generated thumbnail is deleted.
+    condition: A Recipe or account is deleted while generated-image persistence may be complete or still in flight.
     expected: >-
-      The generated object is deleted before the owning database row is removed. If generated
-      image cleanup fails, deletion returns a retryable service error and retains the database
-      row so cleanup can be retried. Images from external source URLs are never deleted by
-      Foodfolio.
+      The deletion transaction locks the affected Recipe rows before generated-image cleanup,
+      deletes each recipe-scoped generated-image prefix while those locks are held, and removes
+      the database ownership only after cleanup succeeds. The decision to clean a prefix does
+      not depend on an earlier imageUrl snapshot. If generated-image cleanup fails, deletion
+      returns a retryable service error and retains the database row so cleanup can be retried.
+      External source-image objects are never deleted by Foodfolio.
     verification:
       - tests/integration/generated-recipe-image-cleanup.test.ts
   - id: AST-6
-    condition: A generated image finishes after the recipe was concurrently deleted before Recipe.imageUrl can be persisted.
+    condition: A worker publishes a generated object but loses processing ownership before Recipe.imageUrl can be persisted, including when another worker has already completed the same Recipe or deletion wins the race.
     expected: >-
-      Foodfolio removes the just-generated recipe-scoped objects and does not retain an
-      orphaned public generated image.
+      The losing worker deletes only the exact object returned by its own publish call. It never
+      deletes the whole Recipe prefix as compensation, so a replacement worker's committed
+      generated image cannot be removed by an older worker. No public object published by the
+      losing worker is intentionally retained as an orphan.
     verification:
+      - tests/unit/gcs-generated-recipe-image-store.test.ts
       - tests/e2e/ai-shared-thumbnail.test.ts
+      - tests/integration/generated-recipe-image-cleanup.test.ts
   - id: AST-7
     condition: Recipe extraction has succeeded and best-effort thumbnail generation has not yet settled.
     expected: >-
@@ -84,7 +91,8 @@ edge_cases:
   - OPENAI_API_KEY or GENERATED_RECIPE_IMAGE_BUCKET is not configured; analysis continues without thumbnail generation.
   - OpenAI responds with a non-success status or without image bytes; the failure is logged without response-body or secret leakage.
   - OpenAI does not settle before the image-specific deadline; its request is aborted and the recipe completes without a generated image.
-  - GCS upload succeeds but the Recipe disappears before final completion persistence; the generated recipe prefix is cleaned up.
+  - A stale worker publishes after a replacement worker has completed; only the stale worker's exact object is deleted.
+  - Recipe or account deletion locks a processing Recipe before its worker finalizes; the worker cannot commit imageUrl after deletion and cleans up its exact published object.
   - Recipe deletion encounters a generated-image storage outage; the Recipe remains available for a later retry.
 
 security_invariants:
@@ -93,7 +101,7 @@ security_invariants:
   - Recipe fields sent to the image model are treated as untrusted data and cannot override the fixed thumbnail-generation instructions.
   - Generated object names contain a random UUID and no Foodfolio user identifier.
   - The generated-image bucket does not grant public object-list permission; public access is limited to reading known object URLs.
-  - Only URLs owned by the configured generated-image store are eligible for deletion through generated-image cleanup.
+  - Worker compensation cleanup is scoped to the exact object created by that publish call; API deletion cleanup is scoped to the Recipe ID prefix in the configured generated-image bucket.
 
 compatibility:
   - Existing YouTube, Instagram, TikTok, Kurashiru, Cookpad, and generic web representative-image behavior remains unchanged.
@@ -109,6 +117,7 @@ non_functional:
   - Give image generation an application deadline substantially below the 600-second Worker request timeout.
   - Log stable error codes and error names only for best-effort thumbnail failures; do not log provider response bodies, prompts, or recipe transcript content.
   - Generated thumbnails are persistent until their Recipe or account is deleted; they do not use the temporary media bucket lifecycle.
+  - Serialize Recipe/account deletion with worker finalization through database row locks rather than relying on imageUrl snapshots.
 
 out_of_scope:
   - Backfilling thumbnails for already stored ChatGPT or Gemini recipes.
@@ -123,7 +132,8 @@ acceptance_criteria:
   - Recipe analysis stays processing while thumbnail generation is pending and becomes completed only after the final image outcome is known.
   - OpenAI/GCS failures or the 45-second image deadline leave successfully extracted recipes completed and usable without an image.
   - Generated thumbnails are stored in a dedicated persistent bucket and are retrievable through their public HTTPS URL without public bucket listing.
-  - Recipe and account deletion remove Foodfolio-managed generated thumbnails before deleting database ownership.
+  - Recipe and account deletion lock affected Recipe rows, remove recipe-scoped generated-image prefixes, and preserve DB ownership if cleanup fails.
+  - A stale or deletion-losing worker can delete only the exact generated object that it published, never another worker's committed object.
   - Existing recipes receive no automatic thumbnail backfill.
   - Unit, integration, architecture, documentation, build, and existing regression suites continue to pass.
 

@@ -3,6 +3,7 @@ import { Storage } from "@google-cloud/storage";
 import type {
   GeneratedRecipeImage,
   GeneratedRecipeImageStore,
+  PublishedGeneratedRecipeImage,
 } from "../../application/analysis/types.js";
 
 const PUBLIC_GCS_ORIGIN = "https://storage.googleapis.com";
@@ -16,7 +17,7 @@ export class GcsGeneratedRecipeImageStore implements GeneratedRecipeImageStore {
   async publish(
     recipeId: string,
     image: GeneratedRecipeImage,
-  ): Promise<string> {
+  ): Promise<PublishedGeneratedRecipeImage> {
     const safeRecipeId = safePathSegment(recipeId);
     const extension = safeExtension(image.extension);
     const objectName = `recipe-images/${safeRecipeId}/${randomUUID()}.${extension}`;
@@ -36,7 +37,16 @@ export class GcsGeneratedRecipeImageStore implements GeneratedRecipeImageStore {
       throw new Error("Generated recipe image upload failed");
     }
 
-    return publicObjectUrl(this.bucketName, objectName);
+    return {
+      url: publicObjectUrl(this.bucketName, objectName),
+      delete: async () => {
+        try {
+          await file.delete({ ignoreNotFound: true });
+        } catch {
+          throw new Error("Generated recipe image deletion failed");
+        }
+      },
+    };
   }
 
   owns(imageUrl: string | null): boolean {
