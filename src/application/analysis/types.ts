@@ -36,6 +36,26 @@ export interface RecipeExtractionResult {
 export interface RecipeExtractor {
   extract(input: SourceContent): Promise<RecipeExtractionResult>;
 }
+export interface GeneratedRecipeImage {
+  data: Uint8Array;
+  contentType: string;
+  extension: string;
+}
+export interface PublishedGeneratedRecipeImage {
+  url: string;
+  delete(): Promise<void>;
+}
+export interface RecipeThumbnailGenerator {
+  generate(recipe: ExtractedRecipe): Promise<GeneratedRecipeImage>;
+}
+export interface GeneratedRecipeImageStore {
+  publish(
+    recipeId: string,
+    image: GeneratedRecipeImage,
+  ): Promise<PublishedGeneratedRecipeImage>;
+  owns(imageUrl: string | null): boolean;
+  deleteForRecipe(recipeId: string): Promise<void>;
+}
 export interface VideoRecipeExtractor {
   extractVideo(
     input: SourceContent,

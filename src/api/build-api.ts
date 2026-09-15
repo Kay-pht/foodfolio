@@ -1,6 +1,7 @@
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import {
   AnalysisError,
+  type GeneratedRecipeImageStore,
   type RepresentativeImageResolver,
 } from "../application/analysis/types.js";
 import { InvalidRecipeUrlError } from "../domain/recipe/url.js";
@@ -26,6 +27,7 @@ export interface ApiDependencies {
   firebaseUsers: FirebaseUserManager;
   taskQueue: AnalysisTaskQueue;
   imageResolver?: RepresentativeImageResolver;
+  generatedImageStore?: GeneratedRecipeImageStore;
   recipeUrlCanonicalizer?: RecipeUrlCanonicalizer;
 }
 

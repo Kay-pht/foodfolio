@@ -3,6 +3,7 @@ import { buildApi } from "../api/build-api.js";
 import { loadConfig } from "../config/env.js";
 import { FirebaseAdminAuth } from "../infrastructure/auth/auth-verifier.js";
 import { getPrisma } from "../infrastructure/db/prisma.js";
+import { GcsGeneratedRecipeImageStore } from "../infrastructure/media/gcs-generated-recipe-image-store.js";
 import {
   CloudTasksAnalysisQueue,
   LocalHttpAnalysisQueue,
@@ -43,12 +44,16 @@ const sourceExtractor = new AiAwareSourceContentExtractor(
   new ChatGptSharedConversationAdapter(safeHttp),
   geminiShares,
 );
+const generatedImageStore = config.generatedRecipeImageBucket
+  ? new GcsGeneratedRecipeImageStore(config.generatedRecipeImageBucket)
+  : undefined;
 const app = buildApi({
   prisma: getPrisma(),
   authVerifier: auth,
   firebaseUsers: auth,
   taskQueue,
   imageResolver: sourceExtractor,
+  ...(generatedImageStore ? { generatedImageStore } : {}),
   recipeUrlCanonicalizer: new ProductionRecipeUrlCanonicalizer(geminiShares),
 });
 
