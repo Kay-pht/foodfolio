@@ -52,9 +52,9 @@ AIによる解析結果には誤りや不足が含まれる場合があります
 - Copyright: `2026 Keisuke Yasuda`
 - 第三者コンテンツ: 使用する。利用者が適法に利用できる公開URLを指定する前提とし、元ページへのリンクを保持する
 
-## App Privacy回答案
+## App Privacy公開内容
 
-回答はFoodfolio本体、組み込みSDK、現在利用するBackendを合わせて申告する。追跡は行わず、広告目的には使用しない。
+回答はFoodfolio本体、組み込みSDK、現在利用するBackendを合わせて申告した。追跡は行わず、広告目的には使用しない。2026-09-16にApp Store Connectへ公開し、画面上で公開済み表示とプロダクトページプレビューを確認した。
 
 | Appleのデータ種別 | ユーザーへの紐付け | Tracking | 利用目的 | 根拠 |
 | --- | --- | --- | --- | --- |
@@ -137,9 +137,12 @@ Known limitation in build 13: the Share Extension may open without completing UR
 - 年齢レーティング必須回答は未回答なし。User Generated ContentとUnrestricted Web Accessはいずれもfalse
 - 価格は無料、基準地域・通貨は日本・JPY
 - 配信地域は日本のみ。Japanは`available: true`、他地域は`available: false`、新規地域への自動追加はfalse
-- リリース方法は`AFTER_APPROVAL`
+- Apple Silicon MacとApple Vision Proでの配信は無効
+- リリース方法はApple承認後の手動公開
 - 審査連絡先、審査用アカウント、Review Notes
 - 6.5-inch iPhoneスクリーンショット3枚
+- App Privacyは上記10データ種別を公開済み。画面上で`Published`表示、Linked / Not Linkedのプレビュー、各利用目的を読み戻した
+- version `1.0 (13)`をApp Reviewへ提出済み。Submission IDは`2b364edb-27d0-4981-8c9b-25911c1dcb4e`、状態は`Waiting for Review`
 
 ### ローカル検証
 
@@ -149,18 +152,18 @@ Known limitation in build 13: the Share Extension may open without completing UR
 - `npm run verify`: 成功。unit 277件、integration 49件、E2E 34件を含む
 - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer IOS_PARALLEL_WORKERS=1 npm run verify:ios`: 110件成功、失敗0、skip 0
 
-### 未完了・ユーザー対応が必要
+### 残存確認と今後の操作
 
-- App Privacy回答は未入力。公開直前に回答内容を再提示し、ユーザー確認後に保存・公開する
 - 実機が接続されていないため、build 13の実機更新、認証、URL追加、ChatGPT/Gemini取込、生成画像、Push、検索の実機確認は未実施
 - Share Extensionはユーザー承認済みの既知制限として実機合格条件から除外し、審査情報に代替手順を記載済み
-- App Review提出と、承認後の一般公開は未実施。どちらも実行直前のユーザー確認を必要とする
+- App Review提出は完了し、Appleの審査待ち。Appleから問い合わせまたはリジェクトが届いた場合は対応が必要
+- 承認後の一般公開は未実施。手動公開の実行直前にユーザー確認を必要とする
 
-## 提出前の停止条件
+## 審査中・公開前の停止条件
 
 - `npm run verify` または `npm run verify:ios` が失敗・skipした場合
 - build 13が`VALID`かつ未期限でなくなった場合
 - 必須メタデータ、build、App Privacy、年齢レーティング、価格、地域、審査情報、スクリーンショットの再取得が一致しない場合
 - 審査用アカウントでログインできない場合
 - Appleの契約・規約同意、地域固有情報、または権限不足が表示された場合
-- App Privacy公開、App Review提出、一般公開について実行直前のユーザー確認がない場合
+- 承認後の一般公開について実行直前のユーザー確認がない場合
