@@ -60,15 +60,18 @@ AIによる解析結果には誤りや不足が含まれる場合があります
 | --- | --- | --- | --- | --- |
 | Contact Info / Name | あり | なし | App Functionality | Apple / Google認証で取得し得る氏名・プロフィール情報 |
 | Contact Info / Email Address | あり | なし | App Functionality | Firebase Authentication、メールログイン、審査用アカウント |
-| Identifiers / User ID | あり | なし | App Functionality | Foodfolio User ID、Firebase UID、認証Provider ID |
-| Identifiers / Device ID | あり | なし | App Functionality | FCM token、APNs token、アプリのインストールID |
+| Contact Info / Phone Number | あり | なし | App Functionality | Google Sign-In 9.2.0のPrivacy Manifest |
+| Location / Coarse Location | あり | なし | App Functionality | Google Sign-In 9.2.0のPrivacy Manifest。GPS等の正確な位置情報ではない |
+| Identifiers / User ID | あり | なし | App Functionality、Analytics | Foodfolio User ID、Firebase UID、認証Provider ID、Google Sign-In 9.2.0のPrivacy Manifest |
+| Identifiers / Device ID | あり | なし | App Functionality、Analytics | FCM token、APNs token、アプリのインストールID、Google Sign-In 9.2.0のPrivacy Manifest |
 | User Content / Other User Content | あり | なし | App Functionality | 保存URL、レシピ、材料、手順、タグ、生成画像 |
-| Diagnostics / Other Diagnostic Data | なし | なし | App Functionality | Firebase SDKの品質維持用メタデータとBackendの非識別運用ログ。App Store Connectの設問定義に照らして最終確認する |
+| Usage Data / Other Usage Data | あり | なし | Analytics | Google Sign-In 9.2.0のPrivacy Manifest |
+| Other Data / Other Data Types | あり | なし | App Functionality、Analytics | Google Sign-In 9.2.0とFirebase Messaging 12.18.0のPrivacy Manifest |
+| Diagnostics / Other Diagnostic Data | なし | なし | App Functionality、Analytics | Firebase Auth、Messaging、Installations 12.18.0のPrivacy ManifestとBackendの非識別運用ログ |
 
 次は収集しない。
 
 - 正確な位置情報
-- 電話番号
 - 支払情報
 - 連絡先アドレス帳
 - Health / Fitness情報
@@ -80,7 +83,8 @@ AIによる解析結果には誤りや不足が含まれる場合があります
 
 - Firebase Authenticationは認証用識別子を常時生成・保存し、利用形態に応じて氏名・メールアドレス等を扱う。
 - Firebase MessagingはAPNs token、FCM登録tokenとなるインストールID、端末モデル、言語、タイムゾーン、OS・アプリ情報を扱う。
-- Google Sign-InはOAuth grant用のUser IDと、不正防止のためIPアドレスを扱う場合がある。
+- Google Sign-In 9.2.0の組み込みPrivacy Manifestは、氏名、メールアドレス、電話番号、概算位置情報、User ID、Device ID、Other Usage Data、Other Data Typesを申告する。Trackingはいずれもfalseで、用途はApp FunctionalityまたはAnalyticsである。
+- Firebase Auth、Messaging、Installations 12.18.0の組み込みPrivacy ManifestはUser ID、Device ID、Other Data Types、Other Diagnostic Dataを申告する。Trackingはいずれもfalseである。
 - Firebase AnalyticsとFirebase Crashlyticsはtargetへ含めていない。
 
 ## 年齢レーティング回答案
