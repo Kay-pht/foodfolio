@@ -3,6 +3,18 @@
 `tasks/unreleased.md` で指定した必要な反映先がすべて反映済みになった項目を、日付とversion情報を保ったまま記録する。
 日付は日本時間（JST）の `YYYY-MM-DD`、iOSは `version (build)`、Cloud RunはGit SHAとservice revisionを記載する。
 
+## 2026-09-15
+
+- [x] `REL-20260915-01` AI共有レシピの生成サムネイル
+  - 内容: 新規のChatGPT / Gemini共有レシピで、材料と手順が取得でき、元画像がない場合にOpenAI GPT-Image-2.5 Flareで代表サムネイルを生成して表示する。画像生成失敗時もレシピ保存は継続する。
+  - PR: [#103](https://github.com/Kay-pht/foodfolio/pull/103)
+  - main反映: `f5880904c6af712eb8cd1276f625f4598f2bee19`
+  - 必要な反映先:
+    - [x] GCP dev infrastructure — 反映日: `2026-09-15`、生成画像bucket `foodfolio-af28aa-dev-generated-recipe-images`、API / Worker objectAdmin、既知objectのpublic read、OpenAI Secret version 1、Cloud Run環境変数をTerraformで反映。適用後planは差分なし。
+    - [x] Cloud Run（現在利用中のdev） — 反映日: `2026-09-15`、version: `f5880904c6af712eb8cd1276f625f4598f2bee19`、API `foodfolio-dev-api-00036-6wm` / Worker `foodfolio-dev-worker-00039-m4b`、Ready、traffic 100%、API health成功。
+    - [x] Firebase Hosting — 反映日: `2026-09-15`、更新済みプライバシーポリシーを `https://foodfolio-af28aa.web.app/privacy` へ反映し、公開内容のSHA-256がmainの配布物と一致。
+  - 備考: dev実地検証でChatGPT共有レシピからWebP画像を生成し、Recipeの画像URLからpublic readできること、bucket一覧は403となること、アカウント削除後に生成objectとFirebaseテストアカウントが削除されることを確認済み。既存保存済みAI共有レシピへのバックフィルは行わない。
+
 ## 2026-09-14
 
 - [x] `REL-20260914-01` 「作りたい」レシピと同期・操作競合対策を提供する
