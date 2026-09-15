@@ -309,9 +309,11 @@ describe("AI shared recipe thumbnail E2E", () => {
       data: { processingLeaseExpiresAt: new Date(0) },
     });
 
-    await expect(secondService.process(recipe.id, 2, vi.fn())).resolves.toEqual({
-      retry: false,
-    });
+    await expect(secondService.process(recipe.id, 2, vi.fn())).resolves.toEqual(
+      {
+        retry: false,
+      },
+    );
     const afterSecondRun = await context.prisma.recipe.findUniqueOrThrow({
       where: { id: recipe.id },
     });
