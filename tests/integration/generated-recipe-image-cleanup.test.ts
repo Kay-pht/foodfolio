@@ -25,8 +25,7 @@ function generatedImageStore(options?: {
   return {
     publish: async () => "https://storage.googleapis.com/generated/unused.webp",
     owns: (imageUrl) => imageUrl?.includes("/recipe-images/") ?? false,
-    deleteForRecipe:
-      options?.deleteForRecipe ?? (async (_recipeId: string) => {}),
+    deleteForRecipe: options?.deleteForRecipe ?? (async () => {}),
   };
 }
 
