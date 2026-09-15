@@ -28,6 +28,7 @@
 | Share Extension セットアップ | [share-extension-setup.md](share-extension-setup.md)               |
 | TestFlight 準備              | [testflight-preparation.md](testflight-preparation.md)             |
 | TestFlight 実機検証          | [manual-device-test-checklist.md](manual-device-test-checklist.md) |
+| App Store 初回リリース       | [app-store-release.md](app-store-release.md)                       |
 | テストケース改善方針         | [test-case-improvement.md](test-case-improvement.md)               |
 | デザイン改善メモ             | [../design-improvement.md](../design-improvement.md)               |
 
