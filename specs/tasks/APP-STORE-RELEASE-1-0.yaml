@@ -1,0 +1,133 @@
+id: APP-STORE-RELEASE-1-0
+type: maintenance
+status: approved
+
+objective: >-
+  Prepare Foodfolio 1.0 build 13 for its first public App Store release in Japan as a
+  free iPhone app, using the Food & Drink category and manual release after Apple approval,
+  while keeping the final App Review submission and public release approval-gated.
+
+requirements:
+  - id: ASREL10-1
+    condition: The App Store version and binary are selected.
+    expected: >-
+      iOS version 1.0 references the already validated and unexpired build 13, whose source,
+      signing, entitlements, TestFlight approval, and automated verification evidence are recorded.
+    verification:
+      - docs/testflight-preparation.md
+      - ios/project.yml
+      - tasks/released.md
+  - id: ASREL10-2
+    condition: The Japanese product page is complete.
+    expected: >-
+      The product page has accurate Japanese description and keywords, a working support URL,
+      copyright, and required iPhone screenshots representing the current build.
+    verification:
+      - docs/testflight-preparation.md
+      - hosting/public/support/index.html
+  - id: ASREL10-3
+    condition: App-level distribution settings are complete.
+    expected: >-
+      Foodfolio is free, available only in Japan for the initial release, uses Food & Drink as
+      its primary category with no secondary category, is not in the Kids category, and remains
+      configured for manual release after Apple approval.
+    verification:
+      - docs/testflight-preparation.md
+      - tasks/todo.md
+  - id: ASREL10-4
+    condition: Privacy disclosures are prepared and published.
+    expected: >-
+      App Store Connect has the deployed privacy-policy URL and complete App Privacy answers
+      consistent with the app, integrated SDKs, privacy manifests, and documented data flows,
+      with tracking declared only if the implementation actually performs tracking.
+    verification:
+      - docs/ai-data-handling.md
+      - ios/Foodfolio/PrivacyInfo.xcprivacy
+      - ios/FoodfolioShareExtension/PrivacyInfo.xcprivacy
+      - hosting/public/privacy/index.html
+  - id: ASREL10-5
+    condition: Content, age-rating, and rights declarations are complete.
+    expected: >-
+      The age-rating questionnaire reflects Foodfolio's actual controls and content capabilities,
+      the app is not declared Made for Kids, and third-party recipe content handling is disclosed
+      consistently with user-directed lawful use and the app's source-link behavior.
+    verification:
+      - docs/ai-data-handling.md
+      - docs/requirements-specification.md
+  - id: ASREL10-6
+    condition: App Review can exercise the app.
+    expected: >-
+      App Review contact details, a working review account, and review notes describe authentication,
+      the main recipe-import flow, external AI processing, account deletion, and the known Share
+      Extension limitation together with the in-app add-button workaround.
+    verification:
+      - docs/testflight-preparation.md
+      - docs/manual-device-test-checklist.md
+  - id: ASREL10-7
+    condition: The release candidate is revalidated before submission.
+    expected: >-
+      Repository-defined backend and iOS verification, lint, formatting, builds, integration tests,
+      E2E tests, release archive evidence, App Store metadata read-back, and current main CI state
+      are all recorded separately with no required check omitted.
+    verification:
+      - package.json
+      - scripts/verify-ios.sh
+      - docs/testflight-preparation.md
+  - id: ASREL10-8
+    condition: Irreversible Apple actions are reached.
+    expected: >-
+      The prepared values are read back and presented to the user before publishing App Privacy
+      answers, submitting version 1.0 to App Review, or releasing the approved version publicly;
+      each of those final actions requires explicit action-time confirmation.
+    verification:
+      - docs/agent/infrastructure.md
+      - docs/testflight-preparation.md
+
+edge_cases:
+  - Build 13 is expired, invalid, removed from testing, or no longer eligible for App Store submission.
+  - App Store Connect rejects a required localization, screenshot size, privacy answer, category, price, or territory setting.
+  - The review account cannot authenticate or its credentials differ from the App Review record.
+  - Apple requires an updated agreement, tax information, banking information, trader status, export-compliance document, or regional declaration.
+  - The Share Extension remains blank or unusable on a physical device while the in-app add-button flow works.
+  - App Review rejects the disclosed Share Extension limitation or requires a new binary.
+  - The product page or review notes make claims not supported by build 13 behavior.
+
+security_invariants:
+  - App Store Connect keys, JWTs, signing assets, review credentials, and tester addresses are never committed or printed.
+  - Privacy and age-rating answers are derived from inspected implementation and documented data flows, not assumptions.
+  - Existing testers, TestFlight groups, public-link settings, builds, and unrelated App Store Connect resources are not changed.
+  - No credential, private recipe, private URL, or user data appears in screenshots or product metadata.
+  - Public release does not expand backend access, rotate secrets, or delete data.
+
+compatibility:
+  - MARKETING_VERSION remains 1.0 and CURRENT_PROJECT_VERSION remains 13.
+  - Bundle IDs, minimum iOS version, signing identities, App Group, production APNs entitlement, and current backend environment remain unchanged.
+  - The existing in-app add-button recipe import remains the supported workaround for the known Share Extension limitation.
+
+non_functional:
+  - App Store Connect writes are idempotent where supported and followed by API or UI read-back.
+  - Local tests, GitHub CI, Apple metadata, Apple review, public availability, and physical-device behavior remain separate proof layers.
+  - Screenshots accurately represent the current app and use no misleading device frames, claims, or fabricated content.
+  - The initial storefront scope is Japan only and the app price is free.
+
+out_of_scope:
+  - Fixing or removing the Share Extension in build 13.
+  - Uploading a new binary or changing version/build numbers unless App Review or validation requires it.
+  - Adding subscriptions, in-app purchases, paid pricing, analytics, advertising, or tracking.
+  - Expanding availability outside Japan.
+  - Changing the current backend environment or performing destructive data operations.
+  - Automatically submitting to App Review or publicly releasing without explicit action-time confirmation.
+
+acceptance_criteria:
+  - App Store Connect version 1.0 selects valid build 13.
+  - Required Japanese metadata, support and privacy URLs, copyright, and iPhone screenshots are present and read back.
+  - Food & Drink, free pricing, Japan-only availability, no Kids category, and manual release are read back.
+  - App Privacy and age-rating answers are complete, evidence-based, and approved before publication.
+  - App Review information and the working review account are verified without exposing credentials.
+  - npm run verify and npm run verify:ios succeed, including all repository-defined lint, format, build, integration, and E2E gates.
+  - Remaining device limitations and Apple-only gates are reported without being represented as completed tests.
+  - The user receives an exact final-action preview before App Privacy publication, App Review submission, and public release.
+
+regression:
+  required: false
+  tests: []
