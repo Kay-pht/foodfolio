@@ -11,8 +11,9 @@ coverage/
 .firebase/
 firebase-debug.log*
 
-# PoC raw evidence can contain full third-party page/API responses.
+# PoC raw evidence and generated results can contain third-party page/API content.
 poc/artifacts/
+poc/results/
 tmp.*
 .neon
 gha-creds-*.json
