@@ -1,0 +1,69 @@
+id: IOS-SHARE-SUBMISSION-STATUS-001
+type: bug
+status: approved
+
+objective: >-
+  Keep the Share Extension submission flow understandable to non-technical users by replacing
+  backend-oriented wording with a visible progress indicator and concise Japanese status text.
+
+requirements:
+  - id: ISSS-1
+    condition: The user taps the system Post action for a valid shared URL.
+    expected: >-
+      The Share Extension presents a modal status with the title 「確認中」 and an animating
+      activity indicator while the request is in progress, without exposing backend terminology.
+    verification:
+      - ios/FoodfolioShareExtension/ShareViewController.swift
+      - tests/unit/share-extension-proof.test.mjs
+  - id: ISSS-2
+    condition: The recipe API accepts the shared URL.
+    expected: >-
+      The activity indicator stops, the result title becomes 「✓ 送信」, and the existing accepted
+      message remains visible until the user closes the Share Extension.
+    verification:
+      - ios/FoodfolioShareExtension/ShareViewController.swift
+      - tests/unit/share-extension-proof.test.mjs
+  - id: ISSS-3
+    condition: Submission fails.
+    expected: >-
+      The activity indicator is removed before the existing actionable failure message and retry
+      controls are shown; existing retryability and error mapping remain unchanged.
+    verification:
+      - ios/FoodfolioShareExtension/ShareViewController.swift
+      - ios/Foodfolio/Core/Sharing/SharedRecipeSubmission.swift
+
+edge_cases:
+  - A transient failure is retried from the result dialog.
+  - The shared URL is accepted while recipe analysis continues asynchronously.
+  - The Share Extension is opened after the device iOS version has been updated.
+
+security_invariants:
+  - Firebase Auth, App Group access, bearer-token handling, HTTPS requests, and accepted URL schemes remain unchanged.
+  - Submission still requires the explicit system Post action.
+  - No internal infrastructure name is exposed in the user-facing progress copy.
+
+compatibility:
+  - The Share Extension remains based on SLComposeServiceViewController.
+  - The existing recipe API endpoint and response semantics remain unchanged.
+  - Success still means the API accepted the recipe creation request, not that recipe analysis completed.
+
+non_functional:
+  - Use the existing UIKit surface and avoid replacing the Share Extension controller.
+  - Preserve current failure messages and retry behavior.
+
+out_of_scope:
+  - Changing backend recipe analysis or queue behavior.
+  - Changing duplicate, limit, authentication, invalid-request, transport, or server error mapping.
+  - Changing App Store Connect metadata as part of the source-code PR.
+
+acceptance_criteria:
+  - The submitting dialog visibly animates and uses 「確認中」.
+  - User-facing submission UI does not contain 「Backend」.
+  - A successful submission displays 「✓ 送信」 before the extension is closed.
+  - Failure paths stop the progress indicator and preserve retry behavior.
+  - The Share Extension regression proof test passes.
+
+regression:
+  required: true
+  tests:
+    - tests/unit/share-extension-proof.test.mjs
