@@ -4,18 +4,22 @@ import SwiftData
 
 @MainActor
 final class RecipeSynchronizationCoordinator {
-  private let sync: @MainActor () async throws -> Void
+  private let sync: @MainActor (RecipeSyncReconciliationMode) async throws -> Void
   private var synchronizationTask: Task<Void, Never>?
   private var synchronizeAgain = false
   private var pendingErrorReporting = false
+  private var pendingReconciliation: RecipeSyncReconciliationMode = .scheduled
   var onError: ((Error) -> Void)?
 
-  init(sync: @escaping @MainActor () async throws -> Void) {
+  init(sync: @escaping @MainActor (RecipeSyncReconciliationMode) async throws -> Void) {
     self.sync = sync
   }
 
-  func synchronize(reportError: Bool) async {
+  func synchronize(
+    reconciliation: RecipeSyncReconciliationMode = .scheduled, reportError: Bool
+  ) async {
     pendingErrorReporting = pendingErrorReporting || reportError
+    pendingReconciliation = pendingReconciliation.merged(with: reconciliation)
     if let synchronizationTask {
       synchronizeAgain = true
       await synchronizationTask.value
@@ -29,9 +33,11 @@ final class RecipeSynchronizationCoordinator {
       repeat {
         self.synchronizeAgain = false
         let shouldReportError = self.pendingErrorReporting
+        let reconciliation = self.pendingReconciliation
         self.pendingErrorReporting = false
+        self.pendingReconciliation = .scheduled
         do {
-          try await self.sync()
+          try await self.sync(reconciliation)
         } catch is CancellationError {
           // View lifecycle and explicit session cancellation are not synchronization failures.
         } catch {
@@ -48,11 +54,13 @@ final class RecipeSynchronizationCoordinator {
   func cancel() async {
     synchronizeAgain = false
     pendingErrorReporting = false
+    pendingReconciliation = .scheduled
     guard let synchronizationTask else { return }
     synchronizationTask.cancel()
     await synchronizationTask.value
     synchronizeAgain = false
     pendingErrorReporting = false
+    pendingReconciliation = .scheduled
   }
 }
 
@@ -108,8 +116,9 @@ final class RecipeSynchronizationCoordinator {
     self.repository = repository
     let syncService = RecipeSyncService(api: api, repository: repository)
     self.syncService = syncService
-    self.synchronizationCoordinator = RecipeSynchronizationCoordinator { [syncService] in
-      try await syncService.sync()
+    self.synchronizationCoordinator = RecipeSynchronizationCoordinator {
+      [syncService] reconciliation in
+      try await syncService.sync(reconciliation: reconciliation)
     }
     self.history = SearchHistoryStore()
     self.notifications = uiTesting ? nil : NotificationService(api: api)
@@ -143,7 +152,7 @@ final class RecipeSynchronizationCoordinator {
     guard user != nil else { return }
     globalError = nil
     await notifications?.requestAfterFirstLogin()
-    await synchronize()
+    await synchronize(reconciliation: .sessionStart)
   }
 
   func restoreAuthenticatedSession() async {
@@ -152,9 +161,12 @@ final class RecipeSynchronizationCoordinator {
     await notifications?.restoreAuthenticatedSession()
   }
 
-  func synchronize(reportError: Bool = true) async {
+  func synchronize(
+    reconciliation: RecipeSyncReconciliationMode = .scheduled, reportError: Bool = true
+  ) async {
     guard user != nil else { return }
-    await synchronizationCoordinator.synchronize(reportError: reportError)
+    await synchronizationCoordinator.synchronize(
+      reconciliation: reconciliation, reportError: reportError)
   }
 
   func logout() async throws {
