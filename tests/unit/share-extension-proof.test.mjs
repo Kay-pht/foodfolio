@@ -51,6 +51,14 @@ describe("Share Extension compose validation", () => {
     expect(source).toContain('title: "再試行"');
   });
 
+  it("shows plain-language submission progress and success status", () => {
+    expect(source).toContain('title: "確認中"');
+    expect(source).toContain("UIActivityIndicatorView(style: .medium)");
+    expect(source).toContain("indicator.startAnimating()");
+    expect(source).toContain('alert.title = "✓ 送信"');
+    expect(source).not.toContain("Backendへ送信");
+  });
+
   it("uses Light appearance for the Share Extension", () => {
     const extensionTarget = project.slice(
       project.indexOf("  FoodfolioShareExtension:"),

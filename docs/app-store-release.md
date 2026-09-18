@@ -11,7 +11,7 @@
 - 副カテゴリ: なし
 - Kidsカテゴリ: 使用しない
 - リリース方法: Apple承認後に手動公開
-- Share Extension: build 13の既知制限として審査情報へ明記し、アプリ内の追加ボタンを代替手順とする
+- Share Extension: 2026-09-18にiOS更新後の実機で、URL送信からレシピ追加まで正常動作を確認済み
 
 `Food & Drink` はAppleがレシピ集や料理ガイドを例示している料理・レシピ向けカテゴリである。
 
@@ -115,7 +115,7 @@ Save a public recipe URL using the Add button inside the app. The app analyzes p
 
 Enable notifications to receive analysis-completion or failure alerts. Recipes can be searched, edited, tagged, and marked as recipes the user wants to cook. Account deletion is available in the Account screen and removes the account and associated Foodfolio data. No purchase or subscription is required.
 
-Known limitation in build 13: the Share Extension may open without completing URL submission on a physical device. Please use the Add button inside the main app during review. This limitation does not affect the in-app recipe import flow.
+On September 18, 2026, the Share Extension was reverified on a physical device after updating iOS, and URL submission completed normally.
 
 ## スクリーンショット
 
@@ -139,7 +139,7 @@ Known limitation in build 13: the Share Extension may open without completing UR
 - 配信地域は日本のみ。Japanは`available: true`、他地域は`available: false`、新規地域への自動追加はfalse
 - Apple Silicon MacとApple Vision Proでの配信は無効
 - リリース方法はApple承認後の手動公開
-- 審査連絡先、審査用アカウント、Review Notes
+- 審査連絡先、審査用アカウント、Review Notes（2026-09-16提出時点ではShare Extension既知制限を含む旧文面。2026-09-18の実機再確認後は上記推奨文面との差分がある）
 - 6.5-inch iPhoneスクリーンショット3枚
 - App Privacyは上記10データ種別を公開済み。画面上で`Published`表示、Linked / Not Linkedのプレビュー、各利用目的を読み戻した
 - version `1.0 (13)`をApp Reviewへ提出済み。Submission IDは`2b364edb-27d0-4981-8c9b-25911c1dcb4e`、状態は`Waiting for Review`
@@ -154,8 +154,9 @@ Known limitation in build 13: the Share Extension may open without completing UR
 
 ### 残存確認と今後の操作
 
-- 実機が接続されていないため、build 13の実機更新、認証、URL追加、ChatGPT/Gemini取込、生成画像、Push、検索の実機確認は未実施
-- Share Extensionはユーザー承認済みの既知制限として実機合格条件から除外し、審査情報に代替手順を記載済み
+- 2026-09-18にiOS更新後の実機でShare Extensionを再確認し、共有画面の表示とURL送信からレシピ追加まで正常に完了することを確認した
+- build 13の認証、ChatGPT/Gemini取込、生成画像、Push、検索などShare Extension以外の未確認項目は `tasks/todo.md` で引き続き管理する
+- App Store Connectへ2026-09-16に提出したReview NotesにはShare Extensionの既知制限を含む旧文面が残っている。このソースPRだけではApple側の保存済み文面は変更されない
 - App Review提出は完了し、Appleの審査待ち。Appleから問い合わせまたはリジェクトが届いた場合は対応が必要
 - 承認後の一般公開は未実施。手動公開の実行直前にユーザー確認を必要とする
 

@@ -1,0 +1,59 @@
+id: BUILD-POC-EXCLUSION-001
+type: bug
+status: approved
+
+objective: >-
+  Keep the production TypeScript build independent from local PoC result artifacts that are
+  intentionally excluded from version control.
+
+requirements:
+  - id: BPE-1
+    condition: npm run build compiles the production backend with tsconfig.build.json.
+    expected: >-
+      TypeScript does not compile files under poc/, so ignored local PoC evidence is not required
+      for a clean checkout to build.
+    verification:
+      - tsconfig.build.json
+      - tests/unit/production-build-config-proof.test.mjs
+  - id: BPE-2
+    condition: PoC scripts remain in the repository for explicit developer execution.
+    expected: >-
+      The base tsconfig can continue to include poc sources for development tooling, while the
+      production build boundary excludes them without deleting the PoC scripts.
+    verification:
+      - tsconfig.json
+      - tsconfig.build.json
+      - package.json
+
+edge_cases:
+  - poc/results is absent because it is ignored by Git.
+  - A developer has local PoC results present.
+  - Unit, integration, and E2E tests remain excluded or executed through their dedicated commands.
+
+security_invariants:
+  - No ignored PoC result artifact is reintroduced into version control.
+  - Production build output does not depend on third-party response data stored under poc/results.
+
+compatibility:
+  - Existing explicit poc:* npm scripts remain available.
+  - Production runtime entrypoints under src/ remain unchanged.
+  - Test execution remains handled by Vitest rather than the production tsc build.
+
+non_functional:
+  - Prefer a build-boundary configuration change over weakening TypeScript strictness or fabricating replacement PoC evidence.
+
+out_of_scope:
+  - Restoring deleted PoC result JSON files.
+  - Refactoring or re-running historical Gemini PoC scripts.
+  - Changing production backend behavior.
+
+acceptance_criteria:
+  - npm run build succeeds on a clean checkout without poc/results.
+  - tsconfig.build.json excludes poc.
+  - The regression proof test passes.
+  - Existing production source compilation remains enabled.
+
+regression:
+  required: true
+  tests:
+    - tests/unit/production-build-config-proof.test.mjs

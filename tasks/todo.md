@@ -17,7 +17,6 @@
 <!-- - [ ] 材料名がそのまますぎる。 -->
 
 - [ ] 言語対応
-- [ ] 共有時にこのアプリにリンクをシェアする（Share Extension実装済み。App Group / Extension用Firebase登録 / 実機確認後に完了扱い）
 - [ ] 材料の量がたまに表示されなくなる
 - [ ] 1週間分とか⚪︎選とかの対応
 - [ ] 人気レシピを集めたサイトをスクレイピングして、それをアプリ内でまとめる。
@@ -80,7 +79,7 @@
       - 2026-09-09: build 9を `Foodfolio Internal` に割り当て、`VALID`、build有効、`IN_BETA_TESTING`、日本語の「テストしてほしいこと」をAPIで再確認。内部テスターによるbuild 9のインストールと実機検証は未確認
       - 2026-09-11: build 10を `Foodfolio Internal` に割り当て、`VALID`、build有効、`IN_BETA_TESTING`、日本語の「テストしてほしいこと」をAPIで再確認。内部テスターによるbuild 10のインストールと実機検証は未確認
       - 2026-09-14: build 12を `Foodfolio Internal` に割り当て、`VALID`、build有効、`IN_BETA_TESTING`、日本語の「テストしてほしいこと」をAPIで再確認。内部テスターによるbuild 12のインストールと実機検証は未確認
-      - 2026-09-15: build 13を `Foodfolio Internal` に割り当て、`VALID`、build有効、`IN_BETA_TESTING`、日本語の「テストしてほしいこと」をAPIで再確認。内部テスターによるbuild 13のインストールと実機検証は未確認
+      - 2026-09-15: build 13を `Foodfolio Internal` に割り当て、`VALID`、build有効、`IN_BETA_TESTING`、日本語の「テストしてほしいこと」をAPIで再確認。2026-09-18にiOS更新後の実機でShare ExtensionのURL送信からレシピ追加まで確認済み。その他のbuild 13実機検証は未確認
   - [x] 外部TestFlight審査へ提出できる状態にする
     - [x] 外部テスターグループを作成し、対象buildと「テストしてほしいこと」を設定する
     - [x] TestFlight Test InformationとBeta App Review Informationの必須項目をすべて入力する

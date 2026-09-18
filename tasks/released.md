@@ -52,7 +52,7 @@
   - 必要な反映先:
     - [x] TestFlight内部テスト — 反映日: `2026-09-11`、version: `1.0 (10)`、Build ID: `32d303fd-1280-4f75-ad38-16d061d79654`、group: `Foodfolio Internal`
   - 配布build source: `80c6bc5b361f018ee24aea666403a5f45b5be074`
-  - 備考: 実機で発生しているShare Extensionの全面blank/black画面の原因調査と修正は別タスクとして残す。内部テスターによる実機確認は未実施。
+  - 備考: build 10の実機ではShare Extensionの全面blank/black画面が発生していた。2026-09-18にiOS更新後の実機で再確認し、Share ExtensionからURL送信してレシピ追加まで正常に完了することを確認した。
 
 - [x] `REL-20260911-01` TikTok写真投稿を画像優先で解析する
   - 内容: TikTokの写真投稿URLを正式な対応URLとして扱い、Embed Playerの画像一覧とキャプションを取得して、投稿順を維持した画像優先のAI解析へ渡す。取得先URLは既存のSSRF防御を通し、解析後の一時オブジェクトを削除する。

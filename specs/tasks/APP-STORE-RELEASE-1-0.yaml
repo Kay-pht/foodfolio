@@ -58,8 +58,9 @@ requirements:
     condition: App Review can exercise the app.
     expected: >-
       App Review contact details, a working review account, and review notes describe authentication,
-      the main recipe-import flow, external AI processing, account deletion, and the known Share
-      Extension limitation together with the in-app add-button workaround.
+      the main recipe-import flow, external AI processing, account deletion, and the current
+      Share Extension verification state. The repository keeps the originally submitted limitation
+      wording distinct from the 2026-09-18 physical-device reverification evidence.
     verification:
       - docs/testflight-preparation.md
       - docs/manual-device-test-checklist.md
@@ -88,8 +89,8 @@ edge_cases:
   - App Store Connect rejects a required localization, screenshot size, privacy answer, category, price, or territory setting.
   - The review account cannot authenticate or its credentials differ from the App Review record.
   - Apple requires an updated agreement, tax information, banking information, trader status, export-compliance document, or regional declaration.
-  - The Share Extension remains blank or unusable on a physical device while the in-app add-button flow works.
-  - App Review rejects the disclosed Share Extension limitation or requires a new binary.
+  - The Share Extension behaves differently on an App Review device from the successful 2026-09-18 physical-device reverification.
+  - App Store Connect still contains the previously submitted Share Extension limitation wording while the repository records the newer verification result.
   - The product page or review notes make claims not supported by build 13 behavior.
 
 security_invariants:
@@ -102,7 +103,7 @@ security_invariants:
 compatibility:
   - MARKETING_VERSION remains 1.0 and CURRENT_PROJECT_VERSION remains 13.
   - Bundle IDs, minimum iOS version, signing identities, App Group, production APNs entitlement, and current backend environment remain unchanged.
-  - The existing in-app add-button recipe import remains the supported workaround for the known Share Extension limitation.
+  - Build 13 remains the submitted binary; Share Extension source-copy changes made after build 13 must not be represented as already included in that binary.
 
 non_functional:
   - App Store Connect writes are idempotent where supported and followed by API or UI read-back.
@@ -111,7 +112,7 @@ non_functional:
   - The initial storefront scope is Japan only and the app price is free.
 
 out_of_scope:
-  - Fixing or removing the Share Extension in build 13.
+  - Replacing the already submitted build 13 binary solely to include later Share Extension status-copy changes.
   - Uploading a new binary or changing version/build numbers unless App Review or validation requires it.
   - Adding subscriptions, in-app purchases, paid pricing, analytics, advertising, or tracking.
   - Expanding availability outside Japan.
@@ -125,7 +126,7 @@ acceptance_criteria:
   - App Privacy and age-rating answers are complete, evidence-based, and approved before publication.
   - App Review information and the working review account are verified without exposing credentials.
   - npm run verify and npm run verify:ios succeed, including all repository-defined lint, format, build, integration, and E2E gates.
-  - Remaining device limitations and Apple-only gates are reported without being represented as completed tests.
+  - Current physical-device verification and remaining Apple-only gates are recorded separately without overstating untested flows.
   - The user receives an exact final-action preview before App Privacy publication, App Review submission, and public release.
 
 regression:
