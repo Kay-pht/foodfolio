@@ -53,7 +53,7 @@ import XCTest
 
     try await service.sync(now: now)
 
-    let restored = try XCTUnwrap(repository.recipe(id: "missing-recipe"))
+    let restored = try XCTUnwrap(repository.recipe(id: "11111111-1111-4111-8111-111111111111"))
     XCTAssertEqual(restored.title, "共有された親子丼")
     XCTAssertEqual(restored.sourceType, "chatgpt")
     XCTAssertEqual(defaults.string(forKey: "recipeSyncCursor"), "next-cursor")
@@ -254,10 +254,10 @@ private final class MissingRecipeSyncURLProtocol: URLProtocol, @unchecked Sendab
     case "/v1/sync":
       payload = #"{"recipes":[],"tags":[],"nextCursor":"next-cursor"}"#
     case "/v1/sync/recipe-ids":
-      payload = #"{"recipeIds":["missing-recipe"]}"#
+      payload = #"{"recipeIds":["11111111-1111-4111-8111-111111111111"]}"#
     case "/v1/recipes/batch-get":
       payload =
-        #"{"recipes":[{"id":"missing-recipe","originalUrl":"https://chatgpt.com/share/example","sourceType":"chatgpt","title":"共有された親子丼","imageUrl":null,"servingsValue":2,"servingsRaw":"2人分","cookingTimeMinutes":20,"genre":"主菜","analysisStatus":"completed","wantToCookAt":null,"ingredients":[],"steps":[],"tags":[],"createdAt":"2026-09-18T00:00:00Z","updatedAt":"2026-09-18T00:00:00Z"}]}"#
+        #"{"recipes":[{"id":"11111111-1111-4111-8111-111111111111","originalUrl":"https://chatgpt.com/share/example","sourceType":"chatgpt","title":"共有された親子丼","imageUrl":null,"servingsValue":2,"servingsRaw":"2人分","cookingTimeMinutes":20,"genre":"主菜","analysisStatus":"completed","wantToCookAt":null,"ingredients":[],"steps":[],"tags":[],"createdAt":"2026-09-18T00:00:00Z","updatedAt":"2026-09-18T00:00:00Z"}]}"#
     default:
       payload = #"{"error":{"code":"NOT_FOUND","message":"not found"}}"#
     }
