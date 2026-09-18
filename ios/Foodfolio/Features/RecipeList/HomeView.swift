@@ -228,8 +228,10 @@ struct HomeView: View {
       }
       .animation(.snappy, value: showDrawer)
       .sheet(isPresented: $showAdd) { AddRecipeView() }
-      .refreshable { await session.synchronize() }
-      .task { if !session.uiTesting { await session.synchronize() } }
+      .refreshable { await session.synchronize(reconciliation: .forced) }
+      .task {
+        if !session.uiTesting { await session.synchronize(reconciliation: .sessionStart) }
+      }
       .task(id: analyzingRecipeIDs) { await pollAnalyzingRecipes() }
       .onChange(of: scenePhase) { oldPhase, newPhase in
         guard !session.uiTesting, oldPhase != .active, newPhase == .active else { return }
