@@ -5,5 +5,8 @@
     "declaration": true,
     "sourceMap": true
   },
-  "exclude": ["tests"]
+  "exclude": [
+    "tests",
+    "poc"
+  ]
 }
