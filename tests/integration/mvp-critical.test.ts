@@ -137,7 +137,10 @@ describe("MVP critical API integration", () => {
     });
     const ownerHeaders = headers("batch-owner-user");
     const otherHeaders = headers("batch-other-user");
-    const create = async (userHeaders: Record<string, string>, suffix: string) =>
+    const create = async (
+      userHeaders: Record<string, string>,
+      suffix: string,
+    ) =>
       app.inject({
         method: "POST",
         url: "/v1/recipes",
@@ -195,7 +198,9 @@ describe("MVP critical API integration", () => {
           method: "POST",
           url: "/v1/recipes/batch-get",
           headers: ownerHeaders,
-          payload: { ids: Array(101).fill("00000000-0000-0000-0000-000000000000") },
+          payload: {
+            ids: Array(101).fill("00000000-0000-0000-0000-000000000000"),
+          },
         })
       ).statusCode,
     ).toBe(422);
