@@ -120,6 +120,36 @@ import XCTest
     XCTAssertNil(clearedImage)
   }
 
+  func testExactReconciliationDeletionKeepsRecipesOutsideTheSnapshot() async throws {
+    let container = try ModelContainerFactory.make(inMemory: true)
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    let images = try RecipeImageStore(root: root)
+    let repository = RecipeRepository(
+      context: container.mainContext,
+      api: APIClient(
+        baseURL: URL(string: "https://example.invalid")!, tokenProvider: MVPCriticalTokenProvider()),
+      images: images)
+    let date = Date()
+    for id in ["stale-snapshot", "added-after-snapshot"] {
+      try await repository.upsert(
+        RecipeDTO(
+          id: id, originalUrl: "https://example.com/\(id)", sourceType: "web", title: id,
+          imageUrl: nil, servingsValue: nil, servingsRaw: nil, cookingTimeMinutes: nil, genre: nil,
+          analysisStatus: .completed, ingredients: [], steps: [], tags: [], createdAt: date,
+          updatedAt: date))
+      try await images.store(Data(id.utf8), recipeID: id)
+    }
+
+    try await repository.removeLocalRecipes(ids: Set(["stale-snapshot"]))
+
+    XCTAssertNil(try repository.recipe(id: "stale-snapshot"))
+    XCTAssertNotNil(try repository.recipe(id: "added-after-snapshot"))
+    let staleImage = await images.data(for: "stale-snapshot")
+    let newImage = await images.data(for: "added-after-snapshot")
+    XCTAssertNil(staleImage)
+    XCTAssertNotNil(newImage)
+  }
+
   func testSyncDoesNotAdvanceCursorOrReconciliationTimestampWhenFetchFails() async throws {
     let container = try ModelContainerFactory.make(inMemory: true)
     let repository = try makeRepository(container: container)
