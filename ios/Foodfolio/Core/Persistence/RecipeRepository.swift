@@ -120,12 +120,21 @@ final class RecipeRepository {
     try await store(dto, insertIfMissing: false)
   }
 
-  func removeLocalRecipes(notIn serverIDs: Set<String>) async throws {
-    for recipe in try allRecipes() where !serverIDs.contains(recipe.id) {
+  func recipeIDs() throws -> Set<String> {
+    Set(try allRecipes().map(\.id))
+  }
+
+  func removeLocalRecipes(ids: Set<String>) async throws {
+    guard !ids.isEmpty else { return }
+    for recipe in try allRecipes() where ids.contains(recipe.id) {
       context.delete(recipe)
       try await images.remove(recipeID: recipe.id)
     }
     try context.save()
+  }
+
+  func removeLocalRecipes(notIn serverIDs: Set<String>) async throws {
+    try await removeLocalRecipes(ids: try recipeIDs().subtracting(serverIDs))
   }
 
   func upsert(tags: [TagDTO]) throws {
