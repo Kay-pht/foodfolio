@@ -214,6 +214,16 @@ describe("MVP critical API integration", () => {
         })
       ).statusCode,
     ).toBe(422);
+    expect(
+      (
+        await app.inject({
+          method: "POST",
+          url: "/v1/recipes/batch-get",
+          headers: ownerHeaders,
+          payload: { ids: ["not-a-uuid"] },
+        })
+      ).statusCode,
+    ).toBe(422);
 
     await app.close();
   });
