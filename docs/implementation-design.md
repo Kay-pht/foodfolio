@@ -824,7 +824,7 @@ MVPではRecipe hard deleteを差分レスポンスへtombstoneとして含め�
 
 ログインUserが現在保持しているRecipe IDを全件返す。
 
-用途はhard deleteの定期reconciliationのみとする。
+用途はServer / SwiftData間のRecipe存在整合性を確認するreconciliationとする。
 
 ```json
 {
@@ -832,17 +832,35 @@ MVPではRecipe hard deleteを差分レスポンスへtombstoneとして含め�
 }
 ```
 
-iOSは最終全件照合から24時間以上経過し、オンライン状態で同期可能な場合にこのAPIを利用する。
+iOSは認証後またはアプリセッション最初の一覧同期、ユーザーのpull-to-refresh、および最終照合から24時間以上経過した通常同期でこのAPIを利用する。同一アプリセッション内の認証後同期と一覧初回同期が重なっても、ID照合は1回に集約する。解析中の5秒polling、通知、foreground復帰等の通常同期では、24時間条件を満たさない限りID照合を追加しない。
 
 ```text
 Server Recipe IDs
         ↕
 Local Recipe IDs
-↓
-Serverに存在しないLocalRecipeを削除
-↓
-該当ローカル画像も削除
+├─ Serverのみ → 不足IDをbatch取得してSwiftDataへupsert
+└─ Localのみ  → 該当LocalRecipeとローカル画像を削除
 ```
+
+#### POST `/v1/recipes/batch-get`
+
+同期reconciliationでSwiftDataに不足しているRecipe詳細だけを取得する。1requestあたり1〜100件のRecipe UUIDを受け付ける。
+
+```json
+{
+  "ids": ["uuid-1", "uuid-2"]
+}
+```
+
+Backendは認証Userの所有Recipeだけを `recipeDto` 形式で返す。存在しないIDや他User所有IDはresponseから除外し、他UserのRecipe情報を露出しない。
+
+```json
+{
+  "recipes": []
+}
+```
+
+100件を超える不足がある場合、iOSは100件単位に分割して取得する。既存の差分sync cursorはこの修復のためにresetせず、不足Recipeだけをupsertする。
 
 複数端末間のリアルタイム整合性はMVPでは保証しない。
 
@@ -2106,7 +2124,7 @@ originalUrlからも取得不可
 
 - SwiftDataのLocalRecipeを保存日時の新しい順で表示
 - 2列grid
-- pull-to-refreshで差分同期
+- pull-to-refreshで差分同期とRecipe ID整合性確認
 - placeholder image
 - local image優先表示
 - pending / processing title表示
@@ -2117,7 +2135,7 @@ originalUrlからも取得不可
 
 解析完了のリアルタイムpush更新専用socket等は導入しない。
 
-画面再表示、pull-to-refresh、通知tap、foreground復帰等を契機に差分同期する。
+画面再表示、pull-to-refresh、通知tap、foreground復帰等を契機に差分同期する。認証後またはアプリセッション最初の一覧同期とpull-to-refreshではRecipe ID整合性確認も行い、Serverにのみ存在するRecipeがあれば不足分だけ修復する。
 
 同期失敗時も既存のLocalRecipeは維持する。
 
@@ -2262,23 +2280,34 @@ GET /v1/sync?cursor=<lastCursor>
 
 端末時刻を `lastSyncAt` としてServer query条件へ送らない。
 
-### 28.4 hard delete照合
+### 28.4 Recipe存在整合性の照合・修復
 
-RecipeはServerでhard deleteするため、差分同期だけでは他端末で削除されたRecipeを検出できない。
+RecipeはServerでhard deleteするため、差分同期だけでは他端末で削除されたRecipeを検出できない。また、cursorが既に進んだ後にSwiftDataからRecipeだけが欠落した場合、通常の差分同期だけではServer上の既存Recipeを再取得できない。
 
-最終全件照合から24時間以上経過し、オンラインで同期できる場合：
+認証後またはアプリセッション最初の一覧同期、pull-to-refresh、または最終全件照合から24時間以上経過した通常同期で次を行う：
 
 ```text
 GET /v1/sync/recipe-ids
 ↓
-Server IDsとLocal IDsを比較
-↓
-Serverに存在しないLocalRecipeを削除
-↓
-該当Recipe画像も削除
+Server IDsと同期開始時点のLocal IDsを比較
+├─ Serverのみ
+│    ↓
+│  POST /v1/recipes/batch-get
+│  （100件単位）
+│    ↓
+│  不足RecipeだけSwiftDataへupsert
+└─ Localのみ
+     ↓
+   照合snapshotで特定したLocalRecipeだけ削除
+     ↓
+   該当Recipe画像も削除
 ↓
 lastFullReconciliationAt更新
 ```
+
+不足Recipe修復ではsync cursorをresetせず、全Recipe詳細の再同期も行わない。照合後に新規追加されたLocalRecipeを古いServer ID snapshotだけを根拠に削除しないため、削除対象は照合開始時のLocal ID snapshotとの差分として特定したIDに限定する。
+
+同一アプリセッション内のsession-start照合は1回に集約する。pull-to-refreshは最終照合日時に関係なく明示的に照合し、その他の高頻度同期では24時間間隔を維持する。
 
 MVPではtombstone / change logを追加しない。
 
