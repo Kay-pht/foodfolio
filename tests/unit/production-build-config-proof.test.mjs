@@ -4,10 +4,7 @@ import { URL } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const buildConfig = JSON.parse(
-  await readFile(
-    new URL("../../tsconfig.build.json", import.meta.url),
-    "utf8",
-  ),
+  await readFile(new URL("../../tsconfig.build.json", import.meta.url), "utf8"),
 );
 
 describe("production TypeScript build boundary", () => {
