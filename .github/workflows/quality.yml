@@ -58,6 +58,7 @@ jobs:
         run: node scripts/check-main-push-policy.mjs
 
       - name: Validate dispatched PR context
+        id: dispatch_context
         if: github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -378,7 +379,10 @@ jobs:
           } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Publish Quality Gate result
-        if: always() && github.event_name == 'workflow_dispatch'
+        if: >-
+          always() &&
+          github.event_name == 'workflow_dispatch' &&
+          steps.dispatch_context.outcome == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           QUALITY_HEAD_SHA: ${{ inputs.head_sha }}
