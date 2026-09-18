@@ -62,6 +62,130 @@ import XCTest
       ["/v1/sync", "/v1/sync/recipe-ids", "/v1/recipes/batch-get"])
   }
 
+  func testSessionStartReconciliationRunsOnlyOncePerServiceLifetime() async throws {
+    let container = try ModelContainerFactory.make(inMemory: true)
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    let repository = RecipeRepository(
+      context: container.mainContext,
+      api: APIClient(
+        baseURL: URL(string: "https://example.invalid")!, tokenProvider: SyncMetadataTokenProvider()
+      ),
+      images: try RecipeImageStore(root: root))
+    let defaults = UserDefaults(suiteName: UUID().uuidString)!
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+    defaults.set("cursor", forKey: "recipeSyncCursor")
+    defaults.set(now, forKey: "lastFullReconciliationAt")
+    defaults.set(1, forKey: "tagRelationshipRepairVersion")
+    defaults.set(1, forKey: "recipeCacheSchemaVersion")
+    var idFetchCount = 0
+    let service = RecipeSyncService(
+      repository: repository,
+      defaults: defaults,
+      fetchSync: { _ in SyncResponse(recipes: [], tags: [], nextCursor: "next") },
+      fetchRecipeIDs: {
+        idFetchCount += 1
+        return RecipeIDsResponse(recipeIds: [])
+      })
+
+    try await service.sync(now: now, reconciliation: .sessionStart)
+    try await service.sync(now: now, reconciliation: .sessionStart)
+
+    XCTAssertEqual(idFetchCount, 1)
+  }
+
+  func testForcedReconciliationRunsEvenWhenScheduledIntervalHasNotElapsed() async throws {
+    let container = try ModelContainerFactory.make(inMemory: true)
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    let repository = RecipeRepository(
+      context: container.mainContext,
+      api: APIClient(
+        baseURL: URL(string: "https://example.invalid")!, tokenProvider: SyncMetadataTokenProvider()
+      ),
+      images: try RecipeImageStore(root: root))
+    let defaults = UserDefaults(suiteName: UUID().uuidString)!
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+    defaults.set("cursor", forKey: "recipeSyncCursor")
+    defaults.set(now, forKey: "lastFullReconciliationAt")
+    defaults.set(1, forKey: "tagRelationshipRepairVersion")
+    defaults.set(1, forKey: "recipeCacheSchemaVersion")
+    var idFetchCount = 0
+    let service = RecipeSyncService(
+      repository: repository,
+      defaults: defaults,
+      fetchSync: { _ in SyncResponse(recipes: [], tags: [], nextCursor: "next") },
+      fetchRecipeIDs: {
+        idFetchCount += 1
+        return RecipeIDsResponse(recipeIds: [])
+      })
+
+    try await service.sync(now: now, reconciliation: .forced)
+    try await service.sync(now: now, reconciliation: .forced)
+
+    XCTAssertEqual(idFetchCount, 2)
+  }
+
+  func testScheduledReconciliationKeepsTwentyFourHourInterval() async throws {
+    let container = try ModelContainerFactory.make(inMemory: true)
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    let repository = RecipeRepository(
+      context: container.mainContext,
+      api: APIClient(
+        baseURL: URL(string: "https://example.invalid")!, tokenProvider: SyncMetadataTokenProvider()
+      ),
+      images: try RecipeImageStore(root: root))
+    let defaults = UserDefaults(suiteName: UUID().uuidString)!
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+    defaults.set("cursor", forKey: "recipeSyncCursor")
+    defaults.set(now, forKey: "lastFullReconciliationAt")
+    defaults.set(1, forKey: "tagRelationshipRepairVersion")
+    defaults.set(1, forKey: "recipeCacheSchemaVersion")
+    var idFetchCount = 0
+    let service = RecipeSyncService(
+      repository: repository,
+      defaults: defaults,
+      fetchSync: { _ in SyncResponse(recipes: [], tags: [], nextCursor: "next") },
+      fetchRecipeIDs: {
+        idFetchCount += 1
+        return RecipeIDsResponse(recipeIds: [])
+      })
+
+    try await service.sync(now: now)
+    XCTAssertEqual(idFetchCount, 0)
+
+    try await service.sync(now: now.addingTimeInterval(86_401))
+    XCTAssertEqual(idFetchCount, 1)
+  }
+
+  func testMissingRecipeBatchFetchIsChunkedAtOneHundredIDs() async throws {
+    let container = try ModelContainerFactory.make(inMemory: true)
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    let repository = RecipeRepository(
+      context: container.mainContext,
+      api: APIClient(
+        baseURL: URL(string: "https://example.invalid")!, tokenProvider: SyncMetadataTokenProvider()
+      ),
+      images: try RecipeImageStore(root: root))
+    let defaults = UserDefaults(suiteName: UUID().uuidString)!
+    defaults.set("cursor", forKey: "recipeSyncCursor")
+    defaults.set(1, forKey: "tagRelationshipRepairVersion")
+    defaults.set(1, forKey: "recipeCacheSchemaVersion")
+    let serverIDs = (0..<205).map { String(format: "recipe-%03d", $0) }
+    var batchSizes: [Int] = []
+    let service = RecipeSyncService(
+      repository: repository,
+      defaults: defaults,
+      fetchSync: { _ in SyncResponse(recipes: [], tags: [], nextCursor: "next") },
+      fetchRecipeIDs: { RecipeIDsResponse(recipeIds: serverIDs) },
+      fetchRecipes: { ids in
+        batchSizes.append(ids.count)
+        return RecipeBatchResponse(recipes: [])
+      })
+
+    try await service.sync(reconciliation: .forced)
+
+    XCTAssertEqual(batchSizes, [100, 100, 5])
+  }
+
   func testTagRelationshipRepairForcesFullSyncUntilItSucceeds() async throws {
     let container = try ModelContainerFactory.make(inMemory: true)
     let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
