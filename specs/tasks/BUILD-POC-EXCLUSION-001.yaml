@@ -40,9 +40,7 @@ compatibility:
   - Test execution remains handled by Vitest rather than the production tsc build.
 
 non_functional:
-  - >-
-    Prefer a build-boundary configuration change over weakening TypeScript strictness or fabricating
-    replacement PoC evidence.
+  - Prefer a build-boundary configuration change over weakening TypeScript strictness or fabricating replacement PoC evidence.
 
 out_of_scope:
   - Restoring deleted PoC result JSON files.
