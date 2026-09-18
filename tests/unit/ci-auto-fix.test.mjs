@@ -155,13 +155,14 @@ describe("CI auto-fix coverage", () => {
 
     expect(qualityWorkflow).toContain("\n  pull_request:\n");
     expect(qualityWorkflow).toContain("statuses: write");
+    expect(qualityWorkflow).toContain("id: dispatch_context");
     expect(qualityWorkflow).toContain("Mark Quality Gate running");
     expect(qualityWorkflow).toContain(
       '-f description="Quality validation is running"',
     );
     expect(qualityWorkflow).toContain("Publish Quality Gate result");
     expect(qualityWorkflow).toContain(
-      "if: always() && github.event_name == 'workflow_dispatch'",
+      "steps.dispatch_context.outcome == 'success'",
     );
     expect(qualityWorkflow).toContain("QUALITY_JOB_STATUS: ${{ job.status }}");
     expect(qualityWorkflow).toContain(
