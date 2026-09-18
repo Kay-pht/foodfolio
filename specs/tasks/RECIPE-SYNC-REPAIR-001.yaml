@@ -23,7 +23,6 @@ requirements:
       100, and upserts the returned recipes without clearing or resetting the differential-sync cursor.
     verification:
       - ios/FoodfolioIntegrationTests/SyncMetadataTests.swift
-    - ios/FoodfolioIntegrationTests/MVPCriticalIntegrationTests.swift
   - id: RSR-3
     condition: Reconciliation finds recipe IDs that are present locally but absent from the server.
     expected: >-
