@@ -163,9 +163,7 @@ describe("CI auto-fix coverage", () => {
     expect(qualityWorkflow).toContain(
       "if: always() && github.event_name == 'workflow_dispatch'",
     );
-    expect(qualityWorkflow).toContain(
-      'QUALITY_JOB_STATUS: ${{ job.status }}',
-    );
+    expect(qualityWorkflow).toContain("QUALITY_JOB_STATUS: ${{ job.status }}");
     expect(qualityWorkflow).toContain(
       'description="Quality validation passed"',
     );
