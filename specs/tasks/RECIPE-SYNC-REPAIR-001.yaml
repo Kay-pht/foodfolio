@@ -23,13 +23,14 @@ requirements:
       100, and upserts the returned recipes without clearing or resetting the differential-sync cursor.
     verification:
       - ios/FoodfolioIntegrationTests/SyncMetadataTests.swift
+    - ios/FoodfolioIntegrationTests/MVPCriticalIntegrationTests.swift
   - id: RSR-3
     condition: Reconciliation finds recipe IDs that are present locally but absent from the server.
     expected: >-
       Only the stale local recipes identified from the reconciliation snapshot are removed, including
       their cached images, without deleting a recipe added locally after that snapshot was taken.
     verification:
-      - ios/FoodfolioIntegrationTests/SyncMetadataTests.swift
+      - ios/FoodfolioIntegrationTests/MVPCriticalIntegrationTests.swift
   - id: RSR-4
     condition: A user signs in or the authenticated app performs its first Home sync in the current app session.
     expected: >-
