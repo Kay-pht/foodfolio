@@ -22,6 +22,7 @@ final class ShareViewController: SLComposeServiceViewController {
   }
   private var creationGate = ShareCreationGate()
   private var submissionAlert: UIAlertController?
+  private var submissionActivityIndicator: UIActivityIndicatorView?
 
   override func viewDidLoad() {
     super.viewDidLoad()
@@ -124,7 +125,7 @@ final class ShareViewController: SLComposeServiceViewController {
     case .ready(let url):
       textView.text = url.absoluteString
     case .submitting:
-      textView.text = "レシピを作成しています…"
+      textView.text = "確認中…"
     case .success:
       textView.text = "Foodfolioへの追加を受け付けました。"
     case .failure(let message):
@@ -134,16 +135,33 @@ final class ShareViewController: SLComposeServiceViewController {
 
   private func presentSubmittingAlert() {
     let alert = UIAlertController(
-      title: "送信中",
-      message: "FoodfolioのBackendへ送信しています…",
+      title: "確認中",
+      message: "\n\n",
       preferredStyle: .alert)
+    let indicator = UIActivityIndicatorView(style: .medium)
+    indicator.translatesAutoresizingMaskIntoConstraints = false
+    alert.view.addSubview(indicator)
+    NSLayoutConstraint.activate([
+      indicator.centerXAnchor.constraint(equalTo: alert.view.centerXAnchor),
+      indicator.bottomAnchor.constraint(equalTo: alert.view.bottomAnchor, constant: -20),
+    ])
+    indicator.startAnimating()
+
+    submissionActivityIndicator = indicator
     submissionAlert = alert
     present(alert, animated: true)
   }
 
+  private func stopSubmissionActivityIndicator() {
+    submissionActivityIndicator?.stopAnimating()
+    submissionActivityIndicator?.removeFromSuperview()
+    submissionActivityIndicator = nil
+  }
+
   private func showSuccessResult() {
     guard let alert = submissionAlert else { return }
-    alert.title = "送信完了"
+    stopSubmissionActivityIndicator()
+    alert.title = "✓ 送信"
     alert.message = "Foodfolioへの追加を受け付けました。"
     alert.addAction(
       UIAlertAction(title: "閉じる", style: .default) { [weak self] _ in
@@ -153,6 +171,7 @@ final class ShareViewController: SLComposeServiceViewController {
 
   private func showFailureResult(message: String, retryable: Bool) {
     guard let alert = submissionAlert else { return }
+    stopSubmissionActivityIndicator()
     alert.title = "追加できませんでした"
     alert.message = message
     if retryable {
