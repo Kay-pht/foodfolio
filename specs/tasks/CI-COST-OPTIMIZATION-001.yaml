@@ -63,7 +63,7 @@ requirements:
       - tests/unit/quality-proof.test.mjs
   - id: CIC-8
     condition: A Ready pull request head belongs to a fork.
-    expected: Auto Fix remains disabled because it cannot safely write to the fork, while read-only Quality runs directly from the pull_request merge ref regardless of whether the sender is human or bot.
+    expected: Auto Fix remains disabled because it cannot safely write to the fork, while non-mutating Quality runs directly from the pull_request merge ref regardless of whether the sender is human or bot.
     verification:
       - .github/workflows/auto-format.yml
       - .github/workflows/quality.yml
@@ -121,7 +121,7 @@ non_functional:
   - Draft pull request updates must consume no PR validation runner minutes.
   - A Ready repository-owned human transition with no automatic fix uses one Auto Fix runner followed by one Quality runner.
   - A Ready transition with an Auto Fix App commit may add one lightweight bot handoff runner, but that run must not repeat formatting, dependency installation, or other Auto Fix work and must not create a duplicate Quality dispatch.
-  - A Ready non-Auto-Fix bot or fork pull request uses one read-only Quality runner and no Auto Fix runner.
+  - A Ready non-Auto-Fix bot or fork pull request uses one non-mutating Quality runner and no Auto Fix runner.
   - Documentation validation must reuse the Quality runner rather than start an additional runner.
   - Quality remains single-runner and fail-fast.
   - Quality Gate publication must not add a runner; status updates execute inside the existing Auto Fix and Quality jobs.
@@ -138,7 +138,7 @@ acceptance_criteria:
   - An Auto Fix App formatting commit transfers Quality dispatch responsibility to the Auto Fix bot synchronize run; the originating run does not dispatch Quality if it survives the push.
   - The Auto Fix bot synchronize handoff validates the latest Ready head, skips Auto Fix work, and dispatches Quality once.
   - A Ready pull request authored by a non-Auto-Fix bot runs Quality directly without starting Auto Fix, even when a human sends the Ready/reopen event.
-  - A Ready fork pull request runs read-only Quality directly without starting Auto Fix.
+  - A Ready fork pull request runs non-mutating Quality directly without starting Auto Fix.
   - Missing Auto Fix App configuration fails closed when an automatic fix push is required; no GITHUB_TOKEN push fallback is used.
   - Workflow-dispatch Quality reconstructs and validates the prospective base/head merge tree and records proof for that tree.
   - Direct pull_request Quality validates GitHub's pull request merge ref and records proof for that merge tree; proof reuse remains subject to trusted-run checks.
