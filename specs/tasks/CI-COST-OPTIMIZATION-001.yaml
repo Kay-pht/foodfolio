@@ -77,7 +77,7 @@ requirements:
       - tests/unit/ci-auto-fix.test.mjs
   - id: CIC-10
     condition: A repository-owned human pull request reaches the Quality dispatch point after Auto Fix succeeds for the current Ready head.
-    expected: Auto Fix publishes Quality Gate as pending before dispatch, the dispatched Quality run updates the same gate while running, and the gate becomes success only after the full Quality job succeeds or failure/error when validation or dispatch fails. Auto Fix failures and stale or Draft handoffs do not create the gate.
+    expected: Auto Fix publishes Quality Gate as pending before dispatch, the dispatched Quality run updates the same gate while running, and the gate becomes success only after the full Quality job succeeds or failure/error after a validated dispatch when validation or dispatch fails. Auto Fix failures and stale or Draft handoffs do not create the gate.
     verification:
       - .github/workflows/auto-format.yml
       - .github/workflows/quality.yml
@@ -88,7 +88,7 @@ edge_cases:
   - The Auto Fix App creates a formatting commit; the resulting bot synchronize run may cancel the originating run, must not execute Auto Fix again, and must dispatch Quality for the new head exactly once.
   - The Auto Fix GitHub App is not configured and automatic fixes are required; Auto Fix must fail before any push rather than falling back to GITHUB_TOKEN.
   - A non-Auto-Fix bot opens or updates a Ready pull request, or a maintainer marks it Ready; Auto Fix remains skipped based on pull_request.user.type and Quality must still run through the filtered direct pull_request path.
-  - A fork pull request opens or updates while Ready; Auto Fix remains skipped but read-only Quality must run on GitHub's prospective merge result.
+  - A fork pull request opens or updates while Ready; Auto Fix remains skipped but non-mutating Quality must run on GitHub's prospective merge result.
   - The pull request advances while Auto Fix is running; stale fixes and stale Quality dispatches must be skipped.
   - The pull request is converted back to Draft while Auto Fix is running; Quality must not be dispatched.
   - A fix is accidentally pushed while the pull request is still Ready; synchronize remains a safety fallback and converges on the new final head.
@@ -107,8 +107,9 @@ security_invariants:
   - Quality dispatch validates the repository-owned pull request number, base SHA, head ref, and head SHA before trusting the run.
   - Direct pull_request Quality remains non-mutating, covers forks and non-Auto-Fix bot-authored PRs, and classifies PR authors by pull_request.user rather than event sender.
   - A skipped direct Quality path must not publish the required Quality / checks name.
-  - statuses: write is used only to publish the Quality Gate on repository-owned workflow_dispatch validation; direct pull_request and main-push paths must not write commit statuses.
+  - "statuses: write is used only to publish the Quality Gate on repository-owned workflow_dispatch validation; direct pull_request and main-push paths must not write commit statuses."
   - No additional write capability is introduced beyond Auto Fix's existing repository writes and the narrowly scoped commit-status publication required for Quality Gate.
+  - A workflow_dispatch Quality run must publish its final Quality Gate result only after the dispatched PR context has been validated successfully.
 
 compatibility:
   - Auto Fix keeps workflow_dispatch support for explicit fixed-head verification.
