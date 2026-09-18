@@ -44,16 +44,16 @@ URLを貼り付けるか共有シートからFoodfolioへ送ると、レシピ�
 
 ## 主な機能
 
-| 機能 | 内容 |
-| --- | --- |
-| URL / 共有シートから保存 | アプリへのURL貼り付けに加え、iOS Share ExtensionからレシピURLを直接追加できます。 |
-| バックグラウンドAI解析 | 保存をAI処理完了まで待たせず、非同期で料理名・材料・分量・人数・調理時間・ジャンル・手順を構造化します。 |
-| ChatGPT / Gemini共有レシピ | 公開共有会話からレシピ部分を取り込み、通常のレシピと同じ形式で保存できます。条件を満たす場合は完成料理のサムネイルも生成します。 |
-| レシピ詳細 | 保存した材料・分量・手順をFoodfolio内で確認できます。基準人数を取得できたレシピは、表示人数に応じて計算可能な分量を比例表示します。 |
-| 検索・絞り込み | 料理名・材料のテキスト検索と、ジャンル・ユーザータグによる絞り込みに対応しています。 |
-| オフライン閲覧・検索 | 同期済みレシピはSwiftDataへ保持し、一覧・詳細・検索をオフラインでも利用できます。 |
-| 編集・タグ整理 | 料理名・材料・分量・ジャンルの編集と、自由入力タグの作成・付与・解除に対応しています。 |
-| 解析完了通知 | バックグラウンド解析の完了・失敗をPush通知で受け取れます。 |
+| 機能                       | 内容                                                                                                                                |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| URL / 共有シートから保存   | アプリへのURL貼り付けに加え、iOS Share ExtensionからレシピURLを直接追加できます。                                                   |
+| バックグラウンドAI解析     | 保存をAI処理完了まで待たせず、非同期で料理名・材料・分量・人数・調理時間・ジャンル・手順を構造化します。                            |
+| ChatGPT / Gemini共有レシピ | 公開共有会話からレシピ部分を取り込み、通常のレシピと同じ形式で保存できます。条件を満たす場合は完成料理のサムネイルも生成します。    |
+| レシピ詳細                 | 保存した材料・分量・手順をFoodfolio内で確認できます。基準人数を取得できたレシピは、表示人数に応じて計算可能な分量を比例表示します。 |
+| 検索・絞り込み             | 料理名・材料のテキスト検索と、ジャンル・ユーザータグによる絞り込みに対応しています。                                                |
+| オフライン閲覧・検索       | 同期済みレシピはSwiftDataへ保持し、一覧・詳細・検索をオフラインでも利用できます。                                                   |
+| 編集・タグ整理             | 料理名・材料・分量・ジャンルの編集と、自由入力タグの作成・付与・解除に対応しています。                                              |
+| 解析完了通知               | バックグラウンド解析の完了・失敗をPush通知で受け取れます。                                                                          |
 
 ## 使い方
 
@@ -128,14 +128,14 @@ GitHub ActionsのQuality workflowでは、変更範囲に応じてSpecification 
 
 ## Tech stack
 
-| Layer | Technology |
-| --- | --- |
-| iOS | Swift 6, SwiftUI, SwiftData, iOS 26+, Firebase Auth, Firebase Messaging, Google Sign-In |
-| Backend | Node.js 24, TypeScript 5.9, Fastify 5 |
-| Data | PostgreSQL (Neon), Prisma 7, Google Cloud Storage |
-| Async / Cloud | Cloud Run, Cloud Tasks, FCM / APNs, Terraform, Docker |
-| AI / Extraction | Z.ai, Google Gemini, OpenAI Image API, Cheerio, Ajv |
-| Quality | Vitest, Testcontainers, ESLint, Prettier, swift format, GitHub Actions |
+| Layer           | Technology                                                                              |
+| --------------- | --------------------------------------------------------------------------------------- |
+| iOS             | Swift 6, SwiftUI, SwiftData, iOS 26+, Firebase Auth, Firebase Messaging, Google Sign-In |
+| Backend         | Node.js 24, TypeScript 5.9, Fastify 5                                                   |
+| Data            | PostgreSQL (Neon), Prisma 7, Google Cloud Storage                                       |
+| Async / Cloud   | Cloud Run, Cloud Tasks, FCM / APNs, Terraform, Docker                                   |
+| AI / Extraction | Z.ai, Google Gemini, OpenAI Image API, Cheerio, Ajv                                     |
+| Quality         | Vitest, Testcontainers, ESLint, Prettier, swift format, GitHub Actions                  |
 
 ## Repository structure
 
