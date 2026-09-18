@@ -1,6 +1,6 @@
 # TestFlight準備の確認記録
 
-最終更新日: 2026-09-14。自動テスト、署名済みArchive、Apple側の処理状態、実機確認は別の証跡として扱う。
+最終更新日: 2026-09-18。自動テスト、署名済みArchive、Apple側の処理状態、実機確認は別の証跡として扱う。
 
 ## 公開ページ
 
@@ -123,7 +123,7 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 
 ## 外部審査前に残る確認
 
-1. build 10の実機で起動・認証・URL保存・AI解析・Push通知はユーザー確認済み。Share Extensionは正常に動作しなかったため既知の不具合として外部テスト情報へ開示し、アプリ内の追加ボタンを代替手順とする。Share Extensionの修正と再検証は後続buildで行う。
+1. build 10の実機では起動・認証・URL保存・AI解析・Push通知をユーザー確認済みで、Share Extensionは当時正常に動作しなかったため既知の不具合として外部テスト情報へ開示した。2026-09-18にiOS更新後の実機で再確認し、Share ExtensionからURL送信してレシピ追加まで正常に完了することを確認した。旧build時点の制限記録は履歴として残す。
 2. 同意APIとRecipe作成gateを削除したBackendをDB変更より先に対象環境へ反映する。旧iOS buildは互換対象外とし、Backend反映後に新iOSだけを利用する。
 3. 新iOSへの切替後、旧Backend revisionへrollbackしないことを確認してから、`aiConsentedAt`をdropするmigrationを独立した後続リリースとして適用する。migrationはアプリ起動時には実行しない。
 4. 更新したプライバシーポリシーはFirebase HostingでHTTP 200を確認し、外部TestFlightの日本語Test InformationへPrivacy Policy URLを保存・再取得済み。
@@ -140,7 +140,7 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 - 外部グループ `Foodfolio External` (`4f1c12bb-b63b-422e-a063-90cd7b94e4f7`) を作成し、公開リンク無効、feedback有効、build 10割り当て済み、ローカルのGit除外リストにあるテスター1件を関連付けた。
 - build 10をTestFlight App Reviewへ提出。2026-09-11時点でsubmission ID `32d303fd-1280-4f75-ad38-16d061d79654`、review `WAITING_FOR_REVIEW`、external build `WAITING_FOR_BETA_REVIEW`、自動通知有効。
 - 審査待ちのためテスター状態は `NOT_INVITED`。Apple承認後の招待送信とテスター状態の再取得は未確認であり、外部配布完了とは扱わない。
-- 実機では起動・認証・URL保存・AI解析・Push通知をユーザー確認済み。Share Extensionは正常に動作せず、既知の制限とアプリ内追加の代替手順をWhat to TestとReview Notesへ明記した。
+- build 10の実機では起動・認証・URL保存・AI解析・Push通知をユーザー確認済みで、Share Extensionは当時正常に動作せず、既知の制限とアプリ内追加の代替手順をWhat to TestとReview Notesへ明記した。2026-09-18にiOS更新後の実機でShare Extensionを再確認し、URL送信からレシピ追加まで正常に完了した。
 - 外部提出後の `npm run verify:ios` は99件成功、失敗0、skip 0。`npm run verify` はunit 238件、lint、format、build等に成功した後、既存のsync cursor順序テストがintegration 40件中1件失敗し、単独再実行でも再現した。今回の文書・App Store Connect設定変更とは分離して未解決とし、全体検証成功とは扱わない。
 
 ## build 11の外部TestFlight配布結果
@@ -171,7 +171,7 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 - Release Archive、署名・entitlement確認、IPA export、Apple validation、uploadに成功。本体とShare Extensionはともに `1.0 (13)`、本体はproduction APNs、Sign in with Apple、共通App Group、Extensionは共通App Groupを保持している。
 - App Store Connect Build ID `8c5ebc62-634c-47f2-b1d8-08bc1c608c1e` のprocessing `VALID`、build有効、`APP_STORE_ELIGIBLE`、暗号化申告 `false` をAPIで確認した。
 - build 13を `Foodfolio Internal` と `Foodfolio External` へ割り当て、日本語の「テストしてほしいこと」を保存・再取得した。内部・外部とも `IN_BETA_TESTING`、自動通知有効、Beta App Review `APPROVED` を確認した。
-- `Foodfolio External` の公開リンク有効状態を維持した。既存テスター構成は変更せず、API再取得時点で2件（`INSTALLED` 1件、`INVITED` 1件）。実際のbuild 13インストールと実機動作は別途確認する。
+- `Foodfolio External` の公開リンク有効状態を維持した。既存テスター構成は変更せず、API再取得時点で2件（`INSTALLED` 1件、`INVITED` 1件）。2026-09-18にiOS更新後の実機でShare ExtensionのURL送信からレシピ追加まで確認済み。その他のbuild 13実機動作は別途確認する。
 
 ## 入力文面の控え（認証情報を除く）
 
@@ -194,6 +194,8 @@ build 12では、レシピ詳細のメニューから「作りたい」を追加
 ### What to Test（build 13）
 
 build 13では、公開されたChatGPTまたはGeminiの共有会話URLをアプリ内の追加ボタンから保存し、会話内の材料・手順と後から加えた変更が1件のレシピへ反映されることをご確認ください。材料と手順が揃い、元画像がない新規レシピでは生成サムネイルが表示されることもご確認ください。画像生成に失敗した場合もレシピ解析自体は完了し、既存レシピへ画像が自動追加されない仕様です。あわせて、起動・認証、通常URLの保存、検索、編集、同期、Push通知をご確認ください。既知の制限として、Share Extensionからの追加は正常に完了しない場合があります。アプリ内の追加ボタンを使用してください。
+
+2026-09-18追記: 上記はApp Store Connectへ保存した当時のWhat to Test文面である。iOS更新後の実機ではShare Extensionの制限は再現せず、URL送信からレシピ追加まで正常に完了することを確認した。このPRはApp Store Connect上の保存済み文面自体は変更しない。
 
 ### Review Notes
 
