@@ -28,6 +28,7 @@ permissions:
   actions: read
   contents: read
   pull-requests: read
+  statuses: write
 
 jobs:
   checks:
@@ -66,6 +67,24 @@ jobs:
           QUALITY_HEAD_SHA: ${{ inputs.head_sha }}
           QUALITY_PR_NUMBER: ${{ inputs.pr_number }}
         run: node scripts/validate-quality-dispatch.mjs
+
+      - name: Mark Quality Gate running
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          QUALITY_HEAD_SHA: ${{ inputs.head_sha }}
+          QUALITY_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          gh api \
+            --method POST \
+            "repos/${REPOSITORY}/statuses/${QUALITY_HEAD_SHA}" \
+            -f state=pending \
+            -f context="Quality Gate" \
+            -f description="Quality validation is running" \
+            -f target_url="${QUALITY_RUN_URL}" \
+            >/dev/null
 
       - name: Prepare prospective merge tree
         if: github.event_name == 'workflow_dispatch'
@@ -357,3 +376,37 @@ jobs:
             echo "| Integration | ${{ steps.integration.outcome }} |"
             echo "| E2E | ${{ steps.e2e.outcome }} |"
           } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Publish Quality Gate result
+        if: always() && github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          QUALITY_HEAD_SHA: ${{ inputs.head_sha }}
+          QUALITY_JOB_STATUS: ${{ job.status }}
+          QUALITY_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          case "${QUALITY_JOB_STATUS}" in
+            success)
+              state=success
+              description="Quality validation passed"
+              ;;
+            cancelled)
+              state=error
+              description="Quality validation was cancelled"
+              ;;
+            *)
+              state=failure
+              description="Quality validation failed"
+              ;;
+          esac
+
+          gh api \
+            --method POST \
+            "repos/${REPOSITORY}/statuses/${QUALITY_HEAD_SHA}" \
+            -f "state=${state}" \
+            -f context="Quality Gate" \
+            -f "description=${description}" \
+            -f target_url="${QUALITY_RUN_URL}" \
+            >/dev/null
