@@ -92,6 +92,14 @@ describe("CI auto-fix coverage", () => {
     );
 
     expect(autoFixWorkflow).toContain("name: Auto Fix");
+    expect(autoFixWorkflow).toContain("statuses: write");
+    expect(autoFixWorkflow).toContain('-f context="Quality Gate"');
+    expect(autoFixWorkflow).toContain(
+      '-f description="Waiting for Quality validation"',
+    );
+    expect(autoFixWorkflow).toContain(
+      '-f description="Failed to dispatch Quality"',
+    );
     expect(autoFixWorkflow).toContain("npm run lint:fix");
     expect(autoFixWorkflow).toContain("npm run prisma:format");
     expect(autoFixWorkflow).toContain(
@@ -146,6 +154,24 @@ describe("CI auto-fix coverage", () => {
     expect(handoffJob).not.toContain("actions/checkout");
 
     expect(qualityWorkflow).toContain("\n  pull_request:\n");
+    expect(qualityWorkflow).toContain("statuses: write");
+    expect(qualityWorkflow).toContain("Mark Quality Gate running");
+    expect(qualityWorkflow).toContain(
+      '-f description="Quality validation is running"',
+    );
+    expect(qualityWorkflow).toContain("Publish Quality Gate result");
+    expect(qualityWorkflow).toContain(
+      "if: always() && github.event_name == 'workflow_dispatch'",
+    );
+    expect(qualityWorkflow).toContain(
+      'QUALITY_JOB_STATUS: ${{ job.status }}',
+    );
+    expect(qualityWorkflow).toContain(
+      'description="Quality validation passed"',
+    );
+    expect(qualityWorkflow).toContain(
+      'description="Quality validation failed"',
+    );
     expect(qualityWorkflow).toContain(
       "github.event.pull_request.head.repo.full_name != github.repository",
     );
