@@ -128,6 +128,106 @@ describe("MVP critical API integration", () => {
     await app.close();
   });
 
+  it("batch fetches only the authenticated user's requested recipes", async () => {
+    const app = buildApi({
+      prisma: context.prisma,
+      authVerifier: auth,
+      firebaseUsers: noOpFirebase,
+      taskQueue: noOpQueue,
+    });
+    const ownerHeaders = headers("batch-owner-user");
+    const otherHeaders = headers("batch-other-user");
+    const create = async (
+      userHeaders: Record<string, string>,
+      suffix: string,
+    ) =>
+      app.inject({
+        method: "POST",
+        url: "/v1/recipes",
+        headers: userHeaders,
+        payload: { url: `https://example.com/batch-${suffix}` },
+      });
+
+    const ownA = await create(ownerHeaders, "own-a");
+    const ownB = await create(ownerHeaders, "own-b");
+    const other = await create(otherHeaders, "other");
+    const response = await app.inject({
+      method: "POST",
+      url: "/v1/recipes/batch-get",
+      headers: ownerHeaders,
+      payload: {
+        ids: [
+          ownA.json().id,
+          other.json().id,
+          ownB.json().id,
+          "00000000-0000-0000-0000-000000000000",
+        ],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const recipes = response.json().recipes as Array<{
+      id: string;
+      originalUrl: string;
+      ingredients: unknown[];
+      steps: unknown[];
+      tags: unknown[];
+    }>;
+    expect(new Set(recipes.map(({ id }) => id))).toEqual(
+      new Set([ownA.json().id, ownB.json().id]),
+    );
+    expect(recipes.every((recipe) => Array.isArray(recipe.ingredients))).toBe(
+      true,
+    );
+    expect(recipes.every((recipe) => Array.isArray(recipe.steps))).toBe(true);
+    expect(recipes.every((recipe) => Array.isArray(recipe.tags))).toBe(true);
+
+    expect(
+      (
+        await app.inject({
+          method: "POST",
+          url: "/v1/recipes/batch-get",
+          headers: ownerHeaders,
+          payload: { ids: [] },
+        })
+      ).statusCode,
+    ).toBe(422);
+    expect(
+      (
+        await app.inject({
+          method: "POST",
+          url: "/v1/recipes/batch-get",
+          headers: ownerHeaders,
+          payload: {
+            ids: Array(101).fill("00000000-0000-0000-0000-000000000000"),
+          },
+        })
+      ).statusCode,
+    ).toBe(422);
+    expect(
+      (
+        await app.inject({
+          method: "POST",
+          url: "/v1/recipes/batch-get",
+          headers: ownerHeaders,
+          payload: { ids: "not-an-array" },
+        })
+      ).statusCode,
+    ).toBe(422);
+    expect(
+      (
+        await app.inject({
+          method: "POST",
+          url: "/v1/recipes/batch-get",
+          headers: ownerHeaders,
+          payload: { ids: ["not-a-uuid"] },
+        })
+      ).statusCode,
+    ).toBe(422);
+
+    await app.close();
+  });
+
   it("blocks edits while analysis is pending or processing and allows completed or failed", async () => {
     const app = buildApi({
       prisma: context.prisma,

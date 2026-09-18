@@ -122,7 +122,7 @@ final class NotificationActivationTests: XCTestCase {
 
 @MainActor final class RecipeSynchronizationCoordinatorTests: XCTestCase {
   func testSilentSynchronizationDoesNotReportAnOperationError() async {
-    let coordinator = RecipeSynchronizationCoordinator { throw APIError.server }
+    let coordinator = RecipeSynchronizationCoordinator { _ in throw APIError.server }
     var reportedErrors = 0
     coordinator.onError = { _ in reportedErrors += 1 }
 
@@ -135,7 +135,7 @@ final class NotificationActivationTests: XCTestCase {
 
   func testCancellationStopsSynchronizationWithoutReportingAnError() async {
     let started = expectation(description: "Synchronization started")
-    let coordinator = RecipeSynchronizationCoordinator {
+    let coordinator = RecipeSynchronizationCoordinator { _ in
       started.fulfill()
       try await Task.sleep(for: .seconds(60))
     }

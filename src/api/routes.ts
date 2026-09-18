@@ -169,6 +169,37 @@ export function registerRoutes(
     };
   });
 
+  app.post(
+    "/v1/recipes/batch-get",
+    { preHandler: authAndUser(app) },
+    async (request) => {
+      const ids = asObject(request.body).ids;
+      const isUUID = (value: string) =>
+        /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(value);
+      if (
+        !Array.isArray(ids) ||
+        ids.length === 0 ||
+        ids.length > 100 ||
+        ids.some((id) => typeof id !== "string" || !isUUID(id))
+      ) {
+        throw new AppError(
+          422,
+          "VALIDATION_ERROR",
+          "ids must contain 1 to 100 recipe UUIDs",
+        );
+      }
+      const uniqueIds = [...new Set(ids as string[])];
+      const recipes = await deps.prisma.recipe.findMany({
+        where: {
+          userId: request.appUser.id,
+          id: { in: uniqueIds },
+        },
+        include: recipeInclude,
+      });
+      return { recipes: recipes.map(recipeDto) };
+    },
+  );
+
   app.get(
     "/v1/recipes/:recipeId",
     { preHandler: authAndUser(app) },
