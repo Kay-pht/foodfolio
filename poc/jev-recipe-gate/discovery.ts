@@ -323,15 +323,19 @@ function caseId(site: SiteDefinition, url: URL): string {
   return `discovered-${site.id}-${digest}`;
 }
 
-export function isKnownRecipeUrl(value: string): boolean {
+export function classifyKnownUrl(value: string): DiscoveredCase | null {
   let url: URL;
   try {
     url = new URL(value);
   } catch {
-    return false;
+    return null;
   }
   const site = SITE_DEFINITIONS.find(({ origin }) => origin === url.origin);
-  return site?.isRecipePath(url.pathname) ?? false;
+  return site ? classifyUrl(site, url) : null;
+}
+
+export function isKnownRecipeUrl(value: string): boolean {
+  return classifyKnownUrl(value)?.kind === "recipe";
 }
 
 function classifyUrl(
