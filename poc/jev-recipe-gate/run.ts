@@ -20,11 +20,13 @@ import {
   classifyRecipeContent,
   DEFAULT_JEV_MODEL,
   JEV_INPUT_USD_PER_MILLION,
+  jevHttpAttemptsFromError,
   type JevRecipeClassification,
 } from "./jev.js";
 import {
   DEFAULT_REJECT_THRESHOLDS,
   evaluateThresholds,
+  historicalEstimatedCostAfterRefresh,
   type JevGateObservation,
 } from "./metrics.js";
 
@@ -108,6 +110,7 @@ interface ResultState {
   pricing: {
     inputUsdPerMillionTokens: number;
     outputUsdPerMillionTokens: number;
+    historicalEstimatedCostUsd: number;
     totalEstimatedCostUsd: number;
   };
   rejectionRule: string;
@@ -284,6 +287,15 @@ function observationsFromCompletedCases(
     );
 }
 
+function currentRunEstimatedCostUsd(cases: CaseResult[]): number {
+  return cases.reduce(
+    (caseTotal, item) =>
+      caseTotal +
+      item.runs.reduce((runTotal, run) => runTotal + run.estimatedCostUsd, 0),
+    0,
+  );
+}
+
 function updateDerivedState(state: ResultState): void {
   const completedCases = state.cases.filter(
     ({ runs, error }) => error === null && runs.length >= state.repetitions,
@@ -296,12 +308,9 @@ function updateDerivedState(state: ResultState): void {
     observationsFromCompletedCases(state.cases, state.repetitions),
     state.thresholds,
   );
-  const totalEstimatedCostUsd = state.cases.reduce(
-    (caseTotal, item) =>
-      caseTotal +
-      item.runs.reduce((runTotal, run) => runTotal + run.estimatedCostUsd, 0),
-    0,
-  );
+  const totalEstimatedCostUsd =
+    state.pricing.historicalEstimatedCostUsd +
+    currentRunEstimatedCostUsd(state.cases);
 
   state.fixtureCount = state.cases.length;
   state.completedCaseCount = completedCases.length;
@@ -359,6 +368,10 @@ async function readState(): Promise<ResultState | null> {
         `Existing Jev result state uses an unsupported schema. Run with JEV_POC_RESET=1 to rebuild ${path.relative(root, outputPath)}.`,
       );
     }
+    if (!parsed.pricing) {
+      throw new Error("Existing Jev result state is missing pricing metadata");
+    }
+    parsed.pricing.historicalEstimatedCostUsd ??= 0;
     return parsed as ResultState;
   } catch (error) {
     if (
@@ -404,6 +417,7 @@ function emptyState(
     pricing: {
       inputUsdPerMillionTokens: JEV_INPUT_USD_PER_MILLION,
       outputUsdPerMillionTokens: 0,
+      historicalEstimatedCostUsd: 0,
       totalEstimatedCostUsd: 0,
     },
     rejectionRule:
@@ -531,6 +545,13 @@ async function discoverCorpus(
   const validated = [...recipeCases, ...nonRecipeCases];
   state.cases = validated.map(storedCaseFromValidated);
   mergePreviousRuns(state.cases, previous);
+  if (previous) {
+    state.pricing.historicalEstimatedCostUsd =
+      historicalEstimatedCostAfterRefresh(
+        previous.pricing.totalEstimatedCostUsd,
+        currentRunEstimatedCostUsd(state.cases),
+      );
+  }
   state.corpusQuality = evaluateCorpusQuality(
     validated.map(({ fixture }) => fixture),
     state.corpusPolicy.targetPerKind,
@@ -731,6 +752,7 @@ for (const caseId of selectedCaseIds) {
         `${classification.choice} p(non_recipe)=${classification.nonRecipeProbability.toFixed(4)} confidence=${classification.confidence.toFixed(4)} ${classification.elapsedMs}ms cost=$${classification.estimatedCostUsd.toFixed(6)}`,
       );
     } catch (error) {
+      batch.httpAttempts += jevHttpAttemptsFromError(error);
       const message = error instanceof Error ? error.message : String(error);
       batch.error = `Jev evaluation failed for ${item.id}: ${message}`;
       batch.retryCaseId = item.id;
