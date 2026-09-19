@@ -81,6 +81,9 @@ requirements:
       - poc/jev-recipe-gate/README.md
 
 edge_cases:
+  - Corpus discovery cannot find enough validated URLs to satisfy the 500/500 target.
+  - One source site contributes more than 40 percent of either label.
+  - Different discovered URLs redirect to the same final URL or yield identical extracted content.
   - A recipe receives one anomalously high non_recipe probability across repeated runs.
   - A non-recipe page resembles recipe content because it is a recipe index, cooking article, category, search page, or food site home page.
   - Multiple discovered URLs redirect to the same final URL.
@@ -122,6 +125,7 @@ acceptance_criteria:
   - The local PoC refuses to classify a corpus smaller than 300 recipe and 300 non-recipe URLs.
   - At least 200 non-recipe cases are recipe-adjacent hard negatives.
   - Corpus uniqueness and site-diversity gates pass before Jev requests start.
+  - At least 350 non-recipe URLs are hard negatives from recipe-adjacent pages and no single site exceeds 40 percent of either label.
   - Results distinguish non_recipe probability from Jev confidence.
   - Repeated-run threshold metrics expose recipe false-reject risk and consistent non-recipe reject coverage.
   - Live-run evidence records cost and latency without committing raw fetched page content.
