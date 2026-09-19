@@ -271,14 +271,10 @@ describe("Jev recipe gate corpus policy", () => {
 
   it("recognizes the explicit recipe URL patterns used for discovery", () => {
     expect(
-      isKnownRecipeUrl(
-        "https://delishkitchen.tv/recipes/378791542590013783",
-      ),
+      isKnownRecipeUrl("https://delishkitchen.tv/recipes/378791542590013783"),
     ).toBe(true);
     expect(
-      isKnownRecipeUrl(
-        "https://oceans-nadia.com/user/11285/recipe/393839",
-      ),
+      isKnownRecipeUrl("https://oceans-nadia.com/user/11285/recipe/393839"),
     ).toBe(true);
     expect(
       isKnownRecipeUrl(
@@ -305,12 +301,9 @@ describe("Jev recipe gate corpus policy", () => {
       discoverySite: "kyounoryouri",
       negativeTier: "hard",
     });
-    expect(
-      classifyKnownUrl("https://delishkitchen.tv/company"),
-    ).toBeNull();
+    expect(classifyKnownUrl("https://delishkitchen.tv/company")).toBeNull();
   });
 });
-
 
 describe("Jev recipe gate batch selection", () => {
   it("defaults to and caps one run at 100 URLs", () => {
@@ -367,8 +360,7 @@ describe("Jev recipe gate batch selection", () => {
       ...Array.from({ length: 150 }, (_, index) => ({
         id: `fresh-${index}`,
         expected: (index % 2 === 0 ? "recipe" : "non-recipe") as
-          | "recipe"
-          | "non-recipe",
+          "recipe" | "non-recipe",
         completedRuns: 0,
         hasTerminalError: false,
       })),

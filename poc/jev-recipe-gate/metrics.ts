@@ -1,6 +1,4 @@
-export const DEFAULT_REJECT_THRESHOLDS = [
-  0.8, 0.9, 0.95, 0.98, 0.99,
-] as const;
+export const DEFAULT_REJECT_THRESHOLDS = [0.8, 0.9, 0.95, 0.98, 0.99] as const;
 
 export type ExpectedRecipeKind = "recipe" | "non-recipe";
 
@@ -45,10 +43,7 @@ function summarizeCases(
   const cases = new Map<string, CaseProbabilitySummary>();
 
   for (const observation of observations) {
-    assertProbability(
-      observation.nonRecipeProbability,
-      "nonRecipeProbability",
-    );
+    assertProbability(observation.nonRecipeProbability, "nonRecipeProbability");
     const existing = cases.get(observation.id);
     if (existing) {
       if (existing.expected !== observation.expected) {

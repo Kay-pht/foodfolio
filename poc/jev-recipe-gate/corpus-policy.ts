@@ -48,8 +48,9 @@ export function evaluateCorpusQuality(
   const hardNegativeCount = nonRecipe.filter(
     ({ negativeTier }) => negativeTier === "hard",
   ).length;
-  const recipeSiteCount = new Set(recipe.map(({ discoverySite }) => discoverySite))
-    .size;
+  const recipeSiteCount = new Set(
+    recipe.map(({ discoverySite }) => discoverySite),
+  ).size;
   const nonRecipeSiteCount = new Set(
     nonRecipe.map(({ discoverySite }) => discoverySite),
   ).size;

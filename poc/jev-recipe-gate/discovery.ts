@@ -1,9 +1,6 @@
 import { createHash } from "node:crypto";
 import * as cheerio from "cheerio";
-import type {
-  SourceName,
-  UrlCase,
-} from "../url-extraction/types.js";
+import type { SourceName, UrlCase } from "../url-extraction/types.js";
 
 const DISCOVERY_TIMEOUT_MS = 20_000;
 const MAX_DISCOVERY_PAGES_PER_SITE = 80;
@@ -11,10 +8,7 @@ const MAX_DISCOVERED_CASES_PER_KIND = 2_000;
 const USER_AGENT =
   "foodfolio-poc/1.0 (+https://github.com/Kay-pht/foodfolio; recipe-gate-validation)";
 
-type FetchLike = (
-  input: string | URL,
-  init?: RequestInit,
-) => Promise<Response>;
+type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
 export type NegativeTier = "hard" | "easy";
 
@@ -56,13 +50,9 @@ const SITE_DEFINITIONS: SiteDefinition[] = [
     id: "sirogohan",
     source: "general-web",
     origin: "https://www.sirogohan.com",
-    seeds: [
-      "https://www.sirogohan.com/",
-      "https://www.sirogohan.com/recipe/",
-    ],
+    seeds: ["https://www.sirogohan.com/", "https://www.sirogohan.com/recipe/"],
     isRecipePath: (pathname) =>
-      /^\/recipe\/[^/]+\/?$/u.test(pathname) &&
-      pathname !== "/recipe/",
+      /^\/recipe\/[^/]+\/?$/u.test(pathname) && pathname !== "/recipe/",
     negativeTier: (pathname) =>
       pathname === "/" ? "easy" : pathname === "/recipe/" ? "hard" : null,
   },
@@ -74,8 +64,7 @@ const SITE_DEFINITIONS: SiteDefinition[] = [
       "https://park.ajinomoto.co.jp/recipe/",
       "https://park.ajinomoto.co.jp/",
     ],
-    isRecipePath: (pathname) =>
-      /^\/recipe\/card\/\d+\/?$/u.test(pathname),
+    isRecipePath: (pathname) => /^\/recipe\/card\/\d+\/?$/u.test(pathname),
     negativeTier: (pathname) =>
       pathname === "/"
         ? "easy"
@@ -109,14 +98,11 @@ const SITE_DEFINITIONS: SiteDefinition[] = [
     source: "cookpad",
     origin: "https://cookpad.com",
     seeds: ["https://cookpad.com/jp", "https://cookpad.com/jp/search"],
-    isRecipePath: (pathname) =>
-      /^\/jp\/recipes\/\d+\/?$/u.test(pathname),
+    isRecipePath: (pathname) => /^\/jp\/recipes\/\d+\/?$/u.test(pathname),
     negativeTier: (pathname) =>
       pathname === "/jp" || pathname === "/jp/"
         ? "hard"
-        : /^\/jp\/(?:search|categories|articles|topics)(?:\/|$)/u.test(
-              pathname,
-            )
+        : /^\/jp\/(?:search|categories|articles|topics)(?:\/|$)/u.test(pathname)
           ? "hard"
           : null,
   },
@@ -129,14 +115,11 @@ const SITE_DEFINITIONS: SiteDefinition[] = [
       "https://delishkitchen.tv/categories",
       "https://delishkitchen.tv/curations",
     ],
-    isRecipePath: (pathname) =>
-      /^\/recipes\/\d+\/?$/u.test(pathname),
+    isRecipePath: (pathname) => /^\/recipes\/\d+\/?$/u.test(pathname),
     negativeTier: (pathname) =>
       pathname === "/"
         ? "easy"
-        : /^\/(?:categories|curations|articles|search)(?:\/|$)/u.test(
-              pathname,
-            )
+        : /^\/(?:categories|curations|articles|search)(?:\/|$)/u.test(pathname)
           ? "hard"
           : null,
   },
@@ -144,12 +127,8 @@ const SITE_DEFINITIONS: SiteDefinition[] = [
     id: "nadia",
     source: "general-web",
     origin: "https://oceans-nadia.com",
-    seeds: [
-      "https://oceans-nadia.com/",
-      "https://oceans-nadia.com/recipe",
-    ],
-    isRecipePath: (pathname) =>
-      /^\/user\/\d+\/recipe\/\d+\/?$/u.test(pathname),
+    seeds: ["https://oceans-nadia.com/", "https://oceans-nadia.com/recipe"],
+    isRecipePath: (pathname) => /^\/user\/\d+\/recipe\/\d+\/?$/u.test(pathname),
     negativeTier: (pathname) =>
       pathname === "/"
         ? "easy"
@@ -165,8 +144,7 @@ const SITE_DEFINITIONS: SiteDefinition[] = [
       "https://www.kyounoryouri.jp/",
       "https://www.kyounoryouri.jp/recipe",
     ],
-    isRecipePath: (pathname) =>
-      /^\/recipe\/\d+_.+\.html$/u.test(pathname),
+    isRecipePath: (pathname) => /^\/recipe\/\d+_.+\.html$/u.test(pathname),
     negativeTier: (pathname) =>
       pathname === "/"
         ? "easy"
@@ -313,13 +291,14 @@ function normalizedUrl(value: string, base: string): URL | null {
 }
 
 function stableRank(url: string): string {
-  return createHash("sha256")
-    .update(`jev-recipe-gate-v2:${url}`)
-    .digest("hex");
+  return createHash("sha256").update(`jev-recipe-gate-v2:${url}`).digest("hex");
 }
 
 function caseId(site: SiteDefinition, url: URL): string {
-  const digest = createHash("sha256").update(url.href).digest("hex").slice(0, 12);
+  const digest = createHash("sha256")
+    .update(url.href)
+    .digest("hex")
+    .slice(0, 12);
   return `discovered-${site.id}-${digest}`;
 }
 
@@ -338,10 +317,7 @@ export function isKnownRecipeUrl(value: string): boolean {
   return classifyKnownUrl(value)?.kind === "recipe";
 }
 
-function classifyUrl(
-  site: SiteDefinition,
-  url: URL,
-): DiscoveredCase | null {
+function classifyUrl(site: SiteDefinition, url: URL): DiscoveredCase | null {
   if (url.origin !== site.origin) return null;
   if (site.isRecipePath(url.pathname)) {
     return {
@@ -452,9 +428,7 @@ async function discoverSite(
   return [...cases.values()];
 }
 
-function deduplicate(
-  cases: DiscoveredCase[],
-): DiscoveredCase[] {
+function deduplicate(cases: DiscoveredCase[]): DiscoveredCase[] {
   const byUrl = new Map<string, DiscoveredCase>();
   for (const item of cases) {
     if (!byUrl.has(item.url)) byUrl.set(item.url, item);
@@ -462,9 +436,7 @@ function deduplicate(
   return [...byUrl.values()];
 }
 
-function interleaveBySite(
-  cases: DiscoveredCase[],
-): DiscoveredCase[] {
+function interleaveBySite(cases: DiscoveredCase[]): DiscoveredCase[] {
   const buckets = new Map<string, DiscoveredCase[]>();
   for (const item of cases) {
     const bucket = buckets.get(item.discoverySite) ?? [];

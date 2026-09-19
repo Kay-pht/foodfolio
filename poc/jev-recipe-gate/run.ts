@@ -2,10 +2,7 @@ import "dotenv/config";
 import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
-import {
-  parseBatchSize,
-  selectBatchCaseIds,
-} from "./batch.js";
+import { parseBatchSize, selectBatchCaseIds } from "./batch.js";
 import {
   DEFAULT_TARGET_PER_KIND,
   evaluateCorpusQuality,
@@ -37,10 +34,7 @@ const MAX_REPETITIONS = 10;
 const MIN_INPUT_CHARS = 100;
 const root = process.cwd();
 const resultsDirectory = path.join(root, "poc/results");
-const outputPath = path.join(
-  resultsDirectory,
-  "jev-recipe-gate-results.json",
-);
+const outputPath = path.join(resultsDirectory, "jev-recipe-gate-results.json");
 
 interface ExtractionSummary {
   ok: boolean;
@@ -132,11 +126,7 @@ interface ResultState {
 
 function parseRepetitions(value: string | undefined): number {
   const parsed = Number(value ?? DEFAULT_REPETITIONS);
-  if (
-    !Number.isInteger(parsed) ||
-    parsed < 1 ||
-    parsed > MAX_REPETITIONS
-  ) {
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > MAX_REPETITIONS) {
     throw new Error(
       `JEV_POC_REPETITIONS must be an integer from 1 to ${MAX_REPETITIONS}`,
     );
@@ -309,10 +299,7 @@ function updateDerivedState(state: ResultState): void {
   const totalEstimatedCostUsd = state.cases.reduce(
     (caseTotal, item) =>
       caseTotal +
-      item.runs.reduce(
-        (runTotal, run) => runTotal + run.estimatedCostUsd,
-        0,
-      ),
+      item.runs.reduce((runTotal, run) => runTotal + run.estimatedCostUsd, 0),
     0,
   );
 
@@ -477,9 +464,7 @@ function mergePreviousRuns(
     ) {
       continue;
     }
-    if (
-      old.extraction?.textSha256 === item.extraction?.textSha256
-    ) {
+    if (old.extraction?.textSha256 === item.extraction?.textSha256) {
       item.runs = old.runs;
     }
     item.error = null;
@@ -597,17 +582,9 @@ if (state) {
 let preparedCases = new Map<string, ValidatedCase>();
 if (!state || refreshCorpus || state.corpusQuality === null) {
   const previous = state;
-  state = emptyState(
-    model,
-    repetitions,
-    batchSize,
-    targetPerKind,
-    perSiteCap,
-  );
+  state = emptyState(model, repetitions, batchSize, targetPerKind, perSiteCap);
   await writeState(state);
-  console.log(
-    `checkpoint created: ${path.relative(root, outputPath)}`,
-  );
+  console.log(`checkpoint created: ${path.relative(root, outputPath)}`);
   preparedCases = await discoverCorpus(state, previous);
 } else {
   state.batchSize = batchSize;
@@ -648,9 +625,7 @@ if (selectedCaseIds.length === 0) {
   };
   await writeState(state);
 
-  console.log(
-    `No pending cases. results: ${path.relative(root, outputPath)}`,
-  );
+  console.log(`No pending cases. results: ${path.relative(root, outputPath)}`);
   if (!state.technicalComplete) {
     console.log(
       "All currently validated cases are exhausted, but the final corpus/evidence gate is incomplete. Improve discovery and rerun with JEV_POC_REFRESH_CORPUS=1.",

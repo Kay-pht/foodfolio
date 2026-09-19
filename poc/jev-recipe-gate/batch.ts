@@ -27,7 +27,11 @@ export function selectBatchCaseIds(
   if (!Number.isInteger(repetitions) || repetitions < 1) {
     throw new Error("repetitions must be a positive integer");
   }
-  if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > MAX_BATCH_SIZE) {
+  if (
+    !Number.isInteger(batchSize) ||
+    batchSize < 1 ||
+    batchSize > MAX_BATCH_SIZE
+  ) {
     throw new Error(`batchSize must be from 1 to ${MAX_BATCH_SIZE}`);
   }
 

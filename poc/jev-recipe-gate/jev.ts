@@ -7,10 +7,7 @@ const RETRYABLE_STATUS = new Set([429, 529]);
 export const DEFAULT_JEV_MODEL = "jev-1.13.0";
 export const JEV_INPUT_USD_PER_MILLION = 0.042;
 
-type FetchLike = (
-  input: string | URL,
-  init?: RequestInit,
-) => Promise<Response>;
+type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
 type SleepLike = (delayMs: number) => Promise<void>;
 
@@ -236,8 +233,7 @@ export async function classifyRecipeContent(
     confidence: probability(answer.confidence, "answer.confidence"),
     inputTokens,
     outputTokens,
-    estimatedCostUsd:
-      (inputTokens * JEV_INPUT_USD_PER_MILLION) / 1_000_000,
+    estimatedCostUsd: (inputTokens * JEV_INPUT_USD_PER_MILLION) / 1_000_000,
     elapsedMs: Date.now() - startedAt,
     attempts,
   };
