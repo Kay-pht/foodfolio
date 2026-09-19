@@ -83,6 +83,7 @@ interface BatchRecord {
   successfulClassifications: number;
   httpAttempts: number;
   estimatedCostUsd: number;
+  error: string | null;
   stopReason: "batch-limit" | "api-error" | "no-pending-cases" | null;
 }
 
@@ -626,6 +627,7 @@ if (selectedCaseIds.length === 0) {
     successfulClassifications: 0,
     httpAttempts: 0,
     estimatedCostUsd: 0,
+    error: null,
     stopReason: "no-pending-cases",
   };
   await writeState(state);
@@ -656,6 +658,7 @@ const batch: BatchRecord = {
   successfulClassifications: 0,
   httpAttempts: 0,
   estimatedCostUsd: 0,
+  error: null,
   stopReason: null,
 };
 state.lastBatch = batch;
@@ -694,6 +697,19 @@ for (const caseId of selectedCaseIds) {
     continue;
   }
 
+  if (
+    item.runs.length > 0 &&
+    item.extraction !== null &&
+    item.extraction.textSha256 !== validated.extraction.textSha256
+  ) {
+    item.error =
+      "re-extracted content changed after partial Jev evaluation; reset or refresh before continuing this URL";
+    batch.processedCaseIds.push(item.id);
+    await writeState(state);
+    console.log(`skip ${item.id}: ${item.error}`);
+    continue;
+  }
+
   item.extraction = validated.extraction;
 
   for (
@@ -724,7 +740,7 @@ for (const caseId of selectedCaseIds) {
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      item.error = `Jev evaluation failed: ${message}`;
+      batch.error = `Jev evaluation failed for ${item.id}: ${message}`;
       batch.stopReason = "api-error";
       await writeState(state);
       console.log(`ERROR ${message}`);
