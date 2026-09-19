@@ -1,7 +1,7 @@
 import type { NegativeTier } from "./discovery.js";
 
-export const DEFAULT_TARGET_PER_KIND = 300;
-export const MIN_HARD_NEGATIVE_COUNT = 200;
+export const DEFAULT_TARGET_PER_KIND = 500;
+export const MIN_HARD_NEGATIVE_COUNT = 350;
 export const MIN_DISTINCT_SITES_PER_KIND = 3;
 export const MAX_SITE_SHARE = 0.4;
 
