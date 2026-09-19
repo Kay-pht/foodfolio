@@ -217,6 +217,17 @@ function caseId(site: SiteDefinition, url: URL): string {
   return `discovered-${site.id}-${digest}`;
 }
 
+export function isKnownRecipeUrl(value: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  const site = SITE_DEFINITIONS.find(({ origin }) => origin === url.origin);
+  return site?.isRecipePath(url.pathname) ?? false;
+}
+
 function classifyUrl(
   site: SiteDefinition,
   url: URL,
@@ -387,25 +398,19 @@ export async function discoverJevGateCases(
   const unique = deduplicate(discovered);
   return {
     recipe: interleaveBySite(
-      unique
-        .filter(({ kind }) => kind === "recipe")
-        .slice(0, MAX_DISCOVERED_CASES_PER_KIND),
-    ),
+      unique.filter(({ kind }) => kind === "recipe"),
+    ).slice(0, MAX_DISCOVERED_CASES_PER_KIND),
     hardNegative: interleaveBySite(
-      unique
-        .filter(
-          ({ kind, negativeTier }) =>
-            kind === "non-recipe" && negativeTier === "hard",
-        )
-        .slice(0, MAX_DISCOVERED_CASES_PER_KIND),
-    ),
+      unique.filter(
+        ({ kind, negativeTier }) =>
+          kind === "non-recipe" && negativeTier === "hard",
+      ),
+    ).slice(0, MAX_DISCOVERED_CASES_PER_KIND),
     easyNegative: interleaveBySite(
-      unique
-        .filter(
-          ({ kind, negativeTier }) =>
-            kind === "non-recipe" && negativeTier === "easy",
-        )
-        .slice(0, MAX_DISCOVERED_CASES_PER_KIND),
-    ),
+      unique.filter(
+        ({ kind, negativeTier }) =>
+          kind === "non-recipe" && negativeTier === "easy",
+      ),
+    ).slice(0, MAX_DISCOVERED_CASES_PER_KIND),
   };
 }
