@@ -208,13 +208,13 @@ function normalizedUrl(value: string, base: string): URL | null {
 
 function stableRank(url: string): string {
   return createHash("sha256")
-    .update(`jev-recipe-gate-v2:\${url}`)
+    .update(`jev-recipe-gate-v2:${url}`)
     .digest("hex");
 }
 
 function caseId(site: SiteDefinition, url: URL): string {
   const digest = createHash("sha256").update(url.href).digest("hex").slice(0, 12);
-  return `discovered-\${site.id}-\${digest}`;
+  return `discovered-${site.id}-${digest}`;
 }
 
 function classifyUrl(
