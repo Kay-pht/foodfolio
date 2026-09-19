@@ -98,6 +98,7 @@ edge_cases:
   - Auto Fix fails before the validated dispatch point; Quality is not dispatched and no Quality Gate is created for an unstarted validation.
   - Quality dispatch fails after the pending gate is published; Auto Fix marks Quality Gate as error and fails rather than leaving a false success state.
   - A dispatched Quality run is cancelled before its final status update; the gate may remain pending, which is fail-closed because success is never published without completed validation.
+  - The base branch advances after a successful dispatched Quality run without changing the pull request head; the existing Quality Gate success remains attached to that head SHA and can therefore be stale relative to the new base. The gate represents the latest completed Quality result for that head, while pr:merge must recompute the current base/head merge tree and require a matching successful Quality proof before merging.
 
 security_invariants:
   - Automatic commits remain limited to pull requests whose head repository is the current repository.
@@ -107,7 +108,7 @@ security_invariants:
   - Quality dispatch validates the repository-owned pull request number, base SHA, head ref, and head SHA before trusting the run.
   - Direct pull_request Quality remains non-mutating, covers forks and non-Auto-Fix bot-authored PRs, and classifies PR authors by pull_request.user rather than event sender.
   - A skipped direct Quality path must not publish the required Quality / checks name.
-  - The statuses write permission is used only to publish the Quality Gate on repository-owned workflow_dispatch validation; direct pull_request and main-push paths must not write commit statuses.
+  - The statuses write permission is granted only to the workflow_dispatch Quality job used to publish Quality Gate; direct pull_request and main-push Quality jobs explicitly have statuses disabled and checkout without persisted credentials.
   - No additional write capability is introduced beyond Auto Fix's existing repository writes and the narrowly scoped commit-status publication required for Quality Gate.
   - A workflow_dispatch Quality run must publish its final Quality Gate result only after the dispatched PR context has been validated successfully.
 
@@ -125,7 +126,7 @@ non_functional:
   - A Ready non-Auto-Fix bot or fork pull request uses one non-mutating Quality runner and no Auto Fix runner.
   - Documentation validation must reuse the Quality runner rather than start an additional runner.
   - Quality remains single-runner and fail-fast.
-  - Quality Gate publication must not add a runner; status updates execute inside the existing Auto Fix and Quality jobs.
+  - Quality Gate publication must not add a runner; direct/push and workflow_dispatch Quality jobs are mutually exclusive and share the same step definition, so one Quality event starts at most one Quality runner.
 
 out_of_scope:
   - Reducing the number of pull requests by combining unrelated changes.
@@ -145,6 +146,7 @@ acceptance_criteria:
   - Direct pull_request Quality validates GitHub's pull request merge ref and records proof for that merge tree; proof reuse remains subject to trusted-run checks.
   - Only an actual Quality validation exposes the Quality / checks gate, and pr:merge verifies that result explicitly before merge.
   - Repository-owned human PRs publish a pending Quality Gate only after Auto Fix reaches the validated dispatch point, keep it pending while dispatched Quality runs, and publish success only after Quality completes successfully.
+  - Quality Gate success is scoped to the pull request head SHA and is not treated as proof that a later base revision was validated; pr:merge remains responsible for exact current base/head tree freshness.
   - Auto Fix failure does not create Quality Gate, while Quality dispatch or validation failures cannot leave a successful Quality Gate.
   - The standalone Documentation workflow is removed and its checks remain in Quality.
   - Auto Fix no longer re-dispatches itself or a Documentation workflow after writing a fix commit.
