@@ -2,9 +2,17 @@ import "dotenv/config";
 import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
-import cases from "./cases.json" with { type: "json" };
+import {
+  DEFAULT_TARGET_PER_KIND,
+  evaluateCorpusQuality,
+  MIN_HARD_NEGATIVE_COUNT,
+  siteCapForTarget,
+} from "./corpus-policy.js";
+import {
+  discoverJevGateCases,
+  type DiscoveredCase,
+} from "./discovery.js";
 import { extractUrl } from "../url-extraction/extract.js";
-import type { UrlCase } from "../url-extraction/types.js";
 import {
   classifyRecipeContent,
   DEFAULT_JEV_MODEL,
@@ -27,23 +35,35 @@ const outputPath = path.join(
   "jev-recipe-gate-results.json",
 );
 
+interface ExtractionSummary {
+  ok: boolean;
+  httpStatus: number;
+  finalUrl: string;
+  methods: string[];
+  textLength: number;
+  textSha256: string;
+  hasRecipeSignals: boolean;
+  jsonLdRecipeCount: number;
+}
+
+interface ValidatedCase {
+  fixture: DiscoveredCase;
+  extraction: ExtractionSummary;
+  pageContent: string;
+}
+
 interface CaseRun extends JevRecipeClassification {
   repetition: number;
 }
 
 interface CaseResult {
   id: string;
-  source: UrlCase["source"];
+  source: DiscoveredCase["source"];
   sourceUrl: string;
-  expected: UrlCase["kind"];
-  extraction: {
-    ok: boolean;
-    httpStatus: number;
-    finalUrl: string;
-    methods: string[];
-    textLength: number;
-    textSha256: string;
-  };
+  expected: DiscoveredCase["kind"];
+  discoverySite: string;
+  negativeTier: DiscoveredCase["negativeTier"];
+  extraction: ExtractionSummary;
   runs: CaseRun[];
   error: string | null;
 }
@@ -56,7 +76,7 @@ function parseRepetitions(value: string | undefined): number {
     parsed > MAX_REPETITIONS
   ) {
     throw new Error(
-      `JEV_POC_REPETITIONS must be an integer from 1 to ${MAX_REPETITIONS}`,
+      `JEV_POC_REPETITIONS must be an integer from 1 to \${MAX_REPETITIONS}`,
     );
   }
   return parsed;
@@ -93,6 +113,78 @@ function runSummary(runs: CaseRun[]) {
   };
 }
 
+function canUseSite(
+  fixture: DiscoveredCase,
+  siteCounts: Map<string, number>,
+  perSiteCap: number,
+): boolean {
+  return (siteCounts.get(fixture.discoverySite) ?? 0) < perSiteCap;
+}
+
+async function validateCandidate(
+  fixture: DiscoveredCase,
+): Promise<ValidatedCase | null> {
+  const extraction = await extractUrl(fixture);
+  const pageContent = extraction.aiInput.text.trim();
+  if (!extraction.http.ok || pageContent.length < MIN_INPUT_CHARS) return null;
+
+  if (fixture.kind === "recipe" && !extraction.evidence.hasRecipeSignals) {
+    return null;
+  }
+  if (
+    fixture.kind === "non-recipe" &&
+    extraction.jsonLdRecipes.length > 0
+  ) {
+    return null;
+  }
+
+  return {
+    fixture,
+    pageContent,
+    extraction: {
+      ok: true,
+      httpStatus: extraction.http.status,
+      finalUrl: extraction.finalUrl,
+      methods: extraction.evidence.extractionMethods,
+      textLength: pageContent.length,
+      textSha256: createHash("sha256").update(pageContent).digest("hex"),
+      hasRecipeSignals: extraction.evidence.hasRecipeSignals,
+      jsonLdRecipeCount: extraction.jsonLdRecipes.length,
+    },
+  };
+}
+
+async function validateCases(
+  candidates: DiscoveredCase[],
+  target: number,
+  siteCounts: Map<string, number>,
+  selected: ValidatedCase[],
+  perSiteCap: number,
+): Promise<void> {
+  for (const fixture of candidates) {
+    if (selected.length >= target) return;
+    if (!canUseSite(fixture, siteCounts, perSiteCap)) continue;
+
+    process.stdout.write(
+      `validate \${fixture.kind} \${fixture.discoverySite} \${fixture.id} ... `,
+    );
+    const validated = await validateCandidate(fixture);
+    if (!validated) {
+      console.log("skip");
+      continue;
+    }
+
+    selected.push(validated);
+    siteCounts.set(
+      fixture.discoverySite,
+      (siteCounts.get(fixture.discoverySite) ?? 0) + 1,
+    );
+    console.log(
+      `ok chars=\${validated.pageContent.length} selected=\${selected.length}/\${target}`,
+    );
+  }
+}
+
 const apiKey = process.env.TYPESAFE_API_KEY?.trim();
 if (!apiKey) {
   throw new Error(
@@ -102,52 +194,99 @@ if (!apiKey) {
 
 const repetitions = parseRepetitions(process.env.JEV_POC_REPETITIONS);
 const model = process.env.JEV_MODEL?.trim() || DEFAULT_JEV_MODEL;
-const urlCases = cases as UrlCase[];
+const targetPerKind = DEFAULT_TARGET_PER_KIND;
+const perSiteCap = siteCapForTarget(targetPerKind);
+
+console.log(
+  `discovering corpus: target recipe=\${targetPerKind}, non-recipe=\${targetPerKind}, hard-negative minimum=\${MIN_HARD_NEGATIVE_COUNT}, per-site cap=\${perSiteCap}`,
+);
+const discovered = await discoverJevGateCases();
+console.log(
+  `discovered candidates: recipe=\${discovered.recipe.length}, hard-negative=\${discovered.hardNegative.length}, easy-negative=\${discovered.easyNegative.length}`,
+);
+
+const recipeCases: ValidatedCase[] = [];
+const recipeSiteCounts = new Map<string, number>();
+await validateCases(
+  discovered.recipe,
+  targetPerKind,
+  recipeSiteCounts,
+  recipeCases,
+  perSiteCap,
+);
+
+const nonRecipeCases: ValidatedCase[] = [];
+const nonRecipeSiteCounts = new Map<string, number>();
+await validateCases(
+  discovered.hardNegative,
+  targetPerKind,
+  nonRecipeSiteCounts,
+  nonRecipeCases,
+  perSiteCap,
+);
+if (nonRecipeCases.length < targetPerKind) {
+  await validateCases(
+    discovered.easyNegative,
+    targetPerKind,
+    nonRecipeSiteCounts,
+    nonRecipeCases,
+    perSiteCap,
+  );
+}
+
+const corpus = [...recipeCases, ...nonRecipeCases];
+const corpusQuality = evaluateCorpusQuality(
+  corpus.map(({ fixture }) => fixture),
+  targetPerKind,
+);
+
+if (!corpusQuality.meetsDefaultTarget) {
+  await fs.mkdir(resultsDirectory, { recursive: true });
+  await fs.writeFile(
+    outputPath,
+    `${JSON.stringify(
+      {
+        generatedAt: new Date().toISOString(),
+        purpose:
+          "Evaluate whether Jev can safely reject clearly non-recipe HTML-derived content before the existing recipe extraction pipeline.",
+        technicalComplete: false,
+        phase: "corpus-validation",
+        corpusQuality,
+        discoveredCandidateCounts: {
+          recipe: discovered.recipe.length,
+          hardNegative: discovered.hardNegative.length,
+          easyNegative: discovered.easyNegative.length,
+        },
+        validatedCorpus: corpus.map(({ fixture, extraction }) => ({
+          ...fixture,
+          extraction,
+        })),
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  throw new Error(
+    `Jev PoC corpus does not meet the required 300/300 quality gate; recipe=\${corpusQuality.recipeCount}, non-recipe=\${corpusQuality.nonRecipeCount}, hard-negative=\${corpusQuality.hardNegativeCount}`,
+  );
+}
+
+console.log(
+  `corpus ready: recipe=\${corpusQuality.recipeCount}, non-recipe=\${corpusQuality.nonRecipeCount}, hard-negative=\${corpusQuality.hardNegativeCount}, zero-error 95% upper bound=\${(corpusQuality.zeroRecipeFalseRejectUpperBound95 * 100).toFixed(2)}%`,
+);
+
 const observations: JevGateObservation[] = [];
 const results: CaseResult[] = [];
 let totalEstimatedCostUsd = 0;
 
-await fs.mkdir(resultsDirectory, { recursive: true });
-
-for (const testCase of urlCases) {
-  process.stdout.write(`extract ${testCase.id} ... `);
-  const extraction = await extractUrl(testCase);
-  const pageContent = extraction.aiInput.text.trim();
-  const textSha256 = createHash("sha256").update(pageContent).digest("hex");
-  const extractionSummary = {
-    ok: extraction.http.ok && pageContent.length >= MIN_INPUT_CHARS,
-    httpStatus: extraction.http.status,
-    finalUrl: extraction.finalUrl,
-    methods: extraction.evidence.extractionMethods,
-    textLength: pageContent.length,
-    textSha256,
-  };
-
-  if (!extractionSummary.ok) {
-    const error = !extraction.http.ok
-      ? extraction.error ?? `HTTP ${extraction.http.status}`
-      : `extracted input shorter than ${MIN_INPUT_CHARS} characters`;
-    results.push({
-      id: testCase.id,
-      source: testCase.source,
-      sourceUrl: testCase.url,
-      expected: testCase.kind,
-      extraction: extractionSummary,
-      runs: [],
-      error,
-    });
-    console.log(`SKIP ${error}`);
-    continue;
-  }
-  console.log(
-    `ok chars=${pageContent.length} methods=${extractionSummary.methods.join(",")}`,
-  );
-
+for (const validated of corpus) {
+  const { fixture, extraction, pageContent } = validated;
   const runs: CaseRun[] = [];
   let caseError: string | null = null;
+
   for (let repetition = 1; repetition <= repetitions; repetition += 1) {
     process.stdout.write(
-      `  Jev ${repetition}/${repetitions} ${testCase.id} ... `,
+      `Jev \${repetition}/\${repetitions} \${fixture.kind} \${fixture.id} ... `,
     );
     try {
       const classification = await classifyRecipeContent(pageContent, {
@@ -157,28 +296,30 @@ for (const testCase of urlCases) {
       const run = { repetition, ...classification };
       runs.push(run);
       observations.push({
-        id: testCase.id,
-        expected: testCase.kind,
+        id: fixture.id,
+        expected: fixture.kind,
         repetition,
         nonRecipeProbability: classification.nonRecipeProbability,
       });
       totalEstimatedCostUsd += classification.estimatedCostUsd;
       console.log(
-        `${classification.choice} p(non_recipe)=${classification.nonRecipeProbability.toFixed(4)} confidence=${classification.confidence.toFixed(4)} ${classification.elapsedMs}ms`,
+        `\${classification.choice} p(non_recipe)=\${classification.nonRecipeProbability.toFixed(4)} confidence=\${classification.confidence.toFixed(4)} \${classification.elapsedMs}ms`,
       );
     } catch (error) {
       caseError = error instanceof Error ? error.message : String(error);
-      console.log(`ERROR ${caseError}`);
+      console.log(`ERROR \${caseError}`);
       break;
     }
   }
 
   results.push({
-    id: testCase.id,
-    source: testCase.source,
-    sourceUrl: testCase.url,
-    expected: testCase.kind,
-    extraction: extractionSummary,
+    id: fixture.id,
+    source: fixture.source,
+    sourceUrl: fixture.url,
+    expected: fixture.kind,
+    discoverySite: fixture.discoverySite,
+    negativeTier: fixture.negativeTier,
+    extraction,
     runs,
     error: caseError,
   });
@@ -191,6 +332,10 @@ const thresholdEvaluation = evaluateThresholds(
 const incompleteCaseIds = results
   .filter(({ runs }) => runs.length !== repetitions)
   .map(({ id }) => id);
+const technicalComplete = incompleteCaseIds.length === 0;
+const qualifiedCandidateThreshold = technicalComplete
+  ? thresholdEvaluation.fixtureSafeCandidateThreshold
+  : null;
 
 const payload = {
   generatedAt: new Date().toISOString(),
@@ -199,6 +344,12 @@ const payload = {
   modelRequested: model,
   repetitions,
   minimumInputCharacters: MIN_INPUT_CHARS,
+  corpusPolicy: {
+    targetPerKind,
+    minimumHardNegativeCount: MIN_HARD_NEGATIVE_COUNT,
+    perSiteCap,
+  },
+  corpusQuality,
   pricing: {
     inputUsdPerMillionTokens: JEV_INPUT_USD_PER_MILLION,
     outputUsdPerMillionTokens: 0,
@@ -207,37 +358,43 @@ const payload = {
   rejectionRule:
     "Reject only when probabilities.non_recipe is greater than or equal to the selected threshold. Jev confidence is recorded separately and is not used as the rejection threshold.",
   thresholds: [...DEFAULT_REJECT_THRESHOLDS],
-  fixtureCount: urlCases.length,
-  technicalComplete: incompleteCaseIds.length === 0,
+  fixtureCount: corpus.length,
+  technicalComplete,
   incompleteCaseIds,
   thresholdEvaluation,
+  qualifiedCandidateThreshold,
+  statisticalInterpretation:
+    "With 300 distinct recipe URLs and zero false rejects, the exact one-sided 95% upper bound for the underlying false-reject probability is approximately 1%. Repeated calls measure model stability but do not replace content diversity.",
   cases: results.map((result) => ({
     ...result,
     summary: runSummary(result.runs),
   })),
 };
 
+await fs.mkdir(resultsDirectory, { recursive: true });
 await fs.writeFile(outputPath, `${JSON.stringify(payload, null, 2)}\n`);
 
 console.log(
-  `\ncompleted: ${results.length} cases x ${repetitions} planned repetitions`,
+  `\ncompleted: \${results.length} distinct URLs x \${repetitions} planned repetitions`,
 );
 console.log(
-  `estimated Jev cost: $${totalEstimatedCostUsd.toFixed(6)}; results: ${path.relative(root, outputPath)}`,
+  `estimated Jev cost: $\${totalEstimatedCostUsd.toFixed(6)}; results: \${path.relative(root, outputPath)}`,
 );
-if (thresholdEvaluation.fixtureSafeCandidateThreshold === null) {
+if (qualifiedCandidateThreshold === null) {
   console.log(
-    "fixture-safe candidate threshold: none (do not enable hard rejection from this fixture set)",
+    technicalComplete
+      ? "fixture-safe candidate threshold: none (do not enable hard rejection)"
+      : "fixture-safe candidate threshold: unavailable because the run is incomplete",
   );
 } else {
   console.log(
-    `fixture-safe candidate threshold: ${thresholdEvaluation.fixtureSafeCandidateThreshold.toFixed(2)} (fixture-only; not production approval)`,
+    `fixture-safe candidate threshold: \${qualifiedCandidateThreshold.toFixed(2)} (fixture-only; not production approval)`,
   );
 }
 
-if (incompleteCaseIds.length > 0) {
+if (!technicalComplete) {
   console.error(
-    `PoC incomplete: ${incompleteCaseIds.length} case(s) did not finish all repetitions`,
+    `PoC incomplete: \${incompleteCaseIds.length} case(s) did not finish all repetitions`,
   );
   process.exitCode = 1;
 }
