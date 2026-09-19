@@ -107,7 +107,7 @@ security_invariants:
   - Quality dispatch validates the repository-owned pull request number, base SHA, head ref, and head SHA before trusting the run.
   - Direct pull_request Quality remains non-mutating, covers forks and non-Auto-Fix bot-authored PRs, and classifies PR authors by pull_request.user rather than event sender.
   - A skipped direct Quality path must not publish the required Quality / checks name.
-  - "statuses: write is used only to publish the Quality Gate on repository-owned workflow_dispatch validation; direct pull_request and main-push paths must not write commit statuses."
+  - The statuses write permission is used only to publish the Quality Gate on repository-owned workflow_dispatch validation; direct pull_request and main-push paths must not write commit statuses.
   - No additional write capability is introduced beyond Auto Fix's existing repository writes and the narrowly scoped commit-status publication required for Quality Gate.
   - A workflow_dispatch Quality run must publish its final Quality Gate result only after the dispatched PR context has been validated successfully.
 
