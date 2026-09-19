@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_TARGET_PER_KIND,
+  evaluateCorpusQuality,
+  zeroFailureUpperBound95,
+} from "../../poc/jev-recipe-gate/corpus-policy.js";
+import {
   classifyRecipeContent,
   JEV_INPUT_USD_PER_MILLION,
 } from "../../poc/jev-recipe-gate/jev.js";
@@ -148,5 +153,55 @@ describe("Jev recipe classifier", () => {
     >;
     expect(body.model).toBe("jev-1.13.0");
     expect(body.state).toEqual({ page_content: "page content" });
+  });
+});
+
+
+describe("Jev recipe gate corpus policy", () => {
+  it("uses 300 recipe URLs as the default content-diversity floor", () => {
+    expect(DEFAULT_TARGET_PER_KIND).toBe(300);
+    expect(zeroFailureUpperBound95(300)).toBeLessThan(0.01);
+    expect(zeroFailureUpperBound95(18)).toBeGreaterThan(0.15);
+  });
+
+  it("requires 300/300 cases, 200 hard negatives, and cross-site diversity", () => {
+    const recipe = Array.from({ length: 300 }, (_, index) => ({
+      kind: "recipe" as const,
+      discoverySite: `recipe-site-${index % 3}`,
+      negativeTier: null,
+    }));
+    const nonRecipe = Array.from({ length: 300 }, (_, index) => ({
+      kind: "non-recipe" as const,
+      discoverySite: `negative-site-${index % 3}`,
+      negativeTier: index < 200 ? ("hard" as const) : ("easy" as const),
+    }));
+
+    const quality = evaluateCorpusQuality([...recipe, ...nonRecipe]);
+
+    expect(quality.recipeCount).toBe(300);
+    expect(quality.nonRecipeCount).toBe(300);
+    expect(quality.hardNegativeCount).toBe(200);
+    expect(quality.recipeSiteCount).toBe(3);
+    expect(quality.nonRecipeSiteCount).toBe(3);
+    expect(quality.maxRecipeSiteShare).toBeLessThanOrEqual(0.4);
+    expect(quality.maxNonRecipeSiteShare).toBeLessThanOrEqual(0.4);
+    expect(quality.meetsDefaultTarget).toBe(true);
+  });
+
+  it("rejects a corpus dominated by one site even when raw counts are large", () => {
+    const recipe = Array.from({ length: 300 }, () => ({
+      kind: "recipe" as const,
+      discoverySite: "one-site",
+      negativeTier: null,
+    }));
+    const nonRecipe = Array.from({ length: 300 }, (_, index) => ({
+      kind: "non-recipe" as const,
+      discoverySite: `negative-site-${index % 3}`,
+      negativeTier: "hard" as const,
+    }));
+
+    expect(
+      evaluateCorpusQuality([...recipe, ...nonRecipe]).meetsDefaultTarget,
+    ).toBe(false);
   });
 });
