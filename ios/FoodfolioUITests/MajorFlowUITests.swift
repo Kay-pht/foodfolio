@@ -414,14 +414,19 @@ import XCTest
     expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: toggle)
     waitForExpectations(timeout: 3)
     XCTAssertEqual(toggle.value as? String, "オン")
-    toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+    toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5))
+      .press(forDuration: 0.1)
     expectation(for: NSPredicate(format: "value != %@", "オン"), evaluatedWith: toggle)
     waitForExpectations(timeout: 3)
 
     app.terminate()
     app.launch()
-    app.buttons["home.drawer"].tap()
-    app.buttons["drawer.account"].tap()
+    let drawer = app.buttons["home.drawer"]
+    XCTAssertTrue(drawer.waitForExistence(timeout: 5))
+    drawer.tap()
+    let account = app.buttons["drawer.account"]
+    XCTAssertTrue(account.waitForExistence(timeout: 3))
+    account.tap()
     XCTAssertTrue(app.staticTexts["email"].waitForExistence(timeout: 3))
     XCTAssertEqual(app.staticTexts["account.email"].label, "ui@example.com")
     XCTAssertFalse(app.staticTexts["password"].exists)
@@ -437,7 +442,8 @@ import XCTest
     XCTAssertTrue(app.staticTexts["account.email"].exists)
 
     app.buttons["account.logout"].tap()
-    app.alerts["ログアウト"].buttons["ログアウト"].tap()
+    XCTAssertTrue(logoutAlert.waitForExistence(timeout: 2))
+    logoutAlert.buttons["ログアウト"].tap()
     XCTAssertTrue(app.buttons["auth.google"].waitForExistence(timeout: 3))
   }
 }
