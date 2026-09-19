@@ -141,6 +141,7 @@ describe("Jev recipe classifier", () => {
     expect(result.choice).toBe("non_recipe");
     expect(result.nonRecipeProbability).toBe(0.97);
     expect(result.confidence).toBe(0.81);
+    expect(result.attempts).toBe(1);
     expect(result.estimatedCostUsd).toBe(
       (1000 * JEV_INPUT_USD_PER_MILLION) / 1_000_000,
     );
@@ -159,6 +160,46 @@ describe("Jev recipe classifier", () => {
     >;
     expect(body.model).toBe("jev-1.13.0");
     expect(body.state).toEqual({ page_content: "page content" });
+  });
+
+  it("retries 429 responses with bounded backoff before succeeding", async () => {
+    const delays: number[] = [];
+    let attempts = 0;
+    const result = await classifyRecipeContent("page content", {
+      apiKey: "test-key",
+      sleepImpl: async (delayMs) => {
+        delays.push(delayMs);
+      },
+      fetchImpl: async () => {
+        attempts += 1;
+        if (attempts === 1) {
+          return new Response("rate limited", {
+            status: 429,
+            headers: { "retry-after": "0.01" },
+          });
+        }
+        return new Response(
+          JSON.stringify({
+            model: "jev-1.13.0",
+            answers: {
+              recipe_classification: {
+                type: "choice",
+                choice: "recipe",
+                probabilities: { recipe: 0.99, non_recipe: 0.01 },
+                confidence: 0.98,
+              },
+            },
+            usage: { input_tokens: 500, output_tokens: 10 },
+          }),
+          { status: 200 },
+        );
+      },
+    });
+
+    expect(attempts).toBe(2);
+    expect(delays).toEqual([10]);
+    expect(result.attempts).toBe(2);
+    expect(result.choice).toBe("recipe");
   });
 });
 
