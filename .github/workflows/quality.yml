@@ -28,23 +28,29 @@ permissions:
   actions: read
   contents: read
   pull-requests: read
-  statuses: write
 
 jobs:
   checks:
-    name: ${{ github.event_name == 'pull_request' && !(github.event.pull_request.draft == false && (github.event.pull_request.head.repo.full_name != github.repository || (github.event.pull_request.user.type == 'Bot' && github.event.pull_request.user.login != 'kay-pht-auto-fix[bot]'))) && 'pr-gate-skipped' || 'checks' }}
+    name: ${{ github.event_name == 'workflow_dispatch' && 'dispatch-gate-skipped' || github.event_name == 'pull_request' && !(github.event.pull_request.draft == false && (github.event.pull_request.head.repo.full_name != github.repository || (github.event.pull_request.user.type == 'Bot' && github.event.pull_request.user.login != 'kay-pht-auto-fix[bot]'))) && 'pr-gate-skipped' || 'checks' }}
     if: >-
-      github.event_name != 'pull_request' ||
+      github.event_name != 'workflow_dispatch' &&
+      (github.event_name != 'pull_request' ||
       (github.event.pull_request.draft == false &&
       (github.event.pull_request.head.repo.full_name != github.repository ||
       (github.event.pull_request.user.type == 'Bot' &&
-      github.event.pull_request.user.login != 'kay-pht-auto-fix[bot]')))
+      github.event.pull_request.user.login != 'kay-pht-auto-fix[bot]'))))
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    steps:
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+      statuses: none
+    steps: &quality_steps
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
           ref: ${{ github.sha }}
 
       - name: Check direct main push policy
@@ -414,3 +420,15 @@ jobs:
             -f "description=${description}" \
             -f target_url="${QUALITY_RUN_URL}" \
             >/dev/null
+
+  dispatched-checks:
+    name: ${{ github.event_name == 'workflow_dispatch' && 'checks' || 'dispatch-gate-skipped' }}
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+      statuses: write
+    steps: *quality_steps
