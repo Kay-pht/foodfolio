@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_BATCH_SIZE,
+  MAX_BATCH_SIZE,
+  parseBatchSize,
+  selectBatchCaseIds,
+} from "../../poc/jev-recipe-gate/batch.js";
+import {
   DEFAULT_TARGET_PER_KIND,
   evaluateCorpusQuality,
   MIN_HARD_NEGATIVE_COUNT,
@@ -302,5 +308,106 @@ describe("Jev recipe gate corpus policy", () => {
     expect(
       classifyKnownUrl("https://delishkitchen.tv/company"),
     ).toBeNull();
+  });
+});
+
+
+describe("Jev recipe gate batch selection", () => {
+  it("defaults to and caps one run at 100 URLs", () => {
+    expect(DEFAULT_BATCH_SIZE).toBe(100);
+    expect(MAX_BATCH_SIZE).toBe(100);
+    expect(parseBatchSize(undefined)).toBe(100);
+    expect(() => parseBatchSize("101")).toThrow(
+      "JEV_POC_BATCH_SIZE must be an integer from 1 to 100",
+    );
+  });
+
+  it("selects at most 100 URLs and balances fresh recipe/non-recipe cases", () => {
+    const cases = [
+      ...Array.from({ length: 120 }, (_, index) => ({
+        id: `recipe-${index}`,
+        expected: "recipe" as const,
+        completedRuns: 0,
+        hasTerminalError: false,
+      })),
+      ...Array.from({ length: 120 }, (_, index) => ({
+        id: `non-recipe-${index}`,
+        expected: "non-recipe" as const,
+        completedRuns: 0,
+        hasTerminalError: false,
+      })),
+    ];
+
+    const selected = selectBatchCaseIds(cases, 3);
+    const selectedCases = cases.filter(({ id }) => selected.includes(id));
+
+    expect(selected).toHaveLength(100);
+    expect(
+      selectedCases.filter(({ expected }) => expected === "recipe"),
+    ).toHaveLength(50);
+    expect(
+      selectedCases.filter(({ expected }) => expected === "non-recipe"),
+    ).toHaveLength(50);
+  });
+
+  it("resumes partially completed URLs before selecting fresh cases", () => {
+    const cases = [
+      {
+        id: "partial-recipe",
+        expected: "recipe" as const,
+        completedRuns: 1,
+        hasTerminalError: false,
+      },
+      {
+        id: "partial-non-recipe",
+        expected: "non-recipe" as const,
+        completedRuns: 2,
+        hasTerminalError: false,
+      },
+      ...Array.from({ length: 150 }, (_, index) => ({
+        id: `fresh-${index}`,
+        expected: (index % 2 === 0 ? "recipe" : "non-recipe") as
+          | "recipe"
+          | "non-recipe",
+        completedRuns: 0,
+        hasTerminalError: false,
+      })),
+    ];
+
+    const selected = selectBatchCaseIds(cases, 3);
+
+    expect(selected).toHaveLength(100);
+    expect(selected.slice(0, 2)).toEqual([
+      "partial-recipe",
+      "partial-non-recipe",
+    ]);
+  });
+
+  it("skips fully completed and terminal-error URLs", () => {
+    const selected = selectBatchCaseIds(
+      [
+        {
+          id: "done",
+          expected: "recipe",
+          completedRuns: 3,
+          hasTerminalError: false,
+        },
+        {
+          id: "failed",
+          expected: "non-recipe",
+          completedRuns: 0,
+          hasTerminalError: true,
+        },
+        {
+          id: "pending",
+          expected: "recipe",
+          completedRuns: 0,
+          hasTerminalError: false,
+        },
+      ],
+      3,
+    );
+
+    expect(selected).toEqual(["pending"]);
   });
 });
