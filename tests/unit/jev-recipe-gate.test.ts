@@ -19,9 +19,11 @@ import {
 import {
   classifyRecipeContent,
   JEV_INPUT_USD_PER_MILLION,
+  jevHttpAttemptsFromError,
 } from "../../poc/jev-recipe-gate/jev.js";
 import {
   evaluateThresholds,
+  historicalEstimatedCostAfterRefresh,
   type JevGateObservation,
 } from "../../poc/jev-recipe-gate/metrics.js";
 
@@ -206,6 +208,60 @@ describe("Jev recipe classifier", () => {
     expect(delays).toEqual([10]);
     expect(result.attempts).toBe(2);
     expect(result.choice).toBe("recipe");
+  });
+
+  it("preserves HTTP attempt count when retryable failures exhaust", async () => {
+    let requests = 0;
+    let caught: unknown;
+
+    try {
+      await classifyRecipeContent("page content", {
+        apiKey: "test-key",
+        maxAttempts: 3,
+        sleepImpl: async () => {},
+        fetchImpl: async () => {
+          requests += 1;
+          return new Response("overloaded", { status: 529 });
+        },
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(requests).toBe(3);
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toContain("HTTP 529");
+    expect(jevHttpAttemptsFromError(caught)).toBe(3);
+  });
+
+  it("preserves HTTP attempt count when a successful response cannot be parsed", async () => {
+    let caught: unknown;
+
+    try {
+      await classifyRecipeContent("page content", {
+        apiKey: "test-key",
+        fetchImpl: async () => new Response("not-json", { status: 200 }),
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toContain("non-JSON");
+    expect(jevHttpAttemptsFromError(caught)).toBe(1);
+  });
+});
+
+describe("Jev recipe gate checkpoint accounting", () => {
+  it("carries forward spend that is no longer represented by refreshed cases", () => {
+    const historical = historicalEstimatedCostAfterRefresh(0.75, 0.25);
+
+    expect(historical).toBeCloseTo(0.5);
+    expect(historical + 0.25).toBeCloseTo(0.75);
+  });
+
+  it("never creates negative historical spend from floating-point drift", () => {
+    expect(historicalEstimatedCostAfterRefresh(0.1, 0.1000000000001)).toBe(0);
   });
 });
 
