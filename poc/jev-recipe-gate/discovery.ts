@@ -29,10 +29,8 @@ interface SiteDefinition {
   origin: string;
   seeds: string[];
   isRecipePath(pathname: string): boolean;
+  negativeTier(pathname: string): NegativeTier | null;
 }
-
-const RECIPE_ADJACENT_PATH =
-  /(recipe|homecook|cook|cooking|food|menu|ingredient|lists?|articles?|search|categor|tags?|theme|series|kitchen|kondate)/i;
 
 const SITE_DEFINITIONS: SiteDefinition[] = [
   {
@@ -47,6 +45,12 @@ const SITE_DEFINITIONS: SiteDefinition[] = [
     ],
     isRecipePath: (pathname) =>
       /^\/homecook\/search\/recipe\/\d+\/?$/u.test(pathname),
+    negativeTier: (pathname) =>
+      pathname === "/"
+        ? "easy"
+        : pathname.startsWith("/homecook/")
+          ? "hard"
+          : null,
   },
   {
     id: "sirogohan",
@@ -59,6 +63,8 @@ const SITE_DEFINITIONS: SiteDefinition[] = [
     isRecipePath: (pathname) =>
       /^\/recipe\/[^/]+\/?$/u.test(pathname) &&
       pathname !== "/recipe/",
+    negativeTier: (pathname) =>
+      pathname === "/" ? "easy" : pathname === "/recipe/" ? "hard" : null,
   },
   {
     id: "ajinomoto",
@@ -70,6 +76,12 @@ const SITE_DEFINITIONS: SiteDefinition[] = [
     ],
     isRecipePath: (pathname) =>
       /^\/recipe\/card\/\d+\/?$/u.test(pathname),
+    negativeTier: (pathname) =>
+      pathname === "/"
+        ? "easy"
+        : pathname.startsWith("/recipe")
+          ? "hard"
+          : null,
   },
   {
     id: "kurashiru",
@@ -83,6 +95,14 @@ const SITE_DEFINITIONS: SiteDefinition[] = [
     ],
     isRecipePath: (pathname) =>
       /^\/(?:recipes|recipe_cards)\/[0-9a-f-]+\/?$/iu.test(pathname),
+    negativeTier: (pathname) =>
+      pathname === "/"
+        ? "easy"
+        : /^\/(?:recipes|lists|articles|search|categories)(?:\/|$)/u.test(
+              pathname,
+            )
+          ? "hard"
+          : null,
   },
   {
     id: "cookpad",
@@ -91,6 +111,14 @@ const SITE_DEFINITIONS: SiteDefinition[] = [
     seeds: ["https://cookpad.com/jp", "https://cookpad.com/jp/search"],
     isRecipePath: (pathname) =>
       /^\/jp\/recipes\/\d+\/?$/u.test(pathname),
+    negativeTier: (pathname) =>
+      pathname === "/jp" || pathname === "/jp/"
+        ? "hard"
+        : /^\/jp\/(?:search|categories|articles|topics)(?:\/|$)/u.test(
+              pathname,
+            )
+          ? "hard"
+          : null,
   },
   {
     id: "delish-kitchen",
@@ -103,6 +131,14 @@ const SITE_DEFINITIONS: SiteDefinition[] = [
     ],
     isRecipePath: (pathname) =>
       /^\/recipes\/\d+\/?$/u.test(pathname),
+    negativeTier: (pathname) =>
+      pathname === "/"
+        ? "easy"
+        : /^\/(?:categories|curations|articles|search)(?:\/|$)/u.test(
+              pathname,
+            )
+          ? "hard"
+          : null,
   },
   {
     id: "nadia",
@@ -114,6 +150,12 @@ const SITE_DEFINITIONS: SiteDefinition[] = [
     ],
     isRecipePath: (pathname) =>
       /^\/user\/\d+\/recipe\/\d+\/?$/u.test(pathname),
+    negativeTier: (pathname) =>
+      pathname === "/"
+        ? "easy"
+        : /^\/(?:recipe|magazine)(?:\/|$)/u.test(pathname)
+          ? "hard"
+          : null,
   },
   {
     id: "kyounoryouri",
@@ -125,6 +167,12 @@ const SITE_DEFINITIONS: SiteDefinition[] = [
     ],
     isRecipePath: (pathname) =>
       /^\/recipe\/\d+_.+\.html$/u.test(pathname),
+    negativeTier: (pathname) =>
+      pathname === "/"
+        ? "easy"
+        : /^\/(?:recipe|feature|topic|articles?)(?:\/|$)/u.test(pathname)
+          ? "hard"
+          : null,
   },
 ];
 
@@ -167,6 +215,30 @@ const CURATED_CASES: DiscoveredCase[] = [
     url: "https://cookpad.com/jp/recipes/21712598",
     kind: "recipe",
     discoverySite: "cookpad",
+    negativeTier: null,
+  },
+  {
+    id: "curated-delish-378791542590013783",
+    source: "general-web",
+    url: "https://delishkitchen.tv/recipes/378791542590013783",
+    kind: "recipe",
+    discoverySite: "delish-kitchen",
+    negativeTier: null,
+  },
+  {
+    id: "curated-nadia-393839",
+    source: "general-web",
+    url: "https://oceans-nadia.com/user/11285/recipe/393839",
+    kind: "recipe",
+    discoverySite: "nadia",
+    negativeTier: null,
+  },
+  {
+    id: "curated-kyounoryouri-20758",
+    source: "general-web",
+    url: "https://www.kyounoryouri.jp/recipe/20758_%E3%83%9B%E3%82%A8%E3%83%BC%E3%81%AE%E3%81%A4%E3%81%8F%E3%82%8A%E6%96%B9.html",
+    kind: "recipe",
+    discoverySite: "kyounoryouri",
     negativeTier: null,
   },
   {
@@ -278,9 +350,8 @@ function classifyUrl(
     };
   }
 
-  const negativeTier: NegativeTier = RECIPE_ADJACENT_PATH.test(url.pathname)
-    ? "hard"
-    : "easy";
+  const negativeTier = site.negativeTier(url.pathname);
+  if (!negativeTier) return null;
   return {
     id: caseId(site, url),
     source: site.source,
@@ -294,6 +365,7 @@ function classifyUrl(
 function shouldCrawl(site: SiteDefinition, url: URL): boolean {
   if (url.origin !== site.origin) return false;
   if (site.isRecipePath(url.pathname)) return false;
+  if (!site.negativeTier(url.pathname)) return false;
   if (url.search.length > 120) return false;
   const segments = url.pathname.split("/").filter(Boolean);
   if (segments.length > 6) return false;
