@@ -76,7 +76,7 @@ function parseRepetitions(value: string | undefined): number {
     parsed > MAX_REPETITIONS
   ) {
     throw new Error(
-      `JEV_POC_REPETITIONS must be an integer from 1 to \${MAX_REPETITIONS}`,
+      `JEV_POC_REPETITIONS must be an integer from 1 to ${MAX_REPETITIONS}`,
     );
   }
   return parsed;
@@ -166,7 +166,7 @@ async function validateCases(
     if (!canUseSite(fixture, siteCounts, perSiteCap)) continue;
 
     process.stdout.write(
-      `validate \${fixture.kind} \${fixture.discoverySite} \${fixture.id} ... `,
+      `validate ${fixture.kind} ${fixture.discoverySite} ${fixture.id} ... `,
     );
     const validated = await validateCandidate(fixture);
     if (!validated) {
@@ -180,7 +180,7 @@ async function validateCases(
       (siteCounts.get(fixture.discoverySite) ?? 0) + 1,
     );
     console.log(
-      `ok chars=\${validated.pageContent.length} selected=\${selected.length}/\${target}`,
+      `ok chars=${validated.pageContent.length} selected=${selected.length}/${target}`,
     );
   }
 }
@@ -198,11 +198,11 @@ const targetPerKind = DEFAULT_TARGET_PER_KIND;
 const perSiteCap = siteCapForTarget(targetPerKind);
 
 console.log(
-  `discovering corpus: target recipe=\${targetPerKind}, non-recipe=\${targetPerKind}, hard-negative minimum=\${MIN_HARD_NEGATIVE_COUNT}, per-site cap=\${perSiteCap}`,
+  `discovering corpus: target recipe=${targetPerKind}, non-recipe=${targetPerKind}, hard-negative minimum=${MIN_HARD_NEGATIVE_COUNT}, per-site cap=${perSiteCap}`,
 );
 const discovered = await discoverJevGateCases();
 console.log(
-  `discovered candidates: recipe=\${discovered.recipe.length}, hard-negative=\${discovered.hardNegative.length}, easy-negative=\${discovered.easyNegative.length}`,
+  `discovered candidates: recipe=${discovered.recipe.length}, hard-negative=${discovered.hardNegative.length}, easy-negative=${discovered.easyNegative.length}`,
 );
 
 const recipeCases: ValidatedCase[] = [];
@@ -267,12 +267,12 @@ if (!corpusQuality.meetsDefaultTarget) {
     )}\n`,
   );
   throw new Error(
-    `Jev PoC corpus does not meet the required 300/300 quality gate; recipe=\${corpusQuality.recipeCount}, non-recipe=\${corpusQuality.nonRecipeCount}, hard-negative=\${corpusQuality.hardNegativeCount}`,
+    `Jev PoC corpus does not meet the required 300/300 quality gate; recipe=${corpusQuality.recipeCount}, non-recipe=${corpusQuality.nonRecipeCount}, hard-negative=${corpusQuality.hardNegativeCount}`,
   );
 }
 
 console.log(
-  `corpus ready: recipe=\${corpusQuality.recipeCount}, non-recipe=\${corpusQuality.nonRecipeCount}, hard-negative=\${corpusQuality.hardNegativeCount}, zero-error 95% upper bound=\${(corpusQuality.zeroRecipeFalseRejectUpperBound95 * 100).toFixed(2)}%`,
+  `corpus ready: recipe=${corpusQuality.recipeCount}, non-recipe=${corpusQuality.nonRecipeCount}, hard-negative=${corpusQuality.hardNegativeCount}, zero-error 95% upper bound=${(corpusQuality.zeroRecipeFalseRejectUpperBound95 * 100).toFixed(2)}%`,
 );
 
 const observations: JevGateObservation[] = [];
@@ -286,7 +286,7 @@ for (const validated of corpus) {
 
   for (let repetition = 1; repetition <= repetitions; repetition += 1) {
     process.stdout.write(
-      `Jev \${repetition}/\${repetitions} \${fixture.kind} \${fixture.id} ... `,
+      `Jev ${repetition}/${repetitions} ${fixture.kind} ${fixture.id} ... `,
     );
     try {
       const classification = await classifyRecipeContent(pageContent, {
@@ -303,11 +303,11 @@ for (const validated of corpus) {
       });
       totalEstimatedCostUsd += classification.estimatedCostUsd;
       console.log(
-        `\${classification.choice} p(non_recipe)=\${classification.nonRecipeProbability.toFixed(4)} confidence=\${classification.confidence.toFixed(4)} \${classification.elapsedMs}ms`,
+        `${classification.choice} p(non_recipe)=${classification.nonRecipeProbability.toFixed(4)} confidence=${classification.confidence.toFixed(4)} ${classification.elapsedMs}ms`,
       );
     } catch (error) {
       caseError = error instanceof Error ? error.message : String(error);
-      console.log(`ERROR \${caseError}`);
+      console.log(`ERROR ${caseError}`);
       break;
     }
   }
@@ -375,10 +375,10 @@ await fs.mkdir(resultsDirectory, { recursive: true });
 await fs.writeFile(outputPath, `${JSON.stringify(payload, null, 2)}\n`);
 
 console.log(
-  `\ncompleted: \${results.length} distinct URLs x \${repetitions} planned repetitions`,
+  `\ncompleted: ${results.length} distinct URLs x ${repetitions} planned repetitions`,
 );
 console.log(
-  `estimated Jev cost: $\${totalEstimatedCostUsd.toFixed(6)}; results: \${path.relative(root, outputPath)}`,
+  `estimated Jev cost: $${totalEstimatedCostUsd.toFixed(6)}; results: ${path.relative(root, outputPath)}`,
 );
 if (qualifiedCandidateThreshold === null) {
   console.log(
@@ -388,13 +388,13 @@ if (qualifiedCandidateThreshold === null) {
   );
 } else {
   console.log(
-    `fixture-safe candidate threshold: \${qualifiedCandidateThreshold.toFixed(2)} (fixture-only; not production approval)`,
+    `fixture-safe candidate threshold: ${qualifiedCandidateThreshold.toFixed(2)} (fixture-only; not production approval)`,
   );
 }
 
 if (!technicalComplete) {
   console.error(
-    `PoC incomplete: \${incompleteCaseIds.length} case(s) did not finish all repetitions`,
+    `PoC incomplete: ${incompleteCaseIds.length} case(s) did not finish all repetitions`,
   );
   process.exitCode = 1;
 }
