@@ -37,6 +37,25 @@ function assertProbability(value: number, field: string): void {
   }
 }
 
+export function historicalEstimatedCostAfterRefresh(
+  previousTotalEstimatedCostUsd: number,
+  retainedRunEstimatedCostUsd: number,
+): number {
+  for (const [field, value] of [
+    ["previousTotalEstimatedCostUsd", previousTotalEstimatedCostUsd],
+    ["retainedRunEstimatedCostUsd", retainedRunEstimatedCostUsd],
+  ] as const) {
+    if (!Number.isFinite(value) || value < 0) {
+      throw new Error(`${field} must be a finite non-negative number`);
+    }
+  }
+
+  return Math.max(
+    0,
+    previousTotalEstimatedCostUsd - retainedRunEstimatedCostUsd,
+  );
+}
+
 function summarizeCases(
   observations: JevGateObservation[],
 ): CaseProbabilitySummary[] {
