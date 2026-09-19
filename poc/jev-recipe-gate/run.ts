@@ -293,7 +293,7 @@ if (!corpusQuality.meetsDefaultTarget) {
     )}\n`,
   );
   throw new Error(
-    `Jev PoC corpus does not meet the required 300/300 quality gate; recipe=${corpusQuality.recipeCount}, non-recipe=${corpusQuality.nonRecipeCount}, hard-negative=${corpusQuality.hardNegativeCount}`,
+    `Jev PoC corpus does not meet the required 500/500 quality gate; recipe=${corpusQuality.recipeCount}, non-recipe=${corpusQuality.nonRecipeCount}, hard-negative=${corpusQuality.hardNegativeCount}`,
   );
 }
 
@@ -390,7 +390,7 @@ const payload = {
   thresholdEvaluation,
   qualifiedCandidateThreshold,
   statisticalInterpretation:
-    "With 300 distinct recipe URLs and zero false rejects, the exact one-sided 95% upper bound for the underlying false-reject probability is approximately 1%. Repeated calls measure model stability but do not replace content diversity.",
+    "With 500 distinct recipe URLs and zero false rejects, the exact one-sided 95% upper bound for the underlying false-reject probability is approximately 0.6%. Repeated calls measure model stability but do not replace content diversity.",
   cases: results.map((result) => ({
     ...result,
     summary: runSummary(result.runs),
