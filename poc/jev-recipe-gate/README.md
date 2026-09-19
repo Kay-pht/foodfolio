@@ -4,51 +4,140 @@
 
 Validate whether Jev can safely identify clearly non-recipe HTML-derived content before Foodfolio enters its existing recipe extraction and media-analysis pipeline.
 
-This PoC does **not** change production routing. It discovers a large labeled URL corpus, reuses the existing URL extraction PoC to produce the same bounded HTML-derived input, sends that input to Jev, and evaluates hard-reject thresholds offline from the returned probabilities.
+This PoC does **not** change production routing.
 
-## Corpus size
+## Corpus target
 
-The default corpus is:
+The final validation target remains:
 
 - 500 distinct recipe URLs
 - 500 distinct non-recipe URLs
-- at least 350 hard negatives from recipe-adjacent pages
+- at least 350 recipe-adjacent hard negatives
 - at least 3 discovery sites represented in each label
-- no single site may exceed 40% of either label
+- no single site above 40% of either label
 
-The discovery sources include multiple Japanese recipe sites. Recipe candidates must resolve to an explicit site-specific recipe route and still expose recipe signals after extraction. Non-recipe candidates come only from explicit site-specific non-recipe route families such as indexes, categories, lists, search results, features, or cooking articles.
+Candidate URLs are discovered from multiple Japanese recipe sites. Recipe and non-recipe labels use explicit source-specific URL families and are revalidated after fetching.
 
-Before Jev is called, the runner rejects:
+The runner excludes:
 
 - duplicate final URLs
 - duplicate extracted-text SHA-256 values
 - recipe candidates that no longer resolve to a known recipe route
-- non-recipe candidates that redirect to a known recipe route
-- non-recipe candidates that expose Recipe JSON-LD
-- corpora that fail the size, hard-negative, diversity, or site-concentration gates
+- non-recipe candidates that no longer resolve to an explicit known non-recipe route
+- non-recipe candidates exposing Recipe JSON-LD
 
-The large corpus is intentional. Repeating the same URL measures model stability; it does not replace content diversity.
+A corpus smaller than 500/500 can still be evaluated in batches. Its results are **provisional only** and can never produce a production-qualified candidate threshold.
 
-With 500 distinct recipe URLs and zero false rejects, the exact one-sided 95% binomial upper bound for the underlying false-reject probability is about 0.6%. This is only a scale reference for the PoC and is not proof of production accuracy.
+This means a run such as recipe=500 / non-recipe=370 is still useful evidence. The available 870 URLs can be evaluated without pretending that the final corpus quality gate has passed.
 
-## Repetitions and threshold evaluation
+## 100-URL batch execution
 
-Each validated URL is evaluated three times by default, for up to 3,000 Jev classifications.
+One invocation processes at most **100 distinct URLs**.
 
-The runner records:
+Each URL is evaluated three times by default, so one invocation performs at most:
 
-- Jev's selected `recipe` / `non_recipe` label
-- `probabilities.non_recipe`, which is the candidate production gate signal
-- Jev's separate `confidence` value
+```text
+100 URLs × 3 repetitions = 300 successful Jev classifications
+```
+
+The runner then stops normally. Run the same command again when you want the next batch.
+
+Fresh batches are balanced toward recipe/non-recipe 50/50 when both labels are available. A URL that was only partially completed before an interruption is resumed before fresh URLs are selected.
+
+The maximum URL batch size is hard-capped at 100. A smaller batch can be selected with:
+
+```bash
+JEV_POC_BATCH_SIZE=25 npm run poc:jev-gate
+```
+
+Values above 100 are rejected.
+
+## Checkpoint and resume
+
+The state/result file is:
+
+```text
+poc/results/jev-recipe-gate-results.json
+```
+
+It is created **before corpus discovery starts** and then replaced atomically as progress is saved.
+
+After Jev evaluation starts, a checkpoint is written after every successful classification, extraction failure, API failure, and completed URL. This means the next invocation can resume from the saved runs instead of starting over.
+
+The result file includes:
+
+- discovered and validated corpus counts
+- corpus quality status
+- exact evaluated URLs
+- completed/pending/failed URL counts
+- each repetition's recipe/non_recipe probabilities
+- Jev confidence
 - latency
-- input/output token counts
-- estimated Jev input cost
-- source site and negative tier
-- extraction method, text length, final URL, and text SHA-256
+- HTTP attempt count
+- input/output token usage
+- per-call and cumulative estimated cost
+- the last batch's selected/processed URL IDs
+- provisional and qualified threshold fields
 
-The extracted page body itself is not written to the result artifact.
+Raw extracted page content is never persisted. Only extraction metadata, text length, and SHA-256 are stored.
 
-The thresholds evaluated by default are:
+`poc/results/` is git-ignored.
+
+## First run
+
+Set the API key in the repository root `.env`:
+
+```env
+TYPESAFE_API_KEY=...
+```
+
+Run the deterministic tests:
+
+```bash
+npx vitest run tests/unit/jev-recipe-gate.test.ts
+```
+
+Then run the first batch:
+
+```bash
+npm run poc:jev-gate
+```
+
+The first invocation performs corpus discovery/validation, creates the checkpoint, and then evaluates at most 100 URLs.
+
+## Following batches
+
+Use exactly the same command:
+
+```bash
+npm run poc:jev-gate
+```
+
+The existing result file is loaded automatically. Fully completed URLs are skipped and the next batch of at most 100 URLs is selected.
+
+Continue only when you want to consume the next batch.
+
+## Reset and corpus refresh
+
+To discard all saved Jev evidence and start again:
+
+```bash
+JEV_POC_RESET=1 npm run poc:jev-gate
+```
+
+To rerun corpus discovery while preserving compatible Jev runs for URLs that still exist in the refreshed corpus:
+
+```bash
+JEV_POC_REFRESH_CORPUS=1 npm run poc:jev-gate
+```
+
+Corpus refresh is useful after adding more discovery sources or when the initial discovery cannot reach the final 500/500 target.
+
+Changing the model or repetition count while a checkpoint exists is rejected. Either keep the same settings or reset the checkpoint.
+
+## Threshold evaluation
+
+The default thresholds are:
 
 ```text
 0.80
@@ -58,70 +147,42 @@ The thresholds evaluated by default are:
 0.99
 ```
 
-A recipe URL is treated conservatively: if **any** repetition reaches the threshold for `non_recipe`, that URL is counted as a false-reject risk.
+A recipe URL is considered a false-reject risk if **any** completed repetition reaches the non_recipe threshold.
 
-A non-recipe URL is counted as consistently rejectable only when **every** repetition reaches the threshold.
+A non-recipe URL is consistently rejectable only when **every required repetition** reaches the threshold.
 
-The runner reports the lowest tested threshold that has:
+Threshold metrics only use URLs that completed all required repetitions. Partially completed URLs do not count as consistently rejectable.
 
-1. zero recipe false-reject URLs, and
-2. at least one consistently rejected non-recipe URL.
+The result contains:
 
-That value is only a corpus-level candidate. It is not production approval.
+- `provisionalCandidateThreshold`: calculated from the fully completed URLs so far
+- `qualifiedCandidateThreshold`: emitted only when the final corpus quality gate passes and every corpus URL completes all repetitions without terminal errors
 
-## Local run
+A provisional threshold must not be used to enable production hard rejection.
 
-Install dependencies and set the TypeSafe API key:
+## Failure behavior
 
-```bash
-npm ci
-export TYPESAFE_API_KEY="..."
-```
+A transient TypeSafe 429/529 is retried with bounded backoff.
 
-Run the deterministic unit proof first:
+If a Jev call still fails after retries, the runner:
 
-```bash
-npx vitest run tests/unit/jev-recipe-gate.test.ts
-```
+1. checkpoints the failure,
+2. immediately stops the current batch to avoid additional consumption,
+3. exits non-zero.
 
-Then run the live PoC:
+Extraction failures do not consume Jev calls; they are recorded and the batch can continue with other selected URLs.
 
-```bash
-npm run poc:jev-gate
-```
+If all currently validated URLs have been exhausted but the final 500/500 corpus target is still unmet, the runner reports that the evidence is incomplete. Improve discovery and run with `JEV_POC_REFRESH_CORPUS=1`.
 
-Optional model-stability check with more repetitions:
+## Cost interpretation
 
-```bash
-JEV_POC_REPETITIONS=5 JEV_MODEL=jev-1.13.0 npm run poc:jev-gate
-```
+Each successful Jev response contributes its reported input token usage to the estimated cost.
 
-The generated evidence is written to:
+The result file records both:
 
-```text
-poc/results/jev-recipe-gate-results.json
-```
+- `lastBatch.estimatedCostUsd`
+- `pricing.totalEstimatedCostUsd`
 
-`poc/results/` is already git-ignored.
+This allows cost and accuracy to be reviewed after every batch before deciding whether to run the next 100 URLs.
 
-If discovery cannot assemble a qualifying 500/500 corpus, the run stops before Jev classification and writes the corpus-validation evidence to the same result path.
-
-## How to decide the next step
-
-Review at least:
-
-- `corpusQuality`
-- `technicalComplete`
-- `thresholdEvaluation.metrics[*].recipeFalseRejectCaseIds`
-- `recipeFalseRejectRate`
-- `nonRecipeConsistentRejectCaseIds`
-- `nonRecipeConsistentRejectCoverage`
-- per-case probability variation across repetitions
-- latency
-- token usage and estimated cost
-
-A production hard-reject gate should not be added merely because Jev usually classifies the corpus correctly.
-
-If no tested threshold keeps recipe false rejects at zero, the first production integration should remain fail-open: Jev may be retained as an observation or routing signal, but it should not prevent the existing extraction path from running.
-
-If a useful threshold is found, a separate production PR should define the exact fail-open behavior for TypeSafe/API failures, telemetry, rollout controls, and whether the same signal can safely route expensive media analysis.
+With 500 distinct recipe URLs and zero false rejects, the exact one-sided 95% binomial upper bound for the underlying false-reject probability is about 0.6%. This is a scale reference only and is not proof of production accuracy.
