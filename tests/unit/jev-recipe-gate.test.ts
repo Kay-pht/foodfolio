@@ -383,6 +383,37 @@ describe("Jev recipe gate batch selection", () => {
     ]);
   });
 
+  it("prioritizes the URL that hit a persistent API error even before any run succeeded", () => {
+    const selected = selectBatchCaseIds(
+      [
+        {
+          id: "fresh-a",
+          expected: "recipe",
+          completedRuns: 0,
+          hasTerminalError: false,
+        },
+        {
+          id: "retry-me",
+          expected: "non-recipe",
+          completedRuns: 0,
+          hasTerminalError: false,
+          retryPriority: true,
+        },
+        {
+          id: "fresh-b",
+          expected: "non-recipe",
+          completedRuns: 0,
+          hasTerminalError: false,
+        },
+      ],
+      3,
+      2,
+    );
+
+    expect(selected[0]).toBe("retry-me");
+    expect(selected).toHaveLength(2);
+  });
+
   it("skips fully completed and terminal-error URLs", () => {
     const selected = selectBatchCaseIds(
       [
