@@ -166,11 +166,14 @@ A transient TypeSafe 429/529 is retried with bounded backoff.
 
 If a Jev call still fails after retries, the runner:
 
-1. checkpoints the failure,
-2. immediately stops the current batch to avoid additional consumption,
-3. exits non-zero.
+1. checkpoints the batch error,
+2. keeps the affected URL pending instead of terminally failing it,
+3. immediately stops the current batch to avoid additional consumption,
+4. exits non-zero.
 
-Extraction failures do not consume Jev calls; they are recorded and the batch can continue with other selected URLs.
+Running the same command again retries that pending URL before fresh URLs. Successful repetitions already saved for that URL are reused, provided the re-extracted content hash is unchanged.
+
+Extraction failures do not consume Jev calls; they are recorded and the batch can continue with other selected URLs. If a partially evaluated URL re-extracts to different content, the runner stops using that URL's mixed evidence and records it for manual reset or corpus refresh.
 
 If all currently validated URLs have been exhausted but the final 500/500 corpus target is still unmet, the runner reports that the evidence is incomplete. Improve discovery and run with `JEV_POC_REFRESH_CORPUS=1`.
 
