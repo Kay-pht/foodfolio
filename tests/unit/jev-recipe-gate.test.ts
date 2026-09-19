@@ -2,11 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_TARGET_PER_KIND,
   evaluateCorpusQuality,
-  zeroFailureUpperBound95,
-} from "../../poc/jev-recipe-gate/corpus-policy.js";
-import {
-  DEFAULT_TARGET_PER_KIND,
-  evaluateCorpusQuality,
   MIN_HARD_NEGATIVE_COUNT,
   siteCapForTarget,
   zeroFailureUpperBound95,
@@ -167,57 +162,6 @@ describe("Jev recipe classifier", () => {
   });
 });
 
-
-describe("Jev recipe gate corpus policy", () => {
-  it("uses 300 recipe URLs as the default content-diversity floor", () => {
-    expect(DEFAULT_TARGET_PER_KIND).toBe(300);
-    expect(zeroFailureUpperBound95(300)).toBeLessThan(0.01);
-    expect(zeroFailureUpperBound95(18)).toBeGreaterThan(0.15);
-  });
-
-  it("requires 300/300 cases, 200 hard negatives, and cross-site diversity", () => {
-    const recipe = Array.from({ length: 300 }, (_, index) => ({
-      kind: "recipe" as const,
-      discoverySite: `recipe-site-${index % 3}`,
-      negativeTier: null,
-    }));
-    const nonRecipe = Array.from({ length: 300 }, (_, index) => ({
-      kind: "non-recipe" as const,
-      discoverySite: `negative-site-${index % 3}`,
-      negativeTier: index < 200 ? ("hard" as const) : ("easy" as const),
-    }));
-
-    const quality = evaluateCorpusQuality([...recipe, ...nonRecipe]);
-
-    expect(quality.recipeCount).toBe(300);
-    expect(quality.nonRecipeCount).toBe(300);
-    expect(quality.hardNegativeCount).toBe(200);
-    expect(quality.recipeSiteCount).toBe(3);
-    expect(quality.nonRecipeSiteCount).toBe(3);
-    expect(quality.maxRecipeSiteShare).toBeLessThanOrEqual(0.4);
-    expect(quality.maxNonRecipeSiteShare).toBeLessThanOrEqual(0.4);
-    expect(quality.meetsDefaultTarget).toBe(true);
-  });
-
-  it("rejects a corpus dominated by one site even when raw counts are large", () => {
-    const recipe = Array.from({ length: 300 }, () => ({
-      kind: "recipe" as const,
-      discoverySite: "one-site",
-      negativeTier: null,
-    }));
-    const nonRecipe = Array.from({ length: 300 }, (_, index) => ({
-      kind: "non-recipe" as const,
-      discoverySite: `negative-site-${index % 3}`,
-      negativeTier: "hard" as const,
-    }));
-
-    expect(
-      evaluateCorpusQuality([...recipe, ...nonRecipe]).meetsDefaultTarget,
-    ).toBe(false);
-  });
-});
-
-
 describe("Jev recipe gate corpus policy", () => {
   it("requires 500 recipe and 500 non-recipe URLs by default", () => {
     expect(DEFAULT_TARGET_PER_KIND).toBe(500);
@@ -234,12 +178,14 @@ describe("Jev recipe gate corpus policy", () => {
     const cases = [
       ...Array.from({ length: 500 }, (_, index) => ({
         kind: "recipe" as const,
-        discoverySite: index < 300 ? "site-a" : index < 400 ? "site-b" : "site-c",
+        discoverySite:
+          index < 300 ? "site-a" : index < 400 ? "site-b" : "site-c",
         negativeTier: null,
       })),
       ...Array.from({ length: 500 }, (_, index) => ({
         kind: "non-recipe" as const,
-        discoverySite: index < 300 ? "site-a" : index < 400 ? "site-b" : "site-c",
+        discoverySite:
+          index < 300 ? "site-a" : index < 400 ? "site-b" : "site-c",
         negativeTier: index < 350 ? ("hard" as const) : ("easy" as const),
       })),
     ];
