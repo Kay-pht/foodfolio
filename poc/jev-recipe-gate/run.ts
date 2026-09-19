@@ -3,14 +3,19 @@ import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import {
+  parseBatchSize,
+  selectBatchCaseIds,
+} from "./batch.js";
+import {
   DEFAULT_TARGET_PER_KIND,
   evaluateCorpusQuality,
   MIN_HARD_NEGATIVE_COUNT,
   siteCapForTarget,
+  type CorpusQuality,
 } from "./corpus-policy.js";
 import {
+  classifyKnownUrl,
   discoverJevGateCases,
-  isKnownRecipeUrl,
   type DiscoveredCase,
 } from "./discovery.js";
 import { extractUrl } from "../url-extraction/extract.js";
@@ -26,6 +31,7 @@ import {
   type JevGateObservation,
 } from "./metrics.js";
 
+const STATE_SCHEMA_VERSION = 2;
 const DEFAULT_REPETITIONS = 3;
 const MAX_REPETITIONS = 10;
 const MIN_INPUT_CHARS = 100;
@@ -64,9 +70,62 @@ interface CaseResult {
   expected: DiscoveredCase["kind"];
   discoverySite: string;
   negativeTier: DiscoveredCase["negativeTier"];
-  extraction: ExtractionSummary;
+  extraction: ExtractionSummary | null;
   runs: CaseRun[];
   error: string | null;
+}
+
+interface BatchRecord {
+  startedAt: string;
+  completedAt: string | null;
+  selectedCaseIds: string[];
+  processedCaseIds: string[];
+  successfulClassifications: number;
+  httpAttempts: number;
+  estimatedCostUsd: number;
+  stopReason: "batch-limit" | "api-error" | "no-pending-cases" | null;
+}
+
+interface ResultState {
+  schemaVersion: number;
+  createdAt: string;
+  updatedAt: string;
+  purpose: string;
+  phase: "discovering" | "batch-evaluation" | "complete";
+  modelRequested: string;
+  repetitions: number;
+  batchSize: number;
+  minimumInputCharacters: number;
+  corpusPolicy: {
+    targetPerKind: number;
+    minimumHardNegativeCount: number;
+    perSiteCap: number;
+  };
+  discoveredCandidateCounts: {
+    recipe: number;
+    hardNegative: number;
+    easyNegative: number;
+  } | null;
+  corpusQuality: CorpusQuality | null;
+  corpusComplete: boolean;
+  technicalComplete: boolean;
+  pricing: {
+    inputUsdPerMillionTokens: number;
+    outputUsdPerMillionTokens: number;
+    totalEstimatedCostUsd: number;
+  };
+  rejectionRule: string;
+  thresholds: number[];
+  fixtureCount: number;
+  completedCaseCount: number;
+  pendingCaseCount: number;
+  failedCaseCount: number;
+  thresholdEvaluation: ReturnType<typeof evaluateThresholds>;
+  provisionalCandidateThreshold: number | null;
+  qualifiedCandidateThreshold: number | null;
+  statisticalInterpretation: string;
+  lastBatch: BatchRecord | null;
+  cases: CaseResult[];
 }
 
 function parseRepetitions(value: string | undefined): number {
@@ -81,6 +140,10 @@ function parseRepetitions(value: string | undefined): number {
     );
   }
   return parsed;
+}
+
+function envFlag(value: string | undefined): boolean {
+  return value === "1" || value?.toLowerCase() === "true";
 }
 
 function average(values: number[]): number | null {
@@ -129,17 +192,18 @@ async function validateCandidate(
   const pageContent = extraction.aiInput.text.trim();
   if (!extraction.http.ok || pageContent.length < MIN_INPUT_CHARS) return null;
 
+  const finalClassification = classifyKnownUrl(extraction.finalUrl);
   if (
     fixture.kind === "recipe" &&
     (!extraction.evidence.hasRecipeSignals ||
-      !isKnownRecipeUrl(extraction.finalUrl))
+      finalClassification?.kind !== "recipe")
   ) {
     return null;
   }
   if (
     fixture.kind === "non-recipe" &&
     (extraction.jsonLdRecipes.length > 0 ||
-      isKnownRecipeUrl(extraction.finalUrl))
+      finalClassification?.kind !== "non-recipe")
   ) {
     return null;
   }
@@ -176,7 +240,16 @@ async function validateCases(
     process.stdout.write(
       `validate ${fixture.kind} ${fixture.discoverySite} ${fixture.id} ... `,
     );
-    const validated = await validateCandidate(fixture);
+
+    let validated: ValidatedCase | null = null;
+    try {
+      validated = await validateCandidate(fixture);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.log(`skip error=${message}`);
+      continue;
+    }
+
     if (!validated) {
       console.log("skip");
       continue;
@@ -203,224 +276,502 @@ async function validateCases(
   }
 }
 
-const apiKey = process.env.TYPESAFE_API_KEY?.trim();
-if (!apiKey) {
-  throw new Error(
-    "TYPESAFE_API_KEY is required before running the Jev recipe gate PoC",
-  );
+function observationsFromCompletedCases(
+  cases: CaseResult[],
+  repetitions: number,
+): JevGateObservation[] {
+  return cases
+    .filter(({ runs, error }) => error === null && runs.length >= repetitions)
+    .flatMap((item) =>
+      item.runs.slice(0, repetitions).map((run) => ({
+        id: item.id,
+        expected: item.expected,
+        repetition: run.repetition,
+        nonRecipeProbability: run.nonRecipeProbability,
+      })),
+    );
 }
 
-const repetitions = parseRepetitions(process.env.JEV_POC_REPETITIONS);
-const model = process.env.JEV_MODEL?.trim() || DEFAULT_JEV_MODEL;
-const targetPerKind = DEFAULT_TARGET_PER_KIND;
-const perSiteCap = siteCapForTarget(targetPerKind);
+function updateDerivedState(state: ResultState): void {
+  const completedCases = state.cases.filter(
+    ({ runs, error }) => error === null && runs.length >= state.repetitions,
+  );
+  const failedCases = state.cases.filter(({ error }) => error !== null);
+  const pendingCases = state.cases.filter(
+    ({ runs, error }) => error === null && runs.length < state.repetitions,
+  );
+  const thresholdEvaluation = evaluateThresholds(
+    observationsFromCompletedCases(state.cases, state.repetitions),
+    state.thresholds,
+  );
+  const totalEstimatedCostUsd = state.cases.reduce(
+    (caseTotal, item) =>
+      caseTotal +
+      item.runs.reduce(
+        (runTotal, run) => runTotal + run.estimatedCostUsd,
+        0,
+      ),
+    0,
+  );
 
-console.log(
-  `discovering corpus: target recipe=${targetPerKind}, non-recipe=${targetPerKind}, hard-negative minimum=${MIN_HARD_NEGATIVE_COUNT}, per-site cap=${perSiteCap}`,
-);
-const discovered = await discoverJevGateCases();
-console.log(
-  `discovered candidates: recipe=${discovered.recipe.length}, hard-negative=${discovered.hardNegative.length}, easy-negative=${discovered.easyNegative.length}`,
-);
+  state.fixtureCount = state.cases.length;
+  state.completedCaseCount = completedCases.length;
+  state.pendingCaseCount = pendingCases.length;
+  state.failedCaseCount = failedCases.length;
+  state.thresholdEvaluation = thresholdEvaluation;
+  state.provisionalCandidateThreshold =
+    thresholdEvaluation.fixtureSafeCandidateThreshold;
+  state.technicalComplete =
+    state.corpusComplete &&
+    state.cases.length > 0 &&
+    completedCases.length === state.cases.length &&
+    failedCases.length === 0;
+  state.qualifiedCandidateThreshold = state.technicalComplete
+    ? thresholdEvaluation.fixtureSafeCandidateThreshold
+    : null;
+  state.pricing.totalEstimatedCostUsd = totalEstimatedCostUsd;
+  state.phase = state.technicalComplete ? "complete" : "batch-evaluation";
+  state.updatedAt = new Date().toISOString();
+}
 
-const seenFinalUrls = new Set<string>();
-const seenTextHashes = new Set<string>();
-const recipeCases: ValidatedCase[] = [];
-const recipeSiteCounts = new Map<string, number>();
-await validateCases(
-  discovered.recipe,
-  targetPerKind,
-  recipeSiteCounts,
-  recipeCases,
-  perSiteCap,
-  seenFinalUrls,
-  seenTextHashes,
-);
+function serializedState(state: ResultState): string {
+  return `${JSON.stringify(
+    {
+      ...state,
+      cases: state.cases.map((item) => ({
+        ...item,
+        summary: runSummary(item.runs),
+      })),
+    },
+    null,
+    2,
+  )}\n`;
+}
 
-const nonRecipeCases: ValidatedCase[] = [];
-const nonRecipeSiteCounts = new Map<string, number>();
-await validateCases(
-  discovered.hardNegative,
-  targetPerKind,
-  nonRecipeSiteCounts,
-  nonRecipeCases,
-  perSiteCap,
-  seenFinalUrls,
-  seenTextHashes,
-);
-if (nonRecipeCases.length < targetPerKind) {
+async function writeState(state: ResultState): Promise<void> {
+  updateDerivedState(state);
+  await fs.mkdir(resultsDirectory, { recursive: true });
+  const temporaryPath = `${outputPath}.tmp`;
+  await fs.writeFile(temporaryPath, serializedState(state), "utf8");
+  await fs.rename(temporaryPath, outputPath);
+}
+
+async function readState(): Promise<ResultState | null> {
+  try {
+    const raw = await fs.readFile(outputPath, "utf8");
+    const parsed = JSON.parse(raw) as Partial<ResultState>;
+    if (parsed.schemaVersion !== STATE_SCHEMA_VERSION) {
+      throw new Error(
+        `Existing Jev result state uses an unsupported schema. Run with JEV_POC_RESET=1 to rebuild ${path.relative(root, outputPath)}.`,
+      );
+    }
+    return parsed as ResultState;
+  } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "ENOENT"
+    ) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+function emptyState(
+  model: string,
+  repetitions: number,
+  batchSize: number,
+  targetPerKind: number,
+  perSiteCap: number,
+): ResultState {
+  const now = new Date().toISOString();
+  return {
+    schemaVersion: STATE_SCHEMA_VERSION,
+    createdAt: now,
+    updatedAt: now,
+    purpose:
+      "Evaluate whether Jev can safely reject clearly non-recipe HTML-derived content before the existing recipe extraction pipeline.",
+    phase: "discovering",
+    modelRequested: model,
+    repetitions,
+    batchSize,
+    minimumInputCharacters: MIN_INPUT_CHARS,
+    corpusPolicy: {
+      targetPerKind,
+      minimumHardNegativeCount: MIN_HARD_NEGATIVE_COUNT,
+      perSiteCap,
+    },
+    discoveredCandidateCounts: null,
+    corpusQuality: null,
+    corpusComplete: false,
+    technicalComplete: false,
+    pricing: {
+      inputUsdPerMillionTokens: JEV_INPUT_USD_PER_MILLION,
+      outputUsdPerMillionTokens: 0,
+      totalEstimatedCostUsd: 0,
+    },
+    rejectionRule:
+      "Reject only when probabilities.non_recipe is greater than or equal to the selected threshold. Jev confidence is recorded separately and is not used as the rejection threshold.",
+    thresholds: [...DEFAULT_REJECT_THRESHOLDS],
+    fixtureCount: 0,
+    completedCaseCount: 0,
+    pendingCaseCount: 0,
+    failedCaseCount: 0,
+    thresholdEvaluation: evaluateThresholds([], DEFAULT_REJECT_THRESHOLDS),
+    provisionalCandidateThreshold: null,
+    qualifiedCandidateThreshold: null,
+    statisticalInterpretation:
+      "A full 500-recipe corpus with zero false rejects has an exact one-sided 95% binomial upper bound of approximately 0.6%. Partial batches are useful evidence but cannot qualify a production hard-reject threshold.",
+    lastBatch: null,
+    cases: [],
+  };
+}
+
+function storedCaseFromValidated(validated: ValidatedCase): CaseResult {
+  return {
+    id: validated.fixture.id,
+    source: validated.fixture.source,
+    sourceUrl: validated.fixture.url,
+    expected: validated.fixture.kind,
+    discoverySite: validated.fixture.discoverySite,
+    negativeTier: validated.fixture.negativeTier,
+    extraction: validated.extraction,
+    runs: [],
+    error: null,
+  };
+}
+
+function fixtureFromStored(item: CaseResult): DiscoveredCase {
+  return {
+    id: item.id,
+    source: item.source,
+    url: item.sourceUrl,
+    kind: item.expected,
+    discoverySite: item.discoverySite,
+    negativeTier: item.negativeTier,
+  };
+}
+
+function mergePreviousRuns(
+  cases: CaseResult[],
+  previous: ResultState | null,
+): void {
+  if (!previous) return;
+  const previousById = new Map(previous.cases.map((item) => [item.id, item]));
+
+  for (const item of cases) {
+    const old = previousById.get(item.id);
+    if (
+      !old ||
+      old.sourceUrl !== item.sourceUrl ||
+      old.expected !== item.expected
+    ) {
+      continue;
+    }
+    item.runs = old.runs;
+    item.error = null;
+  }
+}
+
+async function discoverCorpus(
+  state: ResultState,
+  previous: ResultState | null,
+): Promise<Map<string, ValidatedCase>> {
+  console.log(
+    `discovering corpus: target recipe=${state.corpusPolicy.targetPerKind}, non-recipe=${state.corpusPolicy.targetPerKind}, hard-negative target=${state.corpusPolicy.minimumHardNegativeCount}, per-site cap=${state.corpusPolicy.perSiteCap}`,
+  );
+
+  const discovered = await discoverJevGateCases();
+  state.discoveredCandidateCounts = {
+    recipe: discovered.recipe.length,
+    hardNegative: discovered.hardNegative.length,
+    easyNegative: discovered.easyNegative.length,
+  };
+  await writeState(state);
+
+  console.log(
+    `discovered candidates: recipe=${discovered.recipe.length}, hard-negative=${discovered.hardNegative.length}, easy-negative=${discovered.easyNegative.length}`,
+  );
+
+  const seenFinalUrls = new Set<string>();
+  const seenTextHashes = new Set<string>();
+  const recipeCases: ValidatedCase[] = [];
+  const recipeSiteCounts = new Map<string, number>();
   await validateCases(
-    discovered.easyNegative,
-    targetPerKind,
-    nonRecipeSiteCounts,
-    nonRecipeCases,
-    perSiteCap,
+    discovered.recipe,
+    state.corpusPolicy.targetPerKind,
+    recipeSiteCounts,
+    recipeCases,
+    state.corpusPolicy.perSiteCap,
     seenFinalUrls,
     seenTextHashes,
   );
+
+  const nonRecipeCases: ValidatedCase[] = [];
+  const nonRecipeSiteCounts = new Map<string, number>();
+  await validateCases(
+    discovered.hardNegative,
+    state.corpusPolicy.targetPerKind,
+    nonRecipeSiteCounts,
+    nonRecipeCases,
+    state.corpusPolicy.perSiteCap,
+    seenFinalUrls,
+    seenTextHashes,
+  );
+  if (nonRecipeCases.length < state.corpusPolicy.targetPerKind) {
+    await validateCases(
+      discovered.easyNegative,
+      state.corpusPolicy.targetPerKind,
+      nonRecipeSiteCounts,
+      nonRecipeCases,
+      state.corpusPolicy.perSiteCap,
+      seenFinalUrls,
+      seenTextHashes,
+    );
+  }
+
+  const validated = [...recipeCases, ...nonRecipeCases];
+  state.cases = validated.map(storedCaseFromValidated);
+  mergePreviousRuns(state.cases, previous);
+  state.corpusQuality = evaluateCorpusQuality(
+    validated.map(({ fixture }) => fixture),
+    state.corpusPolicy.targetPerKind,
+  );
+  state.corpusComplete = state.corpusQuality.meetsDefaultTarget;
+  await writeState(state);
+
+  console.log(
+    `validated corpus: recipe=${state.corpusQuality.recipeCount}, non-recipe=${state.corpusQuality.nonRecipeCount}, hard-negative=${state.corpusQuality.hardNegativeCount}, full-quality-gate=${state.corpusComplete ? "pass" : "not yet"}`,
+  );
+  if (!state.corpusComplete) {
+    console.log(
+      "Corpus is below the final 500/500 quality gate. Batch evaluation may continue, but no production-qualified threshold will be emitted.",
+    );
+  }
+
+  return new Map(validated.map((item) => [item.fixture.id, item]));
 }
 
-const corpus = [...recipeCases, ...nonRecipeCases];
-const corpusQuality = evaluateCorpusQuality(
-  corpus.map(({ fixture }) => fixture),
-  targetPerKind,
+function assertCompatibleState(
+  state: ResultState,
+  model: string,
+  repetitions: number,
+): void {
+  if (state.modelRequested !== model || state.repetitions !== repetitions) {
+    throw new Error(
+      `Existing result state uses model=${state.modelRequested}, repetitions=${state.repetitions}. Current run requested model=${model}, repetitions=${repetitions}. Use the same settings or run JEV_POC_RESET=1 npm run poc:jev-gate.`,
+    );
+  }
+}
+
+const model = process.env.JEV_MODEL?.trim() || DEFAULT_JEV_MODEL;
+const repetitions = parseRepetitions(process.env.JEV_POC_REPETITIONS);
+const batchSize = parseBatchSize(process.env.JEV_POC_BATCH_SIZE);
+const targetPerKind = DEFAULT_TARGET_PER_KIND;
+const perSiteCap = siteCapForTarget(targetPerKind);
+const reset = envFlag(process.env.JEV_POC_RESET);
+const refreshCorpus = envFlag(process.env.JEV_POC_REFRESH_CORPUS);
+
+if (reset) {
+  await fs.rm(outputPath, { force: true });
+}
+
+let state = await readState();
+if (state) {
+  assertCompatibleState(state, model, repetitions);
+}
+
+let preparedCases = new Map<string, ValidatedCase>();
+if (!state || refreshCorpus) {
+  const previous = state;
+  state = emptyState(
+    model,
+    repetitions,
+    batchSize,
+    targetPerKind,
+    perSiteCap,
+  );
+  await writeState(state);
+  console.log(
+    `checkpoint created: ${path.relative(root, outputPath)}`,
+  );
+  preparedCases = await discoverCorpus(state, previous);
+} else {
+  state.batchSize = batchSize;
+  await writeState(state);
+  console.log(
+    `resuming: completed=${state.completedCaseCount}, pending=${state.pendingCaseCount}, failed=${state.failedCaseCount}, total=${state.fixtureCount}`,
+  );
+}
+
+const selectedCaseIds = selectBatchCaseIds(
+  state.cases.map((item) => ({
+    id: item.id,
+    expected: item.expected,
+    completedRuns: item.runs.length,
+    hasTerminalError: item.error !== null,
+  })),
+  state.repetitions,
+  batchSize,
 );
 
-if (!corpusQuality.meetsDefaultTarget) {
-  await fs.mkdir(resultsDirectory, { recursive: true });
-  await fs.writeFile(
-    outputPath,
-    `${JSON.stringify(
-      {
-        generatedAt: new Date().toISOString(),
-        purpose:
-          "Evaluate whether Jev can safely reject clearly non-recipe HTML-derived content before the existing recipe extraction pipeline.",
-        technicalComplete: false,
-        phase: "corpus-validation",
-        corpusQuality,
-        discoveredCandidateCounts: {
-          recipe: discovered.recipe.length,
-          hardNegative: discovered.hardNegative.length,
-          easyNegative: discovered.easyNegative.length,
-        },
-        validatedCorpus: corpus.map(({ fixture, extraction }) => ({
-          ...fixture,
-          extraction,
-        })),
-      },
-      null,
-      2,
-    )}\n`,
+if (selectedCaseIds.length === 0) {
+  state.lastBatch = {
+    startedAt: new Date().toISOString(),
+    completedAt: new Date().toISOString(),
+    selectedCaseIds: [],
+    processedCaseIds: [],
+    successfulClassifications: 0,
+    httpAttempts: 0,
+    estimatedCostUsd: 0,
+    stopReason: "no-pending-cases",
+  };
+  await writeState(state);
+
+  console.log(
+    `No pending cases. results: ${path.relative(root, outputPath)}`,
   );
+  if (!state.technicalComplete) {
+    console.log(
+      "All currently validated cases are exhausted, but the final corpus/evidence gate is incomplete. Improve discovery and rerun with JEV_POC_REFRESH_CORPUS=1.",
+    );
+  }
+  process.exit(0);
+}
+
+const apiKey = process.env.TYPESAFE_API_KEY?.trim();
+if (!apiKey) {
   throw new Error(
-    `Jev PoC corpus does not meet the required 500/500 quality gate; recipe=${corpusQuality.recipeCount}, non-recipe=${corpusQuality.nonRecipeCount}, hard-negative=${corpusQuality.hardNegativeCount}`,
+    "TYPESAFE_API_KEY is required before running a Jev evaluation batch",
   );
 }
+
+const batch: BatchRecord = {
+  startedAt: new Date().toISOString(),
+  completedAt: null,
+  selectedCaseIds,
+  processedCaseIds: [],
+  successfulClassifications: 0,
+  httpAttempts: 0,
+  estimatedCostUsd: 0,
+  stopReason: null,
+};
+state.lastBatch = batch;
+await writeState(state);
 
 console.log(
-  `corpus ready: recipe=${corpusQuality.recipeCount}, non-recipe=${corpusQuality.nonRecipeCount}, hard-negative=${corpusQuality.hardNegativeCount}, zero-error 95% upper bound=${(corpusQuality.zeroRecipeFalseRejectUpperBound95 * 100).toFixed(2)}%`,
+  `starting Jev batch: ${selectedCaseIds.length} URL(s), at most ${selectedCaseIds.length * state.repetitions} successful classifications; batch limit=${batchSize}`,
 );
 
-const observations: JevGateObservation[] = [];
-const results: CaseResult[] = [];
-let totalEstimatedCostUsd = 0;
+let stopForApiError = false;
 
-for (const validated of corpus) {
-  const { fixture, extraction, pageContent } = validated;
-  const runs: CaseRun[] = [];
-  let caseError: string | null = null;
+for (const caseId of selectedCaseIds) {
+  const item = state.cases.find(({ id }) => id === caseId);
+  if (!item) continue;
 
-  for (let repetition = 1; repetition <= repetitions; repetition += 1) {
-    process.stdout.write(
-      `Jev ${repetition}/${repetitions} ${fixture.kind} ${fixture.id} ... `,
-    );
+  let validated = preparedCases.get(caseId) ?? null;
+  if (!validated) {
     try {
-      const classification = await classifyRecipeContent(pageContent, {
-        apiKey,
-        model,
-      });
+      validated = await validateCandidate(fixtureFromStored(item));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      item.error = `re-extraction failed: ${message}`;
+      batch.processedCaseIds.push(item.id);
+      await writeState(state);
+      console.log(`skip ${item.id}: ${item.error}`);
+      continue;
+    }
+  }
+
+  if (!validated) {
+    item.error =
+      "re-extraction no longer satisfies the stored recipe/non-recipe label";
+    batch.processedCaseIds.push(item.id);
+    await writeState(state);
+    console.log(`skip ${item.id}: ${item.error}`);
+    continue;
+  }
+
+  item.extraction = validated.extraction;
+
+  for (
+    let repetition = item.runs.length + 1;
+    repetition <= state.repetitions;
+    repetition += 1
+  ) {
+    process.stdout.write(
+      `Jev ${repetition}/${state.repetitions} ${item.expected} ${item.id} ... `,
+    );
+
+    try {
+      const classification = await classifyRecipeContent(
+        validated.pageContent,
+        {
+          apiKey,
+          model,
+        },
+      );
       const run = { repetition, ...classification };
-      runs.push(run);
-      observations.push({
-        id: fixture.id,
-        expected: fixture.kind,
-        repetition,
-        nonRecipeProbability: classification.nonRecipeProbability,
-      });
-      totalEstimatedCostUsd += classification.estimatedCostUsd;
+      item.runs.push(run);
+      batch.successfulClassifications += 1;
+      batch.httpAttempts += classification.attempts;
+      batch.estimatedCostUsd += classification.estimatedCostUsd;
+      await writeState(state);
       console.log(
-        `${classification.choice} p(non_recipe)=${classification.nonRecipeProbability.toFixed(4)} confidence=${classification.confidence.toFixed(4)} ${classification.elapsedMs}ms`,
+        `${classification.choice} p(non_recipe)=${classification.nonRecipeProbability.toFixed(4)} confidence=${classification.confidence.toFixed(4)} ${classification.elapsedMs}ms cost=$${classification.estimatedCostUsd.toFixed(6)}`,
       );
     } catch (error) {
-      caseError = error instanceof Error ? error.message : String(error);
-      console.log(`ERROR ${caseError}`);
+      const message = error instanceof Error ? error.message : String(error);
+      item.error = `Jev evaluation failed: ${message}`;
+      batch.stopReason = "api-error";
+      await writeState(state);
+      console.log(`ERROR ${message}`);
+      stopForApiError = true;
       break;
     }
   }
 
-  results.push({
-    id: fixture.id,
-    source: fixture.source,
-    sourceUrl: fixture.url,
-    expected: fixture.kind,
-    discoverySite: fixture.discoverySite,
-    negativeTier: fixture.negativeTier,
-    extraction,
-    runs,
-    error: caseError,
-  });
+  batch.processedCaseIds.push(item.id);
+  await writeState(state);
+  if (stopForApiError) break;
 }
 
-const thresholdEvaluation = evaluateThresholds(
-  observations,
-  DEFAULT_REJECT_THRESHOLDS,
-);
-const incompleteCaseIds = results
-  .filter(({ runs }) => runs.length !== repetitions)
-  .map(({ id }) => id);
-const technicalComplete = incompleteCaseIds.length === 0;
-const qualifiedCandidateThreshold = technicalComplete
-  ? thresholdEvaluation.fixtureSafeCandidateThreshold
-  : null;
-
-const payload = {
-  generatedAt: new Date().toISOString(),
-  purpose:
-    "Evaluate whether Jev can safely reject clearly non-recipe HTML-derived content before the existing recipe extraction pipeline.",
-  modelRequested: model,
-  repetitions,
-  minimumInputCharacters: MIN_INPUT_CHARS,
-  corpusPolicy: {
-    targetPerKind,
-    minimumHardNegativeCount: MIN_HARD_NEGATIVE_COUNT,
-    perSiteCap,
-  },
-  corpusQuality,
-  pricing: {
-    inputUsdPerMillionTokens: JEV_INPUT_USD_PER_MILLION,
-    outputUsdPerMillionTokens: 0,
-    totalEstimatedCostUsd,
-  },
-  rejectionRule:
-    "Reject only when probabilities.non_recipe is greater than or equal to the selected threshold. Jev confidence is recorded separately and is not used as the rejection threshold.",
-  thresholds: [...DEFAULT_REJECT_THRESHOLDS],
-  fixtureCount: corpus.length,
-  technicalComplete,
-  incompleteCaseIds,
-  thresholdEvaluation,
-  qualifiedCandidateThreshold,
-  statisticalInterpretation:
-    "With 500 distinct recipe URLs and zero false rejects, the exact one-sided 95% upper bound for the underlying false-reject probability is approximately 0.6%. Repeated calls measure model stability but do not replace content diversity.",
-  cases: results.map((result) => ({
-    ...result,
-    summary: runSummary(result.runs),
-  })),
-};
-
-await fs.mkdir(resultsDirectory, { recursive: true });
-await fs.writeFile(outputPath, `${JSON.stringify(payload, null, 2)}\n`);
+batch.completedAt = new Date().toISOString();
+batch.stopReason ??= "batch-limit";
+await writeState(state);
 
 console.log(
-  `\ncompleted: ${results.length} distinct URLs x ${repetitions} planned repetitions`,
+  `\nbatch finished: processed URLs=${batch.processedCaseIds.length}/${batch.selectedCaseIds.length}, successful classifications=${batch.successfulClassifications}, HTTP attempts=${batch.httpAttempts}`,
 );
 console.log(
-  `estimated Jev cost: $${totalEstimatedCostUsd.toFixed(6)}; results: ${path.relative(root, outputPath)}`,
+  `batch estimated cost: $${batch.estimatedCostUsd.toFixed(6)}; cumulative estimated cost: $${state.pricing.totalEstimatedCostUsd.toFixed(6)}`,
 );
-if (qualifiedCandidateThreshold === null) {
+console.log(
+  `progress: completed=${state.completedCaseCount}, pending=${state.pendingCaseCount}, failed=${state.failedCaseCount}, total=${state.fixtureCount}`,
+);
+console.log(`results: ${path.relative(root, outputPath)}`);
+
+if (state.qualifiedCandidateThreshold !== null) {
   console.log(
-    technicalComplete
-      ? "fixture-safe candidate threshold: none (do not enable hard rejection)"
-      : "fixture-safe candidate threshold: unavailable because the run is incomplete",
+    `qualified candidate threshold: ${state.qualifiedCandidateThreshold.toFixed(2)} (full corpus and all repetitions complete; still requires review before production use)`,
+  );
+} else if (state.provisionalCandidateThreshold !== null) {
+  console.log(
+    `provisional threshold from completed cases: ${state.provisionalCandidateThreshold.toFixed(2)} (not production-qualified)`,
   );
 } else {
-  console.log(
-    `fixture-safe candidate threshold: ${qualifiedCandidateThreshold.toFixed(2)} (fixture-only; not production approval)`,
-  );
+  console.log("candidate threshold: none from completed cases");
 }
 
-if (!technicalComplete) {
+if (stopForApiError) {
   console.error(
-    `PoC incomplete: ${incompleteCaseIds.length} case(s) did not finish all repetitions`,
+    "Batch stopped after an API error to avoid additional consumption. The checkpoint is saved; inspect the result file before continuing.",
   );
   process.exitCode = 1;
+} else if (!state.technicalComplete) {
+  console.log(
+    "Run the same command again when you want to process the next batch of up to 100 URLs.",
+  );
 }
