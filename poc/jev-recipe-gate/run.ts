@@ -331,7 +331,12 @@ function updateDerivedState(state: ResultState): void {
     ? thresholdEvaluation.fixtureSafeCandidateThreshold
     : null;
   state.pricing.totalEstimatedCostUsd = totalEstimatedCostUsd;
-  state.phase = state.technicalComplete ? "complete" : "batch-evaluation";
+  state.phase =
+    state.corpusQuality === null
+      ? "discovering"
+      : state.technicalComplete
+        ? "complete"
+        : "batch-evaluation";
   state.updatedAt = new Date().toISOString();
 }
 
@@ -471,7 +476,11 @@ function mergePreviousRuns(
     ) {
       continue;
     }
-    item.runs = old.runs;
+    if (
+      old.extraction?.textSha256 === item.extraction?.textSha256
+    ) {
+      item.runs = old.runs;
+    }
     item.error = null;
   }
 }
@@ -585,7 +594,7 @@ if (state) {
 }
 
 let preparedCases = new Map<string, ValidatedCase>();
-if (!state || refreshCorpus) {
+if (!state || refreshCorpus || state.corpusQuality === null) {
   const previous = state;
   state = emptyState(
     model,
