@@ -49,6 +49,7 @@
     "poc:ai:reevaluate": "tsx poc/ai-extraction/reevaluate.ts",
     "poc:gemini-url": "tsx poc/ai-extraction/run-gemini-url-context.ts",
     "poc:e2e": "tsx poc/end-to-end/run.ts",
+    "poc:jev-gate": "tsx poc/jev-recipe-gate/run.ts",
     "poc:tiktok-video": "bash poc/tiktok-video/run.sh",
     "ios:push:simulator": "bash scripts/push-simulator-notification.sh",
     "test:unit": "vitest run tests/unit",
