@@ -93,7 +93,10 @@ describe("Jev recipe gate threshold evaluation", () => {
 
 describe("Jev recipe classifier", () => {
   it("uses the non-recipe option probability as the gate signal and records confidence separately", async () => {
-    const calls: Array<{ input: string | URL; init?: RequestInit }> = [];
+    const calls: Array<{
+      input: string | URL;
+      init: RequestInit | undefined;
+    }> = [];
     const fetchImpl = async (
       input: string | URL,
       init?: RequestInit,
