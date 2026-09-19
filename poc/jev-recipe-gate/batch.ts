@@ -1,9 +1,11 @@
 export const DEFAULT_BATCH_SIZE = 100;
-export const MAX_BATCH_SIZE = 1_000;
+export const MAX_BATCH_SIZE = 100;
 
-export interface BatchCandidate {
+export interface BatchSelectableCase {
   id: string;
   expected: "recipe" | "non-recipe";
+  completedRuns: number;
+  hasTerminalError: boolean;
 }
 
 export function parseBatchSize(value: string | undefined): number {
@@ -16,37 +18,56 @@ export function parseBatchSize(value: string | undefined): number {
   return parsed;
 }
 
-export function selectBalancedBatch<T extends BatchCandidate>(
-  candidates: T[],
-  completedIds: ReadonlySet<string>,
-  batchSize: number,
-): T[] {
-  if (!Number.isInteger(batchSize) || batchSize < 1) {
-    throw new Error("batchSize must be a positive integer");
+export function selectBatchCaseIds(
+  cases: BatchSelectableCase[],
+  repetitions: number,
+  batchSize: number = DEFAULT_BATCH_SIZE,
+): string[] {
+  if (!Number.isInteger(repetitions) || repetitions < 1) {
+    throw new Error("repetitions must be a positive integer");
+  }
+  if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > MAX_BATCH_SIZE) {
+    throw new Error(`batchSize must be from 1 to ${MAX_BATCH_SIZE}`);
   }
 
-  const remaining = candidates.filter(({ id }) => !completedIds.has(id));
-  const recipe = remaining.filter(({ expected }) => expected === "recipe");
-  const nonRecipe = remaining.filter(
-    ({ expected }) => expected === "non-recipe",
+  const pending = cases.filter(
+    (item) => !item.hasTerminalError && item.completedRuns < repetitions,
+  );
+  const partial = pending.filter((item) => item.completedRuns > 0);
+  const freshRecipe = pending.filter(
+    (item) => item.completedRuns === 0 && item.expected === "recipe",
+  );
+  const freshNonRecipe = pending.filter(
+    (item) => item.completedRuns === 0 && item.expected === "non-recipe",
   );
 
-  const recipeTarget = Math.floor(batchSize / 2);
-  const nonRecipeTarget = batchSize - recipeTarget;
-  const selected = [
-    ...recipe.slice(0, recipeTarget),
-    ...nonRecipe.slice(0, nonRecipeTarget),
-  ];
+  const selected = partial.slice(0, batchSize);
+  let recipeIndex = 0;
+  let nonRecipeIndex = 0;
 
-  if (selected.length >= batchSize) return selected.slice(0, batchSize);
+  while (selected.length < batchSize) {
+    const selectedRecipeCount = selected.filter(
+      ({ expected }) => expected === "recipe",
+    ).length;
+    const selectedNonRecipeCount = selected.length - selectedRecipeCount;
+    const preferRecipe = selectedRecipeCount <= selectedNonRecipeCount;
+    const preferred = preferRecipe
+      ? freshRecipe[recipeIndex]
+      : freshNonRecipe[nonRecipeIndex];
+    const fallback = preferRecipe
+      ? freshNonRecipe[nonRecipeIndex]
+      : freshRecipe[recipeIndex];
+    const next = preferred ?? fallback;
 
-  const selectedIds = new Set(selected.map(({ id }) => id));
-  for (const candidate of remaining) {
-    if (selected.length >= batchSize) break;
-    if (selectedIds.has(candidate.id)) continue;
-    selected.push(candidate);
-    selectedIds.add(candidate.id);
+    if (!next) break;
+
+    selected.push(next);
+    if (next.expected === "recipe") {
+      recipeIndex += 1;
+    } else {
+      nonRecipeIndex += 1;
+    }
   }
 
-  return selected;
+  return selected.map(({ id }) => id);
 }
