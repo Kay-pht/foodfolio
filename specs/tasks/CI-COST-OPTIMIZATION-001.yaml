@@ -6,7 +6,8 @@ objective: >-
   Reduce GitHub Actions runner consumption in cloud-first development without
   weakening final pull request validation by keeping Draft updates runner-free,
   serializing Auto Fix before Quality for repository-owned human changes,
-  preserving read-only Quality for bot and fork pull requests, validating the
+  preserving non-mutating direct Quality behavior for bot and fork pull requests,
+  publishing a PR-visible Quality Gate for dispatched validation, validating the
   prospective merge tree, and merging documentation checks into Quality.
 
 requirements:
@@ -62,7 +63,7 @@ requirements:
       - tests/unit/quality-proof.test.mjs
   - id: CIC-8
     condition: A Ready pull request head belongs to a fork.
-    expected: Auto Fix remains disabled because it cannot safely write to the fork, while read-only Quality runs directly from the pull_request merge ref regardless of whether the sender is human or bot.
+    expected: Auto Fix remains disabled because it cannot safely write to the fork, while non-mutating Quality runs directly from the pull_request merge ref regardless of whether the sender is human or bot.
     verification:
       - .github/workflows/auto-format.yml
       - .github/workflows/quality.yml
@@ -74,19 +75,30 @@ requirements:
       - .github/workflows/quality.yml
       - scripts/pr-final-merge.mjs
       - tests/unit/ci-auto-fix.test.mjs
+  - id: CIC-10
+    condition: A repository-owned human pull request reaches the Quality dispatch point after Auto Fix succeeds for the current Ready head.
+    expected: Auto Fix publishes Quality Gate as pending before dispatch, the dispatched Quality run updates the same gate while running, and the gate becomes success only after the full Quality job succeeds or failure/error after a validated dispatch when validation or dispatch fails. Auto Fix failures and stale or Draft handoffs do not create the gate.
+    verification:
+      - .github/workflows/auto-format.yml
+      - .github/workflows/quality.yml
+      - tests/unit/ci-auto-fix.test.mjs
 
 edge_cases:
   - Ready produces no automatic fixes and Quality must verify the original current head once against the current base merge result.
   - The Auto Fix App creates a formatting commit; the resulting bot synchronize run may cancel the originating run, must not execute Auto Fix again, and must dispatch Quality for the new head exactly once.
   - The Auto Fix GitHub App is not configured and automatic fixes are required; Auto Fix must fail before any push rather than falling back to GITHUB_TOKEN.
   - A non-Auto-Fix bot opens or updates a Ready pull request, or a maintainer marks it Ready; Auto Fix remains skipped based on pull_request.user.type and Quality must still run through the filtered direct pull_request path.
-  - A fork pull request opens or updates while Ready; Auto Fix remains skipped but read-only Quality must run on GitHub's prospective merge result.
+  - A fork pull request opens or updates while Ready; Auto Fix remains skipped but non-mutating Quality must run on GitHub's prospective merge result.
   - The pull request advances while Auto Fix is running; stale fixes and stale Quality dispatches must be skipped.
   - The pull request is converted back to Draft while Auto Fix is running; Quality must not be dispatched.
   - A fix is accidentally pushed while the pull request is still Ready; synchronize remains a safety fallback and converges on the new final head.
   - Main advances between the Ready event and Quality dispatch; the current pull request base SHA is used and the prospective base/head merge is reconstructed before validation.
   - The current base and head no longer merge cleanly; Quality must fail before code checks rather than validating the head in isolation.
   - gh pr checks returns before a later workflow_dispatch Quality appears; pr:merge must fail closed unless the actual Quality / checks result is already successful.
+  - Auto Fix fails before the validated dispatch point; Quality is not dispatched and no Quality Gate is created for an unstarted validation.
+  - Quality dispatch fails after the pending gate is published; Auto Fix marks Quality Gate as error and fails rather than leaving a false success state.
+  - A dispatched Quality run is cancelled before its final status update; the gate may remain pending, which is fail-closed because success is never published without completed validation.
+  - The base branch advances after a successful dispatched Quality run without changing the pull request head; the existing Quality Gate success remains attached to that head SHA and can therefore be stale relative to the new base. The gate represents the latest completed Quality result for that head, while pr:merge must recompute the current base/head merge tree and require a matching successful Quality proof before merging.
 
 security_invariants:
   - Automatic commits remain limited to pull requests whose head repository is the current repository.
@@ -94,9 +106,11 @@ security_invariants:
   - Automatic pushes continue to use force-with-lease and stale-head checks rather than an unconditional force push.
   - Auto Fix bot handoff only accepts a Ready repository-owned synchronize event from kay-pht-auto-fix[bot] whose current head still matches the event and whose head commit carries the Auto Fix commit message marker.
   - Quality dispatch validates the repository-owned pull request number, base SHA, head ref, and head SHA before trusting the run.
-  - Direct pull_request Quality is read-only, covers forks and non-Auto-Fix bot-authored PRs, and classifies PR authors by pull_request.user rather than event sender.
+  - Direct pull_request Quality remains non-mutating, covers forks and non-Auto-Fix bot-authored PRs, and classifies PR authors by pull_request.user rather than event sender.
   - A skipped direct Quality path must not publish the required Quality / checks name.
-  - Workflow permissions must not be broadened beyond the existing actions, contents, and pull-request access needed by each workflow.
+  - The statuses write permission is granted only to the workflow_dispatch Quality job used to publish Quality Gate; direct pull_request and main-push Quality jobs explicitly have statuses disabled and checkout without persisted credentials.
+  - No additional write capability is introduced beyond Auto Fix's existing repository writes and the narrowly scoped commit-status publication required for Quality Gate.
+  - A workflow_dispatch Quality run must publish its final Quality Gate result only after the dispatched PR context has been validated successfully.
 
 compatibility:
   - Auto Fix keeps workflow_dispatch support for explicit fixed-head verification.
@@ -109,9 +123,10 @@ non_functional:
   - Draft pull request updates must consume no PR validation runner minutes.
   - A Ready repository-owned human transition with no automatic fix uses one Auto Fix runner followed by one Quality runner.
   - A Ready transition with an Auto Fix App commit may add one lightweight bot handoff runner, but that run must not repeat formatting, dependency installation, or other Auto Fix work and must not create a duplicate Quality dispatch.
-  - A Ready non-Auto-Fix bot or fork pull request uses one read-only Quality runner and no Auto Fix runner.
+  - A Ready non-Auto-Fix bot or fork pull request uses one non-mutating Quality runner and no Auto Fix runner.
   - Documentation validation must reuse the Quality runner rather than start an additional runner.
   - Quality remains single-runner and fail-fast.
+  - Quality Gate publication must not add a runner; direct/push and workflow_dispatch Quality jobs are mutually exclusive and share the same step definition, so one Quality event starts at most one Quality runner.
 
 out_of_scope:
   - Reducing the number of pull requests by combining unrelated changes.
@@ -125,11 +140,14 @@ acceptance_criteria:
   - An Auto Fix App formatting commit transfers Quality dispatch responsibility to the Auto Fix bot synchronize run; the originating run does not dispatch Quality if it survives the push.
   - The Auto Fix bot synchronize handoff validates the latest Ready head, skips Auto Fix work, and dispatches Quality once.
   - A Ready pull request authored by a non-Auto-Fix bot runs Quality directly without starting Auto Fix, even when a human sends the Ready/reopen event.
-  - A Ready fork pull request runs read-only Quality directly without starting Auto Fix.
+  - A Ready fork pull request runs non-mutating Quality directly without starting Auto Fix.
   - Missing Auto Fix App configuration fails closed when an automatic fix push is required; no GITHUB_TOKEN push fallback is used.
   - Workflow-dispatch Quality reconstructs and validates the prospective base/head merge tree and records proof for that tree.
   - Direct pull_request Quality validates GitHub's pull request merge ref and records proof for that merge tree; proof reuse remains subject to trusted-run checks.
   - Only an actual Quality validation exposes the Quality / checks gate, and pr:merge verifies that result explicitly before merge.
+  - Repository-owned human PRs publish a pending Quality Gate only after Auto Fix reaches the validated dispatch point, keep it pending while dispatched Quality runs, and publish success only after Quality completes successfully.
+  - Quality Gate success is scoped to the pull request head SHA and is not treated as proof that a later base revision was validated; pr:merge remains responsible for exact current base/head tree freshness.
+  - Auto Fix failure does not create Quality Gate, while Quality dispatch or validation failures cannot leave a successful Quality Gate.
   - The standalone Documentation workflow is removed and its checks remain in Quality.
   - Auto Fix no longer re-dispatches itself or a Documentation workflow after writing a fix commit.
   - Agent documentation requires grouped cloud pushes and returning Ready PRs to Draft before fix pushes.

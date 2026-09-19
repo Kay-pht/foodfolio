@@ -92,6 +92,14 @@ describe("CI auto-fix coverage", () => {
     );
 
     expect(autoFixWorkflow).toContain("name: Auto Fix");
+    expect(autoFixWorkflow).toContain("statuses: write");
+    expect(autoFixWorkflow).toContain('-f context="Quality Gate"');
+    expect(autoFixWorkflow).toContain(
+      '-f description="Waiting for Quality validation"',
+    );
+    expect(autoFixWorkflow).toContain(
+      '-f description="Failed to dispatch Quality"',
+    );
     expect(autoFixWorkflow).toContain("npm run lint:fix");
     expect(autoFixWorkflow).toContain("npm run prisma:format");
     expect(autoFixWorkflow).toContain(
@@ -146,6 +154,46 @@ describe("CI auto-fix coverage", () => {
     expect(handoffJob).not.toContain("actions/checkout");
 
     expect(qualityWorkflow).toContain("\n  pull_request:\n");
+
+    const qualityWorkflowHeader = qualityWorkflow.split("\njobs:\n")[0];
+    const directQualityJob = qualityWorkflow
+      .split("\n  checks:\n")[1]
+      ?.split("\n  dispatched-checks:\n")[0];
+    const dispatchedQualityJob = qualityWorkflow.split(
+      "\n  dispatched-checks:\n",
+    )[1];
+
+    expect(qualityWorkflowHeader).not.toContain("statuses: write");
+    expect(directQualityJob).toBeDefined();
+    expect(directQualityJob).toContain(
+      "github.event_name != 'workflow_dispatch'",
+    );
+    expect(directQualityJob).toContain("statuses: none");
+    expect(directQualityJob).toContain("persist-credentials: false");
+    expect(directQualityJob).toContain("steps: &quality_steps");
+    expect(dispatchedQualityJob).toBeDefined();
+    expect(dispatchedQualityJob).toContain(
+      "if: github.event_name == 'workflow_dispatch'",
+    );
+    expect(dispatchedQualityJob).toContain("statuses: write");
+    expect(dispatchedQualityJob).toContain("steps: *quality_steps");
+    expect(qualityWorkflow.match(/statuses: write/g) ?? []).toHaveLength(1);
+    expect(qualityWorkflow).toContain("id: dispatch_context");
+    expect(qualityWorkflow).toContain("Mark Quality Gate running");
+    expect(qualityWorkflow).toContain(
+      '-f description="Quality validation is running"',
+    );
+    expect(qualityWorkflow).toContain("Publish Quality Gate result");
+    expect(qualityWorkflow).toContain(
+      "steps.dispatch_context.outcome == 'success'",
+    );
+    expect(qualityWorkflow).toContain("QUALITY_JOB_STATUS: ${{ job.status }}");
+    expect(qualityWorkflow).toContain(
+      'description="Quality validation passed"',
+    );
+    expect(qualityWorkflow).toContain(
+      'description="Quality validation failed"',
+    );
     expect(qualityWorkflow).toContain(
       "github.event.pull_request.head.repo.full_name != github.repository",
     );

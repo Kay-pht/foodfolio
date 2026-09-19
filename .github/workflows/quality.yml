@@ -31,19 +31,26 @@ permissions:
 
 jobs:
   checks:
-    name: ${{ github.event_name == 'pull_request' && !(github.event.pull_request.draft == false && (github.event.pull_request.head.repo.full_name != github.repository || (github.event.pull_request.user.type == 'Bot' && github.event.pull_request.user.login != 'kay-pht-auto-fix[bot]'))) && 'pr-gate-skipped' || 'checks' }}
+    name: ${{ github.event_name == 'workflow_dispatch' && 'dispatch-gate-skipped' || github.event_name == 'pull_request' && !(github.event.pull_request.draft == false && (github.event.pull_request.head.repo.full_name != github.repository || (github.event.pull_request.user.type == 'Bot' && github.event.pull_request.user.login != 'kay-pht-auto-fix[bot]'))) && 'pr-gate-skipped' || 'checks' }}
     if: >-
-      github.event_name != 'pull_request' ||
+      github.event_name != 'workflow_dispatch' &&
+      (github.event_name != 'pull_request' ||
       (github.event.pull_request.draft == false &&
       (github.event.pull_request.head.repo.full_name != github.repository ||
       (github.event.pull_request.user.type == 'Bot' &&
-      github.event.pull_request.user.login != 'kay-pht-auto-fix[bot]')))
+      github.event.pull_request.user.login != 'kay-pht-auto-fix[bot]'))))
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    steps:
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+      statuses: none
+    steps: &quality_steps
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
           ref: ${{ github.sha }}
 
       - name: Check direct main push policy
@@ -57,6 +64,7 @@ jobs:
         run: node scripts/check-main-push-policy.mjs
 
       - name: Validate dispatched PR context
+        id: dispatch_context
         if: github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -66,6 +74,24 @@ jobs:
           QUALITY_HEAD_SHA: ${{ inputs.head_sha }}
           QUALITY_PR_NUMBER: ${{ inputs.pr_number }}
         run: node scripts/validate-quality-dispatch.mjs
+
+      - name: Mark Quality Gate running
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          QUALITY_HEAD_SHA: ${{ inputs.head_sha }}
+          QUALITY_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          gh api \
+            --method POST \
+            "repos/${REPOSITORY}/statuses/${QUALITY_HEAD_SHA}" \
+            -f state=pending \
+            -f context="Quality Gate" \
+            -f description="Quality validation is running" \
+            -f target_url="${QUALITY_RUN_URL}" \
+            >/dev/null
 
       - name: Prepare prospective merge tree
         if: github.event_name == 'workflow_dispatch'
@@ -357,3 +383,52 @@ jobs:
             echo "| Integration | ${{ steps.integration.outcome }} |"
             echo "| E2E | ${{ steps.e2e.outcome }} |"
           } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Publish Quality Gate result
+        if: >-
+          always() &&
+          github.event_name == 'workflow_dispatch' &&
+          steps.dispatch_context.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          QUALITY_HEAD_SHA: ${{ inputs.head_sha }}
+          QUALITY_JOB_STATUS: ${{ job.status }}
+          QUALITY_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          case "${QUALITY_JOB_STATUS}" in
+            success)
+              state=success
+              description="Quality validation passed"
+              ;;
+            cancelled)
+              state=error
+              description="Quality validation was cancelled"
+              ;;
+            *)
+              state=failure
+              description="Quality validation failed"
+              ;;
+          esac
+
+          gh api \
+            --method POST \
+            "repos/${REPOSITORY}/statuses/${QUALITY_HEAD_SHA}" \
+            -f "state=${state}" \
+            -f context="Quality Gate" \
+            -f "description=${description}" \
+            -f target_url="${QUALITY_RUN_URL}" \
+            >/dev/null
+
+  dispatched-checks:
+    name: ${{ github.event_name == 'workflow_dispatch' && 'checks' || 'dispatch-gate-skipped' }}
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+      statuses: write
+    steps: *quality_steps
