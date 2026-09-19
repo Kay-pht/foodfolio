@@ -5,6 +5,14 @@ import {
   zeroFailureUpperBound95,
 } from "../../poc/jev-recipe-gate/corpus-policy.js";
 import {
+  DEFAULT_TARGET_PER_KIND,
+  evaluateCorpusQuality,
+  MIN_HARD_NEGATIVE_COUNT,
+  siteCapForTarget,
+  zeroFailureUpperBound95,
+} from "../../poc/jev-recipe-gate/corpus-policy.js";
+import { isKnownRecipeUrl } from "../../poc/jev-recipe-gate/discovery.js";
+import {
   classifyRecipeContent,
   JEV_INPUT_USD_PER_MILLION,
 } from "../../poc/jev-recipe-gate/jev.js";
@@ -203,5 +211,86 @@ describe("Jev recipe gate corpus policy", () => {
     expect(
       evaluateCorpusQuality([...recipe, ...nonRecipe]).meetsDefaultTarget,
     ).toBe(false);
+  });
+});
+
+
+describe("Jev recipe gate corpus policy", () => {
+  it("requires 500 recipe and 500 non-recipe URLs by default", () => {
+    expect(DEFAULT_TARGET_PER_KIND).toBe(500);
+    expect(MIN_HARD_NEGATIVE_COUNT).toBe(350);
+    expect(siteCapForTarget(DEFAULT_TARGET_PER_KIND)).toBe(200);
+  });
+
+  it("puts the zero-false-reject one-sided 95% upper bound below 0.6% at 500 recipe cases", () => {
+    expect(zeroFailureUpperBound95(500)).toBeLessThan(0.006);
+    expect(zeroFailureUpperBound95(500)).toBeGreaterThan(0.005);
+  });
+
+  it("rejects a corpus that is large enough but dominated by one site", () => {
+    const cases = [
+      ...Array.from({ length: 500 }, (_, index) => ({
+        kind: "recipe" as const,
+        discoverySite: index < 300 ? "site-a" : index < 400 ? "site-b" : "site-c",
+        negativeTier: null,
+      })),
+      ...Array.from({ length: 500 }, (_, index) => ({
+        kind: "non-recipe" as const,
+        discoverySite: index < 300 ? "site-a" : index < 400 ? "site-b" : "site-c",
+        negativeTier: index < 350 ? ("hard" as const) : ("easy" as const),
+      })),
+    ];
+
+    const quality = evaluateCorpusQuality(cases);
+
+    expect(quality.recipeCount).toBe(500);
+    expect(quality.nonRecipeCount).toBe(500);
+    expect(quality.meetsDefaultTarget).toBe(false);
+    expect(quality.maxRecipeSiteShare).toBe(0.6);
+    expect(quality.maxNonRecipeSiteShare).toBe(0.6);
+  });
+
+  it("accepts a balanced 1000 URL corpus with enough hard negatives", () => {
+    const sites = ["site-a", "site-b", "site-c", "site-d", "site-e"];
+    const cases = [
+      ...Array.from({ length: 500 }, (_, index) => ({
+        kind: "recipe" as const,
+        discoverySite: sites[index % sites.length] ?? "site-a",
+        negativeTier: null,
+      })),
+      ...Array.from({ length: 500 }, (_, index) => ({
+        kind: "non-recipe" as const,
+        discoverySite: sites[index % sites.length] ?? "site-a",
+        negativeTier: index < 350 ? ("hard" as const) : ("easy" as const),
+      })),
+    ];
+
+    const quality = evaluateCorpusQuality(cases);
+
+    expect(quality.meetsDefaultTarget).toBe(true);
+    expect(quality.hardNegativeCount).toBe(350);
+    expect(quality.recipeSiteCount).toBe(5);
+    expect(quality.nonRecipeSiteCount).toBe(5);
+  });
+
+  it("recognizes the explicit recipe URL patterns used for discovery", () => {
+    expect(
+      isKnownRecipeUrl(
+        "https://delishkitchen.tv/recipes/378791542590013783",
+      ),
+    ).toBe(true);
+    expect(
+      isKnownRecipeUrl(
+        "https://oceans-nadia.com/user/11285/recipe/393839",
+      ),
+    ).toBe(true);
+    expect(
+      isKnownRecipeUrl(
+        "https://www.kyounoryouri.jp/recipe/20758_%E3%83%9B%E3%82%A8%E3%83%BC%E3%81%AE%E3%81%A4%E3%81%8F%E3%82%8A%E6%96%B9.html",
+      ),
+    ).toBe(true);
+    expect(isKnownRecipeUrl("https://delishkitchen.tv/categories/17387")).toBe(
+      false,
+    );
   });
 });
