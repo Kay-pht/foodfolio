@@ -9,93 +9,113 @@ objective: >-
 
 requirements:
   - id: JRG-1
-    condition: The live Jev PoC starts.
+    condition: The live Jev PoC starts without an existing compatible checkpoint.
     expected: >-
-      Before any Jev classification request is made, the PoC discovers and validates a corpus of
-      at least 500 distinct recipe URLs and 500 distinct non-recipe URLs from multiple public recipe
-      sites. Duplicate final URLs and duplicate extracted-text hashes do not count toward the corpus.
+      The runner creates poc/results/jev-recipe-gate-results.json before corpus discovery begins,
+      then discovers and validates as many labeled recipe and non-recipe URLs as are available up to
+      the 500/500 final target. Duplicate final URLs and duplicate extracted-text hashes do not count
+      toward the corpus.
     verification:
+      - poc/jev-recipe-gate/run.ts
       - poc/jev-recipe-gate/discovery.ts
       - poc/jev-recipe-gate/corpus-policy.ts
-      - poc/jev-recipe-gate/run.ts
-      - tests/unit/jev-recipe-gate.test.ts
   - id: JRG-2
-    condition: The 500 non-recipe cases are selected.
+    condition: Corpus discovery produces fewer than 500 recipe or 500 non-recipe URLs.
     expected: >-
-      At least 350 are recipe-adjacent hard negatives such as recipe indexes, categories, search
-      results, features, lists, and cooking articles. At least three discovery sites are represented
-      in each label, and no single discovery site contributes more than 40 percent of either label.
-      If these corpus-quality gates cannot be met, the run exits non-zero before Jev classification.
+      The validated URLs remain eligible for provisional Jev batch evaluation, but corpusComplete
+      remains false and qualifiedCandidateThreshold remains null. Final production-threshold
+      qualification still requires at least 500 recipe URLs, 500 non-recipe URLs, at least 350 hard
+      negatives, at least three sites per label, and no site above 40 percent of either label.
     verification:
-      - poc/jev-recipe-gate/corpus-policy.ts
       - poc/jev-recipe-gate/run.ts
+      - poc/jev-recipe-gate/corpus-policy.ts
       - tests/unit/jev-recipe-gate.test.ts
   - id: JRG-3
-    condition: A discovered candidate is accepted as ground-truth input.
+    condition: A discovered candidate is accepted as labeled corpus input.
     expected: >-
-      Recipe candidates must still resolve to a known source-specific recipe route and expose recipe
-      signals. Non-recipe candidates are drawn only from explicit source-specific non-recipe route
-      families and are excluded when they resolve to a known recipe route or contain Recipe JSON-LD.
-      The expected fixture label is never sent to Jev.
+      Recipe candidates resolve to an explicit source-specific recipe route and expose recipe
+      signals. Non-recipe candidates resolve to an explicit source-specific non-recipe route family
+      and do not expose Recipe JSON-LD. The expected label is never sent to Jev.
     verification:
       - poc/jev-recipe-gate/discovery.ts
       - poc/jev-recipe-gate/run.ts
   - id: JRG-4
-    condition: A validated case is evaluated by Jev.
+    condition: A developer runs npm run poc:jev-gate.
     expected: >-
-      The existing URL extraction PoC supplies bounded HTML-derived AI input to pinned jev-1.13.0,
-      and Jev returns a recipe versus non_recipe Choice result. The PoC records
-      probabilities.non_recipe as the candidate rejection signal and records Jev confidence
-      separately.
+      One invocation selects at most 100 distinct pending URLs. Fresh selections are balanced toward
+      recipe and non-recipe labels when both are available, while partially completed URLs are
+      resumed before fresh URLs. JEV_POC_BATCH_SIZE may reduce the batch below 100 but may not exceed
+      100.
+    verification:
+      - poc/jev-recipe-gate/batch.ts
+      - poc/jev-recipe-gate/run.ts
+      - tests/unit/jev-recipe-gate.test.ts
+  - id: JRG-5
+    condition: A selected URL is evaluated by Jev.
+    expected: >-
+      The existing URL extraction PoC supplies bounded HTML-derived AI input to pinned jev-1.13.0.
+      Each URL is evaluated three times by default, probabilities.non_recipe is the candidate gate
+      signal, and Jev confidence is recorded separately.
     verification:
       - poc/jev-recipe-gate/jev.ts
       - poc/jev-recipe-gate/run.ts
       - tests/unit/jev-recipe-gate.test.ts
-  - id: JRG-5
-    condition: The local PoC completes repeated Jev evaluations.
+  - id: JRG-6
+    condition: Jev evaluation makes progress.
     expected: >-
-      Each of the 1000 distinct URLs is evaluated three times by default. Thresholds 0.80, 0.90,
-      0.95, 0.98, and 0.99 are evaluated. A recipe URL counts as a false-reject risk when any
-      repetition reaches the non_recipe threshold, while a non-recipe URL counts as consistently
-      rejectable only when every repetition reaches the threshold.
+      The result file is atomically checkpointed after every successful Jev classification,
+      extraction failure, API failure, and completed URL. A later invocation loads the checkpoint,
+      skips fully completed URLs, and resumes partial URLs without repeating saved successful
+      repetitions.
+    verification:
+      - poc/jev-recipe-gate/run.ts
+      - poc/jev-recipe-gate/README.md
+  - id: JRG-7
+    condition: A batch completes normally.
+    expected: >-
+      The process stops after at most 100 selected URLs, records last-batch URL counts, successful
+      classifications, HTTP attempts, and estimated cost, and instructs the developer to rerun the
+      same command for the next batch.
+    verification:
+      - poc/jev-recipe-gate/batch.ts
+      - poc/jev-recipe-gate/run.ts
+      - poc/jev-recipe-gate/README.md
+  - id: JRG-8
+    condition: Threshold metrics are calculated before the full PoC completes.
+    expected: >-
+      Only URLs with every required repetition completed participate in threshold metrics.
+      provisionalCandidateThreshold may be reported from completed evidence, but
+      qualifiedCandidateThreshold remains null until the final corpus quality gate passes and all
+      corpus URLs complete without terminal errors.
     verification:
       - poc/jev-recipe-gate/metrics.ts
       - poc/jev-recipe-gate/run.ts
+  - id: JRG-9
+    condition: TypeSafe returns a persistent API error after bounded retry.
+    expected: >-
+      The failure is checkpointed and the current batch stops immediately with a non-zero exit
+      instead of continuing to consume additional Jev calls.
+    verification:
+      - poc/jev-recipe-gate/jev.ts
+      - poc/jev-recipe-gate/run.ts
       - tests/unit/jev-recipe-gate.test.ts
-  - id: JRG-6
-    condition: A developer runs the live PoC locally with a TypeSafe API key.
-    expected: >-
-      Generated evidence is written only below the git-ignored poc/results directory and includes
-      the exact evaluated URLs, corpus quality, model, probabilities, confidence, latency, token
-      usage, estimated cost, text hash, and text length without persisting the extracted page body.
-    verification:
-      - poc/jev-recipe-gate/run.ts
-      - poc/jev-recipe-gate/README.md
-      - .gitignore
-  - id: JRG-7
-    condition: Corpus construction or the Jev API does not complete the required evidence.
-    expected: >-
-      The run is marked technically incomplete and exits non-zero instead of selecting an apparently
-      safe threshold from silently missing corpus cases or model repetitions.
-    verification:
-      - poc/jev-recipe-gate/run.ts
-      - poc/jev-recipe-gate/README.md
 
 edge_cases:
-  - Corpus discovery cannot find enough validated URLs to satisfy the 500/500 target.
-  - One source site contributes more than 40 percent of either label.
+  - Corpus discovery reaches recipe=500 but fewer than 500 non-recipe URLs.
+  - A run is interrupted after one or two repetitions of a URL.
+  - The process is restarted with an existing compatible checkpoint.
+  - The requested model or repetition count conflicts with the saved checkpoint.
+  - A selected URL changes content or no longer satisfies its stored label on re-extraction.
   - Different discovered URLs redirect to the same final URL or yield identical extracted content.
-  - A negative candidate unexpectedly exposes Recipe JSON-LD or redirects to a known recipe route.
+  - A source blocks discovery or extraction.
+  - TypeSafe returns 429, 529, malformed JSON, invalid probabilities, or an unexpected answer type.
   - A recipe receives one anomalously high non_recipe probability across repeated runs.
-  - A non-recipe page strongly resembles recipe content because it is a recipe index, cooking article, category, search page, or food site home page.
-  - A source blocks discovery or extraction, leaving too few valid cases or too much site concentration.
-  - TypeSafe returns an HTTP error, malformed JSON, an unexpected answer type, invalid probabilities, or incomplete token usage.
-  - No tested threshold produces both zero recipe false-reject cases and useful non-recipe coverage.
+  - No tested threshold produces both zero observed recipe false rejects and useful non-recipe coverage.
 
 security_invariants:
-  - TYPESAFE_API_KEY is read only from local environment configuration and is never written to PoC results.
+  - TYPESAFE_API_KEY is read only from local environment configuration and is never written to results.
   - The expected recipe/non-recipe label is not included in Jev state or question content.
-  - Raw extracted page content is kept only in memory and is not written to committed PoC files or generated result metadata.
+  - Raw extracted page content is kept only in memory and is not written to the result file.
   - Production authentication, user IDs, Firebase data, device tokens, and recipe ownership data are outside this PoC.
 
 compatibility:
@@ -106,11 +126,12 @@ compatibility:
 
 non_functional:
   - Use the direct TypeSafe System One HTTP API without adding an SDK dependency.
-  - Pin jev-1.13.0 by default so threshold measurements do not silently move with a latest alias.
-  - Prefer content diversity over repeated calls; repetitions measure model stability and do not reduce the 1000-URL corpus requirement.
-  - With 500 distinct recipe URLs and zero false rejects, report the one-sided 95 percent binomial upper bound of approximately 0.6 percent only as a scale reference, not as proof of production accuracy.
-  - Run Jev requests sequentially and keep the default repetition count bounded.
-  - Treat a reported fixture-safe threshold as experimental evidence rather than production approval.
+  - Pin jev-1.13.0 by default so measurements do not silently move with a latest alias.
+  - Hard-cap each invocation to 100 distinct URLs and run Jev sequentially.
+  - Persist results with an atomic temporary-file rename.
+  - Prefer content diversity over repeated calls; repetitions measure model stability.
+  - Treat any threshold produced before final corpus and run completion as provisional only.
+  - With 500 distinct recipe URLs and zero false rejects, report the one-sided 95 percent binomial upper bound of approximately 0.6 percent only as a scale reference.
 
 out_of_scope:
   - Enabling Jev in the production worker.
@@ -121,14 +142,15 @@ out_of_scope:
   - App Store or iOS changes.
 
 acceptance_criteria:
-  - The local PoC refuses to classify a corpus smaller than 500 recipe and 500 non-recipe URLs.
-  - At least 350 non-recipe cases are recipe-adjacent hard negatives.
-  - Corpus uniqueness, label validation, site-diversity, and concentration gates pass before Jev requests start.
-  - No single site exceeds 40 percent of either label and at least three sites contribute to each label.
-  - Results distinguish non_recipe probability from Jev confidence.
-  - Repeated-run threshold metrics expose recipe false-reject risk and consistent non-recipe reject coverage.
-  - Live-run evidence records cost and latency without committing raw fetched page content.
-  - Any incomplete corpus or model run is surfaced as incomplete rather than silently excluded.
+  - One command invocation selects no more than 100 URLs.
+  - The same command resumes from the saved checkpoint on the next invocation.
+  - The result file exists before corpus discovery completes.
+  - A recipe=500/non-recipe=370 corpus can still be evaluated provisionally without qualifying a final threshold.
+  - Partial URL repetitions resume before new URLs.
+  - Fully completed and terminal-error URLs are not silently reprocessed.
+  - Threshold metrics exclude partially completed URLs.
+  - A persistent API error stops the current batch after checkpointing.
+  - Batch and cumulative estimated cost are visible in the result file.
   - No production analysis behavior changes in this PR.
 
 regression:
