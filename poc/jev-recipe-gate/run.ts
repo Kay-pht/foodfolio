@@ -10,6 +10,7 @@ import {
 } from "./corpus-policy.js";
 import {
   discoverJevGateCases,
+  isKnownRecipeUrl,
   type DiscoveredCase,
 } from "./discovery.js";
 import { extractUrl } from "../url-extraction/extract.js";
@@ -128,12 +129,17 @@ async function validateCandidate(
   const pageContent = extraction.aiInput.text.trim();
   if (!extraction.http.ok || pageContent.length < MIN_INPUT_CHARS) return null;
 
-  if (fixture.kind === "recipe" && !extraction.evidence.hasRecipeSignals) {
+  if (
+    fixture.kind === "recipe" &&
+    (!extraction.evidence.hasRecipeSignals ||
+      !isKnownRecipeUrl(extraction.finalUrl))
+  ) {
     return null;
   }
   if (
     fixture.kind === "non-recipe" &&
-    extraction.jsonLdRecipes.length > 0
+    (extraction.jsonLdRecipes.length > 0 ||
+      isKnownRecipeUrl(extraction.finalUrl))
   ) {
     return null;
   }
@@ -160,6 +166,8 @@ async function validateCases(
   siteCounts: Map<string, number>,
   selected: ValidatedCase[],
   perSiteCap: number,
+  seenFinalUrls: Set<string>,
+  seenTextHashes: Set<string>,
 ): Promise<void> {
   for (const fixture of candidates) {
     if (selected.length >= target) return;
@@ -174,6 +182,16 @@ async function validateCases(
       continue;
     }
 
+    if (
+      seenFinalUrls.has(validated.extraction.finalUrl) ||
+      seenTextHashes.has(validated.extraction.textSha256)
+    ) {
+      console.log("skip duplicate content");
+      continue;
+    }
+
+    seenFinalUrls.add(validated.extraction.finalUrl);
+    seenTextHashes.add(validated.extraction.textSha256);
     selected.push(validated);
     siteCounts.set(
       fixture.discoverySite,
@@ -205,6 +223,8 @@ console.log(
   `discovered candidates: recipe=${discovered.recipe.length}, hard-negative=${discovered.hardNegative.length}, easy-negative=${discovered.easyNegative.length}`,
 );
 
+const seenFinalUrls = new Set<string>();
+const seenTextHashes = new Set<string>();
 const recipeCases: ValidatedCase[] = [];
 const recipeSiteCounts = new Map<string, number>();
 await validateCases(
@@ -213,6 +233,8 @@ await validateCases(
   recipeSiteCounts,
   recipeCases,
   perSiteCap,
+  seenFinalUrls,
+  seenTextHashes,
 );
 
 const nonRecipeCases: ValidatedCase[] = [];
@@ -223,6 +245,8 @@ await validateCases(
   nonRecipeSiteCounts,
   nonRecipeCases,
   perSiteCap,
+  seenFinalUrls,
+  seenTextHashes,
 );
 if (nonRecipeCases.length < targetPerKind) {
   await validateCases(
@@ -231,6 +255,8 @@ if (nonRecipeCases.length < targetPerKind) {
     nonRecipeSiteCounts,
     nonRecipeCases,
     perSiteCap,
+    seenFinalUrls,
+    seenTextHashes,
   );
 }
 
