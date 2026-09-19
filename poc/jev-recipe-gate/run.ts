@@ -604,6 +604,8 @@ let preparedCases = new Map<string, ValidatedCase>();
 if (!state || refreshCorpus || state.corpusQuality === null) {
   const previous = state;
   state = emptyState(model, repetitions, batchSize, targetPerKind, perSiteCap);
+  state.pricing.historicalEstimatedCostUsd =
+    previous?.pricing.totalEstimatedCostUsd ?? 0;
   await writeState(state);
   console.log(`checkpoint created: ${path.relative(root, outputPath)}`);
   preparedCases = await discoverCorpus(state, previous);
