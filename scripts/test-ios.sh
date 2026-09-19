@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
 readonly IOS_DIR="${SCRIPT_DIR}/../ios"
 readonly DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
-readonly IOS_DESTINATION="${IOS_DESTINATION:-platform=iOS Simulator,name=iPhone 17 Pro}"
+readonly IOS_DESTINATION="${IOS_DESTINATION:-$(node "${SCRIPT_DIR}/ios-simulator-destination.mjs")}"
 readonly IOS_DERIVED_DATA_PATH="${IOS_DERIVED_DATA_PATH:-${IOS_DIR}/.derived-data}"
 readonly IOS_PARALLEL_WORKERS="${IOS_PARALLEL_WORKERS:-2}"
 readonly IOS_RESULT_BUNDLE_PATH="${IOS_RESULT_BUNDLE_PATH:-}"
