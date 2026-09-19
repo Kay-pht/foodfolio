@@ -1,0 +1,64 @@
+id: IOS-SIMULATOR-SELECTION-001
+type: bug
+status: approved
+
+objective: >-
+  Keep local iOS verification runnable after Xcode simulator runtimes change by
+  resolving an available iPhone from the newest installed iOS runtime instead of
+  relying on a fixed device name that may not exist on the latest runtime.
+
+requirements:
+  - id: ISS-1
+    condition: IOS_DESTINATION is not explicitly configured and multiple iOS Simulator runtimes are installed.
+    expected: The test script selects an available iPhone from the numerically newest installed iOS runtime and passes its UDID to xcodebuild.
+    verification:
+      - scripts/test-ios.sh
+      - tests/unit/ios-simulator-destination.test.mjs
+  - id: ISS-2
+    condition: More than one iPhone is available in the newest installed iOS Simulator runtime.
+    expected: A booted iPhone is preferred; otherwise selection is deterministic by device name and UDID.
+    verification:
+      - tests/unit/ios-simulator-destination.test.mjs
+  - id: ISS-3
+    condition: IOS_DESTINATION is explicitly configured by the caller.
+    expected: The explicit destination is used unchanged without querying CoreSimulator.
+    verification:
+      - scripts/test-ios.sh
+      - tests/unit/ios-simulator-destination.test.mjs
+
+edge_cases:
+  - Runtime versions must be compared numerically so iOS 10 is newer than iOS 9.
+  - An installed runtime contains no available iPhone devices.
+  - Device names available with an older runtime are absent from the newest runtime.
+  - Multiple devices have the same name but different UDIDs.
+
+security_invariants:
+  - Simulator discovery executes only local Xcode command-line tools.
+  - No credentials, application data, or simulator contents are printed.
+  - The resolved destination must contain only an available simulator UDID returned by CoreSimulator.
+
+compatibility:
+  - IOS_DESTINATION remains the supported explicit override.
+  - IOS_PARALLEL_WORKERS, IOS_DERIVED_DATA_PATH, and IOS_RESULT_BUNDLE_PATH retain their existing behavior.
+  - npm run test:ios and npm run verify:ios remain the standard entry points.
+
+non_functional:
+  - Simulator selection must be deterministic for the same CoreSimulator inventory.
+  - The fix must not add a package dependency or require network access.
+  - A missing available iPhone must fail before xcodebuild with an actionable error.
+
+out_of_scope:
+  - Installing or deleting Simulator runtimes or devices.
+  - Changing the iOS deployment target, scheme, build configuration, or expected test count.
+  - Selecting physical iOS devices.
+
+acceptance_criteria:
+  - A machine whose newest runtime lacks the previously fixed iPhone model can run the iOS test script.
+  - The selected xcodebuild destination uses the UDID of an available iPhone from the newest runtime.
+  - An explicit IOS_DESTINATION continues to bypass automatic selection.
+  - The regression test, specification check, npm run verify, and npm run verify:ios pass.
+
+regression:
+  required: true
+  tests:
+    - tests/unit/ios-simulator-destination.test.mjs

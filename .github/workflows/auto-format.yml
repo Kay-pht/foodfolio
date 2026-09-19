@@ -26,6 +26,7 @@ permissions:
   actions: write
   contents: write
   pull-requests: read
+  statuses: write
 
 jobs:
   fix:
@@ -377,11 +378,32 @@ jobs:
             exit 0
           fi
 
-          gh workflow run quality.yml \
+          quality_url="https://github.com/${REPOSITORY}/actions/workflows/quality.yml"
+          gh api \
+            --method POST \
+            "repos/${REPOSITORY}/statuses/${head_sha}" \
+            -f state=pending \
+            -f context="Quality Gate" \
+            -f description="Waiting for Quality validation" \
+            -f target_url="${quality_url}" \
+            >/dev/null
+
+          if ! gh workflow run quality.yml \
             --ref "${head_ref}" \
             -f "base_sha=${base_sha}" \
             -f "head_sha=${head_sha}" \
-            -f "pr_number=${PR_NUMBER}"
+            -f "pr_number=${PR_NUMBER}"; then
+            gh api \
+              --method POST \
+              "repos/${REPOSITORY}/statuses/${head_sha}" \
+              -f state=error \
+              -f context="Quality Gate" \
+              -f description="Failed to dispatch Quality" \
+              -f target_url="${quality_url}" \
+              >/dev/null || true
+            echo "Failed to dispatch Quality for ${head_sha}." >&2
+            exit 1
+          fi
 
   handoff-quality:
     if: >-
@@ -424,8 +446,29 @@ jobs:
             exit 0
           fi
 
-          gh workflow run quality.yml \
+          quality_url="https://github.com/${REPOSITORY}/actions/workflows/quality.yml"
+          gh api \
+            --method POST \
+            "repos/${REPOSITORY}/statuses/${head_sha}" \
+            -f state=pending \
+            -f context="Quality Gate" \
+            -f description="Waiting for Quality validation" \
+            -f target_url="${quality_url}" \
+            >/dev/null
+
+          if ! gh workflow run quality.yml \
             --ref "${head_ref}" \
             -f "base_sha=${base_sha}" \
             -f "head_sha=${head_sha}" \
-            -f "pr_number=${PR_NUMBER}"
+            -f "pr_number=${PR_NUMBER}"; then
+            gh api \
+              --method POST \
+              "repos/${REPOSITORY}/statuses/${head_sha}" \
+              -f state=error \
+              -f context="Quality Gate" \
+              -f description="Failed to dispatch Quality" \
+              -f target_url="${quality_url}" \
+              >/dev/null || true
+            echo "Failed to dispatch Quality for ${head_sha}." >&2
+            exit 1
+          fi
