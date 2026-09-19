@@ -12,18 +12,18 @@ requirements:
     condition: The live Jev PoC starts.
     expected: >-
       Before any Jev classification request is made, the PoC discovers and validates a corpus of
-      300 distinct recipe URLs and 300 distinct non-recipe URLs from multiple supported public
-      recipe sites. Duplicate final URLs and duplicate extracted-text hashes do not count toward
-      the corpus size.
+      at least 500 distinct recipe URLs and 500 distinct non-recipe URLs from multiple public recipe
+      sites. Duplicate final URLs and duplicate extracted-text hashes do not count toward the corpus.
     verification:
       - poc/jev-recipe-gate/discovery.ts
       - poc/jev-recipe-gate/corpus-policy.ts
       - poc/jev-recipe-gate/run.ts
       - tests/unit/jev-recipe-gate.test.ts
   - id: JRG-2
-    condition: The 300 non-recipe fixtures are selected.
+    condition: The 500 non-recipe cases are selected.
     expected: >-
-      At least 200 are recipe-adjacent hard negatives, at least three discovery sites are represented
+      At least 350 are recipe-adjacent hard negatives such as recipe indexes, categories, search
+      results, features, lists, and cooking articles. At least three discovery sites are represented
       in each label, and no single discovery site contributes more than 40 percent of either label.
       If these corpus-quality gates cannot be met, the run exits non-zero before Jev classification.
     verification:
@@ -33,14 +33,15 @@ requirements:
   - id: JRG-3
     condition: A discovered candidate is accepted as ground-truth input.
     expected: >-
-      Recipe candidates must still resolve to a known source-specific recipe route and expose
-      recipe signals. Non-recipe candidates are excluded when they resolve to a known recipe route
-      or contain Recipe JSON-LD. The expected fixture label is never sent to Jev.
+      Recipe candidates must still resolve to a known source-specific recipe route and expose recipe
+      signals. Non-recipe candidates are drawn only from explicit source-specific non-recipe route
+      families and are excluded when they resolve to a known recipe route or contain Recipe JSON-LD.
+      The expected fixture label is never sent to Jev.
     verification:
       - poc/jev-recipe-gate/discovery.ts
       - poc/jev-recipe-gate/run.ts
   - id: JRG-4
-    condition: A validated fixture is evaluated by Jev.
+    condition: A validated case is evaluated by Jev.
     expected: >-
       The existing URL extraction PoC supplies bounded HTML-derived AI input to pinned jev-1.13.0,
       and Jev returns a recipe versus non_recipe Choice result. The PoC records
@@ -53,9 +54,9 @@ requirements:
   - id: JRG-5
     condition: The local PoC completes repeated Jev evaluations.
     expected: >-
-      Each of the 600 distinct URLs is evaluated three times by default. Thresholds 0.80, 0.90,
-      0.95, 0.98, and 0.99 are evaluated. A recipe fixture counts as a false-reject risk when any
-      repetition reaches the non_recipe threshold, while a non-recipe fixture counts as consistently
+      Each of the 1000 distinct URLs is evaluated three times by default. Thresholds 0.80, 0.90,
+      0.95, 0.98, and 0.99 are evaluated. A recipe URL counts as a false-reject risk when any
+      repetition reaches the non_recipe threshold, while a non-recipe URL counts as consistently
       rejectable only when every repetition reaches the threshold.
     verification:
       - poc/jev-recipe-gate/metrics.ts
@@ -84,18 +85,16 @@ edge_cases:
   - Corpus discovery cannot find enough validated URLs to satisfy the 500/500 target.
   - One source site contributes more than 40 percent of either label.
   - Different discovered URLs redirect to the same final URL or yield identical extracted content.
-  - A recipe receives one anomalously high non_recipe probability across repeated runs.
-  - A non-recipe page resembles recipe content because it is a recipe index, cooking article, category, search page, or food site home page.
-  - Multiple discovered URLs redirect to the same final URL.
-  - Different URLs produce identical extracted page content.
   - A negative candidate unexpectedly exposes Recipe JSON-LD or redirects to a known recipe route.
+  - A recipe receives one anomalously high non_recipe probability across repeated runs.
+  - A non-recipe page strongly resembles recipe content because it is a recipe index, cooking article, category, search page, or food site home page.
   - A source blocks discovery or extraction, leaving too few valid cases or too much site concentration.
   - TypeSafe returns an HTTP error, malformed JSON, an unexpected answer type, invalid probabilities, or incomplete token usage.
-  - No tested threshold produces both zero recipe false-reject fixtures and useful non-recipe coverage.
+  - No tested threshold produces both zero recipe false-reject cases and useful non-recipe coverage.
 
 security_invariants:
   - TYPESAFE_API_KEY is read only from local environment configuration and is never written to PoC results.
-  - The expected recipe/non-recipe fixture label is not included in Jev state or question content.
+  - The expected recipe/non-recipe label is not included in Jev state or question content.
   - Raw extracted page content is kept only in memory and is not written to committed PoC files or generated result metadata.
   - Production authentication, user IDs, Firebase data, device tokens, and recipe ownership data are outside this PoC.
 
@@ -108,8 +107,8 @@ compatibility:
 non_functional:
   - Use the direct TypeSafe System One HTTP API without adding an SDK dependency.
   - Pin jev-1.13.0 by default so threshold measurements do not silently move with a latest alias.
-  - Prefer content diversity over repeated calls; repetitions measure model stability and do not reduce the 600-URL corpus requirement.
-  - The 300-positive zero-error bound is only a scale reference under an independent-binomial assumption and is not represented as proof of production accuracy.
+  - Prefer content diversity over repeated calls; repetitions measure model stability and do not reduce the 1000-URL corpus requirement.
+  - With 500 distinct recipe URLs and zero false rejects, report the one-sided 95 percent binomial upper bound of approximately 0.6 percent only as a scale reference, not as proof of production accuracy.
   - Run Jev requests sequentially and keep the default repetition count bounded.
   - Treat a reported fixture-safe threshold as experimental evidence rather than production approval.
 
@@ -122,10 +121,10 @@ out_of_scope:
   - App Store or iOS changes.
 
 acceptance_criteria:
-  - The local PoC refuses to classify a corpus smaller than 300 recipe and 300 non-recipe URLs.
-  - At least 200 non-recipe cases are recipe-adjacent hard negatives.
-  - Corpus uniqueness and site-diversity gates pass before Jev requests start.
-  - At least 350 non-recipe URLs are hard negatives from recipe-adjacent pages and no single site exceeds 40 percent of either label.
+  - The local PoC refuses to classify a corpus smaller than 500 recipe and 500 non-recipe URLs.
+  - At least 350 non-recipe cases are recipe-adjacent hard negatives.
+  - Corpus uniqueness, label validation, site-diversity, and concentration gates pass before Jev requests start.
+  - No single site exceeds 40 percent of either label and at least three sites contribute to each label.
   - Results distinguish non_recipe probability from Jev confidence.
   - Repeated-run threshold metrics expose recipe false-reject risk and consistent non-recipe reject coverage.
   - Live-run evidence records cost and latency without committing raw fetched page content.
