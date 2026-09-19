@@ -6,6 +6,7 @@ export interface BatchSelectableCase {
   expected: "recipe" | "non-recipe";
   completedRuns: number;
   hasTerminalError: boolean;
+  retryPriority?: boolean;
 }
 
 export function parseBatchSize(value: string | undefined): number {
@@ -33,15 +34,18 @@ export function selectBatchCaseIds(
   const pending = cases.filter(
     (item) => !item.hasTerminalError && item.completedRuns < repetitions,
   );
-  const partial = pending.filter((item) => item.completedRuns > 0);
-  const freshRecipe = pending.filter(
+  const priority = pending.filter((item) => item.retryPriority === true);
+  const priorityIds = new Set(priority.map(({ id }) => id));
+  const nonPriority = pending.filter((item) => !priorityIds.has(item.id));
+  const partial = nonPriority.filter((item) => item.completedRuns > 0);
+  const freshRecipe = nonPriority.filter(
     (item) => item.completedRuns === 0 && item.expected === "recipe",
   );
-  const freshNonRecipe = pending.filter(
+  const freshNonRecipe = nonPriority.filter(
     (item) => item.completedRuns === 0 && item.expected === "non-recipe",
   );
 
-  const selected = partial.slice(0, batchSize);
+  const selected = [...priority, ...partial].slice(0, batchSize);
   let recipeIndex = 0;
   let nonRecipeIndex = 0;
 
