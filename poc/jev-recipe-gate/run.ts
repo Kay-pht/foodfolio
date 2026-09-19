@@ -84,6 +84,7 @@ interface BatchRecord {
   httpAttempts: number;
   estimatedCostUsd: number;
   error: string | null;
+  retryCaseId: string | null;
   stopReason: "batch-limit" | "api-error" | "no-pending-cases" | null;
 }
 
@@ -616,12 +617,17 @@ if (!state || refreshCorpus || state.corpusQuality === null) {
   );
 }
 
+const retryCaseId =
+  state.lastBatch?.stopReason === "api-error"
+    ? state.lastBatch.retryCaseId
+    : null;
 const selectedCaseIds = selectBatchCaseIds(
   state.cases.map((item) => ({
     id: item.id,
     expected: item.expected,
     completedRuns: item.runs.length,
     hasTerminalError: item.error !== null,
+    retryPriority: item.id === retryCaseId,
   })),
   state.repetitions,
   batchSize,
@@ -637,6 +643,7 @@ if (selectedCaseIds.length === 0) {
     httpAttempts: 0,
     estimatedCostUsd: 0,
     error: null,
+    retryCaseId: null,
     stopReason: "no-pending-cases",
   };
   await writeState(state);
@@ -668,6 +675,7 @@ const batch: BatchRecord = {
   httpAttempts: 0,
   estimatedCostUsd: 0,
   error: null,
+  retryCaseId: null,
   stopReason: null,
 };
 state.lastBatch = batch;
@@ -750,6 +758,7 @@ for (const caseId of selectedCaseIds) {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       batch.error = `Jev evaluation failed for ${item.id}: ${message}`;
+      batch.retryCaseId = item.id;
       batch.stopReason = "api-error";
       await writeState(state);
       console.log(`ERROR ${message}`);
