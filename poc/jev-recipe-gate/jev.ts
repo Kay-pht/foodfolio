@@ -219,42 +219,42 @@ export async function classifyRecipeContent(
       throw new Error("TypeSafe API returned non-JSON content");
     }
 
-  const root = record(parsed, "root");
-  const answers = record(root.answers, "answers");
-  const answer = record(
-    answers.recipe_classification,
-    "answers.recipe_classification",
-  );
-  if (answer.type !== "choice") {
-    throw new Error("TypeSafe returned an unexpected answer type");
-  }
+    const root = record(parsed, "root");
+    const answers = record(root.answers, "answers");
+    const answer = record(
+      answers.recipe_classification,
+      "answers.recipe_classification",
+    );
+    if (answer.type !== "choice") {
+      throw new Error("TypeSafe returned an unexpected answer type");
+    }
 
-  const probabilities = record(
-    answer.probabilities,
-    "answers.recipe_classification.probabilities",
-  );
-  const recipeProbability = probability(
-    probabilities.recipe,
-    "probabilities.recipe",
-  );
-  const nonRecipeProbability = probability(
-    probabilities.non_recipe,
-    "probabilities.non_recipe",
-  );
-  const probabilityTotal = recipeProbability + nonRecipeProbability;
-  if (Math.abs(probabilityTotal - 1) > 0.001) {
-    throw new Error("TypeSafe choice probabilities do not sum to one");
-  }
+    const probabilities = record(
+      answer.probabilities,
+      "answers.recipe_classification.probabilities",
+    );
+    const recipeProbability = probability(
+      probabilities.recipe,
+      "probabilities.recipe",
+    );
+    const nonRecipeProbability = probability(
+      probabilities.non_recipe,
+      "probabilities.non_recipe",
+    );
+    const probabilityTotal = recipeProbability + nonRecipeProbability;
+    if (Math.abs(probabilityTotal - 1) > 0.001) {
+      throw new Error("TypeSafe choice probabilities do not sum to one");
+    }
 
-  const usage = record(root.usage, "usage");
-  const inputTokens = nonNegativeInteger(
-    usage.input_tokens,
-    "usage.input_tokens",
-  );
-  const outputTokens = nonNegativeInteger(
-    usage.output_tokens,
-    "usage.output_tokens",
-  );
+    const usage = record(root.usage, "usage");
+    const inputTokens = nonNegativeInteger(
+      usage.input_tokens,
+      "usage.input_tokens",
+    );
+    const outputTokens = nonNegativeInteger(
+      usage.output_tokens,
+      "usage.output_tokens",
+    );
 
     return {
       model: typeof root.model === "string" ? root.model : model,
