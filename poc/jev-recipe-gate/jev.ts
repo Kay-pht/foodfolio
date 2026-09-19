@@ -1,5 +1,8 @@
 const SYSTEM_ONE_ENDPOINT = "https://api.typesafe.ai/v1/systemone";
 const DEFAULT_TIMEOUT_MS = 15_000;
+const DEFAULT_MAX_ATTEMPTS = 3;
+const BASE_RETRY_DELAY_MS = 250;
+const RETRYABLE_STATUS = new Set([429, 529]);
 
 export const DEFAULT_JEV_MODEL = "jev-1.13.0";
 export const JEV_INPUT_USD_PER_MILLION = 0.042;
@@ -8,6 +11,8 @@ type FetchLike = (
   input: string | URL,
   init?: RequestInit,
 ) => Promise<Response>;
+
+type SleepLike = (delayMs: number) => Promise<void>;
 
 export interface JevRecipeClassification {
   model: string;
@@ -19,13 +24,16 @@ export interface JevRecipeClassification {
   outputTokens: number;
   estimatedCostUsd: number;
   elapsedMs: number;
+  attempts: number;
 }
 
 export interface JevRecipeClassificationOptions {
   apiKey: string;
   model?: string;
   timeoutMs?: number;
+  maxAttempts?: number;
   fetchImpl?: FetchLike;
+  sleepImpl?: SleepLike;
 }
 
 function record(value: unknown, field: string): Record<string, unknown> {
@@ -60,9 +68,70 @@ function nonNegativeInteger(value: unknown, field: string): number {
   return parsed;
 }
 
+function positiveInteger(value: number, field: string): number {
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(`${field} must be a positive integer`);
+  }
+  return value;
+}
+
 function choice(value: unknown): "recipe" | "non_recipe" {
   if (value === "recipe" || value === "non_recipe") return value;
   throw new Error("TypeSafe returned an unknown recipe classification");
+}
+
+function sleep(delayMs: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, delayMs));
+}
+
+function retryDelayMs(response: Response | null, attempt: number): number {
+  const retryAfter = response?.headers.get("retry-after")?.trim();
+  if (retryAfter) {
+    const seconds = Number(retryAfter);
+    if (Number.isFinite(seconds) && seconds >= 0) {
+      return Math.min(seconds * 1_000, 30_000);
+    }
+  }
+  return Math.min(BASE_RETRY_DELAY_MS * 2 ** (attempt - 1), 5_000);
+}
+
+async function postSystemOne(
+  body: string,
+  apiKey: string,
+  timeoutMs: number,
+  maxAttempts: number,
+  fetchImpl: FetchLike,
+  sleepImpl: SleepLike,
+): Promise<{ raw: string; attempts: number }> {
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    let response: Response;
+    try {
+      response = await fetchImpl(SYSTEM_ONE_ENDPOINT, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${apiKey}`,
+          "content-type": "application/json",
+        },
+        body,
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    } catch (error) {
+      if (attempt >= maxAttempts) throw error;
+      await sleepImpl(retryDelayMs(null, attempt));
+      continue;
+    }
+
+    const raw = await response.text();
+    if (response.ok) return { raw, attempts: attempt };
+
+    if (!RETRYABLE_STATUS.has(response.status) || attempt >= maxAttempts) {
+      throw new Error(`TypeSafe API returned HTTP ${response.status}`);
+    }
+
+    await sleepImpl(retryDelayMs(response, attempt));
+  }
+
+  throw new Error("TypeSafe API retry loop exhausted unexpectedly");
 }
 
 export async function classifyRecipeContent(
@@ -75,39 +144,45 @@ export async function classifyRecipeContent(
 
   const model = options.model?.trim() || DEFAULT_JEV_MODEL;
   const fetchImpl = options.fetchImpl ?? fetch;
+  const sleepImpl = options.sleepImpl ?? sleep;
+  const timeoutMs = positiveInteger(
+    options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+    "timeoutMs",
+  );
+  const maxAttempts = positiveInteger(
+    options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS,
+    "maxAttempts",
+  );
   const startedAt = Date.now();
-  const response = await fetchImpl(SYSTEM_ONE_ENDPOINT, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${apiKey}`,
-      "content-type": "application/json",
+
+  const requestBody = JSON.stringify({
+    model,
+    state: {
+      page_content: pageContent,
     },
-    body: JSON.stringify({
-      model,
-      state: {
-        page_content: pageContent,
-      },
-      questions: {
-        recipe_classification: {
-          type: "choice",
-          instructions:
-            "Classify whether the provided page content represents one specific cooking recipe.",
-          criteria: {
-            recipe:
-              "One specific dish or drink recipe, or content clearly intended to teach how to prepare one specific dish or drink. Missing some fields in the extracted page text does not by itself make it non-recipe.",
-            non_recipe:
-              "Not one specific cooking recipe. Includes home pages, search/list/category/index pages, general food articles, product/news/editorial pages, and unrelated content.",
-          },
+    questions: {
+      recipe_classification: {
+        type: "choice",
+        instructions:
+          "Classify whether the provided page content represents one specific cooking recipe.",
+        criteria: {
+          recipe:
+            "One specific dish or drink recipe, or content clearly intended to teach how to prepare one specific dish or drink. Missing some fields in the extracted page text does not by itself make it non-recipe.",
+          non_recipe:
+            "Not one specific cooking recipe. Includes home pages, search/list/category/index pages, general food articles, product/news/editorial pages, and unrelated content.",
         },
       },
-    }),
-    signal: AbortSignal.timeout(options.timeoutMs ?? DEFAULT_TIMEOUT_MS),
+    },
   });
 
-  const raw = await response.text();
-  if (!response.ok) {
-    throw new Error(`TypeSafe API returned HTTP ${response.status}`);
-  }
+  const { raw, attempts } = await postSystemOne(
+    requestBody,
+    apiKey,
+    timeoutMs,
+    maxAttempts,
+    fetchImpl,
+    sleepImpl,
+  );
 
   let parsed: unknown;
   try {
@@ -144,7 +219,10 @@ export async function classifyRecipeContent(
   }
 
   const usage = record(root.usage, "usage");
-  const inputTokens = nonNegativeInteger(usage.input_tokens, "usage.input_tokens");
+  const inputTokens = nonNegativeInteger(
+    usage.input_tokens,
+    "usage.input_tokens",
+  );
   const outputTokens = nonNegativeInteger(
     usage.output_tokens,
     "usage.output_tokens",
@@ -161,5 +239,6 @@ export async function classifyRecipeContent(
     estimatedCostUsd:
       (inputTokens * JEV_INPUT_USD_PER_MILLION) / 1_000_000,
     elapsedMs: Date.now() - startedAt,
+    attempts,
   };
 }
