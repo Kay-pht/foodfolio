@@ -1,0 +1,103 @@
+id: JEV-RECIPE-GATE-POC-001
+type: feature
+status: approved
+
+objective: >-
+  Build a local-only Jev proof of concept that measures whether HTML-derived page content can
+  safely identify clearly non-recipe URLs before Foodfolio enters its existing recipe extraction
+  and media-analysis pipeline, without changing production routing.
+
+requirements:
+  - id: JRG-1
+    condition: A labeled HTML recipe or non-recipe fixture is evaluated by the PoC.
+    expected: >-
+      The existing URL extraction PoC supplies bounded HTML-derived AI input to a pinned Jev model,
+      and Jev returns a recipe versus non_recipe Choice result without receiving the fixture's
+      expected label as model state.
+    verification:
+      - poc/jev-recipe-gate/run.ts
+      - poc/jev-recipe-gate/jev.ts
+      - poc/jev-recipe-gate/cases.json
+      - tests/unit/jev-recipe-gate.test.ts
+  - id: JRG-2
+    condition: Jev returns a Choice result for a fixture.
+    expected: >-
+      The PoC records probabilities.non_recipe as the candidate rejection signal and records Jev
+      confidence separately. It does not treat confidence as a substitute for the selected option's
+      probability.
+    verification:
+      - poc/jev-recipe-gate/jev.ts
+      - tests/unit/jev-recipe-gate.test.ts
+  - id: JRG-3
+    condition: The local PoC completes repeated Jev evaluations.
+    expected: >-
+      Thresholds 0.80, 0.90, 0.95, 0.98, and 0.99 are evaluated. A recipe fixture counts as a
+      false-reject risk when any repetition reaches the non_recipe threshold, while a non-recipe
+      fixture counts as consistently rejectable only when every repetition reaches the threshold.
+    verification:
+      - poc/jev-recipe-gate/metrics.ts
+      - tests/unit/jev-recipe-gate.test.ts
+  - id: JRG-4
+    condition: A developer runs the live PoC locally with a TypeSafe API key.
+    expected: >-
+      Generated evidence is written only below the git-ignored poc/results directory and includes
+      model, probabilities, confidence, latency, token usage, estimated cost, text hash, and text
+      length without persisting the extracted page body in the committed source tree.
+    verification:
+      - poc/jev-recipe-gate/run.ts
+      - poc/jev-recipe-gate/README.md
+      - .gitignore
+  - id: JRG-5
+    condition: The Jev API or URL extraction does not complete for every planned repetition.
+    expected: >-
+      The run is marked technically incomplete and exits non-zero instead of selecting an apparently
+      safe threshold from silently missing evidence.
+    verification:
+      - poc/jev-recipe-gate/run.ts
+      - poc/jev-recipe-gate/README.md
+
+edge_cases:
+  - A recipe receives one anomalously high non_recipe probability across repeated runs.
+  - A non-recipe page resembles recipe content because it is a recipe index, cooking article, or food site home page.
+  - A URL fails HTTP extraction or produces less than the minimum usable text length.
+  - TypeSafe returns an HTTP error, malformed JSON, an unexpected answer type, invalid probabilities, or incomplete token usage.
+  - No tested threshold produces both zero recipe false-reject fixtures and useful non-recipe coverage.
+
+security_invariants:
+  - TYPESAFE_API_KEY is read only from local environment configuration and is never written to PoC results.
+  - The expected recipe/non-recipe fixture label is not included in Jev state or question content.
+  - Raw extracted page content is not written to committed PoC files or generated result metadata.
+  - Production authentication, user IDs, Firebase data, device tokens, and recipe ownership data are outside this PoC.
+
+compatibility:
+  - Production analysis routing under src/ remains unchanged.
+  - Existing Z.ai, Gemini, TikTok, Instagram, YouTube, ChatGPT, and Gemini-shared analysis paths remain unchanged.
+  - The PoC reuses the existing URL extraction PoC rather than importing PoC code into production src/.
+  - Production TypeScript build continues to exclude poc/.
+
+non_functional:
+  - Use the direct TypeSafe System One HTTP API without adding an SDK dependency.
+  - Pin jev-1.13.0 by default so threshold measurements do not silently move with a latest alias.
+  - Run live requests sequentially and keep the default repetition count bounded.
+  - Treat a reported fixture-safe threshold as experimental evidence rather than production approval.
+
+out_of_scope:
+  - Enabling Jev in the production worker.
+  - Rejecting production recipes before the existing extractor runs.
+  - Replacing Z.ai or Gemini recipe extraction.
+  - Routing TikTok, Instagram, or YouTube media analysis based on Jev.
+  - Selecting a final production threshold without reviewing the locally generated evidence.
+  - App Store or iOS changes.
+
+acceptance_criteria:
+  - The local PoC can execute labeled HTML recipe and hard-negative fixtures through Jev.
+  - Results distinguish non_recipe probability from Jev confidence.
+  - Repeated-run threshold metrics expose recipe false-reject risk and consistent non-recipe reject coverage.
+  - Live-run evidence records cost and latency without committing raw fetched page content.
+  - Any incomplete fixture run is surfaced as incomplete rather than silently excluded.
+  - No production analysis behavior changes in this PR.
+
+regression:
+  required: true
+  tests:
+    - tests/unit/jev-recipe-gate.test.ts
