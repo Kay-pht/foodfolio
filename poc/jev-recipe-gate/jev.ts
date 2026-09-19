@@ -33,6 +33,28 @@ export interface JevRecipeClassificationOptions {
   sleepImpl?: SleepLike;
 }
 
+export class JevRecipeClassificationError extends Error {
+  readonly attempts: number;
+
+  constructor(message: string, attempts: number) {
+    super(message);
+    this.name = "JevRecipeClassificationError";
+    this.attempts = attempts;
+  }
+}
+
+export function jevHttpAttemptsFromError(error: unknown): number {
+  return error instanceof JevRecipeClassificationError ? error.attempts : 0;
+}
+
+function classificationError(
+  error: unknown,
+  attempts: number,
+): JevRecipeClassificationError {
+  const message = error instanceof Error ? error.message : String(error);
+  return new JevRecipeClassificationError(message, attempts);
+}
+
 function record(value: unknown, field: string): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`TypeSafe response field ${field} is not an object`);
@@ -113,7 +135,9 @@ async function postSystemOne(
         signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (error) {
-      if (attempt >= maxAttempts) throw error;
+      if (attempt >= maxAttempts) {
+        throw classificationError(error, attempt);
+      }
       await sleepImpl(retryDelayMs(null, attempt));
       continue;
     }
@@ -122,13 +146,19 @@ async function postSystemOne(
     if (response.ok) return { raw, attempts: attempt };
 
     if (!RETRYABLE_STATUS.has(response.status) || attempt >= maxAttempts) {
-      throw new Error(`TypeSafe API returned HTTP ${response.status}`);
+      throw new JevRecipeClassificationError(
+        `TypeSafe API returned HTTP ${response.status}`,
+        attempt,
+      );
     }
 
     await sleepImpl(retryDelayMs(response, attempt));
   }
 
-  throw new Error("TypeSafe API retry loop exhausted unexpectedly");
+  throw new JevRecipeClassificationError(
+    "TypeSafe API retry loop exhausted unexpectedly",
+    maxAttempts,
+  );
 }
 
 export async function classifyRecipeContent(
@@ -181,12 +211,13 @@ export async function classifyRecipeContent(
     sleepImpl,
   );
 
-  let parsed: unknown;
   try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw new Error("TypeSafe API returned non-JSON content");
-  }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      throw new Error("TypeSafe API returned non-JSON content");
+    }
 
   const root = record(parsed, "root");
   const answers = record(root.answers, "answers");
@@ -225,16 +256,20 @@ export async function classifyRecipeContent(
     "usage.output_tokens",
   );
 
-  return {
-    model: typeof root.model === "string" ? root.model : model,
-    choice: choice(answer.choice),
-    recipeProbability,
-    nonRecipeProbability,
-    confidence: probability(answer.confidence, "answer.confidence"),
-    inputTokens,
-    outputTokens,
-    estimatedCostUsd: (inputTokens * JEV_INPUT_USD_PER_MILLION) / 1_000_000,
-    elapsedMs: Date.now() - startedAt,
-    attempts,
-  };
+    return {
+      model: typeof root.model === "string" ? root.model : model,
+      choice: choice(answer.choice),
+      recipeProbability,
+      nonRecipeProbability,
+      confidence: probability(answer.confidence, "answer.confidence"),
+      inputTokens,
+      outputTokens,
+      estimatedCostUsd: (inputTokens * JEV_INPUT_USD_PER_MILLION) / 1_000_000,
+      elapsedMs: Date.now() - startedAt,
+      attempts,
+    };
+  } catch (error) {
+    if (error instanceof JevRecipeClassificationError) throw error;
+    throw classificationError(error, attempts);
+  }
 }
