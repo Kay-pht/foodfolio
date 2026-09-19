@@ -11,7 +11,10 @@ import {
   siteCapForTarget,
   zeroFailureUpperBound95,
 } from "../../poc/jev-recipe-gate/corpus-policy.js";
-import { isKnownRecipeUrl } from "../../poc/jev-recipe-gate/discovery.js";
+import {
+  classifyKnownUrl,
+  isKnownRecipeUrl,
+} from "../../poc/jev-recipe-gate/discovery.js";
 import {
   classifyRecipeContent,
   JEV_INPUT_USD_PER_MILLION,
@@ -292,5 +295,25 @@ describe("Jev recipe gate corpus policy", () => {
     expect(isKnownRecipeUrl("https://delishkitchen.tv/categories/17387")).toBe(
       false,
     );
+  });
+
+  it("labels only explicit non-recipe route families as negatives", () => {
+    expect(
+      classifyKnownUrl("https://delishkitchen.tv/categories/17387"),
+    ).toMatchObject({
+      kind: "non-recipe",
+      discoverySite: "delish-kitchen",
+      negativeTier: "hard",
+    });
+    expect(
+      classifyKnownUrl("https://www.kyounoryouri.jp/recipe"),
+    ).toMatchObject({
+      kind: "non-recipe",
+      discoverySite: "kyounoryouri",
+      negativeTier: "hard",
+    });
+    expect(
+      classifyKnownUrl("https://delishkitchen.tv/company"),
+    ).toBeNull();
   });
 });
