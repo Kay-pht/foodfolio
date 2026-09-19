@@ -154,7 +154,30 @@ describe("CI auto-fix coverage", () => {
     expect(handoffJob).not.toContain("actions/checkout");
 
     expect(qualityWorkflow).toContain("\n  pull_request:\n");
-    expect(qualityWorkflow).toContain("statuses: write");
+
+    const qualityWorkflowHeader = qualityWorkflow.split("\njobs:\n")[0];
+    const directQualityJob = qualityWorkflow
+      .split("\n  checks:\n")[1]
+      ?.split("\n  dispatched-checks:\n")[0];
+    const dispatchedQualityJob = qualityWorkflow.split(
+      "\n  dispatched-checks:\n",
+    )[1];
+
+    expect(qualityWorkflowHeader).not.toContain("statuses: write");
+    expect(directQualityJob).toBeDefined();
+    expect(directQualityJob).toContain(
+      "github.event_name != 'workflow_dispatch'",
+    );
+    expect(directQualityJob).toContain("statuses: none");
+    expect(directQualityJob).toContain("persist-credentials: false");
+    expect(directQualityJob).toContain("steps: &quality_steps");
+    expect(dispatchedQualityJob).toBeDefined();
+    expect(dispatchedQualityJob).toContain(
+      "if: github.event_name == 'workflow_dispatch'",
+    );
+    expect(dispatchedQualityJob).toContain("statuses: write");
+    expect(dispatchedQualityJob).toContain("steps: *quality_steps");
+    expect(qualityWorkflow.match(/statuses: write/g) ?? []).toHaveLength(1);
     expect(qualityWorkflow).toContain("id: dispatch_context");
     expect(qualityWorkflow).toContain("Mark Quality Gate running");
     expect(qualityWorkflow).toContain(
