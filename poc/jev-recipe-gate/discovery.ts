@@ -92,6 +92,40 @@ const SITE_DEFINITIONS: SiteDefinition[] = [
     isRecipePath: (pathname) =>
       /^\/jp\/recipes\/\d+\/?$/u.test(pathname),
   },
+  {
+    id: "delish-kitchen",
+    source: "general-web",
+    origin: "https://delishkitchen.tv",
+    seeds: [
+      "https://delishkitchen.tv/",
+      "https://delishkitchen.tv/categories",
+      "https://delishkitchen.tv/curations",
+    ],
+    isRecipePath: (pathname) =>
+      /^\/recipes\/\d+\/?$/u.test(pathname),
+  },
+  {
+    id: "nadia",
+    source: "general-web",
+    origin: "https://oceans-nadia.com",
+    seeds: [
+      "https://oceans-nadia.com/",
+      "https://oceans-nadia.com/recipe",
+    ],
+    isRecipePath: (pathname) =>
+      /^\/user\/\d+\/recipe\/\d+\/?$/u.test(pathname),
+  },
+  {
+    id: "kyounoryouri",
+    source: "general-web",
+    origin: "https://www.kyounoryouri.jp",
+    seeds: [
+      "https://www.kyounoryouri.jp/",
+      "https://www.kyounoryouri.jp/recipe",
+    ],
+    isRecipePath: (pathname) =>
+      /^\/recipe\/\d+_.+\.html$/u.test(pathname),
+  },
 ];
 
 const CURATED_CASES: DiscoveredCase[] = [
