@@ -77,17 +77,17 @@ No downstream AI-chat routing change is evaluated.
 
 ## Fixture set
 
-The committed controlled corpus contains **27 fixtures**:
+The committed controlled corpus contains **28 fixtures**:
 
 - YouTube: 8
 - Instagram: 6
 - TikTok: 6
-- AI chat: 7
+- AI chat: 8
 
-Three fixtures intentionally contain no usable text and therefore bypass Jev. The remaining **24 fixtures** are classified three times by default:
+Three fixtures intentionally contain no usable text and therefore bypass Jev. The remaining **25 fixtures** are classified three times by default:
 
 ```text
-24 fixtures x 3 repetitions = 72 successful Jev classifications
+25 fixtures x 3 repetitions = 75 successful Jev classifications
 ```
 
 The fixtures reuse current production input shapes and existing test shapes where possible. Additional controlled hard negatives cover cases that production tests do not currently represent.
