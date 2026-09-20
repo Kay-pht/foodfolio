@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "id": "youtube-001",
+      "url": "https://www.youtube.com/watch?v=REPLACE_ME",
+      "expectedKind": "recipe",
+      "expectedRoute": "zai",
+      "rationale": "The public title/description contains one recipe with enough ingredients and steps to use text-only extraction."
+    },
+    {
+      "id": "instagram-001",
+      "url": "https://www.instagram.com/reel/REPLACE_ME/",
+      "expectedKind": "recipe",
+      "expectedRoute": "media",
+      "rationale": "The post is about one recipe, but the accessible caption alone is not sufficient to reconstruct ingredients and steps."
+    },
+    {
+      "id": "tiktok-001",
+      "url": "https://www.tiktok.com/@replace/video/1234567890123456789",
+      "expectedKind": "non-recipe",
+      "expectedRoute": "media",
+      "rationale": "Food-related content, but not one specific cooking recipe."
+    },
+    {
+      "id": "chatgpt-001",
+      "url": "https://chatgpt.com/share/REPLACE_ME",
+      "expectedKind": "recipe",
+      "expectedRoute": null,
+      "rationale": "The public shared conversation contains one concrete recipe."
+    },
+    {
+      "id": "gemini-001",
+      "url": "https://gemini.google.com/share/REPLACE_ME",
+      "expectedKind": "non-recipe",
+      "expectedRoute": null,
+      "rationale": "The public shared conversation discusses food but does not teach one specific recipe."
+    }
+  ]
+}

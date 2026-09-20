@@ -1,0 +1,354 @@
+id: JEV-RECIPE-GATE-POC-001
+type: feature
+status: approved
+
+objective: >-
+  Build local-only Jev proof-of-concept tooling that measures both the existing general-Web
+  recipe/non-recipe gate and proposed Jev-assisted routing for YouTube, Instagram, TikTok, and
+  public AI-shared conversations, without changing production analysis routing.
+
+requirements:
+  - id: JRG-1
+    condition: The live general-Web Jev PoC starts without an existing compatible checkpoint.
+    expected: >-
+      The runner creates poc/results/jev-recipe-gate-results.json before corpus discovery begins,
+      then discovers and validates as many labeled recipe and non-recipe URLs as are available up to
+      the 500/500 final target. Duplicate final URLs and duplicate extracted-text hashes do not count
+      toward the corpus.
+    verification:
+      - poc/jev-recipe-gate/run.ts
+      - poc/jev-recipe-gate/discovery.ts
+      - poc/jev-recipe-gate/corpus-policy.ts
+
+  - id: JRG-2
+    condition: General-Web corpus discovery produces fewer than 500 recipe or 500 non-recipe URLs.
+    expected: >-
+      The validated URLs remain eligible for provisional Jev batch evaluation, but corpusComplete
+      remains false and qualifiedCandidateThreshold remains null. Final production-threshold
+      qualification still requires at least 500 recipe URLs, 500 non-recipe URLs, at least 350 hard
+      negatives, at least three sites per label, and no site above 40 percent of either label.
+    verification:
+      - poc/jev-recipe-gate/run.ts
+      - poc/jev-recipe-gate/corpus-policy.ts
+      - tests/unit/jev-recipe-gate.test.ts
+
+  - id: JRG-3
+    condition: A discovered general-Web candidate is accepted as labeled corpus input.
+    expected: >-
+      Recipe candidates resolve to an explicit source-specific recipe route and expose recipe
+      signals. Non-recipe candidates resolve to an explicit source-specific non-recipe route family
+      and do not expose Recipe JSON-LD. The expected label is never sent to Jev.
+    verification:
+      - poc/jev-recipe-gate/discovery.ts
+      - poc/jev-recipe-gate/run.ts
+
+  - id: JRG-4
+    condition: A developer runs npm run poc:jev-gate.
+    expected: >-
+      One invocation selects at most 100 distinct pending URLs. Fresh selections are balanced toward
+      recipe and non-recipe labels when both are available, while partially completed URLs are
+      resumed before fresh URLs. JEV_POC_BATCH_SIZE may reduce the batch below 100 but may not exceed
+      100.
+    verification:
+      - poc/jev-recipe-gate/batch.ts
+      - poc/jev-recipe-gate/run.ts
+      - tests/unit/jev-recipe-gate.test.ts
+
+  - id: JRG-5
+    condition: A selected general-Web URL is evaluated by Jev.
+    expected: >-
+      The existing URL extraction PoC supplies bounded HTML-derived AI input to pinned jev-1.13.0.
+      Each URL is evaluated three times by default, probabilities.non_recipe is the candidate gate
+      signal, and Jev confidence is recorded separately.
+    verification:
+      - poc/jev-recipe-gate/jev.ts
+      - poc/jev-recipe-gate/run.ts
+      - tests/unit/jev-recipe-gate.test.ts
+
+  - id: JRG-6
+    condition: General-Web Jev evaluation makes progress.
+    expected: >-
+      The result file is atomically checkpointed after every successful Jev classification,
+      extraction failure, API failure, and completed URL. A later invocation loads the checkpoint,
+      skips fully completed URLs, and resumes partial URLs without repeating saved successful
+      repetitions.
+    verification:
+      - poc/jev-recipe-gate/run.ts
+      - poc/jev-recipe-gate/README.md
+
+  - id: JRG-7
+    condition: A general-Web batch completes normally.
+    expected: >-
+      The process stops after at most 100 selected URLs, records last-batch URL counts, successful
+      classifications, HTTP attempts, and estimated cost, and instructs the developer to rerun the
+      same command for the next batch.
+    verification:
+      - poc/jev-recipe-gate/batch.ts
+      - poc/jev-recipe-gate/run.ts
+      - poc/jev-recipe-gate/README.md
+
+  - id: JRG-8
+    condition: General-Web threshold metrics are calculated before the full PoC completes.
+    expected: >-
+      Only URLs with every required repetition completed participate in threshold metrics.
+      provisionalCandidateThreshold may be reported from completed evidence, but
+      qualifiedCandidateThreshold remains null until the final corpus quality gate passes and all
+      corpus URLs complete without terminal errors.
+    verification:
+      - poc/jev-recipe-gate/metrics.ts
+      - poc/jev-recipe-gate/run.ts
+
+  - id: JRG-9
+    condition: TypeSafe returns a persistent API error after bounded retry.
+    expected: >-
+      The active PoC checkpoints the error, leaves the affected case pending so a later invocation
+      can retry it without discarding already saved successful repetitions, and stops the current
+      batch immediately with a non-zero exit instead of continuing to consume additional Jev calls.
+    verification:
+      - poc/jev-recipe-gate/jev.ts
+      - poc/jev-recipe-gate/run.ts
+      - poc/jev-recipe-gate/run-media.ts
+      - tests/unit/jev-recipe-gate.test.ts
+  - id: JRG-16
+    condition: A developer starts the PoC with the legacy pre-checkpoint corpus-validation result file.
+    expected: >-
+      The runner migrates the validated corpus and extraction metadata into the current checkpoint
+      schema in place before batch evaluation. It does not require JEV_POC_RESET, repeat corpus
+      discovery, or discard the legacy validated URLs. Unsupported files that do not match the
+      known legacy shape remain rejected without being overwritten.
+    verification:
+      - poc/jev-recipe-gate/checkpoint.ts
+      - poc/jev-recipe-gate/run.ts
+      - tests/unit/jev-recipe-gate.test.ts
+  - id: JRG-17
+    condition: Corpus discovery encounters a paginated Sirogohan recipe-search URL.
+    expected: >-
+      Paths such as /recipe/page:10 are labeled as hard non-recipe search/listing pages rather than
+      individual recipes, while explicit individual recipe paths such as /recipe/garibata/ remain
+      recipe candidates.
+    verification:
+      - poc/jev-recipe-gate/discovery.ts
+      - tests/unit/jev-recipe-gate.test.ts
+
+  - id: JRG-10
+    condition: The media-routing PoC defines controlled evaluation fixtures.
+    expected: >-
+      YouTube, Instagram, TikTok, and AI-chat fixtures use the same bounded text shapes consumed by
+      current production analysis. Every non-empty fixture declares an independent semantic
+      recipe/non-recipe ground-truth label. YouTube, Instagram, and TikTok fixtures additionally
+      declare the expected downstream route. Semantic classification and text sufficiency remain
+      separate labels because content may clearly be about one specific recipe while still lacking
+      enough ingredients or steps for text-only extraction.
+    verification:
+      - poc/jev-recipe-gate/media-fixtures.ts
+      - tests/unit/jev-media-routing.test.ts
+
+  - id: JRG-11
+    condition: A YouTube fixture is evaluated for proposed Jev-assisted routing.
+    expected: >-
+      The PoC reuses assessYoutubeDescription for the existing deterministic sufficiency decision.
+      For a tested recipe-probability threshold, Z.ai is selected only when the description is
+      sufficient and probabilities.recipe is at least the threshold; otherwise Gemini is selected.
+      Empty text routes to Gemini without a Jev call. This measures the proposed policy only and does
+      not modify the production YoutubeAwareRecipeExtractor.
+    verification:
+      - poc/jev-recipe-gate/media-routing.ts
+      - poc/jev-recipe-gate/run-media.ts
+      - src/domain/recipe/youtube-description-sufficiency.ts
+      - tests/unit/jev-media-routing.test.ts
+
+  - id: JRG-12
+    condition: An Instagram or TikTok fixture is evaluated for proposed Jev-assisted routing.
+    expected: >-
+      For a tested recipe-probability threshold, non-empty text routes to text analysis only when
+      probabilities.recipe is at least the threshold; otherwise it routes to media analysis. Empty
+      text routes directly to media without a Jev call. Metrics separately report media-required
+      fixtures that would be incorrectly sent to text and text-sufficient fixtures that are
+      consistently retained on the cheaper text path. TikTok photo fixtures evaluate the proposed
+      policy even though current production sends TikTok photos directly to media analysis.
+    verification:
+      - poc/jev-recipe-gate/media-routing.ts
+      - poc/jev-recipe-gate/run-media.ts
+      - tests/unit/jev-media-routing.test.ts
+
+  - id: JRG-13
+    condition: A public AI-chat-shaped fixture is evaluated.
+    expected: >-
+      Jev performs the normal one-specific-recipe versus non-recipe classification on the serialized
+      conversation text. Choice correctness, per-run correctness, and choice stability are reported
+      independently from media-routing metrics. No AI-chat downstream routing change is made by this
+      PoC.
+    verification:
+      - poc/jev-recipe-gate/media-fixtures.ts
+      - poc/jev-recipe-gate/media-routing.ts
+      - poc/jev-recipe-gate/run-media.ts
+      - tests/unit/jev-media-routing.test.ts
+
+  - id: JRG-14
+    condition: A developer runs npm run poc:jev-media.
+    expected: >-
+      The runner uses the same pinned Jev classifier, evaluates each non-empty fixture three times by
+      default, processes at most 100 fixture cases per invocation, checkpoints after every successful
+      classification, stops after a persistent API error, and resumes compatible partial evidence on
+      the next invocation. Raw fixture input is not copied into the result JSON.
+    verification:
+      - poc/jev-recipe-gate/run-media.ts
+      - poc/jev-recipe-gate/jev.ts
+      - poc/jev-recipe-gate/media-routing.md
+      - package.json
+
+  - id: JRG-15
+    condition: Media-routing threshold metrics are calculated.
+    expected: >-
+      The PoC evaluates recipe-probability thresholds 0.80, 0.90, 0.95, 0.98, and 0.99. A
+      fixture-specific candidate threshold may be reported only when no completed fallback-required
+      YouTube/Instagram/TikTok fixture is routed to the fast text/Z.ai path in any repetition and at
+      least one expected fast-path fixture is routed there in every repetition. The result is
+      explicitly experimental and is never described as production-qualified.
+    verification:
+      - poc/jev-recipe-gate/media-routing.ts
+      - poc/jev-recipe-gate/run-media.ts
+      - tests/unit/jev-media-routing.test.ts
+
+  - id: JRG-18
+    condition: A developer prepares the real-URL media-routing validation corpus.
+    expected: >-
+      The corpus is read from a git-ignored local JSON file, rejects duplicate normalized URLs,
+      accepts only YouTube, Instagram, TikTok, ChatGPT-share, and Gemini-share sources, and requires
+      independent expectedKind / expectedRoute labels that are valid for the source family. The
+      committed repository contains only a template and never contains the real validation URLs.
+    verification:
+      - poc/jev-recipe-gate/media-live-corpus.ts
+      - poc/jev-recipe-gate/media-live-corpus.example.json
+      - tests/unit/jev-media-live.test.ts
+
+  - id: JRG-19
+    condition: A real public media/share URL is evaluated.
+    expected: >-
+      The PoC reuses the production ProductionSourceContentExtractor and AI shared-conversation
+      adapters to obtain the same bounded text shape used by production. Extracted source text is
+      sent to Jev in memory but is not persisted in the result; the stored routing fixture contains
+      only a redacted non-empty marker plus the precomputed YouTube description-sufficiency result.
+    verification:
+      - poc/jev-recipe-gate/run-media-live.ts
+      - poc/jev-recipe-gate/media-live-corpus.ts
+      - src/infrastructure/url/source-content-extractor.ts
+      - src/infrastructure/url/ai-aware-source-content-extractor.ts
+      - tests/unit/jev-media-live.test.ts
+
+  - id: JRG-20
+    condition: A developer runs npm run poc:jev-media-live.
+    expected: >-
+      One invocation performs at most 100 successful Jev classifications, even when the corpus
+      contains approximately 100 URLs and each URL is repeated three times. The call budget can be
+      lowered but not raised above 100. Partial cases are resumed before fresh cases, checkpoints are
+      written after each successful classification, and a persistent Jev or retryable source error
+      stops the batch without discarding saved evidence.
+    verification:
+      - poc/jev-recipe-gate/run-media-live.ts
+      - poc/jev-recipe-gate/README.md
+      - package.json
+
+  - id: JRG-21
+    condition: Real-URL evidence is summarized for the proposed 0.99 recipe threshold.
+    expected: >-
+      The result explicitly reports observed unsafe fast-route case IDs, stable fast-route coverage,
+      safe fallback coverage, source counts, terminal extraction/content-change cases, whether the
+      100-URL target was reached, and whether all evidence is complete. validationReady requires at
+      least 100 URLs with no terminal invalid cases and complete evidence for every corpus case.
+      productionQualified remains false regardless of the observed result so adopting 0.99 remains
+      an explicit engineering decision.
+    verification:
+      - poc/jev-recipe-gate/run-media-live.ts
+      - poc/jev-recipe-gate/media-routing.md
+
+edge_cases:
+  - General-Web discovery reaches recipe=500 but fewer than 500 non-recipe URLs.
+  - A PoC run is interrupted after one or two repetitions of a case.
+  - The process is restarted with an existing compatible checkpoint.
+  - The requested model, repetition count, or media fixture set conflicts with a saved checkpoint.
+  - A selected general-Web URL changes content after one or more repetitions.
+  - The process is started with the known legacy corpus-validation result format that has no schemaVersion.
+  - A selected general-Web URL no longer satisfies its stored label on re-extraction.
+  - Different discovered URLs redirect to the same final URL or yield identical extracted content.
+  - A source uses a single path segment for both individual recipe slugs and paginated recipe listings.
+  - A source blocks discovery or extraction.
+  - TypeSafe returns 429, 529, malformed JSON, invalid probabilities, or an unexpected answer type.
+  - A semantic recipe fixture contains only a title, hashtag, or video-reference text and therefore still requires media analysis.
+  - A YouTube non-recipe hard negative satisfies the existing structural sufficiency heuristic.
+  - Instagram, TikTok, or YouTube has no usable text; Jev is skipped and the expensive fallback route remains selected.
+  - Jev choice is correct for a recipe fixture while the proposed recipe-probability routing would still be unsafe because the text is incomplete.
+  - No tested threshold simultaneously avoids unsafe fast routing and retains useful fast-path coverage.
+  - A real URL becomes unavailable before extraction.
+  - A real URL changes text after one or two Jev repetitions were checkpointed.
+  - The real-URL corpus contains the same normalized URL twice.
+  - A real-URL label declares a downstream route that is invalid for its source family.
+  - A 100-URL live corpus requires more than one invocation because the default three repetitions exceed the per-run 100-classification budget.
+
+security_invariants:
+  - TYPESAFE_API_KEY and YOUTUBE_API_KEY are read only from local .env/.env.local configuration and are never written to results.
+  - Expected labels and expected routes are not included in Jev state or question content.
+  - General-Web raw extracted page content is kept only in memory and is not written to the result file.
+  - The media result JSON stores fixture identifiers and measurements, not copied raw fixture input.
+  - Production authentication, user IDs, Firebase data, device tokens, and recipe ownership data are outside these PoCs.
+
+compatibility:
+  - Production analysis routing under src/ remains unchanged.
+  - Existing Z.ai, Gemini, TikTok, Instagram, YouTube, ChatGPT, and Gemini-shared analysis paths remain unchanged.
+  - The media-routing PoC may import pure production sufficiency logic but does not make production code depend on poc/.
+  - Production TypeScript build continues to exclude poc/.
+
+non_functional:
+  - Use the direct TypeSafe System One HTTP API without adding an SDK dependency.
+  - Pin jev-1.13.0 by default so measurements do not silently move with a latest alias.
+  - Hard-cap each invocation to 100 distinct cases and run Jev sequentially.
+  - Persist results with an atomic temporary-file rename.
+  - Prefer content diversity over repeated calls; repetitions measure model stability.
+  - Treat all thresholds from the controlled media fixture set as experimental, not statistically production-qualified.
+  - With 500 distinct general-Web recipe URLs and zero false rejects, report the one-sided 95 percent binomial upper bound of approximately 0.6 percent only as a scale reference.
+
+out_of_scope:
+  - Enabling Jev in the production worker.
+  - Rejecting production recipes before the existing extractor runs.
+  - Replacing Z.ai or Gemini recipe extraction.
+  - Changing current production TikTok photo, TikTok video, Instagram, YouTube, or AI-shared routing.
+  - Treating controlled media fixtures as a representative production traffic sample.
+  - Selecting a final production threshold without reviewing live locally generated evidence.
+  - App Store or iOS changes.
+
+acceptance_criteria:
+  - Existing general-Web Jev PoC behavior and checkpoint compatibility remain intact.
+  - One general-Web command invocation selects no more than 100 URLs.
+  - The same general-Web command resumes from the saved checkpoint on the next invocation.
+  - The known legacy corpus-validation result is migrated without requiring a destructive reset.
+  - The general-Web result file exists before corpus discovery completes.
+  - A recipe=500/non-recipe=370 general-Web corpus can still be evaluated provisionally without qualifying a final threshold.
+  - Partial general-Web URL repetitions resume before new URLs.
+  - Fully completed and terminal-error general-Web URLs are not silently reprocessed.
+  - General-Web threshold metrics exclude partially completed URLs.
+  - A persistent Jev API error stops the active PoC batch after checkpointing.
+  - General-Web batch and cumulative estimated cost are visible in the result file.
+  - Paginated Sirogohan recipe-search paths cannot contaminate the recipe corpus.
+  - npm run poc:jev-media evaluates the four requested source families without changing production code.
+  - Semantic classification correctness and routing safety are reported separately.
+  - YouTube routing combines Jev recipe probability with the existing deterministic sufficiency check.
+  - Instagram and TikTok routing metrics expose recipe-but-text-incomplete cases as potential unsafe fast routes.
+  - AI-chat fixtures report normal recipe/non-recipe classification accuracy and stability.
+  - Empty-text media fixtures consume zero Jev calls and remain on fallback routing.
+  - Media evaluation checkpoints and resumes partial repetitions.
+  - Persistent Jev API errors stop the current media batch after checkpointing.
+  - Per-run latency, token usage, attempts, and estimated cost are retained.
+  - No media-routing threshold is labeled production-qualified.
+  - No production analysis behavior changes in this PR.
+  - The live-media corpus is local-only and git-ignored.
+  - npm run poc:jev-media-live uses production-shaped source extraction for all five supported source types.
+  - A live-media invocation cannot exceed 100 successful Jev classifications.
+  - Live-media results do not persist extracted source/chat text.
+  - A partially evaluated URL whose extracted text changes is never silently mixed with the saved Jev evidence.
+  - The live result exposes the observed 0.99 unsafe-route count and fast/fallback coverage without marking the threshold production-qualified.
+
+regression:
+  required: true
+  tests:
+    - tests/unit/jev-recipe-gate.test.ts
+    - tests/unit/jev-media-routing.test.ts
