@@ -2,7 +2,6 @@ import "dotenv/config";
 import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { parseBatchSize } from "./batch.js";
 import {
   classifyRecipeContent,
   DEFAULT_JEV_MODEL,
@@ -94,6 +93,16 @@ function parseRepetitions(value: string | undefined): number {
   if (!Number.isInteger(parsed) || parsed < 1 || parsed > MAX_REPETITIONS) {
     throw new Error(
       `JEV_MEDIA_POC_REPETITIONS must be an integer from 1 to ${MAX_REPETITIONS}`,
+    );
+  }
+  return parsed;
+}
+
+function parseMediaBatchSize(value: string | undefined): number {
+  const parsed = Number(value ?? 100);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 100) {
+    throw new Error(
+      "JEV_MEDIA_POC_BATCH_SIZE must be an integer from 1 to 100",
     );
   }
   return parsed;
@@ -316,7 +325,7 @@ function selectCaseIds(
 
 const model = process.env.JEV_MODEL?.trim() || DEFAULT_JEV_MODEL;
 const repetitions = parseRepetitions(process.env.JEV_MEDIA_POC_REPETITIONS);
-const batchSize = parseBatchSize(process.env.JEV_MEDIA_POC_BATCH_SIZE);
+const batchSize = parseMediaBatchSize(process.env.JEV_MEDIA_POC_BATCH_SIZE);
 const reset = envFlag(process.env.JEV_MEDIA_POC_RESET);
 
 if (reset) {
