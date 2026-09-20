@@ -6,9 +6,7 @@ export type MediaFixturePlatform =
 export type MediaExpectedKind = "recipe" | "non-recipe";
 export type MediaExpectedRoute = "zai" | "gemini" | "text" | "media";
 export type FixtureProvenance =
-  | "existing-test-shape"
-  | "controlled-hard-negative"
-  | "live-url";
+  "existing-test-shape" | "controlled-hard-negative" | "live-url";
 
 interface BaseMediaFixture {
   id: string;

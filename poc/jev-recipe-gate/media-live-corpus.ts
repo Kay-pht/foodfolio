@@ -14,11 +14,7 @@ export const LIVE_MEDIA_TARGET_URL_COUNT = 100;
 export const LIVE_MEDIA_CORPUS_SCHEMA_VERSION = 1;
 
 export type LiveMediaSource =
-  | "youtube"
-  | "instagram"
-  | "tiktok"
-  | "chatgpt"
-  | "gemini";
+  "youtube" | "instagram" | "tiktok" | "chatgpt" | "gemini";
 
 export interface LiveMediaCorpusCase {
   id: string;
@@ -168,9 +164,7 @@ export function evaluationFixtureForLiveCase(
     );
   }
 
-  const redactedInput = source.textForAi
-    ? "[redacted live source text]"
-    : null;
+  const redactedInput = source.textForAi ? "[redacted live source text]" : null;
 
   if (item.source === "youtube") {
     if (item.expectedRoute !== "zai" && item.expectedRoute !== "gemini") {
