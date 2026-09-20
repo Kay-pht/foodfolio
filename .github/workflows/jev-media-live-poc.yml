@@ -1,0 +1,48 @@
+name: Jev Media Live PoC
+
+on:
+  push:
+    branches:
+      - codex/jev-recipe-gate-poc
+    paths:
+      - .github/workflows/jev-media-live-poc.yml
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.18.0
+          cache: npm
+          package-manager-cache: false
+
+      - run: npm ci
+
+      - name: Run controlled Jev media evaluation
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+        shell: bash
+        run: |
+          if [[ -z "${TYPESAFE_API_KEY}" ]]; then
+            echo "::error::TYPESAFE_API_KEY repository secret is not configured."
+            exit 2
+          fi
+          npm run poc:jev-media
+
+      - name: Upload Jev media result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: jev-media-routing-results
+          path: poc/results/jev-media-routing-results.json
+          if-no-files-found: ignore
+          retention-days: 1
