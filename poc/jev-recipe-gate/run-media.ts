@@ -16,6 +16,7 @@ import {
 import {
   DEFAULT_MEDIA_RECIPE_THRESHOLDS,
   evaluateMediaRouting,
+  youtubeSufficiency,
   type JevMediaObservation,
 } from "./media-routing.js";
 
@@ -39,6 +40,8 @@ interface MediaCaseResult {
   expectedKind: MediaRoutingFixture["expectedKind"];
   expectedRoute: MediaRoutingFixture["expectedRoute"];
   provenance: MediaRoutingFixture["provenance"];
+  rationale: string;
+  youtubeSufficiency: ReturnType<typeof youtubeSufficiency> | null;
   classificationSkipped: "no-text" | null;
   runs: CaseRun[];
 }
@@ -224,6 +227,9 @@ function emptyState(
     expectedKind: fixture.expectedKind,
     expectedRoute: fixture.expectedRoute,
     provenance: fixture.provenance,
+    rationale: fixture.rationale,
+    youtubeSufficiency:
+      fixture.platform === "youtube" ? youtubeSufficiency(fixture) : null,
     classificationSkipped: fixture.input ? null : "no-text",
     runs: [],
   }));
