@@ -14,6 +14,7 @@ firebase-debug.log*
 # PoC raw evidence and generated results can contain third-party page/API content.
 poc/artifacts/
 poc/results/
+poc/inputs/
 tmp.*
 .neon
 gha-creds-*.json

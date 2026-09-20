@@ -19,6 +19,8 @@ Backend を含む全体検証は `npm run verify` を使用する。このコマ
 
 iOS の全体検証は `npm run verify:ios` を使用する。
 
+`npm run verify:ios` は、iOSソース、Xcode project生成設定、iOS依存関係、iOSが利用するAPI契約など、iOSのbuildまたは実行時挙動へ影響する変更で実行する。Backend専用実装、PoC runner、Backend用npm script、仕様・文書だけの変更など、iOSへ影響しない変更ではローカルiOS検証を実行しない。この場合、iOS未実行は検証漏れではなく対象外として、変更範囲と省略理由を完了報告に記載する。
+
 検証を実行できない、または失敗した場合は未完了として、理由、失敗箇所、確認できた範囲を報告する。ローカル検証の成功を、CI、デプロイ、実環境での動作確認の成功として扱わない。
 
 ## バグ修正の回帰テスト
