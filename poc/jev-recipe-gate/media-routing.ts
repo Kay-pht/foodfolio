@@ -43,15 +43,23 @@ export interface MediaThresholdMetric {
   };
 }
 
+export interface ClassificationMetric {
+  caseCount: number;
+  runCount: number;
+  correctRunCount: number;
+  accuracy: number;
+  incorrectCaseIds: string[];
+  unstableChoiceCaseIds: string[];
+}
+
 export interface MediaRoutingEvaluation {
   completeFixtureCount: number;
-  classification: {
-    caseCount: number;
-    runCount: number;
-    correctRunCount: number;
-    accuracy: number;
-    incorrectCaseIds: string[];
-    unstableChoiceCaseIds: string[];
+  classification: ClassificationMetric;
+  classificationByPlatform: {
+    youtube: ClassificationMetric;
+    instagram: ClassificationMetric;
+    tiktok: ClassificationMetric;
+    aiChat: ClassificationMetric;
   };
   thresholds: MediaThresholdMetric[];
   candidateRecipeThreshold: number | null;
@@ -202,6 +210,45 @@ function candidateThreshold(
   );
 }
 
+function evaluateClassificationMetric(
+  fixtures: readonly MediaRoutingFixture[],
+  observations: readonly JevMediaObservation[],
+  requiredRepetitions: number,
+): ClassificationMetric {
+  let correctRunCount = 0;
+  const incorrectCaseIds = new Set<string>();
+  const unstableChoiceCaseIds: string[] = [];
+  let runCount = 0;
+
+  for (const fixture of fixtures) {
+    if (!fixture.input || fixture.expectedKind === null) continue;
+    const runs = observationsForFixture(observations, fixture.id).slice(
+      0,
+      requiredRepetitions,
+    );
+    runCount += runs.length;
+    const choices = new Set(runs.map(({ choice }) => choice));
+    if (choices.size > 1) unstableChoiceCaseIds.push(fixture.id);
+    for (const run of runs) {
+      const expectedChoice =
+        fixture.expectedKind === "recipe" ? "recipe" : "non_recipe";
+      if (run.choice === expectedChoice) correctRunCount += 1;
+      else incorrectCaseIds.add(fixture.id);
+    }
+  }
+
+  return {
+    caseCount: fixtures.filter(
+      (fixture) => fixture.input && fixture.expectedKind !== null,
+    ).length,
+    runCount,
+    correctRunCount,
+    accuracy: ratio(correctRunCount, runCount),
+    incorrectCaseIds: [...incorrectCaseIds].sort(),
+    unstableChoiceCaseIds: unstableChoiceCaseIds.sort(),
+  };
+}
+
 export function evaluateMediaRouting(
   fixtures: readonly MediaRoutingFixture[],
   observations: readonly JevMediaObservation[],
@@ -234,25 +281,6 @@ export function evaluateMediaRouting(
   const completeObservations = observations.filter((observation) =>
     classifiedFixtureIds.has(observation.fixtureId),
   );
-
-  let correctRunCount = 0;
-  const incorrectCaseIds = new Set<string>();
-  const unstableChoiceCaseIds: string[] = [];
-
-  for (const fixture of classifiedFixtures) {
-    const runs = observationsForFixture(
-      completeObservations,
-      fixture.id,
-    ).slice(0, requiredRepetitions);
-    const choices = new Set(runs.map(({ choice }) => choice));
-    if (choices.size > 1) unstableChoiceCaseIds.push(fixture.id);
-    for (const run of runs) {
-      const expectedChoice =
-        fixture.expectedKind === "recipe" ? "recipe" : "non_recipe";
-      if (run.choice === expectedChoice) correctRunCount += 1;
-      else incorrectCaseIds.add(fixture.id);
-    }
-  }
 
   const thresholdsResult = thresholds.map((threshold) => {
     const youtubeFixtures = completeFixtures.filter(
@@ -337,13 +365,32 @@ export function evaluateMediaRouting(
 
   return {
     completeFixtureCount: completeFixtures.length,
-    classification: {
-      caseCount: classifiedFixtures.length,
-      runCount: completeObservations.length,
-      correctRunCount,
-      accuracy: ratio(correctRunCount, completeObservations.length),
-      incorrectCaseIds: [...incorrectCaseIds].sort(),
-      unstableChoiceCaseIds: unstableChoiceCaseIds.sort(),
+    classification: evaluateClassificationMetric(
+      classifiedFixtures,
+      completeObservations,
+      requiredRepetitions,
+    ),
+    classificationByPlatform: {
+      youtube: evaluateClassificationMetric(
+        classifiedFixtures.filter(({ platform }) => platform === "youtube"),
+        completeObservations,
+        requiredRepetitions,
+      ),
+      instagram: evaluateClassificationMetric(
+        classifiedFixtures.filter(({ platform }) => platform === "instagram"),
+        completeObservations,
+        requiredRepetitions,
+      ),
+      tiktok: evaluateClassificationMetric(
+        classifiedFixtures.filter(({ platform }) => platform === "tiktok"),
+        completeObservations,
+        requiredRepetitions,
+      ),
+      aiChat: evaluateClassificationMetric(
+        classifiedFixtures.filter(({ platform }) => platform === "ai-chat"),
+        completeObservations,
+        requiredRepetitions,
+      ),
     },
     thresholds: thresholdsResult,
     candidateRecipeThreshold: candidateThreshold(
