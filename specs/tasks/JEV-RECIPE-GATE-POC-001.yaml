@@ -210,6 +210,58 @@ requirements:
       - poc/jev-recipe-gate/run-media.ts
       - tests/unit/jev-media-routing.test.ts
 
+  - id: JRG-18
+    condition: A developer prepares the real-URL media-routing validation corpus.
+    expected: >-
+      The corpus is read from a git-ignored local JSON file, rejects duplicate normalized URLs,
+      accepts only YouTube, Instagram, TikTok, ChatGPT-share, and Gemini-share sources, and requires
+      independent expectedKind / expectedRoute labels that are valid for the source family. The
+      committed repository contains only a template and never contains the real validation URLs.
+    verification:
+      - poc/jev-recipe-gate/media-live-corpus.ts
+      - poc/jev-recipe-gate/media-live-corpus.example.json
+      - tests/unit/jev-media-live.test.ts
+
+  - id: JRG-19
+    condition: A real public media/share URL is evaluated.
+    expected: >-
+      The PoC reuses the production ProductionSourceContentExtractor and AI shared-conversation
+      adapters to obtain the same bounded text shape used by production. Extracted source text is
+      sent to Jev in memory but is not persisted in the result; the stored routing fixture contains
+      only a redacted non-empty marker plus the precomputed YouTube description-sufficiency result.
+    verification:
+      - poc/jev-recipe-gate/run-media-live.ts
+      - poc/jev-recipe-gate/media-live-corpus.ts
+      - src/infrastructure/url/source-content-extractor.ts
+      - src/infrastructure/url/ai-aware-source-content-extractor.ts
+      - tests/unit/jev-media-live.test.ts
+
+  - id: JRG-20
+    condition: A developer runs npm run poc:jev-media-live.
+    expected: >-
+      One invocation performs at most 100 successful Jev classifications, even when the corpus
+      contains approximately 100 URLs and each URL is repeated three times. The call budget can be
+      lowered but not raised above 100. Partial cases are resumed before fresh cases, checkpoints are
+      written after each successful classification, and a persistent Jev or retryable source error
+      stops the batch without discarding saved evidence.
+    verification:
+      - poc/jev-recipe-gate/run-media-live.ts
+      - poc/jev-recipe-gate/README.md
+      - package.json
+
+  - id: JRG-21
+    condition: Real-URL evidence is summarized for the proposed 0.99 recipe threshold.
+    expected: >-
+      The result explicitly reports observed unsafe fast-route case IDs, stable fast-route coverage,
+      safe fallback coverage, source counts, terminal extraction/content-change cases, whether the
+      100-URL target was reached, and whether all evidence is complete. validationReady requires at
+      least 100 URLs with no terminal invalid cases and complete evidence for every corpus case.
+      productionQualified remains false regardless of the observed result so adopting 0.99 remains
+      an explicit engineering decision.
+    verification:
+      - poc/jev-recipe-gate/run-media-live.ts
+      - poc/jev-recipe-gate/media-routing.md
+
 edge_cases:
   - General-Web discovery reaches recipe=500 but fewer than 500 non-recipe URLs.
   - A PoC run is interrupted after one or two repetitions of a case.
@@ -227,6 +279,11 @@ edge_cases:
   - Instagram, TikTok, or YouTube has no usable text; Jev is skipped and the expensive fallback route remains selected.
   - Jev choice is correct for a recipe fixture while the proposed recipe-probability routing would still be unsafe because the text is incomplete.
   - No tested threshold simultaneously avoids unsafe fast routing and retains useful fast-path coverage.
+  - A real URL becomes unavailable before extraction.
+  - A real URL changes text after one or two Jev repetitions were checkpointed.
+  - The real-URL corpus contains the same normalized URL twice.
+  - A real-URL label declares a downstream route that is invalid for its source family.
+  - A 100-URL live corpus requires more than one invocation because the default three repetitions exceed the per-run 100-classification budget.
 
 security_invariants:
   - TYPESAFE_API_KEY is read only from local environment configuration and is never written to results.
@@ -283,6 +340,12 @@ acceptance_criteria:
   - Per-run latency, token usage, attempts, and estimated cost are retained.
   - No media-routing threshold is labeled production-qualified.
   - No production analysis behavior changes in this PR.
+  - The live-media corpus is local-only and git-ignored.
+  - npm run poc:jev-media-live uses production-shaped source extraction for all five supported source types.
+  - A live-media invocation cannot exceed 100 successful Jev classifications.
+  - Live-media results do not persist extracted source/chat text.
+  - A partially evaluated URL whose extracted text changes is never silently mixed with the saved Jev evidence.
+  - The live result exposes the observed 0.99 unsafe-route count and fast/fallback coverage without marking the threshold production-qualified.
 
 regression:
   required: true
