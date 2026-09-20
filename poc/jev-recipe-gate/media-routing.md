@@ -118,7 +118,7 @@ The result directory is git-ignored.
 
 ## Consumption control
 
-One invocation processes at most 100 fixture cases. The current default fixture set is smaller than that, so a clean default run can complete all 24 Jev-backed fixtures in one invocation.
+One invocation processes at most 100 fixture cases. The current default fixture set is smaller than that, so a clean default run can complete all 25 Jev-backed fixtures in one invocation.
 
 To deliberately restrict consumption:
 
@@ -217,3 +217,97 @@ A candidate from this controlled fixture set is **not production-qualified**. It
 None.
 
 The PoC imports the existing pure YouTube sufficiency function, but production code does not import PoC code. Existing Z.ai, Gemini, Instagram, TikTok, YouTube, ChatGPT, and Gemini-shared runtime paths remain unchanged.
+
+
+## Real public URL follow-up
+
+The controlled fixture result is only the first stage. The final pre-production check uses manually labeled real public URLs and the same production source extraction path.
+
+### Corpus
+
+Create a local-only file from the committed template:
+
+```bash
+mkdir -p poc/inputs
+cp poc/jev-recipe-gate/media-live-corpus.example.json \
+  poc/inputs/jev-media-live-corpus.json
+```
+
+The target is approximately **100 distinct URLs** across YouTube, Instagram, TikTok, and public ChatGPT/Gemini shares. The file is ignored by git.
+
+Labels are independent human ground truth:
+
+- `expectedKind`: one specific recipe vs non-recipe
+- YouTube `expectedRoute`: `zai` only when the description itself is sufficient; otherwise `gemini`
+- Instagram/TikTok `expectedRoute`: `text` only when accessible text itself is sufficient; otherwise `media`
+- ChatGPT/Gemini: `expectedRoute: null`
+
+Duplicate normalized URLs are rejected.
+
+### Production-shaped extraction
+
+Run:
+
+```bash
+npm run poc:jev-media-live
+```
+
+The runner reuses:
+
+- `ProductionSourceContentExtractor` for YouTube / Instagram / TikTok
+- `ChatGptSharedConversationAdapter`
+- `GeminiSharedConversationAdapter`
+- `serializeSharedConversation()` through `AiAwareSourceContentExtractor`
+- `assessYoutubeDescription()`
+
+Therefore the live validation measures the text that production would actually expose to downstream recipe extraction, rather than a second PoC-specific scraper.
+
+The required secrets are:
+
+```env
+TYPESAFE_API_KEY=...
+YOUTUBE_API_KEY=... # only when the corpus contains YouTube
+```
+
+### Consumption cap
+
+A live run is capped at **100 successful Jev classifications per invocation**, not 100 URLs.
+
+With the default three repetitions, a fully text-backed corpus advances by about 33 fresh URLs per invocation. Partial cases are resumed first.
+
+A smaller budget can be selected:
+
+```bash
+JEV_MEDIA_LIVE_POC_CALL_BUDGET=25 npm run poc:jev-media-live
+```
+
+Values above 100 are rejected.
+
+### Checkpoint and privacy
+
+The checkpoint is:
+
+```text
+poc/results/jev-media-live-results.json
+```
+
+It records the exact URL and manual labels for audit, but not the extracted source text or AI conversation body. The stored evaluation fixture replaces source text with a redacted marker and stores only the already-computed YouTube sufficiency result.
+
+The local input corpus and generated result are both git-ignored.
+
+If a partially evaluated URL later extracts to different text, the case is marked `content-changed` and the batch stops. Saved Jev runs are not mixed with new page content.
+
+### 0.99 decision evidence
+
+The live result exposes the exact `0.99` metric alongside the normal threshold table:
+
+- `observedUnsafeFastRouteCaseIdsAt099`
+- stable fast-route coverage
+- safe fallback coverage
+- terminal extraction/content-change cases
+- corpus target status
+- final validation readiness
+
+`validationReady` requires at least 100 URLs, no terminal invalid cases, and complete evidence for every corpus case.
+
+Even when `validationReady=true` and the observed unsafe count is zero, `productionQualified` remains hard-coded to `false`. Threshold adoption remains an explicit engineering decision after reviewing the live evidence.
