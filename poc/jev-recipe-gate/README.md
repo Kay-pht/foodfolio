@@ -214,7 +214,6 @@ poc/results/jev-media-routing-results.json
 
 productionの解析ルーティングはこのPoCでは変更しません。
 
-
 ## Real-URL media validation
 
 Controlled fixturesでrouting仮説を確認した後は、productionと同じsource-content extractorを使って、手動ラベル済みの実公開URLを評価します。

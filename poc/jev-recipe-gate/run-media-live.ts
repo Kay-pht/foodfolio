@@ -66,10 +66,7 @@ interface LiveExtractionRecord {
 }
 
 type ClassificationSkipped =
-  | "no-text"
-  | "extraction-error"
-  | "content-changed"
-  | null;
+  "no-text" | "extraction-error" | "content-changed" | null;
 
 interface LiveCaseResult extends LiveMediaCorpusCase {
   extraction: LiveExtractionRecord | null;
@@ -147,9 +144,7 @@ function parsePositiveInteger(
 ): number {
   const parsed = Number(value ?? fallback);
   if (!Number.isInteger(parsed) || parsed < 1 || parsed > maximum) {
-    throw new Error(
-      `${name} must be an integer from 1 to ${maximum}`,
-    );
+    throw new Error(`${name} must be an integer from 1 to ${maximum}`);
   }
   return parsed;
 }
@@ -187,13 +182,8 @@ function currentEstimatedCostUsd(state: LiveMediaResultState): number {
   );
 }
 
-function caseComplete(
-  item: LiveCaseResult,
-  repetitions: number,
-): boolean {
-  return (
-    item.classificationSkipped !== null || item.runs.length >= repetitions
-  );
+function caseComplete(item: LiveCaseResult, repetitions: number): boolean {
+  return item.classificationSkipped !== null || item.runs.length >= repetitions;
 }
 
 function sourceCounts(
@@ -428,9 +418,7 @@ function extractionError(error: unknown): {
 }
 
 function extractionRecord(
-  source: Awaited<
-    ReturnType<AiAwareSourceContentExtractor["extract"]>
-  >,
+  source: Awaited<ReturnType<AiAwareSourceContentExtractor["extract"]>>,
 ): LiveExtractionRecord {
   const text = source.textForAi;
   return {
@@ -533,10 +521,7 @@ if (selectedCaseIds.length === 0) {
 }
 
 const youtubeApiKey = process.env.YOUTUBE_API_KEY?.trim();
-if (
-  corpus.cases.some(({ source }) => source === "youtube") &&
-  !youtubeApiKey
-) {
+if (corpus.cases.some(({ source }) => source === "youtube") && !youtubeApiKey) {
   throw new Error(
     "YOUTUBE_API_KEY is required because the live-media corpus contains YouTube URLs",
   );
@@ -736,7 +721,10 @@ console.log(
 );
 console.log(`results: ${path.relative(root, outputPath)}`);
 
-if (batch.stopReason === "api-error" || batch.stopReason === "extraction-error") {
+if (
+  batch.stopReason === "api-error" ||
+  batch.stopReason === "extraction-error"
+) {
   console.error(
     "Batch stopped after a retryable external error. The checkpoint is saved and the interrupted URL will be retried first.",
   );

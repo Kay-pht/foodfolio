@@ -218,7 +218,6 @@ None.
 
 The PoC imports the existing pure YouTube sufficiency function, but production code does not import PoC code. Existing Z.ai, Gemini, Instagram, TikTok, YouTube, ChatGPT, and Gemini-shared runtime paths remain unchanged.
 
-
 ## Real public URL follow-up
 
 The controlled fixture result is only the first stage. The final pre-production check uses manually labeled real public URLs and the same production source extraction path.
