@@ -143,10 +143,7 @@ function currentEstimatedCostUsd(state: MediaResultState): number {
   return state.cases.reduce(
     (caseTotal, item) =>
       caseTotal +
-      item.runs.reduce(
-        (runTotal, run) => runTotal + run.estimatedCostUsd,
-        0,
-      ),
+      item.runs.reduce((runTotal, run) => runTotal + run.estimatedCostUsd, 0),
     0,
   );
 }
@@ -303,10 +300,7 @@ function assertCompatibleState(
   }
 }
 
-function selectCaseIds(
-  state: MediaResultState,
-  batchSize: number,
-): string[] {
+function selectCaseIds(state: MediaResultState, batchSize: number): string[] {
   const pending = state.cases.filter(
     (item) =>
       item.classificationSkipped === null &&

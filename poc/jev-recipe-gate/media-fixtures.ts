@@ -1,12 +1,10 @@
 export type MediaFixturePlatform =
-  | "youtube"
-  | "instagram"
-  | "tiktok"
-  | "ai-chat";
+  "youtube" | "instagram" | "tiktok" | "ai-chat";
 
 export type MediaExpectedKind = "recipe" | "non-recipe";
 export type MediaExpectedRoute = "zai" | "gemini" | "text" | "media";
-export type FixtureProvenance = "existing-test-shape" | "controlled-hard-negative";
+export type FixtureProvenance =
+  "existing-test-shape" | "controlled-hard-negative";
 
 interface BaseMediaFixture {
   id: string;
@@ -37,9 +35,7 @@ export interface AiChatMediaFixture extends BaseMediaFixture {
 }
 
 export type MediaRoutingFixture =
-  | YoutubeMediaFixture
-  | SocialMediaFixture
-  | AiChatMediaFixture;
+  YoutubeMediaFixture | SocialMediaFixture | AiChatMediaFixture;
 
 function youtubeInput(title: string, description: string): string | null {
   const normalizedTitle = title.trim();
@@ -189,7 +185,8 @@ export const MEDIA_ROUTING_FIXTURES: readonly MediaRoutingFixture[] = [
     provenance: "controlled-hard-negative",
     rationale:
       "The post is about one recipe but explicitly leaves ingredients and procedure to the media.",
-    input: "DESCRIPTION\n肉巻きポテトのレシピ。材料と作り方は動画内で紹介しています。",
+    input:
+      "DESCRIPTION\n肉巻きポテトのレシピ。材料と作り方は動画内で紹介しています。",
   },
   {
     id: "instagram-food-review",
@@ -252,7 +249,8 @@ export const MEDIA_ROUTING_FIXTURES: readonly MediaRoutingFixture[] = [
     provenance: "controlled-hard-negative",
     rationale:
       "The caption names a specific recipe while delegating the actual ingredients and process to the video.",
-    input: "DESCRIPTION\n鶏むね肉の照り焼き。材料と詳しい作り方は動画を見てください。",
+    input:
+      "DESCRIPTION\n鶏むね肉の照り焼き。材料と詳しい作り方は動画を見てください。",
   },
   {
     id: "tiktok-food-review",
@@ -260,8 +258,7 @@ export const MEDIA_ROUTING_FIXTURES: readonly MediaRoutingFixture[] = [
     expectedKind: "non-recipe",
     expectedRoute: "media",
     provenance: "controlled-hard-negative",
-    rationale:
-      "A food review is a hard negative for a recipe classifier.",
+    rationale: "A food review is a hard negative for a recipe classifier.",
     input:
       "TITLE\nコンビニ新作パスタ3種類を食べ比べ。味と価格をレビューします。",
   },
@@ -343,7 +340,8 @@ export const MEDIA_ROUTING_FIXTURES: readonly MediaRoutingFixture[] = [
     expectedKind: "non-recipe",
     expectedRoute: null,
     provenance: "controlled-hard-negative",
-    rationale: "An unrelated conversation checks ordinary non-recipe rejection.",
+    rationale:
+      "An unrelated conversation checks ordinary non-recipe rejection.",
     input:
       "MESSAGE 1 ROLE=user\n京都を一日で回るプランを作って\n\nMESSAGE 2 ROLE=assistant\n午前は東山、午後は嵐山を回る案があります。",
   },

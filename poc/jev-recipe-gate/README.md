@@ -209,4 +209,3 @@ poc/results/jev-media-routing-results.json
 分類精度とルーティング安全性を分離して評価します。具体的なpolicy、fixture、threshold metric、消費制御は [media-routing.md](./media-routing.md) を参照してください。
 
 productionの解析ルーティングはこのPoCでは変更しません。
-

@@ -27,8 +27,7 @@ function observations(
     recipeProbability,
     nonRecipeProbability: 1 - recipeProbability,
     choice:
-      choices?.[index] ??
-      (recipeProbability >= 0.5 ? "recipe" : "non_recipe"),
+      choices?.[index] ?? (recipeProbability >= 0.5 ? "recipe" : "non_recipe"),
   }));
 }
 
@@ -120,9 +119,9 @@ describe("Jev media routing fixtures", () => {
       "instagram-recipe-title-only",
     ]);
     expect(result.thresholds[1]?.instagram.unsafeFastRouteCaseIds).toEqual([]);
-    expect(
-      result.thresholds[1]?.instagram.consistentFastRouteCaseIds,
-    ).toEqual(["instagram-complete-caption-ja"]);
+    expect(result.thresholds[1]?.instagram.consistentFastRouteCaseIds).toEqual([
+      "instagram-complete-caption-ja",
+    ]);
     expect(result.candidateThresholdByPlatform.instagram).toBe(0.97);
     expect(result.candidateRecipeThreshold).toBe(0.97);
   });

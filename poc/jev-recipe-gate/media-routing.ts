@@ -263,10 +263,7 @@ export function evaluateMediaRouting(
   }
   for (const observation of observations) {
     assertProbability(observation.recipeProbability, "recipeProbability");
-    assertProbability(
-      observation.nonRecipeProbability,
-      "nonRecipeProbability",
-    );
+    assertProbability(observation.nonRecipeProbability, "nonRecipeProbability");
   }
 
   const completeFixtures = fixtures.filter((fixture) =>
@@ -275,9 +272,7 @@ export function evaluateMediaRouting(
   const classifiedFixtures = completeFixtures.filter(
     (fixture) => fixture.input && fixture.expectedKind !== null,
   );
-  const classifiedFixtureIds = new Set(
-    classifiedFixtures.map(({ id }) => id),
-  );
+  const classifiedFixtureIds = new Set(classifiedFixtures.map(({ id }) => id));
   const completeObservations = observations.filter((observation) =>
     classifiedFixtureIds.has(observation.fixtureId),
   );
@@ -321,9 +316,7 @@ export function evaluateMediaRouting(
         ).slice(0, requiredRepetitions);
         return (
           runs.length === requiredRepetitions &&
-          runs.every(
-            ({ recipeProbability }) => recipeProbability >= threshold,
-          )
+          runs.every(({ recipeProbability }) => recipeProbability >= threshold)
         );
       })
       .map(({ id }) => id);
