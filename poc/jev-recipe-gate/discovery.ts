@@ -52,9 +52,13 @@ const SITE_DEFINITIONS: SiteDefinition[] = [
     origin: "https://www.sirogohan.com",
     seeds: ["https://www.sirogohan.com/", "https://www.sirogohan.com/recipe/"],
     isRecipePath: (pathname) =>
-      /^\/recipe\/[^/]+\/?$/u.test(pathname) && pathname !== "/recipe/",
+      /^\/recipe\/(?!page:\d+\/?$)[^/]+\/?$/u.test(pathname),
     negativeTier: (pathname) =>
-      pathname === "/" ? "easy" : pathname === "/recipe/" ? "hard" : null,
+      pathname === "/"
+        ? "easy"
+        : pathname === "/recipe/" || /^\/recipe\/page:\d+\/?$/u.test(pathname)
+          ? "hard"
+          : null,
   },
   {
     id: "ajinomoto",

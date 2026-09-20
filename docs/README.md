@@ -57,6 +57,7 @@
 - [poc-gemini-youtube-description-results.md](poc-gemini-youtube-description-results.md)
 - [poc-gemini-youtube-final-results.md](poc-gemini-youtube-final-results.md)
 - [poc-ai-shared-link-results.md](poc-ai-shared-link-results.md)
+- [poc-jev-recipe-gate-results.md](poc-jev-recipe-gate-results.md)
 
 ## 実装の主要な入口
 

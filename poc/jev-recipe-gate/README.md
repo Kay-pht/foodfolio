@@ -105,6 +105,10 @@ npm run poc:jev-gate
 
 The first invocation performs corpus discovery/validation, creates the checkpoint, and then evaluates at most 100 URLs.
 
+The known pre-checkpoint `corpus-validation` result format is migrated in place on first use. Its
+validated URLs and extraction metadata are preserved, so it does not require `JEV_POC_RESET=1` or
+repeat corpus discovery. Unknown result formats are still rejected without being overwritten.
+
 ## Following batches
 
 Use exactly the same command:

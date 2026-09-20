@@ -29,6 +29,7 @@ import {
   historicalEstimatedCostAfterRefresh,
   type JevGateObservation,
 } from "./metrics.js";
+import { parseLegacyCorpusCheckpoint } from "./checkpoint.js";
 
 const STATE_SCHEMA_VERSION = 2;
 const DEFAULT_REPETITIONS = 3;
@@ -359,11 +360,46 @@ async function writeState(state: ResultState): Promise<void> {
   await fs.rename(temporaryPath, outputPath);
 }
 
-async function readState(): Promise<ResultState | null> {
+async function readState(
+  model: string,
+  repetitions: number,
+  batchSize: number,
+  targetPerKind: number,
+  perSiteCap: number,
+): Promise<ResultState | null> {
   try {
     const raw = await fs.readFile(outputPath, "utf8");
     const parsed = JSON.parse(raw) as Partial<ResultState>;
     if (parsed.schemaVersion !== STATE_SCHEMA_VERSION) {
+      const legacy = parseLegacyCorpusCheckpoint(parsed);
+      if (legacy) {
+        const migrated = emptyState(
+          model,
+          repetitions,
+          batchSize,
+          targetPerKind,
+          perSiteCap,
+        );
+        migrated.createdAt = legacy.generatedAt;
+        migrated.discoveredCandidateCounts = legacy.discoveredCandidateCounts;
+        migrated.cases = legacy.validatedCorpus.map((item) => ({
+          id: item.id,
+          source: item.source,
+          sourceUrl: item.url,
+          expected: item.kind,
+          discoverySite: item.discoverySite,
+          negativeTier: item.negativeTier,
+          extraction: item.extraction,
+          runs: [],
+          error: null,
+        }));
+        migrated.corpusQuality = evaluateCorpusQuality(migrated.cases);
+        migrated.corpusComplete = migrated.corpusQuality.meetsDefaultTarget;
+        console.log(
+          `migrating legacy corpus checkpoint: preserved ${migrated.cases.length} validated URL(s)`,
+        );
+        return migrated;
+      }
       throw new Error(
         `Existing Jev result state uses an unsupported schema. Run with JEV_POC_RESET=1 to rebuild ${path.relative(root, outputPath)}.`,
       );
@@ -595,7 +631,13 @@ if (reset) {
   await fs.rm(outputPath, { force: true });
 }
 
-let state = await readState();
+let state = await readState(
+  model,
+  repetitions,
+  batchSize,
+  targetPerKind,
+  perSiteCap,
+);
 if (state) {
   assertCompatibleState(state, model, repetitions);
 }

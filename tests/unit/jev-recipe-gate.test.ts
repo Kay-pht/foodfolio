@@ -26,6 +26,55 @@ import {
   historicalEstimatedCostAfterRefresh,
   type JevGateObservation,
 } from "../../poc/jev-recipe-gate/metrics.js";
+import { parseLegacyCorpusCheckpoint } from "../../poc/jev-recipe-gate/checkpoint.js";
+
+describe("Jev recipe gate legacy checkpoint migration", () => {
+  const legacyCase = {
+    id: "legacy-recipe",
+    source: "general-web",
+    url: "https://example.com/recipe/1",
+    kind: "recipe",
+    discoverySite: "example",
+    negativeTier: null,
+    extraction: {
+      ok: true,
+      httpStatus: 200,
+      finalUrl: "https://example.com/recipe/1",
+      methods: ["http-html", "json-ld"],
+      textLength: 500,
+      textSha256: "abc123",
+      hasRecipeSignals: true,
+      jsonLdRecipeCount: 1,
+    },
+  };
+
+  it("accepts the known pre-schema corpus-validation result without discarding validated URLs", () => {
+    const result = parseLegacyCorpusCheckpoint({
+      generatedAt: "2026-09-19T13:22:54.869Z",
+      phase: "corpus-validation",
+      discoveredCandidateCounts: {
+        recipe: 10,
+        hardNegative: 8,
+        easyNegative: 2,
+      },
+      validatedCorpus: [legacyCase],
+    });
+
+    expect(result?.validatedCorpus).toEqual([legacyCase]);
+    expect(result?.discoveredCandidateCounts.recipe).toBe(10);
+  });
+
+  it("rejects an unknown unversioned result instead of overwriting it", () => {
+    expect(
+      parseLegacyCorpusCheckpoint({
+        generatedAt: "2026-09-19T13:22:54.869Z",
+        phase: "unknown",
+        discoveredCandidateCounts: {},
+        validatedCorpus: [legacyCase],
+      }),
+    ).toBeNull();
+  });
+});
 
 describe("Jev recipe gate threshold evaluation", () => {
   it("selects the lowest tested threshold with no recipe false rejects and at least one consistent non-recipe reject", () => {
@@ -358,6 +407,23 @@ describe("Jev recipe gate corpus policy", () => {
       negativeTier: "hard",
     });
     expect(classifyKnownUrl("https://delishkitchen.tv/company")).toBeNull();
+  });
+
+  it("labels Sirogohan pagination as non-recipe without excluding recipe slugs", () => {
+    expect(
+      classifyKnownUrl("https://www.sirogohan.com/recipe/page:10"),
+    ).toMatchObject({
+      kind: "non-recipe",
+      discoverySite: "sirogohan",
+      negativeTier: "hard",
+    });
+    expect(
+      classifyKnownUrl("https://www.sirogohan.com/recipe/garibata/"),
+    ).toMatchObject({
+      kind: "recipe",
+      discoverySite: "sirogohan",
+      negativeTier: null,
+    });
   });
 });
 

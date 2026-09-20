@@ -109,6 +109,26 @@ requirements:
       - poc/jev-recipe-gate/run.ts
       - poc/jev-recipe-gate/run-media.ts
       - tests/unit/jev-recipe-gate.test.ts
+  - id: JRG-16
+    condition: A developer starts the PoC with the legacy pre-checkpoint corpus-validation result file.
+    expected: >-
+      The runner migrates the validated corpus and extraction metadata into the current checkpoint
+      schema in place before batch evaluation. It does not require JEV_POC_RESET, repeat corpus
+      discovery, or discard the legacy validated URLs. Unsupported files that do not match the
+      known legacy shape remain rejected without being overwritten.
+    verification:
+      - poc/jev-recipe-gate/checkpoint.ts
+      - poc/jev-recipe-gate/run.ts
+      - tests/unit/jev-recipe-gate.test.ts
+  - id: JRG-17
+    condition: Corpus discovery encounters a paginated Sirogohan recipe-search URL.
+    expected: >-
+      Paths such as /recipe/page:10 are labeled as hard non-recipe search/listing pages rather than
+      individual recipes, while explicit individual recipe paths such as /recipe/garibata/ remain
+      recipe candidates.
+    verification:
+      - poc/jev-recipe-gate/discovery.ts
+      - tests/unit/jev-recipe-gate.test.ts
 
   - id: JRG-10
     condition: The media-routing PoC defines controlled evaluation fixtures.
@@ -196,7 +216,10 @@ edge_cases:
   - The process is restarted with an existing compatible checkpoint.
   - The requested model, repetition count, or media fixture set conflicts with a saved checkpoint.
   - A selected general-Web URL changes content after one or more repetitions.
+  - The process is started with the known legacy corpus-validation result format that has no schemaVersion.
+  - A selected general-Web URL no longer satisfies its stored label on re-extraction.
   - Different discovered URLs redirect to the same final URL or yield identical extracted content.
+  - A source uses a single path segment for both individual recipe slugs and paginated recipe listings.
   - A source blocks discovery or extraction.
   - TypeSafe returns 429, 529, malformed JSON, invalid probabilities, or an unexpected answer type.
   - A semantic recipe fixture contains only a title, hashtag, or video-reference text and therefore still requires media analysis.
@@ -238,6 +261,17 @@ out_of_scope:
 
 acceptance_criteria:
   - Existing general-Web Jev PoC behavior and checkpoint compatibility remain intact.
+  - One general-Web command invocation selects no more than 100 URLs.
+  - The same general-Web command resumes from the saved checkpoint on the next invocation.
+  - The known legacy corpus-validation result is migrated without requiring a destructive reset.
+  - The general-Web result file exists before corpus discovery completes.
+  - A recipe=500/non-recipe=370 general-Web corpus can still be evaluated provisionally without qualifying a final threshold.
+  - Partial general-Web URL repetitions resume before new URLs.
+  - Fully completed and terminal-error general-Web URLs are not silently reprocessed.
+  - General-Web threshold metrics exclude partially completed URLs.
+  - A persistent Jev API error stops the active PoC batch after checkpointing.
+  - General-Web batch and cumulative estimated cost are visible in the result file.
+  - Paginated Sirogohan recipe-search paths cannot contaminate the recipe corpus.
   - npm run poc:jev-media evaluates the four requested source families without changing production code.
   - Semantic classification correctness and routing safety are reported separately.
   - YouTube routing combines Jev recipe probability with the existing deterministic sufficiency check.
