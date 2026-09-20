@@ -202,7 +202,7 @@ YouTube / Instagram / TikTok / AI共有会話について、Jevのrecipe判定�
 npm run poc:jev-media
 ```
 
-デフォルトのcontrolled corpusは27 fixtureです。テキストなし3件はJevを呼ばず、残り24件を各3回評価するため、clean runの最大successful classification数は72回です。
+デフォルトのcontrolled corpusは28 fixtureです。テキストなし3件はJevを呼ばず、残り25件を各3回評価するため、clean runの最大successful classification数は75回です。
 
 結果はWeb PoCとは別のcheckpointへ保存します。
 
@@ -213,3 +213,64 @@ poc/results/jev-media-routing-results.json
 分類精度とルーティング安全性を分離して評価します。具体的なpolicy、fixture、threshold metric、消費制御は [media-routing.md](./media-routing.md) を参照してください。
 
 productionの解析ルーティングはこのPoCでは変更しません。
+
+
+## Real-URL media validation
+
+Controlled fixturesでrouting仮説を確認した後は、productionと同じsource-content extractorを使って、手動ラベル済みの実公開URLを評価します。
+
+ローカル専用corpusを作成します。
+
+```bash
+mkdir -p poc/inputs
+cp poc/jev-recipe-gate/media-live-corpus.example.json \
+  poc/inputs/jev-media-live-corpus.json
+```
+
+`poc/inputs/` はgitignore対象です。ChatGPT / Gemini共有URLを含む実URL corpusをcommitしないでください。
+
+目安は合計100 URLです。各caseには以下を人手で付与します。
+
+- `expectedKind`: 1つの具体的なrecipeなら `recipe`、それ以外は `non-recipe`
+- YouTube `expectedRoute`: 説明文だけで材料・手順が十分なら `zai`、不足なら `gemini`
+- Instagram / TikTok `expectedRoute`: 取得できるtextだけで十分なら `text`、画像・動画が必要なら `media`
+- ChatGPT / Gemini `expectedRoute`: `null`
+
+実行:
+
+```bash
+npm run poc:jev-media-live
+```
+
+必要な環境変数:
+
+```env
+TYPESAFE_API_KEY=...
+YOUTUBE_API_KEY=... # YouTube URLを含む場合
+```
+
+1回の実行で成功するJev classificationは最大100回です。デフォルト3反復なので、すべてtextありなら約33 URL分ずつ進みます。さらに抑える場合:
+
+```bash
+JEV_MEDIA_LIVE_POC_CALL_BUDGET=25 npm run poc:jev-media-live
+```
+
+checkpoint/result:
+
+```text
+poc/results/jev-media-live-results.json
+```
+
+runnerはproductionの `ProductionSourceContentExtractor`、ChatGPT/Gemini shared-conversation adapter、YouTube description sufficiency判定を再利用します。抽出した本文・会話本文はresultへ保存せず、hash/文字数とrouting評価に必要なredacted fixtureだけを保存します。
+
+`0.99` についてresultには以下を明示します。
+
+- 誤って高速routeへ送ったcase ID
+- 高速routeへ安定到達したcoverage
+- fallbackを安全に維持したcoverage
+- source別件数
+- extraction error / content change
+- corpusが100 URLへ到達したか
+- 全caseが評価完了したか
+
+`validation.productionQualified` はPoC内では常に `false` です。実URL100件で事故0件でも、自動的に本番閾値採用とは判定しません。
