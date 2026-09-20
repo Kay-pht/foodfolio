@@ -1,10 +1,14 @@
+import type { YoutubeDescriptionSufficiency } from "../../src/domain/recipe/youtube-description-sufficiency.js";
+
 export type MediaFixturePlatform =
   "youtube" | "instagram" | "tiktok" | "ai-chat";
 
 export type MediaExpectedKind = "recipe" | "non-recipe";
 export type MediaExpectedRoute = "zai" | "gemini" | "text" | "media";
 export type FixtureProvenance =
-  "existing-test-shape" | "controlled-hard-negative";
+  | "existing-test-shape"
+  | "controlled-hard-negative"
+  | "live-url";
 
 interface BaseMediaFixture {
   id: string;
@@ -21,6 +25,7 @@ export interface YoutubeMediaFixture extends BaseMediaFixture {
   expectedRoute: "zai" | "gemini";
   title: string;
   description: string;
+  youtubeSufficiencyOverride?: YoutubeDescriptionSufficiency;
 }
 
 export interface SocialMediaFixture extends BaseMediaFixture {
