@@ -142,7 +142,17 @@ async function postSystemOne(
       continue;
     }
 
-    const raw = await response.text();
+    let raw: string;
+    try {
+      raw = await response.text();
+    } catch (error) {
+      if (attempt >= maxAttempts) {
+        throw classificationError(error, attempt);
+      }
+      await sleepImpl(retryDelayMs(response, attempt));
+      continue;
+    }
+
     if (response.ok) return { raw, attempts: attempt };
 
     if (!RETRYABLE_STATUS.has(response.status) || attempt >= maxAttempts) {

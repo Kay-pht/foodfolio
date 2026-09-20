@@ -259,6 +259,41 @@ describe("Jev recipe classifier", () => {
     expect(result.choice).toBe("recipe");
   });
 
+  it("retries response body read failures and preserves the exhausted attempt count", async () => {
+    const delays: number[] = [];
+    let requests = 0;
+    let caught: unknown;
+
+    try {
+      await classifyRecipeContent("page content", {
+        apiKey: "test-key",
+        maxAttempts: 2,
+        sleepImpl: async (delayMs) => {
+          delays.push(delayMs);
+        },
+        fetchImpl: async () => {
+          requests += 1;
+          return {
+            ok: true,
+            status: 200,
+            headers: new Headers(),
+            text: async () => {
+              throw new Error("body read failed");
+            },
+          } as Response;
+        },
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(requests).toBe(2);
+    expect(delays).toEqual([250]);
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toContain("body read failed");
+    expect(jevHttpAttemptsFromError(caught)).toBe(2);
+  });
+
   it("preserves HTTP attempt count when retryable failures exhaust", async () => {
     let requests = 0;
     let caught: unknown;
