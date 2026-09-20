@@ -189,3 +189,24 @@ The result file records both:
 This allows cost and accuracy to be reviewed after every batch before deciding whether to run the next 100 URLs.
 
 With 500 distinct recipe URLs and zero false rejects, the exact one-sided 95% binomial upper bound for the underlying false-reject probability is about 0.6%. This is a scale reference only and is not proof of production accuracy.
+
+## Media routing companion PoC
+
+YouTube / Instagram / TikTok / AI共有会話について、Jevのrecipe判定をルーティングに使えるかを別runnerで検証します。
+
+```bash
+npm run poc:jev-media
+```
+
+デフォルトのcontrolled corpusは27 fixtureです。テキストなし3件はJevを呼ばず、残り24件を各3回評価するため、clean runの最大successful classification数は72回です。
+
+結果はWeb PoCとは別のcheckpointへ保存します。
+
+```text
+poc/results/jev-media-routing-results.json
+```
+
+分類精度とルーティング安全性を分離して評価します。具体的なpolicy、fixture、threshold metric、消費制御は [media-routing.md](./media-routing.md) を参照してください。
+
+productionの解析ルーティングはこのPoCでは変更しません。
+
