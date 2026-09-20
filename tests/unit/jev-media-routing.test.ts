@@ -32,13 +32,13 @@ function observations(
 }
 
 describe("Jev media routing fixtures", () => {
-  it("keeps fixture IDs unique and limits the default Jev run to 24 non-empty cases", () => {
+  it("keeps fixture IDs unique and limits the default Jev run to 25 non-empty cases", () => {
     const ids = MEDIA_ROUTING_FIXTURES.map(({ id }) => id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(MEDIA_ROUTING_FIXTURES).toHaveLength(27);
+    expect(MEDIA_ROUTING_FIXTURES).toHaveLength(28);
     expect(
       MEDIA_ROUTING_FIXTURES.filter(({ input }) => input !== null),
-    ).toHaveLength(24);
+    ).toHaveLength(25);
   });
 
   it("separates semantic recipe classification from text sufficiency", () => {
