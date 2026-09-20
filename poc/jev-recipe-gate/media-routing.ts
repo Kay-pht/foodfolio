@@ -81,7 +81,10 @@ function assertProbability(value: number, field: string): void {
 }
 
 export function youtubeSufficiency(fixture: YoutubeMediaFixture) {
-  return assessYoutubeDescription(fixture.description);
+  return (
+    fixture.youtubeSufficiencyOverride ??
+    assessYoutubeDescription(fixture.description)
+  );
 }
 
 export function routeForFixture(
