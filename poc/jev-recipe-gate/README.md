@@ -248,6 +248,8 @@ TYPESAFE_API_KEY=...
 YOUTUBE_API_KEY=... # YouTube URLを含む場合
 ```
 
+`npm run poc:jev-media-live` はリポジトリ直下の `.env` を読み込み、`.env.local` が存在する場合は同名の値を `.env.local` で上書きします。どちらのファイルもGit管理対象外です。
+
 1回の実行で成功するJev classificationは最大100回です。デフォルト3反復なので、すべてtextありなら約33 URL分ずつ進みます。さらに抑える場合:
 
 ```bash

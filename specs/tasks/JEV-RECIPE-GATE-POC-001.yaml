@@ -286,7 +286,7 @@ edge_cases:
   - A 100-URL live corpus requires more than one invocation because the default three repetitions exceed the per-run 100-classification budget.
 
 security_invariants:
-  - TYPESAFE_API_KEY is read only from local environment configuration and is never written to results.
+  - TYPESAFE_API_KEY and YOUTUBE_API_KEY are read only from local .env/.env.local configuration and are never written to results.
   - Expected labels and expected routes are not included in Jev state or question content.
   - General-Web raw extracted page content is kept only in memory and is not written to the result file.
   - The media result JSON stores fixture identifiers and measurements, not copied raw fixture input.

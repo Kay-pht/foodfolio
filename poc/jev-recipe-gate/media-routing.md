@@ -268,6 +268,8 @@ TYPESAFE_API_KEY=...
 YOUTUBE_API_KEY=... # only when the corpus contains YouTube
 ```
 
+`npm run poc:jev-media-live` loads `.env` from the repository root and then applies `.env.local` overrides when that file exists. Both files are excluded from Git.
+
 ### Consumption cap
 
 A live run is capped at **100 successful Jev classifications per invocation**, not 100 URLs.
