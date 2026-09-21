@@ -11,6 +11,26 @@ const databaseGeneratedUuidModels = [
 ];
 
 describe("Prisma schema", () => {
+  it("supports not_recipe in the Prisma schema and migration", async () => {
+    const [schema, migration] = await Promise.all([
+      readFile(new URL("../../prisma/schema.prisma", import.meta.url), "utf8"),
+      readFile(
+        new URL(
+          "../../prisma/migrations/20260921115000_add_not_recipe_analysis_status/migration.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    ]);
+
+    expect(schema).toMatch(
+      /enum AnalysisStatus \{[\s\S]*?\bnot_recipe\b[\s\S]*?\}/,
+    );
+    expect(migration).toContain(
+      `ALTER TYPE "AnalysisStatus" ADD VALUE 'not_recipe';`,
+    );
+  });
+
   it("keeps UUID defaults aligned with the PostgreSQL migrations", async () => {
     const schema = await readFile(
       new URL("../../prisma/schema.prisma", import.meta.url),

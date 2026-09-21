@@ -180,6 +180,75 @@ describe("Backend + PostgreSQL integration", () => {
     await app.close();
   }, 60_000);
 
+  it("exposes not_recipe through API and sync, rejects PATCH, and allows DELETE", async () => {
+    const app = buildApi({
+      prisma: context.prisma,
+      authVerifier: auth,
+      firebaseUsers,
+      taskQueue,
+    });
+    const user = await context.prisma.user.create({
+      data: {
+        firebaseUid: "not-recipe-api-user",
+        setting: { create: {} },
+      },
+    });
+    const originalUrl = "https://example.com/not-a-recipe-api";
+    const recipe = await context.prisma.recipe.create({
+      data: {
+        userId: user.id,
+        originalUrl,
+        normalizedUrl: originalUrl,
+        sourceType: "web",
+        title: "レシピとして判定できませんでした",
+        analysisStatus: "not_recipe",
+      },
+    });
+    const headers = { authorization: "Bearer not-recipe-api-user" };
+
+    const detail = await app.inject({
+      method: "GET",
+      url: `/v1/recipes/${recipe.id}`,
+      headers,
+    });
+    expect(detail.statusCode).toBe(200);
+    expect(detail.json()).toMatchObject({
+      id: recipe.id,
+      originalUrl,
+      analysisStatus: "not_recipe",
+    });
+
+    const sync = await app.inject({ method: "GET", url: "/v1/sync", headers });
+    expect(sync.statusCode).toBe(200);
+    expect(sync.json().recipes).toEqual([
+      expect.objectContaining({
+        id: recipe.id,
+        originalUrl,
+        analysisStatus: "not_recipe",
+      }),
+    ]);
+
+    const update = await app.inject({
+      method: "PATCH",
+      url: `/v1/recipes/${recipe.id}`,
+      headers,
+      payload: { title: "編集してはいけない" },
+    });
+    expect(update.statusCode).toBe(409);
+    expect(update.json().error.code).toBe("RECIPE_NOT_EDITABLE");
+
+    const remove = await app.inject({
+      method: "DELETE",
+      url: `/v1/recipes/${recipe.id}`,
+      headers,
+    });
+    expect(remove.statusCode).toBe(204);
+    expect(
+      await context.prisma.recipe.count({ where: { id: recipe.id } }),
+    ).toBe(0);
+    await app.close();
+  });
+
   it("fully deletes account data without recreating a missing DB user", async () => {
     const app = buildApi({
       prisma: context.prisma,

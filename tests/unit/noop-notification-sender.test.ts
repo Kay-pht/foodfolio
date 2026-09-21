@@ -11,5 +11,8 @@ describe("NoopNotificationSender", () => {
     await expect(
       sender.sendRecipeAnalysisFailed([], "recipe-1", "Recipe"),
     ).resolves.toEqual([]);
+    await expect(
+      sender.sendRecipeAnalysisNotRecipe([], "recipe-1"),
+    ).resolves.toEqual([]);
   });
 });
