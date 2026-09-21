@@ -206,6 +206,8 @@ function parseBoolean(name: string, value: string): boolean {
 }
 
 function parseProbability(name: string, value: string): number {
+  if (!value.trim())
+    throw new Error(`${name} must be a number from 0 through 1`);
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1)
     throw new Error(`${name} must be a number from 0 through 1`);
