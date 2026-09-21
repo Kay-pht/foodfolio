@@ -646,6 +646,7 @@ processing
 - API / sync decode
 - iOS decode /表示
 - 通常編集不可
+- PATCHは `409 RECIPE_NOT_EDITABLE`
 - 元URL閲覧可能
 - 削除可能
 - 専用通知
