@@ -83,7 +83,7 @@ final class NotificationActivationTests: XCTestCase {
     XCTAssertFalse(state.canSyncFCMToken)
   }
 
-  func testAnalysisNotificationRefreshesForCompletedAndFailedResults() {
+  func testAnalysisNotificationRefreshesForTerminalResults() {
     XCTAssertEqual(
       NotificationService.recipeAnalysisRecipeID(from: [
         "recipeId": "completed-recipe", "analysisResult": "completed",
@@ -95,6 +95,12 @@ final class NotificationActivationTests: XCTestCase {
         "recipeId": "failed-recipe", "analysisResult": "failed",
       ]),
       "failed-recipe"
+    )
+    XCTAssertEqual(
+      NotificationService.recipeAnalysisRecipeID(from: [
+        "recipeId": "not-recipe", "analysisResult": "not_recipe",
+      ]),
+      "not-recipe"
     )
   }
 
@@ -115,6 +121,7 @@ final class NotificationActivationTests: XCTestCase {
     XCTAssertTrue(AnalysisAutoRefreshPolicy.shouldPoll(status: .processing, isAppActive: true))
     XCTAssertFalse(AnalysisAutoRefreshPolicy.shouldPoll(status: .completed, isAppActive: true))
     XCTAssertFalse(AnalysisAutoRefreshPolicy.shouldPoll(status: .failed, isAppActive: true))
+    XCTAssertFalse(AnalysisAutoRefreshPolicy.shouldPoll(status: .notRecipe, isAppActive: true))
     XCTAssertFalse(AnalysisAutoRefreshPolicy.shouldPoll(status: .pending, isAppActive: false))
     XCTAssertFalse(AnalysisAutoRefreshPolicy.shouldPoll(status: .processing, isAppActive: false))
   }
