@@ -211,5 +211,19 @@ describe("Jev production routing environment", () => {
         JEV_YOUTUBE_RECIPE_THRESHOLD: "1.1",
       }),
     ).toThrow("JEV_YOUTUBE_RECIPE_THRESHOLD must be a number from 0 through 1");
+
+    expect(() =>
+      loadConfig("worker", {
+        ...workerEnvironment,
+        JEV_YOUTUBE_RECIPE_THRESHOLD: "   ",
+      }),
+    ).toThrow("JEV_YOUTUBE_RECIPE_THRESHOLD must be a number from 0 through 1");
+
+    expect(
+      loadConfig("worker", {
+        ...workerEnvironment,
+        JEV_YOUTUBE_RECIPE_THRESHOLD: "0",
+      }).jevYoutubeRecipeThreshold,
+    ).toBe(0);
   });
 });
