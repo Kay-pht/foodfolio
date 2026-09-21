@@ -374,7 +374,7 @@ MVPでは失敗原因ごとのメッセージを出し分けず、共通の解�
 
 ### 9.4 レシピではないと判定した場合
 
-Jevによるsemantic gateで、qualification済みのsourceが1つの具体的なレシピではないと高い確度で判定された場合は、解析失敗とは分離して `not_recipe` とする。初期導入では一般Webのhard rejectはproduction qualification完了までdev環境に限定し、ChatGPT / Gemini共有はnon-recipe検証が不足しているためhard rejectせず従来のZ.ai解析を継続する。
+Jevによるsemantic gateで、qualification済みのsourceが1つの具体的なレシピではないと高い確度で判定された場合は、解析失敗とは分離して `not_recipe` とする。一般Webのhard rejectは `APP_ENV` では制御せず、専用の `JEV_GENERAL_WEB_HARD_REJECT_ENABLED` を既定 `false` とする。production qualificationの証跡と `not_recipe` 対応iOSへの移行を確認するまで有効化しない。ChatGPT / Gemini共有はnon-recipe検証が不足しているためhard rejectせず従来のZ.ai解析を継続する。
 
 `not_recipe` はエラーではなく正常終了の一種とし、保存済みRecipe自体は削除しない。ユーザーには「レシピとして判定できませんでした」と表示し、元URLの閲覧とRecipe削除は可能、通常のレシピ編集は不可とする。
 
@@ -612,9 +612,9 @@ MVPでは以下を扱う。
 
 特定サイト専用の入力方式ではなく、可能な限り**任意のWeb URLを受け付けられる設計**を基本とする。
 
-Jev本番導入後は、SourceContent取得後にsource別のsemantic gate / routerを適用する。hard non-recipeによる早期終了はqualification済みsourceだけで行う。初期導入では一般Webはdev環境に限定し、ChatGPT / Gemini共有はclassificationをログへ残しつつ従来のZ.ai解析を継続する。YouTube / Instagram / TikTokではtext解析とmedia解析の振り分けに使う。Jevが失敗した場合は解析失敗にせず、Jev導入前の既存routeへ即時fallbackする。詳細は [jev-production-routing.md](jev-production-routing.md) を参照する。
+Jev本番導入後は、SourceContent取得後にsource別のsemantic gate / routerを適用する。hard non-recipeによる早期終了はqualification済みsourceだけで行い、一般Webは専用hard-reject flagを既定OFFとする。ChatGPT / Gemini共有はclassificationをログへ残しつつ従来のZ.ai解析を継続する。YouTube / Instagram / TikTokではtext解析とmedia解析の振り分けに使う。Jevが失敗した場合は解析失敗にせず、Jev導入前の既存routeへ即時fallbackする。詳細は [jev-production-routing.md](jev-production-routing.md) を参照する。
 
-TikTok動画はJevがtext routeを選んだ場合にテキスト解析を先行し、材料または手順が不足する場合は動画解析へフォールバックする。TikTok写真もcaptionのrecipe probabilityが閾値以上ならテキスト解析を先行し、不足時だけ写真解析へフォールバックする。
+YouTube / Instagram / TikTok動画で解析可能なtextがあり、対応するmedia fallbackが無効な場合は、Jevがmedia routeを選んでも従来のtext attemptを維持する。Jev判定だけで既存の解析可能経路を失敗へ変えない。TikTok動画はJevがtext routeを選んだ場合にテキスト解析を先行し、材料または手順が不足する場合は動画解析へフォールバックする。TikTok写真もcaptionのrecipe probabilityが閾値以上ならテキスト解析を先行し、不足時だけ写真解析へフォールバックする。
 
 動画フォールバックは書面許可を確認した環境でのみ機能フラグを有効にする。dev環境では書面許可を確認済みのため有効化する。無効中は動画を取得・外部送信しない。
 

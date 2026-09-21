@@ -80,7 +80,9 @@ Jevはrouteを選ぶだけで、既存のmedia feature flagや利用許可を上
 - Instagramでmedia routeを選んでも、既存のInstagram media fallback有効条件に従う
 - TikTok動画・写真でmedia routeを選んでも、`TIKTOK_MEDIA_ANALYSIS_ENABLED` と既存の利用許可条件に従う
 
-media routeが必要だが該当機能が無効な場合は、Jevが強制的にmedia取得を有効化してはならない。既存の「fallback disabled」としての失敗動作を維持する。
+media routeが必要だが該当機能が無効な場合は、Jevが強制的にmedia取得を有効化してはならない。media以外に既存の有効な解析経路がない場合は、従来の「fallback disabled」としての失敗動作を維持する。
+
+一方、Jev導入前にtext-firstを試していたsourceで解析可能なtextが存在する場合は、media機能が無効であることを理由にそのtext経路まで捨てない。YouTubeの十分な説明欄、Instagramのmetadata text、TikTok動画のtitle / captionでは、Jevがmedia routeを選んでも対応media機能が無効なら既存のZ.ai text attemptを維持する。Jev判定だけで、従来なら解析できた入力をterminal failureへ変えてはならない。
 
 Jevのfail-openも「機能を強制有効化する」という意味ではない。Jev導入前と同じroute判定へ戻すことだけを意味する。
 
@@ -130,7 +132,9 @@ PoCの `poc/jev-recipe-gate/jev.ts` をproductionから直接importしない。P
 | TikTok写真 text route                    |     `p(recipe) >= 0.99` |
 | ChatGPT / Gemini共有 hard non-recipe候補 | `p(non_recipe) >= 0.99` |
 
-一般Webの0.80とmedia系の0.99はPoC結果を初期根拠とする。ただし、一般Webの500/500 corpusはchecked-in PoC記録上まだproduction-qualifiedではないため、0.80は当面dev環境でのみhard rejectへ使用できる候補値とする。外部ユーザーを受け入れる環境でhard rejectを有効にする前に、追加検証結果をリポジトリへ記録し、本書のqualificationを更新する。
+一般Webの0.80とmedia系の0.99はPoC結果を初期根拠とする。ただし、一般Webの500/500 corpusはchecked-in PoC記録上まだproduction-qualifiedではないため、0.80はhard rejectの候補値に留める。一般Webのterminal hard rejectは専用フラグ `JEV_GENERAL_WEB_HARD_REJECT_ENABLED` で制御し、既定値は `false` とする。`APP_ENV` では切り替えない。Foodfolio dev APIは外部TestFlight buildからも利用されるため、環境名はユーザー露出を表さないためである。
+
+`JEV_GENERAL_WEB_HARD_REJECT_ENABLED=true` にする前に、(1) false rejectを含む追加検証結果をリポジトリへ記録してproduction qualificationを完了する、(2) `not_recipe` を理解できない既存iOS buildが対象Backendを利用できない状態をminimum supported buildや配布運用等で確認する、(3) 本書のqualification状態を更新する、の3条件を満たす。
 
 AIチャット共有は実URLからrecipe判定まで確認済みだが、non-recipe実URLが0件でhard reject thresholdを検証できていない。そのため0.99は将来検証する候補値としてログへ記録するだけとし、初期実装ではAIチャットを `not_recipe` にしない。
 
@@ -139,6 +143,7 @@ AIチャット共有は実URLからrecipe判定まで確認済みだが、non-re
 想定環境変数:
 
 ```text
+JEV_GENERAL_WEB_HARD_REJECT_ENABLED=false
 JEV_GENERAL_WEB_NON_RECIPE_THRESHOLD=0.80
 JEV_YOUTUBE_RECIPE_THRESHOLD=0.99
 JEV_INSTAGRAM_RECIPE_THRESHOLD=0.99
@@ -168,14 +173,14 @@ Jev
 ↓
 p(non_recipe) >= 0.80
 ├─ yes
-│  ├─ APP_ENV=dev → not_recipe
-│  └─ 外部ユーザー環境 → qualification完了まではZ.ai
+│  ├─ JEV_GENERAL_WEB_HARD_REJECT_ENABLED=true → not_recipe
+│  └─ false → 従来どおりZ.ai
 └─ no → 従来どおりZ.ai
 ```
 
 0.80未満を「recipe確定」とは扱わない。曖昧なものは従来解析へ送る。
 
-checked-in PoCでは一般Web corpusの最終production qualificationが未完了であるため、0.80のhard rejectはdevでのみ先行利用する。外部ユーザーを受け入れる環境で有効化するには、false rejectを含む追加検証結果をリポジトリへ記録してから本書を更新する。
+checked-in PoCでは一般Web corpusの最終production qualificationが未完了であるため、初期設定では `JEV_GENERAL_WEB_HARD_REJECT_ENABLED=false` とする。dev / productionという環境名では有効化せず、qualificationとクライアント互換性の条件を満たしたことを確認した後にだけ明示的に有効化する。
 
 ### 6.2 YouTube
 
@@ -217,8 +222,14 @@ Jev
 p(recipe) >= 0.99
 ├─ yes → Z.ai text extraction
 │         ├─ ingredients > 0 AND steps > 0 → completed
-│         └─ 不足 → media fallback
-└─ no  → media route
+│         └─ 不足
+│              ├─ media enabled → media fallback
+│              └─ media disabled → 既存のfallback-disabled失敗
+└─ no
+     ├─ media enabled → media route
+     └─ media disabled → Z.ai text extraction
+                          ├─ ingredients > 0 AND steps > 0 → completed
+                          └─ 不足 → 既存のfallback-disabled失敗
 ```
 
 Jevだけで `not_recipe` にはしない。
@@ -236,8 +247,14 @@ Jev
 p(recipe) >= 0.99
 ├─ yes → Z.ai text extraction
 │         ├─ ingredients > 0 AND steps > 0 → completed
-│         └─ 不足 → video fallback
-└─ no  → video route
+│         └─ 不足
+│              ├─ media enabled → video fallback
+│              └─ media disabled → 既存のfallback-disabled失敗
+└─ no
+     ├─ media enabled → video route
+     └─ media disabled → Z.ai text extraction
+                          ├─ ingredients > 0 AND steps > 0 → completed
+                          └─ 不足 → 既存のfallback-disabled失敗
 ```
 
 Jevだけで `not_recipe` にはしない。
@@ -368,10 +385,24 @@ not_recipe
 
 初期実装でJev単独のhard `not_recipe` を許可するのは、qualification境界を満たしたsourceだけとする。
 
-- 一般Web: checked-in PoCのproduction qualification完了まではdev環境のみ許可
+- 一般Web: `JEV_GENERAL_WEB_HARD_REJECT_ENABLED=false` を初期値とし、production qualificationとクライアント互換性の確認が完了した後だけ明示的に有効化する
 - ChatGPT / Gemini共有: non-recipe検証が不足しているため初期実装では許可しない
 
 YouTube / Instagram / TikTokはmedia側にレシピが存在する可能性があるため、Jevの低いrecipe probabilityだけでは `not_recipe` にしない。
+
+### 8.6 既存iOSクライアントとの互換性
+
+現在配布済みのiOS buildは `AnalysisStatus` をclosed enumとしてdecodeするため、未対応buildへ `not_recipe` を返すとRecipe decodeが失敗し、同期レスポンス全体を失敗させる可能性がある。
+
+そのため、Backendが新statusを理解できることと、Backendが実際に `not_recipe` を発生させることを分離する。
+
+1. PR 1でDB / Backend / API / iOSへ `not_recipe` の表現・表示対応を追加するが、Jev routingによる `not_recipe` の生成経路はまだ導入しない
+2. 対応iOS buildを配布する
+3. 対象Backendへ互換性のない旧buildが接続しないことをminimum supported build、配布運用、または同等の仕組みで確認する
+4. production qualificationの証跡をchecked-inする
+5. PR 2で導入する `JEV_GENERAL_WEB_HARD_REJECT_ENABLED` を初めて `true` にできる
+
+PR 2をmergeしただけではhard rejectを開始しない。フラグの既定値は `false` とし、旧クライアントが接続可能な間は `not_recipe` を発生させない。
 
 ---
 
@@ -572,9 +603,9 @@ Secret ManagerからWorkerへ渡す。
 
 API serviceはJevを呼ばないため、原則としてAPI側には不要。
 
-`off / observe / enforce` の3モードは初期実装では設けない。現時点はdev環境のみで実ユーザーがいないため、導入時からroutingへ反映する。
+`off / observe / enforce` の全体3モードは初期実装では設けない。media系のroutingは既存feature gateを尊重したうえで導入時から反映する。一方、不可逆なterminal stateを発生させる一般Web hard rejectだけは、専用の `JEV_GENERAL_WEB_HARD_REJECT_ENABLED=false` で独立してrolloutを制御する。
 
-安全性はmodeではなく以下で担保する。
+安全性は以下で担保する。
 
 - 1 attempt
 - fail-open
@@ -627,8 +658,9 @@ processing
 
 ### routing
 
-- 一般Web `p(non_recipe) >= 0.80` + dev環境 → `not_recipe`
-- 一般Web `p(non_recipe) >= 0.80` + 外部ユーザー環境 + qualification未完了 → Z.ai
+- 一般Web `p(non_recipe) >= 0.80` + `JEV_GENERAL_WEB_HARD_REJECT_ENABLED=false` → Z.ai
+- 一般Web `p(non_recipe) >= 0.80` + qualification / client compatibility確認済み + `JEV_GENERAL_WEB_HARD_REJECT_ENABLED=true` → `not_recipe`
+- `APP_ENV` の値だけではhard rejectを有効化しない
 - 一般Web threshold未満 → Z.ai
 - AI chatはcandidate thresholdを超えても初期実装ではZ.aiを継続し、classification / thresholdをログへ残す
 - AI chat recipe probabilityが0.77程度でもrejectしない
@@ -638,9 +670,12 @@ processing
 - YouTube threshold未満 → Gemini
 - Instagram threshold以上 → text
 - Instagram text incomplete → media
-- Instagram threshold未満 → media
+- Instagram threshold未満 + media enabled → media
+- Instagram threshold未満 + media disabled + metadata textあり → text
 - TikTok動画 threshold以上 → text
 - TikTok動画 text incomplete → video
+- TikTok動画 threshold未満 + media enabled → video
+- TikTok動画 threshold未満 + media disabled + textあり → text
 - TikTok写真 threshold以上 → text
 - TikTok写真 text incomplete → photo media
 - TikTok写真 threshold未満 → photo media
@@ -678,7 +713,7 @@ Jev本番導入は2PRに分ける。
 - Prisma `AnalysisStatus.not_recipe`
 - migration
 - Backend state transition
-- API / sync
+- API / sync（statusを表現可能にするが、このPRだけでは新statusを発生させない）
 - iOS decode / UI
 - 編集不可
 - 元URL閲覧 / 削除
@@ -698,6 +733,7 @@ Jev本番導入は2PRに分ける。
 - fail-open
 - source別threshold
 - source別routing
+- `JEV_GENERAL_WEB_HARD_REJECT_ENABLED=false` の安全な既定値
 - text incomplete → media / video fallback
 - structured logging
 - input hash
@@ -705,7 +741,7 @@ Jev本番導入は2PRに分ける。
 - tests
 - 関連docs更新
 
-2PRに分けることで、「新statusの互換性」と「Jev routingの正しさ」を独立してレビューできるようにする。
+2PRに分けることで、「新statusの互換性」と「Jev routingの正しさ」を独立してレビューできるようにする。PR 2のmerge後も一般Web hard rejectは既定OFFであり、8.6のclient compatibilityとproduction qualificationを確認した後の明示的な設定変更をrolloutの最終ステップとする。
 
 ---
 

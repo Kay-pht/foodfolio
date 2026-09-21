@@ -457,7 +457,7 @@ production requestは1解析につき最大1回とし、Jevのtimeout、network 
 
 thresholdはsource別設定値とし、classification probability、使用threshold、選択route、最終routeを構造化ログへ残す。Jev入力本文はログへ残さず、再検証用に文字数とSHA-256を記録する。
 
-初期threshold、source別routing、hard rejectのqualification境界は [jev-production-routing.md](jev-production-routing.md) を正本とする。一般Webの0.80はchecked-in PoCのproduction qualificationが完了するまではdev限定の候補値とする。
+初期threshold、source別routing、hard rejectのqualification境界は [jev-production-routing.md](jev-production-routing.md) を正本とする。一般Webの0.80はchecked-in PoCのproduction qualificationが完了するまでは候補値に留め、hard rejectは `APP_ENV` ではなく既定OFFの専用flagで制御する。対応iOSへの移行も確認するまでterminal `not_recipe` を発生させない。
 
 ---
 
