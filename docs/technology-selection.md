@@ -70,29 +70,29 @@
 
 ## 3. 採用技術スタック
 
-| 領域              | 採用技術                                        | 状態                 |
-| ----------------- | ----------------------------------------------- | -------------------- |
-| iOS               | Swift + SwiftUI                                 | 採用                 |
-| Minimum iOS       | iOS 26.0                                        | 採用                 |
-| iOSローカルDB     | SwiftData                                       | 採用                 |
-| iOS画像保存       | FileManager / Application Support               | 採用                 |
-| Backend Runtime   | Node.js + TypeScript                            | 採用                 |
-| Backend Hosting   | Google Cloud Run                                | 採用                 |
-| Database          | Neon PostgreSQL                                 | 採用                 |
-| ORM               | Prisma                                          | 採用                 |
-| Authentication    | Firebase Authentication                         | 採用                 |
-| 非同期Queue       | Google Cloud Tasks                              | 採用                 |
-| Worker            | Google Cloud Run                                | 採用                 |
-| Push Notification | Firebase Cloud Messaging + APNs                 | 採用                 |
-| AI Provider       | Z.ai / `glm-5.3-flash`                          | PoC合格・MVP採用     |
+| 領域               | 採用技術                                        | 状態                 |
+| ------------------ | ----------------------------------------------- | -------------------- |
+| iOS                | Swift + SwiftUI                                 | 採用                 |
+| Minimum iOS        | iOS 26.0                                        | 採用                 |
+| iOSローカルDB      | SwiftData                                       | 採用                 |
+| iOS画像保存        | FileManager / Application Support               | 採用                 |
+| Backend Runtime    | Node.js + TypeScript                            | 採用                 |
+| Backend Hosting    | Google Cloud Run                                | 採用                 |
+| Database           | Neon PostgreSQL                                 | 採用                 |
+| ORM                | Prisma                                          | 採用                 |
+| Authentication     | Firebase Authentication                         | 採用                 |
+| 非同期Queue        | Google Cloud Tasks                              | 採用                 |
+| Worker             | Google Cloud Run                                | 採用                 |
+| Push Notification  | Firebase Cloud Messaging + APNs                 | 採用                 |
+| AI Provider        | Z.ai / `glm-5.3-flash`                          | PoC合格・MVP採用     |
 | AI semantic router | TypeSafe / Jev `jev-1.13.0`                     | PoC完了・採用        |
-| AI出力検証        | JSON Schema相当 + アプリ側Schema validation     | 採用                 |
-| YouTube metadata  | YouTube Data API v3 `videos.list(part=snippet)` | 採用                 |
-| IaC               | Terraform                                       | 採用                 |
-| Secrets           | Google Cloud Secret Manager                     | 採用                 |
-| Crash Reporting   | TestFlight標準のクラッシュ情報                  | 初回TestFlightで利用 |
-| Analytics         | TestFlight標準のセッション情報                  | 初回TestFlightで利用 |
-| 画像Cloud Storage | MVP初期は専用Storageを持たない                  | 採用                 |
+| AI出力検証         | JSON Schema相当 + アプリ側Schema validation     | 採用                 |
+| YouTube metadata   | YouTube Data API v3 `videos.list(part=snippet)` | 採用                 |
+| IaC                | Terraform                                       | 採用                 |
+| Secrets            | Google Cloud Secret Manager                     | 採用                 |
+| Crash Reporting    | TestFlight標準のクラッシュ情報                  | 初回TestFlightで利用 |
+| Analytics          | TestFlight標準のセッション情報                  | 初回TestFlightで利用 |
+| 画像Cloud Storage  | MVP初期は専用Storageを持たない                  | 採用                 |
 
 ---
 

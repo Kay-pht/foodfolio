@@ -23,17 +23,17 @@ Jevをレシピ抽出モデルそのものとしてではなく、既存のZ.ai 
 
 Jevの分類は二択とする。
 
-~~~text
+```text
 recipe
 non_recipe
-~~~
+```
 
 routingにはchoiceだけではなく以下の確率を使用する。
 
-~~~text
+```text
 p(recipe)
 p(non_recipe)
-~~~
+```
 
 Jevが返す確率は「最終的なレシピ抽出結果」ではない。どの解析経路へ進むか、または明確なnon-recipeとして終了するかを決めるために使用する。
 
@@ -41,7 +41,7 @@ Jevが返す確率は「最終的なレシピ抽出結果」ではない。ど�
 
 ## 3. 全体アーキテクチャ
 
-~~~text
+```text
 URL / AI share URL
 ↓
 SourceContentExtractor
@@ -57,7 +57,7 @@ sourceごとの機械的な前判定
 │       └─ 必須内容不足ならmedia / video fallback
 └─ media / video route
      → 既存media / Gemini解析
-~~~
+```
 
 JevはSourceContentExtractorの後、Z.ai / Gemini / media解析の前に置く。
 
@@ -92,18 +92,18 @@ Application層はTypeSafe固有APIへ直接依存しない。
 
 概念上、以下のような抽象を設ける。
 
-~~~ts
+```ts
 interface RecipeContentClassifier {
   classify(input: {
     sourceType: SourceType;
     text: string;
   }): Promise<RecipeContentClassification>;
 }
-~~~
+```
 
 production adapterがTypeSafe / Jev APIを実装する。
 
-~~~text
+```text
 Application
   ↓
 RecipeContentClassifier
@@ -111,7 +111,7 @@ RecipeContentClassifier
 Infrastructure
   ↓
 TypeSafe / Jev
-~~~
+```
 
 PoCの `poc/jev-recipe-gate/jev.ts` をproductionから直接importしない。PoCで確認したrequest schema、response validation、エラー分類等は必要な範囲でproduction adapterへ移植する。
 
@@ -121,13 +121,13 @@ PoCの `poc/jev-recipe-gate/jev.ts` をproductionから直接importしない。P
 
 初期値は以下とする。
 
-| 用途 | 初期条件 |
-| --- | ---: |
-| 一般Web hard non-recipe | `p(non_recipe) >= 0.80` |
-| YouTube text route | `p(recipe) >= 0.99` |
-| Instagram text route | `p(recipe) >= 0.99` |
-| TikTok動画 text route | `p(recipe) >= 0.99` |
-| TikTok写真 text route | `p(recipe) >= 0.99` |
+| 用途                                 |                初期条件 |
+| ------------------------------------ | ----------------------: |
+| 一般Web hard non-recipe              | `p(non_recipe) >= 0.80` |
+| YouTube text route                   |     `p(recipe) >= 0.99` |
+| Instagram text route                 |     `p(recipe) >= 0.99` |
+| TikTok動画 text route                |     `p(recipe) >= 0.99` |
+| TikTok写真 text route                |     `p(recipe) >= 0.99` |
 | ChatGPT / Gemini共有 hard non-recipe | `p(non_recipe) >= 0.99` |
 
 一般Webの0.80とmedia系の0.99はPoC結果を初期根拠とする。
@@ -138,14 +138,14 @@ AIチャット共有は実URLでrecipe判定まで確認済みだが、non-recip
 
 想定環境変数:
 
-~~~text
+```text
 JEV_GENERAL_WEB_NON_RECIPE_THRESHOLD=0.80
 JEV_YOUTUBE_RECIPE_THRESHOLD=0.99
 JEV_INSTAGRAM_RECIPE_THRESHOLD=0.99
 JEV_TIKTOK_VIDEO_RECIPE_THRESHOLD=0.99
 JEV_TIKTOK_PHOTO_RECIPE_THRESHOLD=0.99
 JEV_AI_CHAT_NON_RECIPE_THRESHOLD=0.99
-~~~
+```
 
 閾値の妥当性検証に必要なログ仕様は後述する。
 
@@ -161,7 +161,7 @@ JEV_AI_CHAT_NON_RECIPE_THRESHOLD=0.99
 - `kurashiru`
 - `cookpad`
 
-~~~text
+```text
 SourceContent
 ↓
 Jev
@@ -169,7 +169,7 @@ Jev
 p(non_recipe) >= 0.80
 ├─ yes → not_recipe
 └─ no  → 従来どおりZ.ai
-~~~
+```
 
 0.80未満を「recipe確定」とは扱わない。曖昧なものは従来解析へ送る。
 
@@ -177,7 +177,7 @@ p(non_recipe) >= 0.80
 
 既存の `assessYoutubeDescription()` を先に実行する。
 
-~~~text
+```text
 title / description取得
 ↓
 description sufficiency
@@ -192,13 +192,13 @@ description sufficiency
      │         ├─ ingredients > 0 AND steps > 0 → completed
      │         └─ 不足 → Gemini video fallback
      └─ no  → Gemini video route
-~~~
+```
 
 Jevの確率が低いことだけを理由にYouTubeを `not_recipe` にしない。説明欄にレシピがなくても動画内に存在する可能性があるため。
 
 ### 6.3 Instagram
 
-~~~text
+```text
 metadata textなし
 → media route
 
@@ -211,13 +211,13 @@ p(recipe) >= 0.99
 │         ├─ ingredients > 0 AND steps > 0 → completed
 │         └─ 不足 → media fallback
 └─ no  → media route
-~~~
+```
 
 Jevだけで `not_recipe` にはしない。
 
 ### 6.4 TikTok動画
 
-~~~text
+```text
 textなし
 → video route
 
@@ -230,7 +230,7 @@ p(recipe) >= 0.99
 │         ├─ ingredients > 0 AND steps > 0 → completed
 │         └─ 不足 → video fallback
 └─ no  → video route
-~~~
+```
 
 Jevだけで `not_recipe` にはしない。
 
@@ -238,7 +238,7 @@ Jevだけで `not_recipe` にはしない。
 
 既存の「captionが十分でも必ず画像解析する」仕様を変更する。
 
-~~~text
+```text
 captionなし
 → photo media route
 
@@ -251,7 +251,7 @@ p(recipe) >= 0.99
 │         ├─ ingredients > 0 AND steps > 0 → completed
 │         └─ 不足 → photo media fallback
 └─ no  → photo media route
-~~~
+```
 
 Jevの0.99は「textだけで一度試す価値が高い」というroute判定であり、textだけで完成する保証ではない。
 
@@ -259,7 +259,7 @@ Jevの0.99は「textだけで一度試す価値が高い」というroute判定�
 
 共有会話本文全体をJevへ渡す。
 
-~~~text
+```text
 shared conversation
 ↓
 Jev
@@ -267,7 +267,7 @@ Jev
 p(non_recipe) >= 0.99
 ├─ yes → not_recipe
 └─ no  → 従来どおりZ.ai
-~~~
+```
 
 AIチャットでは `p(recipe) >= 0.99` を要求しない。実URL検証でChatGPTのrecipe例が `p(recipe) ≈ 0.77-0.79` だったため、recipe probabilityが低いこと自体はreject条件にしない。
 
@@ -279,11 +279,11 @@ Jevがtext routeを選択しても、それだけで解析完了にはしない�
 
 既存の必須内容判定を安全網として残す。
 
-~~~text
+```text
 ingredients.length > 0
 AND
 steps.length > 0
-~~~
+```
 
 満たす場合:
 
@@ -306,9 +306,9 @@ steps.length > 0
 
 `AnalysisStatus` に以下を追加する。
 
-~~~text
+```text
 not_recipe
-~~~
+```
 
 意味を明確に分離する。
 
@@ -338,9 +338,9 @@ not_recipe
 
 表示文言:
 
-~~~text
+```text
 レシピとして判定できませんでした
-~~~
+```
 
 ユーザーは元URLを開ける。Recipeの削除も可能とする。
 
@@ -348,9 +348,9 @@ not_recipe
 
 既存の「レシピ解析通知」設定を利用し、ONの場合は `not_recipe` 専用通知を送る。
 
-~~~text
+```text
 レシピとして判定できませんでした
-~~~
+```
 
 `failed` の解析失敗通知とは分離する。通知設定自体は増やさない。
 
@@ -372,14 +372,14 @@ Jevは補助routerであり、解析処理の単一障害点にしない。
 
 Jevが失敗した場合は、そのWorker実行内で即座にJev導入前の従来routeへ戻る。
 
-~~~text
+```text
 Jev success
 → probability routing
 
 Jev failure
 → fail-open
 → existing route
-~~~
+```
 
 例:
 
@@ -402,13 +402,13 @@ Jev failureはWorker retry対象外とする。
 
 productionではJev requestを1解析につき最大1回とする。
 
-~~~text
+```text
 Jev request
 ├─ success → routing
 └─ timeout / network / 429 / 529 / invalid response / body read failure
      → retryしない
      → 即fail-open
-~~~
+```
 
 PoCではretry挙動を検証したが、本番でのJevは必須処理ではないため、Jev自身の成功率向上よりも解析レイテンシと単純性を優先する。
 
@@ -438,7 +438,7 @@ Jevを呼んだ各解析で構造化ログを残す。
 
 最低限:
 
-~~~text
+```text
 event=jev_routing_decision
 
 recipeId
@@ -462,7 +462,7 @@ jevFailureClass
 
 inputChars
 inputSha256
-~~~
+```
 
 `inputSha256` はJevへ送った正規化済みtextのSHA-256とする。本文そのものは保存しない。
 
@@ -474,7 +474,7 @@ Jev成功後は最終結果にも分類snapshotを含める。
 
 最低限:
 
-~~~text
+```text
 event=jev_routing_outcome
 
 recipeId
@@ -493,7 +493,7 @@ finalRoute
 textExtractionComplete
 mediaFallbackUsed
 finalAnalysisStatus
-~~~
+```
 
 確率とthresholdをoutcome側にも重複して持たせ、Cloud Logging上で複雑なevent joinをしなくても閾値候補を集計しやすくする。
 
@@ -555,9 +555,9 @@ Jev requestとログを混同しない。Jevへ送信するpage contentも通常
 
 production WorkerにTypeSafe API keyを追加する。
 
-~~~text
+```text
 TYPESAFE_API_KEY
-~~~
+```
 
 Secret ManagerからWorkerへ渡す。
 
@@ -578,7 +578,7 @@ API serviceはJevを呼ばないため、原則としてAPI側には不要。
 
 ## 14. state transition
 
-~~~text
+```text
 pending
 ↓
 processing
@@ -592,7 +592,7 @@ processing
 │    → pending
 └─ 従来解析側の最終失敗
      → failed
-~~~
+```
 
 `retryable error → pending` はJev errorを意味しない。Jev errorは必ずfail-openする。
 
