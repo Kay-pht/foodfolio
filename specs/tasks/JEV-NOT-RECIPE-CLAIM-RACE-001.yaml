@@ -1,0 +1,55 @@
+id: JEV-NOT-RECIPE-CLAIM-RACE-001
+type: bug
+status: approved
+
+objective: >-
+  Prevent a duplicate worker delivery from requesting an unnecessary retry when another worker
+  transitions the same Recipe to a terminal state between the initial status read and the claim.
+
+requirements:
+  - id: JNRCR-1
+    condition: >-
+      A worker reads a Recipe as processing, but another worker transitions it to completed,
+      failed, or not_recipe before the first worker can claim it.
+    expected: >-
+      The worker re-reads the current status after the failed claim and returns success for a
+      terminal Recipe instead of requesting another Cloud Tasks delivery.
+    verification:
+      - tests/e2e/worker-lease.test.ts
+  - id: JNRCR-2
+    condition: A worker cannot claim a Recipe because another worker still owns an active processing lease.
+    expected: The worker preserves the existing retry response while the Recipe remains non-terminal.
+    verification:
+      - tests/e2e/worker-lease.test.ts
+
+edge_cases:
+  - The Recipe becomes not_recipe after the initial status read but before claim completion.
+  - The Recipe remains processing under another active worker.
+  - The Recipe is deleted between the initial status read and the failed claim.
+
+security_invariants:
+  - Recipe ownership and authentication behavior remain unchanged.
+  - No Recipe content or user identifier is added to logs.
+
+compatibility:
+  - Existing completed, failed, and not_recipe terminal handling remains unchanged.
+  - An active processing lease continues to produce a retry response.
+
+non_functional:
+  - The failed-claim path performs at most one current-status re-read.
+  - Duplicate delivery remains idempotent for every terminal analysis status.
+
+out_of_scope:
+  - Changing Cloud Tasks retry configuration or delivery guarantees.
+  - Changing processing lease duration or claim eligibility.
+  - Changing recipe classification or notification behavior.
+
+acceptance_criteria:
+  - A failed claim followed by not_recipe returns success without extraction or retry.
+  - A failed claim while processing remains active continues to request a retry.
+  - The focused regression tests and specification check pass.
+
+regression:
+  required: true
+  tests:
+    - tests/e2e/worker-lease.test.ts

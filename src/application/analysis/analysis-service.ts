@@ -149,11 +149,14 @@ export class RecipeAnalysisService {
     const runId = randomUUID();
     const claimed = await this.claim(recipeId, runId, attempt);
     if (!claimed) {
+      const current = await this.resultAfterLostOwnership(recipeId);
       log(
         { recipeId, analysisAttempt: attempt },
-        "recipe analysis is already processing",
+        current.retry
+          ? "recipe analysis is already processing"
+          : "recipe analysis no longer requires processing",
       );
-      return { retry: true };
+      return current;
     }
     if (recipe.analysisStatus === "processing")
       log(
