@@ -1,0 +1,112 @@
+id: JEV-PRODUCTION-NOT-RECIPE-001
+type: feature
+status: approved
+
+objective: >-
+  Add the production not_recipe foundation before Jev routing is enabled so a semantic non-recipe
+  outcome has a distinct terminal state across PostgreSQL, worker handling, API/sync, iOS UI, and
+  notifications without being treated as an analysis failure.
+
+requirements:
+  - id: JEV-NR-1
+    condition: A Recipe has been conclusively classified as not being one concrete recipe.
+    expected: >-
+      AnalysisStatus supports not_recipe as a terminal state. A worker delivery that sees an
+      already-not_recipe Recipe returns success without extraction or retry, and the worker finishes
+      any open AnalysisAdmission exactly as for other terminal successful deliveries.
+    verification:
+      - tests/e2e/backend-worker.test.ts
+      - tests/unit/prisma-schema.test.ts
+  - id: JEV-NR-2
+    condition: An authenticated client reads, syncs, edits, or deletes a Recipe whose analysisStatus is not_recipe.
+    expected: >-
+      Recipe detail and sync DTOs expose analysisStatus=not_recipe and retain originalUrl. PATCH is
+      rejected with HTTP 409 and RECIPE_NOT_EDITABLE, while DELETE remains allowed and fully removes
+      the Recipe.
+    verification:
+      - tests/integration/backend-postgres.test.ts
+  - id: JEV-NR-3
+    condition: iOS receives a Recipe DTO whose analysisStatus is not_recipe.
+    expected: >-
+      iOS decodes and persists the status, treats it as terminal for polling, shows
+      "レシピとして判定できませんでした", does not expose ordinary recipe editing, and still exposes
+      the source URL and Recipe deletion.
+    verification:
+      - ios/FoodfolioTests/CoreLogicTests.swift
+      - ios/FoodfolioTests/NotificationActivationTests.swift
+      - ios/FoodfolioUITests/MVPBoundaryUITests.swift
+  - id: JEV-NR-4
+    condition: A Recipe analysis reaches not_recipe while recipe analysis notifications are enabled.
+    expected: >-
+      The existing recipeAnalysisNotificationEnabled setting controls a dedicated not_recipe
+      notification. Its payload uses analysisResult=not_recipe, iOS treats it as an analysis result
+      that triggers synchronization, and notification failure does not change the terminal Recipe state.
+    verification:
+      - tests/e2e/backend-worker.test.ts
+      - tests/unit/noop-notification-sender.test.ts
+      - ios/FoodfolioTests/NotificationActivationTests.swift
+  - id: JEV-NR-5
+    condition: This foundation PR is deployed before the Jev production routing PR.
+    expected: >-
+      Existing pending, processing, completed, and failed behavior remains unchanged and no production
+      Jev classifier, threshold, TypeSafe secret, source-specific routing, or observability path is
+      enabled by this PR.
+    verification:
+      - src/application/analysis/analysis-service.ts
+      - docs/jev-production-routing.md
+
+edge_cases:
+  - A stale Cloud Tasks delivery arrives after the Recipe is already not_recipe.
+  - A not_recipe Recipe is returned by detail and differential sync with no ingredients or steps.
+  - A client attempts PATCH on not_recipe despite the edit control being hidden.
+  - A not_recipe Recipe is deleted after synchronization.
+  - Recipe analysis notifications are disabled when a not_recipe result is produced.
+  - Notification delivery fails after not_recipe has already been persisted.
+
+security_invariants:
+  - Existing authentication and Recipe ownership checks remain unchanged.
+  - not_recipe does not expose additional user identifiers or source content.
+  - The source URL remains available only through the existing authenticated Recipe APIs.
+  - No Jev credentials or provider traffic are introduced by this PR.
+
+compatibility:
+  - The app is still pre-release for this contract, so no rollout gate for older iOS builds is required.
+  - Existing pending, processing, completed, and failed values preserve their current semantics.
+  - Existing completed and failed Recipes remain editable exactly as before.
+  - The existing recipe analysis notification setting continues to control all analysis-result notifications.
+
+non_functional:
+  - not_recipe must not cause Worker or Cloud Tasks retries.
+  - The terminal-state check must remain idempotent under duplicate task delivery.
+  - API and sync continue to use the existing Recipe DTO shape apart from the newly valid status value.
+  - No additional network request is introduced in iOS solely to render not_recipe.
+
+out_of_scope:
+  - Enabling RecipeContentClassifier in production.
+  - Calling TypeSafe or Jev from production code.
+  - Jev thresholds or source-specific routing.
+  - Jev fail-open behavior and structured routing logs.
+  - Input hashing and Secret Manager or Terraform changes.
+  - Automatically reclassifying existing Recipes.
+
+acceptance_criteria:
+  - Prisma schema and migration support not_recipe.
+  - A duplicate worker delivery for not_recipe returns success and does not invoke extraction.
+  - An open AnalysisAdmission is finished when the worker handles not_recipe.
+  - API detail and sync return not_recipe and retain originalUrl.
+  - PATCH on not_recipe returns 409 RECIPE_NOT_EDITABLE and DELETE still succeeds.
+  - iOS decodes not_recipe, does not poll it, shows the dedicated message, hides ordinary editing, and keeps source/deletion actions.
+  - The existing notification toggle governs the dedicated not_recipe notification and iOS recognizes its payload.
+  - Existing backend and iOS verification suites pass.
+  - Production Jev routing remains disabled in this PR.
+
+regression:
+  required: false
+  tests:
+    - tests/e2e/backend-worker.test.ts
+    - tests/integration/backend-postgres.test.ts
+    - tests/unit/prisma-schema.test.ts
+    - tests/unit/noop-notification-sender.test.ts
+    - ios/FoodfolioTests/CoreLogicTests.swift
+    - ios/FoodfolioTests/NotificationActivationTests.swift
+    - ios/FoodfolioUITests/MVPBoundaryUITests.swift
