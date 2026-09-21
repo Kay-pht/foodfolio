@@ -63,6 +63,8 @@ requirements:
       not_recipe for these media sources, and a selected media route failure never falls back to text.
     verification:
       - tests/unit/instagram-source-content-extractor.test.ts
+      - tests/unit/jev-production-routing.test.ts
+      - tests/e2e/jev-production-routing.test.ts
       - tests/e2e/backend-worker.test.ts
   - id: JEV-RT-6
     condition: A Jev request fails for any source where classification would otherwise run.
