@@ -22,6 +22,42 @@ export interface ExtractedRecipe {
 export interface SourceContentExtractor {
   extract(url: URL): Promise<SourceContent>;
 }
+
+export interface RecipeContentClassification {
+  model: string;
+  choice: "recipe" | "non_recipe";
+  recipeProbability: number;
+  nonRecipeProbability: number;
+  latencyMs: number;
+}
+
+export type RecipeContentClassifierFailureClass =
+  | "timeout"
+  | "network"
+  | "http_429"
+  | "http_529"
+  | "http_error"
+  | "body_read"
+  | "invalid_response";
+
+export class RecipeContentClassifierError extends Error {
+  constructor(
+    public readonly failureClass: RecipeContentClassifierFailureClass,
+    public readonly latencyMs: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "RecipeContentClassifierError";
+  }
+}
+
+export interface RecipeContentClassifier {
+  readonly model: string;
+  classify(input: {
+    sourceType: SourceType;
+    text: string;
+  }): Promise<RecipeContentClassification>;
+}
 export interface RepresentativeImageResolver {
   resolveImageUrl(url: URL): Promise<string | null>;
 }
