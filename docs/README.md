@@ -11,6 +11,7 @@
 | UI / UX                | [ui-ux-design.md](ui-ux-design.md)                                     |
 | 技術選定               | [technology-selection.md](technology-selection.md)                     |
 | 実装設計               | [implementation-design.md](implementation-design.md)                   |
+| Jev本番ルーティング    | [jev-production-routing.md](jev-production-routing.md)                 |
 | 画像再取得             | [image-recovery.md](image-recovery.md)                                 |
 | AI共有レシピの生成画像 | [ai-shared-thumbnail-generation.md](ai-shared-thumbnail-generation.md) |
 | Backend 層間依存       | [architecture-boundaries.md](architecture-boundaries.md)               |
