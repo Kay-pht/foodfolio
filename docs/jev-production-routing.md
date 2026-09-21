@@ -121,14 +121,14 @@ PoCの `poc/jev-recipe-gate/jev.ts` をproductionから直接importしない。P
 
 初期値は以下とする。
 
-| 用途                                      |                初期条件 |
-| ----------------------------------------- | ----------------------: |
-| 一般Web hard non-recipe候補               | `p(non_recipe) >= 0.80` |
-| YouTube text route                        |     `p(recipe) >= 0.99` |
-| Instagram text route                      |     `p(recipe) >= 0.99` |
-| TikTok動画 text route                     |     `p(recipe) >= 0.99` |
-| TikTok写真 text route                     |     `p(recipe) >= 0.99` |
-| ChatGPT / Gemini共有 hard non-recipe候補  | `p(non_recipe) >= 0.99` |
+| 用途                                     |                初期条件 |
+| ---------------------------------------- | ----------------------: |
+| 一般Web hard non-recipe候補              | `p(non_recipe) >= 0.80` |
+| YouTube text route                       |     `p(recipe) >= 0.99` |
+| Instagram text route                     |     `p(recipe) >= 0.99` |
+| TikTok動画 text route                    |     `p(recipe) >= 0.99` |
+| TikTok写真 text route                    |     `p(recipe) >= 0.99` |
+| ChatGPT / Gemini共有 hard non-recipe候補 | `p(non_recipe) >= 0.99` |
 
 一般Webの0.80とmedia系の0.99はPoC結果を初期根拠とする。ただし、一般Webの500/500 corpusはchecked-in PoC記録上まだproduction-qualifiedではないため、0.80は当面dev環境でのみhard rejectへ使用できる候補値とする。外部ユーザーを受け入れる環境でhard rejectを有効にする前に、追加検証結果をリポジトリへ記録し、本書のqualificationを更新する。
 
