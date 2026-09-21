@@ -43,6 +43,17 @@ Jevが返す確率は「最終的なレシピ抽出結果」ではない。ど�
 
 2026-09-21時点では実ユーザーがいない開発段階であること、Jev障害時は既存routeへfail-openすること、media系は低確率時も `not_recipe` にせずmediaへ送ること、確率・threshold・最終routeをログへ残して後から再評価できることを前提に、プロジェクト判断として本書のroutingを初期実装から適用する。過去PoC文書のqualification flagをruntimeのrollout gateとして扱わない。
 
+### 2.2 初期実装で固定する判断
+
+本設計のレビュー時に以下を未確定事項として扱わない。
+
+- 一般Webでは、URL取得・本文抽出・source判定等の機械処理は残すが、**「レシピらしい語があるか」等のsemanticな機械判定だけでJev到達前に終了しない**。本文を取得できた一般WebはJevへ渡し、recipe / non-recipeの意味判定をJevへ集約する。
+- YouTube / Instagram / TikTokのmedia解析は、foodfolioを動かす対象環境では**常時有効**を前提とする。必要な権限・API key・利用許可を満たせない環境は対応環境としてデプロイしない。
+- Jevがmedia / video routeを選んだ後にmedia取得・Provider・解析が失敗した場合は、その解析を失敗として終了する。**不完全なtextだけでレシピ生成する経路へ戻さない**。
+- ChatGPT / Gemini共有は初期実装から `p(non_recipe) >= 0.99` をhard `not_recipe` として適用する。0.99は絶対的正解率の意味ではなく、運用ログを見ながらsource別に後から調整する初期thresholdである。
+- `not_recipe` はiOSとBackendを同時に対応させ、**初回リリース前に導入する**。現時点では互換性を維持すべき旧リリース版クライアントは存在しないため、旧iOS向けrollout gateは設けない。この前提が変わる場合だけ互換性設計を再検討する。
+- YouTubeでtext routeを選んだ後、Z.ai結果に材料または手順が不足する場合はGemini videoへfallbackする。Geminiには利用可能な説明欄等のtextも動画と一緒に渡す。Geminiまで失敗した場合は解析失敗とし、textだけの不完全結果へ戻さない。
+
 ---
 
 ## 3. 全体アーキテクチャ
@@ -52,7 +63,8 @@ URL / AI share URL
 ↓
 SourceContentExtractor
 ↓
-sourceごとの機械的な前判定
+sourceごとの取得可否・形式判定
+（一般Webはrecipeらしさだけで終了しない）
 ↓
 必要な場合だけJev
 ↓
@@ -78,17 +90,19 @@ JevはSourceContentExtractorの後、Z.ai / Gemini / media解析の前に置く�
 - 通知
 - 既存解析のretry方針
 
-### 3.1 既存feature gate / 利用許可を迂回しない
+### 3.1 media解析は対象環境で常時有効
 
-Jevはrouteを選ぶだけで、既存のmedia feature flagや利用許可を上書きしない。
+Jevはrouteを選ぶだけで、media利用に必要な権限・API key・利用許可を迂回しない。ただしfoodfolioを実際に動かす対象環境では、YouTube / Instagram / TikTokのmedia解析経路を常時利用可能な状態にする。
 
-- YouTubeでGemini routeを選んでも、実際のGemini利用は `YOUTUBE_GEMINI_FALLBACK_ENABLED` に従う
-- Instagramでmedia routeを選んでも、既存のInstagram media fallback有効条件に従う
-- TikTok動画・写真でmedia routeを選んでも、`TIKTOK_MEDIA_ANALYSIS_ENABLED` と既存の利用許可条件に従う
+- YouTube Gemini video routeは有効化済みを前提とする
+- Instagram media fallbackは有効化済みを前提とする
+- TikTok動画・写真のmedia解析は、必要な利用許可を満たしたうえで有効化済みを前提とする
 
-media routeが必要だが該当機能が無効な場合は、Jevが強制的にmedia取得を有効化してはならない。既存の「fallback disabled」としての失敗動作を維持する。
+feature flagを実装上の安全装置として残す場合でも、対象環境でOFFにして運用することは想定しない。OFF、API key不足、必要権限不足は通常のrouting分岐ではなく**環境設定不備**として扱う。
 
-Jevのfail-openも「機能を強制有効化する」という意味ではない。Jev導入前と同じroute判定へ戻すことだけを意味する。
+Jevがmedia routeを選択した後にmedia取得・Provider・解析が失敗した場合、その解析は失敗として終了する。text routeへ戻って不完全なレシピを保存しない。
+
+Jevのfail-openはJev自身が失敗した場合だけに適用し、Jev導入前と同じroute判定へ戻すことを意味する。media route選択後のmedia失敗をtextへfail-openする意味ではない。
 
 ---
 
@@ -179,6 +193,8 @@ p(non_recipe) >= 0.80
 
 0.80未満を「recipe確定」とは扱わない。曖昧なものは従来解析へ送る。
 
+一般Webでは、本文取得後に「レシピ」「材料」等の語が見つからないことだけを理由に `SourceContent` を失敗させたり、Jevを呼ばず終了したりしない。HTTP取得失敗、本文が空、上限超過等の**意味判定ではない取得エラー**はJev前に失敗してよいが、recipe / non-recipeの意味判定はJevへ渡す。
+
 ### 6.2 YouTube
 
 既存の `assessYoutubeDescription()` を先に実行する。
@@ -201,6 +217,8 @@ description sufficiency
 ```
 
 Jevの確率が低いことだけを理由にYouTubeを `not_recipe` にしない。説明欄にレシピがなくても動画内に存在する可能性があるため。
+
+Z.ai text extractionで材料・手順が揃わない場合にGeminiへ進むのは意図したfallbackである。Geminiには公開動画URLだけでなく取得済みの説明欄等も同じ解析入力として渡す。Gemini routeまで進んで失敗した場合は解析失敗とし、Z.aiの不完全結果を保存しない。
 
 ### 6.3 Instagram
 
@@ -261,6 +279,12 @@ p(recipe) >= 0.99
 
 Jevの0.99は「textだけで一度試す価値が高い」というroute判定であり、textだけで完成する保証ではない。
 
+### 6.5.1 media route選択後の失敗
+
+Instagram / TikTok動画 / TikTok写真でJevがmedia routeを選択した場合、またはtext extractionが必須内容不足でmedia fallbackへ進んだ場合は、そのmedia解析を正しい次経路とみなす。
+
+media取得、外部Provider、Schema validation等でmedia解析を完了できなければ解析失敗とする。**「せめて文章だけで保存する」目的でtext extractionへ戻ることはしない。**
+
 ### 6.6 ChatGPT / Gemini共有
 
 共有会話本文全体をJevへ渡す。
@@ -276,6 +300,8 @@ p(non_recipe) >= 0.99
 ```
 
 AIチャットでは `p(recipe) >= 0.99` を要求しない。実URL検証でChatGPTのrecipe例が `p(recipe) ≈ 0.77-0.79` だったため、recipe probabilityが低いこと自体はreject条件にしない。
+
+AIチャット共有の `p(non_recipe) >= 0.99` hard rejectは初期実装から有効にする明示的なプロジェクト判断である。0.99未満はrejectせずZ.aiへ送る。0.99を「誤判定しない保証」とは扱わず、実運用のprobability・route・最終結果を観測して必要ならthresholdを変更する。
 
 ---
 
@@ -369,6 +395,12 @@ not_recipe
 - Gemini共有
 
 YouTube / Instagram / TikTokはmedia側にレシピが存在する可能性があるため、Jevの低いrecipe probabilityだけでは `not_recipe` にしない。
+
+### 8.6 初回リリース前のiOS互換性
+
+`not_recipe` はBackend API / syncとiOS decode / UIを同じリリース準備内で対応させる。
+
+本設計時点ではアプリは未リリースであり、互換性を維持すべき旧iOSクライアントは存在しない。そのため「旧クライアントへ未知のstatusを返さないための段階的rollout」は初期実装の要件にしない。外部配布済みの旧buildが存在する状態へ前提が変わった場合は、hard `not_recipe` を生成する前に互換性方針を再設計する。
 
 ---
 
@@ -626,13 +658,16 @@ processing
 
 ### routing
 
+- 一般Webでrecipeらしい語を含まない本文でも、取得可能な本文があればJevまで到達する
 - 一般Web `p(non_recipe) >= 0.80` → `not_recipe`
 - 一般Web threshold未満 → Z.ai
 - AI chat `p(non_recipe) >= 0.99` → `not_recipe`
+- AI chat `p(non_recipe) < 0.99` → Z.ai
 - AI chat recipe probabilityが0.77程度でもrejectしない
 - YouTube description insufficient → Jev未呼び出し + Gemini
 - YouTube sufficient + threshold以上 → text
-- YouTube text incomplete → Gemini
+- YouTube text incomplete → 説明欄等のtextも含めてGemini
+- YouTube Gemini failure → 解析失敗。Z.ai不完全結果へ戻らない
 - YouTube threshold未満 → Gemini
 - Instagram threshold以上 → text
 - Instagram text incomplete → media
@@ -642,6 +677,8 @@ processing
 - TikTok写真 threshold以上 → text
 - TikTok写真 text incomplete → photo media
 - TikTok写真 threshold未満 → photo media
+- Instagram / TikTokでmedia route選択後のmedia失敗 → 解析失敗。textへ戻らない
+- 対象deploymentではYouTube / Instagram / TikTok media機能が有効であることを設定検証する
 - 各sourceでJev failure → 従来route
 
 ### not_recipe
