@@ -1,6 +1,6 @@
 const REQUIRED_BY_ROLE = {
   api: ["DATABASE_URL", "WORKER_URL", "YOUTUBE_API_KEY"],
-  worker: ["DATABASE_URL", "ZAI_API_KEY", "YOUTUBE_API_KEY"],
+  worker: ["DATABASE_URL", "ZAI_API_KEY", "YOUTUBE_API_KEY", "TYPESAFE_API_KEY"],
 } as const;
 
 const CLOUD_TASKS_REQUIRED = [
@@ -25,7 +25,14 @@ export interface AppConfig {
   analysisQueueDriver: AnalysisQueueDriver;
   notificationDriver: NotificationDriver;
   zaiApiKey: string;
+  typesafeApiKey: string;
   youtubeApiKey: string;
+  jevGeneralWebNonRecipeThreshold: number;
+  jevYoutubeRecipeThreshold: number;
+  jevInstagramRecipeThreshold: number;
+  jevTiktokVideoRecipeThreshold: number;
+  jevTiktokPhotoRecipeThreshold: number;
+  jevAiChatNonRecipeThreshold: number;
   geminiApiKey: string;
   openAiApiKey: string;
   aiModel: string;
@@ -63,6 +70,30 @@ export function loadConfig(role: AppRole, source = process.env): AppConfig {
   if (!Number.isInteger(maxAnalysisAttempts) || maxAnalysisAttempts < 1) {
     throw new Error("MAX_ANALYSIS_ATTEMPTS must be a positive integer");
   }
+  const jevGeneralWebNonRecipeThreshold = parseProbability(
+    "JEV_GENERAL_WEB_NON_RECIPE_THRESHOLD",
+    source.JEV_GENERAL_WEB_NON_RECIPE_THRESHOLD ?? "0.80",
+  );
+  const jevYoutubeRecipeThreshold = parseProbability(
+    "JEV_YOUTUBE_RECIPE_THRESHOLD",
+    source.JEV_YOUTUBE_RECIPE_THRESHOLD ?? "0.99",
+  );
+  const jevInstagramRecipeThreshold = parseProbability(
+    "JEV_INSTAGRAM_RECIPE_THRESHOLD",
+    source.JEV_INSTAGRAM_RECIPE_THRESHOLD ?? "0.99",
+  );
+  const jevTiktokVideoRecipeThreshold = parseProbability(
+    "JEV_TIKTOK_VIDEO_RECIPE_THRESHOLD",
+    source.JEV_TIKTOK_VIDEO_RECIPE_THRESHOLD ?? "0.99",
+  );
+  const jevTiktokPhotoRecipeThreshold = parseProbability(
+    "JEV_TIKTOK_PHOTO_RECIPE_THRESHOLD",
+    source.JEV_TIKTOK_PHOTO_RECIPE_THRESHOLD ?? "0.99",
+  );
+  const jevAiChatNonRecipeThreshold = parseProbability(
+    "JEV_AI_CHAT_NON_RECIPE_THRESHOLD",
+    source.JEV_AI_CHAT_NON_RECIPE_THRESHOLD ?? "0.99",
+  );
   const tiktokMediaAnalysisEnabled = parseBoolean(
     "TIKTOK_MEDIA_ANALYSIS_ENABLED",
     source.TIKTOK_MEDIA_ANALYSIS_ENABLED ?? "false",
@@ -125,7 +156,14 @@ export function loadConfig(role: AppRole, source = process.env): AppConfig {
     analysisQueueDriver,
     notificationDriver,
     zaiApiKey: source.ZAI_API_KEY ?? "",
+    typesafeApiKey: source.TYPESAFE_API_KEY ?? "",
     youtubeApiKey: source.YOUTUBE_API_KEY ?? "",
+    jevGeneralWebNonRecipeThreshold,
+    jevYoutubeRecipeThreshold,
+    jevInstagramRecipeThreshold,
+    jevTiktokVideoRecipeThreshold,
+    jevTiktokPhotoRecipeThreshold,
+    jevAiChatNonRecipeThreshold,
     geminiApiKey: source.GEMINI_API_KEY ?? "",
     openAiApiKey: source.OPENAI_API_KEY?.trim() ?? "",
     aiModel: source.AI_MODEL ?? "glm-5.3-flash",
@@ -160,4 +198,11 @@ function parseBoolean(name: string, value: string): boolean {
   if (value === "true") return true;
   if (value === "false") return false;
   throw new Error(`${name} must be true or false`);
+}
+
+function parseProbability(name: string, value: string): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1)
+    throw new Error(`${name} must be a number from 0 through 1`);
+  return parsed;
 }

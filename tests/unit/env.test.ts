@@ -4,6 +4,7 @@ import { loadConfig } from "../../src/config/env.js";
 const workerEnvironment = {
   DATABASE_URL: "postgresql://localhost/foodfolio",
   ZAI_API_KEY: "test-zai-key",
+  TYPESAFE_API_KEY: "test-typesafe-key",
   YOUTUBE_API_KEY: "test-youtube-key",
 };
 
@@ -174,5 +175,41 @@ describe("AI shared recipe thumbnail environment", () => {
     expect(config.generatedRecipeImageBucket).toBe(
       "foodfolio-generated-images",
     );
+  });
+});
+
+describe("Jev production routing environment", () => {
+  it("requires the TypeSafe API key for workers and loads approved threshold defaults", () => {
+    expect(() =>
+      loadConfig("worker", {
+        ...workerEnvironment,
+        TYPESAFE_API_KEY: "",
+      }),
+    ).toThrow("Missing environment variables: TYPESAFE_API_KEY");
+
+    const config = loadConfig("worker", workerEnvironment);
+    expect(config.jevGeneralWebNonRecipeThreshold).toBe(0.8);
+    expect(config.jevYoutubeRecipeThreshold).toBe(0.99);
+    expect(config.jevInstagramRecipeThreshold).toBe(0.99);
+    expect(config.jevTiktokVideoRecipeThreshold).toBe(0.99);
+    expect(config.jevTiktokPhotoRecipeThreshold).toBe(0.99);
+    expect(config.jevAiChatNonRecipeThreshold).toBe(0.99);
+  });
+
+  it("validates independently configured Jev thresholds", () => {
+    const config = loadConfig("worker", {
+      ...workerEnvironment,
+      JEV_GENERAL_WEB_NON_RECIPE_THRESHOLD: "0.85",
+      JEV_AI_CHAT_NON_RECIPE_THRESHOLD: "0.995",
+    });
+    expect(config.jevGeneralWebNonRecipeThreshold).toBe(0.85);
+    expect(config.jevAiChatNonRecipeThreshold).toBe(0.995);
+
+    expect(() =>
+      loadConfig("worker", {
+        ...workerEnvironment,
+        JEV_YOUTUBE_RECIPE_THRESHOLD: "1.1",
+      }),
+    ).toThrow("JEV_YOUTUBE_RECIPE_THRESHOLD must be a number from 0 through 1");
   });
 });

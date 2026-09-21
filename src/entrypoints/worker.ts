@@ -2,10 +2,12 @@ import "dotenv/config";
 import { buildWorker } from "../api/build-worker.js";
 import { finishAnalysisAdmission } from "../application/analysis/admission-service.js";
 import { RecipeAnalysisService } from "../application/analysis/analysis-service.js";
+import { JevRecipeRouter } from "../application/analysis/jev-routing.js";
 import { YoutubeAwareRecipeExtractor } from "../application/analysis/youtube-aware-recipe-extractor.js";
 import { loadConfig } from "../config/env.js";
 import { GeminiYoutubeRecipeExtractor } from "../infrastructure/ai/gemini-youtube-recipe-extractor.js";
 import { OpenAiRecipeThumbnailGenerator } from "../infrastructure/ai/openai-recipe-thumbnail-generator.js";
+import { TypeSafeJevRecipeContentClassifier } from "../infrastructure/ai/typesafe-jev-recipe-content-classifier.js";
 import { ZaiRecipeExtractor } from "../infrastructure/ai/zai-recipe-extractor.js";
 import { getPrisma } from "../infrastructure/db/prisma.js";
 import { ProductionInstagramMediaRecipeFallback } from "../infrastructure/instagram/instagram-media-recipe-fallback.js";
@@ -32,11 +34,23 @@ const recipeExtractor = new ZaiRecipeExtractor(
   config.zaiApiKey,
   config.aiModel,
 );
+const youtubeVideoFallback = config.youtubeGeminiFallbackEnabled
+  ? new GeminiYoutubeRecipeExtractor(config.geminiApiKey)
+  : null;
 const routedRecipeExtractor = new YoutubeAwareRecipeExtractor(
   recipeExtractor,
-  config.youtubeGeminiFallbackEnabled
-    ? new GeminiYoutubeRecipeExtractor(config.geminiApiKey)
-    : null,
+  youtubeVideoFallback,
+);
+const jevRouter = new JevRecipeRouter(
+  new TypeSafeJevRecipeContentClassifier(config.typesafeApiKey),
+  {
+    generalWebNonRecipe: config.jevGeneralWebNonRecipeThreshold,
+    youtubeRecipe: config.jevYoutubeRecipeThreshold,
+    instagramRecipe: config.jevInstagramRecipeThreshold,
+    tiktokVideoRecipe: config.jevTiktokVideoRecipeThreshold,
+    tiktokPhotoRecipe: config.jevTiktokPhotoRecipeThreshold,
+    aiChatNonRecipe: config.jevAiChatNonRecipeThreshold,
+  },
 );
 const tiktokMediaStore = config.tiktokMediaAnalysisEnabled
   ? new GcsTemporaryMediaStore({
@@ -116,6 +130,9 @@ const service = new RecipeAnalysisService({
   prisma,
   sourceExtractor,
   recipeExtractor: routedRecipeExtractor,
+  jevRouter,
+  textRecipeExtractor: recipeExtractor,
+  ...(youtubeVideoFallback ? { youtubeVideoFallback } : {}),
   ...(tiktokVideoFallback ? { tiktokVideoFallback } : {}),
   ...(tiktokPhotoAnalysis ? { tiktokPhotoAnalysis } : {}),
   ...(instagramMediaFallback ? { instagramMediaFallback } : {}),
