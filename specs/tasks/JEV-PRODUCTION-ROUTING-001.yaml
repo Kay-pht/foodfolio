@@ -17,7 +17,8 @@ requirements:
       HTTP, body-read, and malformed-response failures into fail-open classification failures without
       retrying Jev.
     verification:
-      - tests/unit/jev-recipe-gate.test.ts
+      - tests/unit/typesafe-jev-recipe-content-classifier.test.ts
+      - tests/unit/jev-production-routing.test.ts
       - src/application/analysis/types.ts
   - id: JEV-RT-2
     condition: A general Web, Kurashiru, or Cookpad page has fetchable non-empty text, including text without recipe keywords.
@@ -27,7 +28,8 @@ requirements:
       Recipe to terminal not_recipe, while lower probability continues to the existing Z.ai text route.
     verification:
       - tests/unit/instagram-source-content-extractor.test.ts
-      - tests/e2e/backend-worker.test.ts
+      - tests/unit/jev-production-routing.test.ts
+      - tests/e2e/jev-production-routing.test.ts
   - id: JEV-RT-3
     condition: A ChatGPT or Gemini shared conversation has been serialized into SourceContent text.
     expected: >-
@@ -36,7 +38,8 @@ requirements:
       to Z.ai regardless of recipe probability, including recipe probabilities around 0.77.
     verification:
       - tests/unit/ai-shared-source-content-extractor.test.ts
-      - tests/e2e/backend-worker.test.ts
+      - tests/unit/jev-production-routing.test.ts
+      - tests/e2e/jev-production-routing.test.ts
   - id: JEV-RT-4
     condition: YouTube metadata is extracted for recipe analysis.
     expected: >-
@@ -47,6 +50,8 @@ requirements:
       that route is selected fails analysis and never saves or returns to an incomplete text result.
     verification:
       - tests/unit/youtube-aware-recipe-extractor.test.ts
+      - tests/unit/jev-production-routing.test.ts
+      - tests/e2e/jev-production-routing.test.ts
       - tests/e2e/gemini-youtube-failure.test.ts
   - id: JEV-RT-5
     condition: Instagram, TikTok video, or TikTok photo SourceContent is ready for routing.
@@ -66,7 +71,7 @@ requirements:
       never moves the Recipe to pending or failed and never causes a Cloud Tasks retry. A later Worker
       delivery caused by an existing downstream retryable error may make one new Jev request.
     verification:
-      - tests/e2e/backend-worker.test.ts
+      - tests/e2e/jev-production-routing.test.ts
       - tests/unit/youtube-aware-recipe-extractor.test.ts
   - id: JEV-RT-7
     condition: Jev is called or a successful Jev decision reaches a final Worker outcome.
@@ -76,7 +81,7 @@ requirements:
       SHA-256 of the exact normalized classifier input. Logs do not contain source text, raw Jev responses,
       credentials, authorization headers, or signed media URLs.
     verification:
-      - tests/e2e/backend-worker.test.ts
+      - tests/e2e/jev-production-routing.test.ts
       - docs/jev-production-routing.md
   - id: JEV-RT-8
     condition: The production Worker is configured and deployed from Terraform.
@@ -142,6 +147,9 @@ regression:
   required: false
   tests:
     - tests/e2e/backend-worker.test.ts
+    - tests/e2e/jev-production-routing.test.ts
+    - tests/unit/typesafe-jev-recipe-content-classifier.test.ts
+    - tests/unit/jev-production-routing.test.ts
     - tests/unit/youtube-aware-recipe-extractor.test.ts
     - tests/unit/instagram-source-content-extractor.test.ts
     - tests/unit/production-build-config-proof.test.mjs
