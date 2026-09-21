@@ -15,7 +15,7 @@ enum RecipeDetailPresentation {
   }
 
   static func canEdit(status: AnalysisStatus) -> Bool {
-    ![.pending, .processing].contains(status)
+    ![.pending, .processing, .notRecipe].contains(status)
   }
 
   static func servingsControl(

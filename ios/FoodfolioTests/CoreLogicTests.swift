@@ -112,17 +112,24 @@ final class CoreLogicTests: XCTestCase {
       RecipeDetailPresentation.scaledAmount("200g", base: 2, displayed: nil), "200g")
   }
 
-  func testPendingAndProcessingRecipesCannotBeEdited() {
+  func testPendingProcessingAndNotRecipeRecipesCannotBeEdited() {
     XCTAssertFalse(RecipeDetailPresentation.canEdit(status: .pending))
     XCTAssertFalse(RecipeDetailPresentation.canEdit(status: .processing))
+    XCTAssertFalse(RecipeDetailPresentation.canEdit(status: .notRecipe))
     XCTAssertTrue(RecipeDetailPresentation.canEdit(status: .completed))
     XCTAssertTrue(RecipeDetailPresentation.canEdit(status: .failed))
+  }
+
+  func testAnalysisStatusDecodesNotRecipe() throws {
+    let data = try XCTUnwrap(#""not_recipe""#.data(using: .utf8))
+    XCTAssertEqual(try JSONDecoder().decode(AnalysisStatus.self, from: data), .notRecipe)
   }
 
   func testOnlyFailedRecipesShowAnalysisFailure() {
     XCTAssertFalse(RecipeDetailPresentation.showsAnalysisFailure(for: .pending))
     XCTAssertFalse(RecipeDetailPresentation.showsAnalysisFailure(for: .processing))
     XCTAssertFalse(RecipeDetailPresentation.showsAnalysisFailure(for: .completed))
+    XCTAssertFalse(RecipeDetailPresentation.showsAnalysisFailure(for: .notRecipe))
     XCTAssertTrue(RecipeDetailPresentation.showsAnalysisFailure(for: .failed))
   }
 
@@ -135,6 +142,16 @@ final class CoreLogicTests: XCTestCase {
     XCTAssertEqual(error, .duplicateRecipe("r1"))
     XCTAssertEqual(error.userMessage, "このレシピはすでに保存されています。")
     XCTAssertEqual(APIError.from(status: 401, data: Data()), .unauthenticated)
+
+    let notEditableData = try XCTUnwrap(
+      """
+      {"error":{"code":"RECIPE_NOT_EDITABLE","message":"not editable","details":null,"requestId":"req"}}
+      """.data(using: .utf8))
+    let notEditable = APIError.from(status: 409, data: notEditableData)
+    XCTAssertEqual(notEditable, .recipeNotEditable)
+    XCTAssertEqual(
+      notEditable.userMessage,
+      "レシピとして判定できなかった項目は編集できません。")
   }
 
   func testAPIErrorDecodesNumericAnalysisLimitDetailsAndShowsMonthlyMessage() throws {

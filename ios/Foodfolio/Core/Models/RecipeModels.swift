@@ -1,7 +1,10 @@
 import Foundation
 import SwiftData
 
-enum AnalysisStatus: String, Codable, CaseIterable { case pending, processing, completed, failed }
+enum AnalysisStatus: String, Codable, CaseIterable {
+  case pending, processing, completed, failed
+  case notRecipe = "not_recipe"
+}
 enum RecipeGenre: String, Codable, CaseIterable {
   case main = "主菜"
   case side = "副菜"

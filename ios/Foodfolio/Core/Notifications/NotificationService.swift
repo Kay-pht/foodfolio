@@ -109,7 +109,7 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate, Mes
       let recipeID = userInfo["recipeId"] as? String,
       !recipeID.isEmpty,
       let result = userInfo["analysisResult"] as? String,
-      result == "completed" || result == "failed"
+      result == "completed" || result == "failed" || result == "not_recipe"
     else { return nil }
     return recipeID
   }

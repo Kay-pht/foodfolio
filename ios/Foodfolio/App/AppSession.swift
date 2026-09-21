@@ -177,11 +177,6 @@ final class RecipeSynchronizationCoordinator {
   private func seedUITestData(context: ModelContext) {
     guard (try? repository.allRecipes().isEmpty) == true else { return }
     let arguments = ProcessInfo.processInfo.arguments
-    let title =
-      arguments.contains("-ui-testing-long-title")
-      ? "親子丼 フライパンひとつで作れるとろとろ卵の簡単レシピ"
-      : "親子丼"
-    let servings: (Double?, String?) = (2, "2 servings")
     let status: AnalysisStatus =
       if arguments.contains("-ui-testing-status-pending") {
         .pending
@@ -189,24 +184,40 @@ final class RecipeSynchronizationCoordinator {
         .processing
       } else if arguments.contains("-ui-testing-status-failed") {
         .failed
+      } else if arguments.contains("-ui-testing-status-not-recipe") {
+        .notRecipe
       } else {
         .completed
       }
+    let title =
+      status == .notRecipe
+      ? "レシピとして判定できませんでした"
+      : arguments.contains("-ui-testing-long-title")
+        ? "親子丼 フライパンひとつで作れるとろとろ卵の簡単レシピ"
+        : "親子丼"
+    let servings: (Double?, String?) =
+      status == .notRecipe ? (nil, nil) : (2, "2 servings")
     let steps =
-      arguments.contains("-ui-testing-long-title")
-      ? (0..<8).map {
-        LocalRecipeStep(id: "ui-step-\($0)", text: "調理手順\($0 + 1)", sortOrder: $0)
-      }
-      : [LocalRecipeStep(id: "ui-step", text: "材料を煮る", sortOrder: 0)]
+      status == .notRecipe
+      ? []
+      : arguments.contains("-ui-testing-long-title")
+        ? (0..<8).map {
+          LocalRecipeStep(id: "ui-step-\($0)", text: "調理手順\($0 + 1)", sortOrder: $0)
+        }
+        : [LocalRecipeStep(id: "ui-step", text: "材料を煮る", sortOrder: 0)]
     let recipe = LocalRecipe(
       id: "ui-recipe", originalUrl: "https://example.com/oyakodon", sourceType: "web", title: title,
       servingsValue: servings.0, servingsRaw: servings.1, cookingTimeMinutes: 20, genreRaw: "主菜",
       analysisStatus: status, createdAt: Date(), updatedAt: Date(),
-      ingredients: [
-        LocalIngredient(id: "ui-ingredient", name: "鶏もも肉", amount: "200g", sortOrder: 0),
-        LocalIngredient(id: "ui-fraction-ingredient", name: "玉ねぎ", amount: "1/2個", sortOrder: 1),
-        LocalIngredient(id: "ui-nonnumeric-ingredient", name: "塩", amount: "少々", sortOrder: 2),
-      ], steps: steps,
+      ingredients:
+        status == .notRecipe
+        ? []
+        : [
+          LocalIngredient(id: "ui-ingredient", name: "鶏もも肉", amount: "200g", sortOrder: 0),
+          LocalIngredient(id: "ui-fraction-ingredient", name: "玉ねぎ", amount: "1/2個", sortOrder: 1),
+          LocalIngredient(id: "ui-nonnumeric-ingredient", name: "塩", amount: "少々", sortOrder: 2),
+        ],
+      steps: steps,
       tags: [LocalTag(id: "ui-tag", name: "簡単", createdAt: Date())])
     context.insert(recipe)
 

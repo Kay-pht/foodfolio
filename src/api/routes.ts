@@ -190,6 +190,12 @@ export function registerRoutes(
         "recipeId",
       );
       const current = await ownedRecipe(deps, request.appUser.id, recipeId);
+      if (current.analysisStatus === "not_recipe")
+        throw new AppError(
+          409,
+          "RECIPE_NOT_EDITABLE",
+          "Recipe is not editable",
+        );
       if (["pending", "processing"].includes(current.analysisStatus))
         throw new AppError(
           409,

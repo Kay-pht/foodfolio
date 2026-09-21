@@ -8,6 +8,7 @@ import {
 } from "./recipe-thumbnail.js";
 import {
   AnalysisError,
+  NOT_RECIPE_MESSAGE,
   type GeneratedRecipeImageStore,
   type InstagramMediaRecipeFallback,
   type InstagramVideoRecipeFallback,
@@ -44,6 +45,88 @@ interface FallbackOptions {
   incompleteMessage: string;
 }
 
+export interface NotRecipeTransitionDependencies {
+  prisma: PrismaClient;
+  notifications: NotificationSender;
+}
+
+export async function completeNotRecipeAnalysis(
+  deps: NotRecipeTransitionDependencies,
+  recipeId: string,
+  runId: string,
+  attempt: number,
+  log: (fields: Record<string, unknown>, message: string) => void,
+): Promise<boolean> {
+  const userId = await deps.prisma.$transaction(async (tx) => {
+    const changed = await tx.recipe.updateMany({
+      where: {
+        id: recipeId,
+        analysisStatus: "processing",
+        processingRunId: runId,
+      },
+      data: {
+        analysisStatus: "not_recipe",
+        title: NOT_RECIPE_MESSAGE,
+        imageUrl: null,
+        servingsValue: null,
+        servingsRaw: null,
+        cookingTimeMinutes: null,
+        genre: null,
+        analysisProvider: null,
+        processingRunId: null,
+        processingLeaseExpiresAt: null,
+        updatedAt: new Date(),
+      },
+    });
+    if (changed.count !== 1) return null;
+
+    await tx.ingredient.deleteMany({ where: { recipeId } });
+    await tx.recipeStep.deleteMany({ where: { recipeId } });
+    const updated = await tx.recipe.findUniqueOrThrow({
+      where: { id: recipeId },
+      select: { userId: true },
+    });
+    return updated.userId;
+  });
+
+  if (!userId) return false;
+
+  log(
+    {
+      recipeId,
+      analysisStatus: "not_recipe",
+      analysisAttempt: attempt,
+    },
+    "recipe classified as not recipe",
+  );
+
+  const setting = await deps.prisma.userSetting.findUnique({
+    where: { userId },
+  });
+  if (!setting?.recipeAnalysisNotificationEnabled) return true;
+
+  const tokenRows = await deps.prisma.deviceToken.findMany({
+    where: { userId },
+  });
+  try {
+    const invalid = await deps.notifications.sendRecipeAnalysisNotRecipe(
+      tokenRows.map(({ fcmToken }) => fcmToken),
+      recipeId,
+    );
+    if (invalid.length) {
+      await deps.prisma.deviceToken.deleteMany({
+        where: { fcmToken: { in: invalid } },
+      });
+    }
+  } catch (error) {
+    log(
+      { recipeId, errorCode: "NOTIFICATION_SEND_FAILED", err: error },
+      "notification send failed",
+    );
+  }
+  return true;
+}
+
 export class RecipeAnalysisService {
   constructor(private readonly deps: AnalysisDependencies) {}
 
@@ -58,18 +141,22 @@ export class RecipeAnalysisService {
     if (
       !recipe ||
       recipe.analysisStatus === "completed" ||
-      recipe.analysisStatus === "failed"
+      recipe.analysisStatus === "failed" ||
+      recipe.analysisStatus === "not_recipe"
     )
       return { retry: false };
 
     const runId = randomUUID();
     const claimed = await this.claim(recipeId, runId, attempt);
     if (!claimed) {
+      const current = await this.resultAfterLostOwnership(recipeId);
       log(
         { recipeId, analysisAttempt: attempt },
-        "recipe analysis is already processing",
+        current.retry
+          ? "recipe analysis is already processing"
+          : "recipe analysis no longer requires processing",
       );
-      return { retry: true };
+      return current;
     }
     if (recipe.analysisStatus === "processing")
       log(
@@ -416,7 +503,8 @@ export class RecipeAnalysisService {
       retry:
         !!current &&
         current.analysisStatus !== "completed" &&
-        current.analysisStatus !== "failed",
+        current.analysisStatus !== "failed" &&
+        current.analysisStatus !== "not_recipe",
     };
   }
 

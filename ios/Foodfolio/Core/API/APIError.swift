@@ -28,7 +28,7 @@ enum APIError: LocalizedError, Equatable {
   case unauthenticated, invalidURL
   case duplicateRecipe(String?)
   case analysisLimitExceeded(AnalysisLimitType, Int?)
-  case analysisInProgress, notFound, validation, offline, server, decoding
+  case analysisInProgress, recipeNotEditable, notFound, validation, offline, server, decoding
 
   static func from(status: Int, data: Data) -> APIError {
     let payload = try? JSONDecoder().decode(APIErrorEnvelope.self, from: data).error
@@ -42,6 +42,7 @@ enum APIError: LocalizedError, Equatable {
       else { return .server }
       return .analysisLimitExceeded(type, payload?.details?.limit)
     case "RECIPE_ANALYSIS_IN_PROGRESS": return .analysisInProgress
+    case "RECIPE_NOT_EDITABLE": return .recipeNotEditable
     case "NOT_FOUND": return .notFound
     case "VALIDATION_ERROR", "INVALID_REQUEST": return .validation
     default: return status == 401 ? .unauthenticated : .server
@@ -67,6 +68,7 @@ enum APIError: LocalizedError, Equatable {
         "本日のレシピ解析受付上限に達しました。明日0:00以降にもう一度お試しください。"
       }
     case .analysisInProgress: "解析中は編集できません。"
+    case .recipeNotEditable: "レシピとして判定できなかった項目は編集できません。"
     case .notFound: "対象が見つかりませんでした。"
     case .validation: "入力内容を確認してください。"
     case .offline: "この操作にはインターネット接続が必要です。"

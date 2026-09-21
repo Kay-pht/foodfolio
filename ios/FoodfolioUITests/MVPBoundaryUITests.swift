@@ -13,6 +13,20 @@ import XCTest
     XCTAssertEqual(shortTitle.frame.minY, longTitleElement.frame.minY, accuracy: 2)
   }
 
+  func testNotRecipeRemainsVisibleCannotBeEditedAndKeepsSourceAndDeleteActions() {
+    let app = launch(arguments: ["-ui-testing-status-not-recipe"])
+    let message = app.staticTexts["レシピとして判定できませんでした"]
+    XCTAssertTrue(message.waitForExistence(timeout: 5))
+    message.tap()
+    XCTAssertTrue(app.staticTexts["detail.title"].waitForExistence(timeout: 3))
+    XCTAssertEqual(app.staticTexts["detail.title"].label, "レシピとして判定できませんでした")
+    XCTAssertTrue(app.links["detail.source"].exists)
+    XCTAssertTrue(app.buttons["detail.delete"].exists)
+    XCTAssertTrue(app.buttons["detail.moreMenu"].exists)
+    app.buttons["detail.moreMenu"].tap()
+    XCTAssertFalse(app.buttons["detail.edit"].exists)
+  }
+
   func testFailedRecipeRemainsVisibleShowsFailureAndCanBeEdited() {
     let app = launch(arguments: ["-ui-testing-status-failed"])
     XCTAssertTrue(app.staticTexts["親子丼"].waitForExistence(timeout: 5))

@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type { PrismaClient } from "../../src/generated/prisma/client.js";
 import { RecipeAnalysisService } from "../../src/application/analysis/analysis-service.js";
 import {
   AnalysisError,
@@ -43,6 +44,10 @@ class Notifications implements NotificationSender {
     return this.invalid;
   }
   async sendRecipeAnalysisFailed() {
+    if (this.shouldThrow) throw new Error("notification failed");
+    return this.invalid;
+  }
+  async sendRecipeAnalysisNotRecipe() {
     if (this.shouldThrow) throw new Error("notification failed");
     return this.invalid;
   }
@@ -129,6 +134,45 @@ describe("Worker lease and delivery ownership E2E", () => {
         })
       ).analysisStatus,
     ).toBe("completed");
+  });
+
+  it("does not retry when the recipe becomes terminal between read and claim", async () => {
+    const target = await recipe("terminal-between-read-and-claim");
+    let firstRead = true;
+    let extractionCalls = 0;
+    const racePrisma = {
+      recipe: {
+        findUnique: async (args: { where: { id: string } }) => {
+          const found = await context.prisma.recipe.findUnique(args);
+          if (firstRead) {
+            firstRead = false;
+            await context.prisma.recipe.update({
+              where: { id: target.id },
+              data: { analysisStatus: "not_recipe" },
+            });
+          }
+          return found;
+        },
+      },
+      $transaction: context.prisma.$transaction.bind(context.prisma),
+    } as unknown as PrismaClient;
+    const service = new RecipeAnalysisService({
+      prisma: racePrisma,
+      sourceExtractor: {
+        extract: async () => {
+          extractionCalls += 1;
+          return source;
+        },
+      },
+      recipeExtractor: { extract: async () => successResult("unused") },
+      notifications: new Notifications(),
+      maxAttempts: 3,
+    });
+
+    await expect(service.process(target.id, 1, log)).resolves.toEqual({
+      retry: false,
+    });
+    expect(extractionCalls).toBe(0);
   });
 
   it("does not reclaim an active lease but reclaims an expired lease", async () => {

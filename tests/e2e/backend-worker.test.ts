@@ -1,8 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { buildWorker } from "../../src/api/build-worker.js";
-import { RecipeAnalysisService } from "../../src/application/analysis/analysis-service.js";
+import {
+  completeNotRecipeAnalysis,
+  RecipeAnalysisService,
+} from "../../src/application/analysis/analysis-service.js";
+import { finishAnalysisAdmission } from "../../src/application/analysis/admission-service.js";
 import {
   AnalysisError,
+  NOT_RECIPE_MESSAGE,
   type NotificationSender,
   type RecipeExtractor,
   type SourceContentExtractor,
@@ -44,12 +49,17 @@ const recipeExtractor: RecipeExtractor = {
 class FakeNotifications implements NotificationSender {
   completed: string[] = [];
   failed: string[] = [];
+  notRecipe: string[] = [];
   async sendRecipeAnalysisCompleted(_tokens: string[], recipeId: string) {
     this.completed.push(recipeId);
     return [];
   }
   async sendRecipeAnalysisFailed(_tokens: string[], recipeId: string) {
     this.failed.push(recipeId);
+    return [];
+  }
+  async sendRecipeAnalysisNotRecipe(_tokens: string[], recipeId: string) {
+    this.notRecipe.push(recipeId);
     return [];
   }
 }
@@ -176,6 +186,98 @@ describe("API/Worker application E2E", () => {
       }),
       "recipe analysis completed",
     );
+  });
+
+  it("persists not_recipe as terminal, notifies, and finishes admission without re-extraction", async () => {
+    const user = await context.prisma.user.create({
+      data: {
+        firebaseUid: "not-recipe-worker-user",
+        setting: { create: { recipeAnalysisNotificationEnabled: true } },
+        deviceTokens: { create: { fcmToken: "not-recipe-token" } },
+      },
+    });
+    const runId = "00000000-0000-0000-0000-000000000116";
+    const recipe = await context.prisma.recipe.create({
+      data: {
+        userId: user.id,
+        originalUrl: "https://example.com/not-a-recipe",
+        normalizedUrl: "https://example.com/not-a-recipe",
+        sourceType: "web",
+        analysisStatus: "processing",
+        processingRunId: runId,
+        processingLeaseExpiresAt: new Date(Date.now() + 60_000),
+        title: "stale extracted title",
+        imageUrl: "https://images.example/stale.jpg",
+        analysisProvider: "zai",
+        ingredients: {
+          create: [{ name: "stale ingredient", amount: null, sortOrder: 0 }],
+        },
+        steps: { create: [{ text: "stale step", sortOrder: 0 }] },
+      },
+    });
+    await context.prisma.analysisAdmission.create({
+      data: { userId: user.id, recipeId: recipe.id },
+    });
+    const notifications = new FakeNotifications();
+    const log = vi.fn();
+
+    await expect(
+      completeNotRecipeAnalysis(
+        { prisma: context.prisma, notifications },
+        recipe.id,
+        runId,
+        1,
+        log,
+      ),
+    ).resolves.toBe(true);
+
+    const transitioned = await context.prisma.recipe.findUniqueOrThrow({
+      where: { id: recipe.id },
+      include: { ingredients: true, steps: true },
+    });
+    expect(transitioned).toMatchObject({
+      analysisStatus: "not_recipe",
+      title: NOT_RECIPE_MESSAGE,
+      imageUrl: null,
+      analysisProvider: null,
+      processingRunId: null,
+      processingLeaseExpiresAt: null,
+    });
+    expect(transitioned.ingredients).toEqual([]);
+    expect(transitioned.steps).toEqual([]);
+    expect(notifications.notRecipe).toEqual([recipe.id]);
+    expect(log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipeId: recipe.id,
+        analysisStatus: "not_recipe",
+        analysisAttempt: 1,
+      }),
+      "recipe classified as not recipe",
+    );
+
+    const extractSource = vi.fn(sourceExtractor.extract);
+    const worker = buildWorker(
+      new RecipeAnalysisService({
+        prisma: context.prisma,
+        sourceExtractor: { extract: extractSource },
+        recipeExtractor,
+        notifications,
+        maxAttempts: 3,
+      }),
+      async (recipeId) => finishAnalysisAdmission(context.prisma, recipeId),
+    );
+    const response = await worker.inject({
+      method: "POST",
+      url: "/internal/tasks/recipe-analysis",
+      payload: { recipeId: recipe.id },
+    });
+    expect(response.statusCode).toBe(204);
+    expect(extractSource).not.toHaveBeenCalled();
+    const admission = await context.prisma.analysisAdmission.findUniqueOrThrow({
+      where: { recipeId: recipe.id },
+    });
+    expect(admission.finishedAt).toBeInstanceOf(Date);
+    await worker.close();
   });
 
   it("retries transient failure, marks final failure, and respects notification OFF", async () => {
