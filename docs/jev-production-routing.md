@@ -72,6 +72,18 @@ JevはSourceContentExtractorの後、Z.ai / Gemini / media解析の前に置く�
 - 通知
 - 既存解析のretry方針
 
+### 3.1 既存feature gate / 利用許可を迂回しない
+
+Jevはrouteを選ぶだけで、既存のmedia feature flagや利用許可を上書きしない。
+
+- YouTubeでGemini routeを選んでも、実際のGemini利用は `YOUTUBE_GEMINI_FALLBACK_ENABLED` に従う
+- Instagramでmedia routeを選んでも、既存のInstagram media fallback有効条件に従う
+- TikTok動画・写真でmedia routeを選んでも、`TIKTOK_MEDIA_ANALYSIS_ENABLED` と既存の利用許可条件に従う
+
+media routeが必要だが該当機能が無効な場合は、Jevが強制的にmedia取得を有効化してはならない。既存の「fallback disabled」としての失敗動作を維持する。
+
+Jevのfail-openも「機能を強制有効化する」という意味ではない。Jev導入前と同じroute判定へ戻すことだけを意味する。
+
 ---
 
 ## 4. Application境界
