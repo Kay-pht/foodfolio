@@ -398,8 +398,6 @@ export class RecipeAnalysisService {
           false,
           "not_recipe routing must be completed before extraction",
         );
-      case "fail_open":
-        return this.extractLegacyRecipe(source);
     }
   }
 
