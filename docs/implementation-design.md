@@ -1152,16 +1152,20 @@ YouTube Data API title / description
 ↓
 説明欄の決定論的十分性判定
 ├─ 不十分・判定不能
-│  └─ Jevを呼ばずGemini video route
+│  ├─ YOUTUBE_GEMINI_FALLBACK_ENABLED=false → 解析失敗
+│  └─ true → Jevを呼ばずGemini video route
 └─ 十分
    ↓
    Jev
    ├─ p(recipe) >= source threshold
    │  → Z.ai text extraction
    │     ├─ ingredients・steps非空 → 保存
-   │     └─ 不足 → Gemini video fallback
+   │     └─ 不足
+   │        ├─ YOUTUBE_GEMINI_FALLBACK_ENABLED=false → 解析失敗
+   │        └─ true → Gemini video fallback
    └─ threshold未満
-      → Gemini video route
+      ├─ YOUTUBE_GEMINI_FALLBACK_ENABLED=false → 解析失敗
+      └─ true → Gemini video route
 ```
 
 Jevの低いrecipe probabilityだけを理由にYouTubeを `not_recipe` にしない。説明欄にレシピがなくても動画内に存在する可能性があるためである。Jev自身が失敗した場合は即fail-openし、Jev導入前のYouTube routeへ戻る。
@@ -1198,7 +1202,7 @@ TikTok URL
          └─ threshold未満 → photo media route
 ```
 
-Jevがtext routeを選んでも `ingredients > 0 AND steps > 0` を満たさない場合は必ずmediaへ戻る。JevだけでTikTokを `not_recipe` にしない。Jev自身が失敗した場合は即fail-openし、動画は従来のtext-first route、写真は従来のphoto media routeへ戻る。
+Jevがtext routeを選んでも `ingredients > 0 AND steps > 0` を満たさない場合は必ずmediaへ戻る。JevだけでTikTokを `not_recipe` にしない。Jev自身が失敗した場合は即fail-openし、動画は従来のtext-first route、写真は従来のphoto media routeへ戻る。動画・写真のmedia routeは引き続き `TIKTOK_MEDIA_ANALYSIS_ENABLED` と既存の利用許可条件に従い、無効時にJevがmedia取得を強制有効化してはならない。
 
 - `yt-dlp`は`2026.08.19`へ固定し、実行ファイルのSHA-256をDocker build時に検証する
 - 動画取得は初回を含めて最大5回。5回すべて失敗した場合は非リトライ可能とし、Cloud Tasksで同じ取得を繰り返さない
