@@ -95,10 +95,7 @@ export class JevRecipeRouter implements JevRoutingProvider {
           ? classification.recipeProbability
           : classification.nonRecipeProbability;
       const thresholdMatched = probability >= rule.value;
-      const selectedRoute = routeForClassification(
-        source,
-        thresholdMatched,
-      );
+      const selectedRoute = routeForClassification(source, thresholdMatched);
       return {
         selectedRoute,
         snapshot: {

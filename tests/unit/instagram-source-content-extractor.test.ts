@@ -68,7 +68,9 @@ describe("HTML source metadata extraction", () => {
     } as SafeHttpClient;
     const extractor = new ProductionSourceContentExtractor(http, "unused");
 
-    const result = await extractor.extract(new URL("https://example.com/story"));
+    const result = await extractor.extract(
+      new URL("https://example.com/story"),
+    );
 
     expect(result.sourceType).toBe("web");
     expect(result.textForAi).toContain("秋の食卓について");

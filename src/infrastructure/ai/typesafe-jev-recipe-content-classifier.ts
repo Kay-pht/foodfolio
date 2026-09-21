@@ -11,9 +11,7 @@ export const DEFAULT_JEV_TIMEOUT_MS = 3_000;
 
 type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
-export class TypeSafeJevRecipeContentClassifier
-  implements RecipeContentClassifier
-{
+export class TypeSafeJevRecipeContentClassifier implements RecipeContentClassifier {
   readonly model: string;
   private readonly apiKey: string;
 
@@ -159,7 +157,9 @@ function parseProbability(value: unknown, field: string): number {
     value < 0 ||
     value > 1
   )
-    throw new Error(`TypeSafe Jev response field ${field} is not a probability`);
+    throw new Error(
+      `TypeSafe Jev response field ${field} is not a probability`,
+    );
   return value;
 }
 

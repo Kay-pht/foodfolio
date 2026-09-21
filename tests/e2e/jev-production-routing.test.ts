@@ -155,9 +155,15 @@ describe("Jev production routing E2E", () => {
     expect(extractText).not.toHaveBeenCalled();
     expect(classify).toHaveBeenCalledOnce();
 
-    const events = log.mock.calls.map(([fields]) => fields as Record<string, unknown>);
-    const decision = events.find((fields) => fields.event === "jev_routing_decision");
-    const outcome = events.find((fields) => fields.event === "jev_routing_outcome");
+    const events = log.mock.calls.map(
+      ([fields]) => fields as Record<string, unknown>,
+    );
+    const decision = events.find(
+      (fields) => fields.event === "jev_routing_decision",
+    );
+    const outcome = events.find(
+      (fields) => fields.event === "jev_routing_outcome",
+    );
     const normalized = normalizeJevInput(rawText);
     expect(decision).toMatchObject({
       jevSucceeded: true,
@@ -216,7 +222,9 @@ describe("Jev production routing E2E", () => {
       ).analysisStatus,
     ).toBe("completed");
 
-    const events = log.mock.calls.map(([fields]) => fields as Record<string, unknown>);
+    const events = log.mock.calls.map(
+      ([fields]) => fields as Record<string, unknown>,
+    );
     expect(events).toContainEqual(
       expect.objectContaining({
         event: "jev_routing_decision",
@@ -261,7 +269,9 @@ describe("Jev production routing E2E", () => {
     });
     expect(extractText).toHaveBeenCalledOnce();
     expect(extractMedia).toHaveBeenCalledOnce();
-    const events = log.mock.calls.map(([fields]) => fields as Record<string, unknown>);
+    const events = log.mock.calls.map(
+      ([fields]) => fields as Record<string, unknown>,
+    );
     expect(events).toContainEqual(
       expect.objectContaining({
         event: "jev_routing_outcome",

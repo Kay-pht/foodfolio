@@ -21,21 +21,23 @@ const validBody = () => ({
 
 describe("TypeSafeJevRecipeContentClassifier", () => {
   it("uses the production Jev schema and parses a valid choice response", async () => {
-    const fetchImpl = vi.fn(async (_input: string | URL, init?: RequestInit) => {
-      const body = JSON.parse(String(init?.body)) as {
-        model: string;
-        state: { page_content: string };
-        questions: Record<string, unknown>;
-      };
-      expect(body.model).toBe(DEFAULT_JEV_MODEL);
-      expect(body.state.page_content).toBe("normalized recipe text");
-      expect(body.questions).toHaveProperty("recipe_classification");
-      expect(init?.headers).toMatchObject({
-        authorization: "Bearer test-key",
-        "content-type": "application/json",
-      });
-      return new Response(JSON.stringify(validBody()), { status: 200 });
-    });
+    const fetchImpl = vi.fn(
+      async (_input: string | URL, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body)) as {
+          model: string;
+          state: { page_content: string };
+          questions: Record<string, unknown>;
+        };
+        expect(body.model).toBe(DEFAULT_JEV_MODEL);
+        expect(body.state.page_content).toBe("normalized recipe text");
+        expect(body.questions).toHaveProperty("recipe_classification");
+        expect(init?.headers).toMatchObject({
+          authorization: "Bearer test-key",
+          "content-type": "application/json",
+        });
+        return new Response(JSON.stringify(validBody()), { status: 200 });
+      },
+    );
     const classifier = new TypeSafeJevRecipeContentClassifier(
       "test-key",
       fetchImpl,
@@ -55,39 +57,51 @@ describe("TypeSafeJevRecipeContentClassifier", () => {
   it.each([
     ["timeout", Object.assign(new Error("timeout"), { name: "TimeoutError" })],
     ["network", new Error("connection reset")],
-  ] as const)("classifies %s failures without retrying", async (failureClass, error) => {
-    const fetchImpl = vi.fn(async () => {
-      throw error;
-    });
-    const classifier = new TypeSafeJevRecipeContentClassifier(
-      "test-key",
-      fetchImpl,
-    );
+  ] as const)(
+    "classifies %s failures without retrying",
+    async (failureClass, error) => {
+      const fetchImpl = vi.fn(async () => {
+        throw error;
+      });
+      const classifier = new TypeSafeJevRecipeContentClassifier(
+        "test-key",
+        fetchImpl,
+      );
 
-    await expect(classifier.classify({ text: "recipe" })).rejects.toMatchObject({
-      name: "RecipeContentClassifierError",
-      failureClass,
-    });
-    expect(fetchImpl).toHaveBeenCalledOnce();
-  });
+      await expect(
+        classifier.classify({ text: "recipe" }),
+      ).rejects.toMatchObject({
+        name: "RecipeContentClassifierError",
+        failureClass,
+      });
+      expect(fetchImpl).toHaveBeenCalledOnce();
+    },
+  );
 
   it.each([
     [429, "http_429"],
     [529, "http_529"],
     [500, "http_error"],
-  ] as const)("classifies HTTP %s as %s without retrying", async (status, failureClass) => {
-    const fetchImpl = vi.fn(async () => new Response("provider error", { status }));
-    const classifier = new TypeSafeJevRecipeContentClassifier(
-      "test-key",
-      fetchImpl,
-    );
+  ] as const)(
+    "classifies HTTP %s as %s without retrying",
+    async (status, failureClass) => {
+      const fetchImpl = vi.fn(
+        async () => new Response("provider error", { status }),
+      );
+      const classifier = new TypeSafeJevRecipeContentClassifier(
+        "test-key",
+        fetchImpl,
+      );
 
-    await expect(classifier.classify({ text: "recipe" })).rejects.toMatchObject({
-      name: "RecipeContentClassifierError",
-      failureClass,
-    });
-    expect(fetchImpl).toHaveBeenCalledOnce();
-  });
+      await expect(
+        classifier.classify({ text: "recipe" }),
+      ).rejects.toMatchObject({
+        name: "RecipeContentClassifierError",
+        failureClass,
+      });
+      expect(fetchImpl).toHaveBeenCalledOnce();
+    },
+  );
 
   it("classifies response body read failures without retrying", async () => {
     const response = {
@@ -103,10 +117,12 @@ describe("TypeSafeJevRecipeContentClassifier", () => {
       fetchImpl,
     );
 
-    await expect(classifier.classify({ text: "recipe" })).rejects.toMatchObject({
-      name: "RecipeContentClassifierError",
-      failureClass: "body_read",
-    });
+    await expect(classifier.classify({ text: "recipe" })).rejects.toMatchObject(
+      {
+        name: "RecipeContentClassifierError",
+        failureClass: "body_read",
+      },
+    );
     expect(fetchImpl).toHaveBeenCalledOnce();
   });
 

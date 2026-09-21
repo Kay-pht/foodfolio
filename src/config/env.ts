@@ -1,6 +1,11 @@
 const REQUIRED_BY_ROLE = {
   api: ["DATABASE_URL", "WORKER_URL", "YOUTUBE_API_KEY"],
-  worker: ["DATABASE_URL", "ZAI_API_KEY", "YOUTUBE_API_KEY", "TYPESAFE_API_KEY"],
+  worker: [
+    "DATABASE_URL",
+    "ZAI_API_KEY",
+    "YOUTUBE_API_KEY",
+    "TYPESAFE_API_KEY",
+  ],
 } as const;
 
 const CLOUD_TASKS_REQUIRED = [

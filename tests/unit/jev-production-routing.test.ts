@@ -57,13 +57,17 @@ describe("JevRecipeRouter", () => {
   it("hard-rejects general Web only at the configured non-recipe threshold", async () => {
     const rejected = routerFor(classification(0.2, 0.8));
     await expect(
-      rejected.router.route(source("web", "A food story without recipe keywords")),
+      rejected.router.route(
+        source("web", "A food story without recipe keywords"),
+      ),
     ).resolves.toMatchObject({ selectedRoute: "not_recipe" });
     expect(rejected.classify).toHaveBeenCalledOnce();
 
     const accepted = routerFor(classification(0.21, 0.79));
     await expect(
-      accepted.router.route(source("web", "A food story without recipe keywords")),
+      accepted.router.route(
+        source("web", "A food story without recipe keywords"),
+      ),
     ).resolves.toMatchObject({ selectedRoute: "text" });
   });
 
@@ -88,7 +92,10 @@ describe("JevRecipeRouter", () => {
         youtubeDescription: "概要だけ",
       }),
     );
-    expect(decision).toEqual({ selectedRoute: "youtube_video", snapshot: null });
+    expect(decision).toEqual({
+      selectedRoute: "youtube_video",
+      snapshot: null,
+    });
     expect(classify).not.toHaveBeenCalled();
   });
 
@@ -122,11 +129,15 @@ describe("JevRecipeRouter", () => {
 
     const media = routerFor(classification(0.98, 0.02));
     await expect(
-      media.router.route(source("instagram", "caption without recipe keywords")),
+      media.router.route(
+        source("instagram", "caption without recipe keywords"),
+      ),
     ).resolves.toMatchObject({ selectedRoute: "instagram_media" });
 
     const empty = routerFor(classification(1, 0));
-    await expect(empty.router.route(source("instagram", "   "))).resolves.toEqual({
+    await expect(
+      empty.router.route(source("instagram", "   ")),
+    ).resolves.toEqual({
       selectedRoute: "instagram_media",
       snapshot: null,
     });
