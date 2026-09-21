@@ -377,7 +377,7 @@ PoCの固定5 fixtureと5実URL×3回のE2E結果に基づき、MVPの標準AI�
 - API: Chat Completions JSON mode
 - Backend側でRecipe Schema validationを必須とする
 
-YouTubeだけは、YouTube Data APIで取得した説明欄に材料と複数工程が明確にある場合は標準Z.ai経路を使い、不十分または判定不能の場合に限ってGemini `gemini-3.5-flash-lite`へ公開動画URLと説明欄を同じ1リクエストで渡す。Geminiの根拠付き中間Schemaを決定論的にRecipe Schemaへ変換し、材料・手順が空の結果は保存しない。このfallbackは`YOUTUBE_GEMINI_FALLBACK_ENABLED`で既定無効とする。
+YouTubeは、YouTube Data APIで取得した説明欄が不十分・判定不能な場合、またはJevがvideo routeを選んだ場合、またはZ.ai text extractionで材料・手順が揃わなかった場合にGemini `gemini-3.5-flash-lite`へ公開動画URLと説明欄を同じ1リクエストで渡す。Geminiの根拠付き中間Schemaを決定論的にRecipe Schemaへ変換し、材料・手順が空の結果は保存しない。foodfolioを動かす対象環境ではこのGemini video routeを常時有効とする。
 
 Gemini 3.5 Flash-Lite Free Tierも同じ5 fixtureで比較したが、人数範囲を根拠なく平均化した1件があり、Hallucination 0件の基準を満たさなかった。OpenAIとDeepSeekはZ.aiが全基準を満たしたため、追加課金を避けて未実施とした。
 
@@ -566,7 +566,7 @@ AI入力 / imageUrlへ変換
 
 Data APIへ変更後も、AIへ渡す中心情報は動画タイトルと動画説明欄であり、代表画像は`snippet.thumbnails`から取得する。
 
-説明欄の材料行と複数工程を決定論的に確認できる場合は動画を送らずZ.aiで解析する。どちらかが不足するか判定不能の場合だけ、設定で許可されていれば公開YouTube URLと説明欄をGemini `gemini-3.5-flash-lite`へ同時に渡す。Gemini呼び出しは1レシピにつき1回に固定し、timeout、HTTP 429、HTTP 5xxを含む失敗でもCloud Tasksから再試行しない。説明欄全文やGemini生応答は通常ログへ残さず、実際に使ったproviderだけをRecipe内部記録と構造化ログへ残す。この内部記録は公開Recipe APIへ追加しない。
+説明欄の材料行と複数工程を決定論的に確認できる場合はまずZ.ai text routeを候補とする。Jev判定でvideo routeとなった場合、またはZ.ai結果に材料・手順が揃わなかった場合は、公開YouTube URLと説明欄をGemini `gemini-3.5-flash-lite`へ同時に渡す。Gemini video routeは対象環境で常時有効とし、Geminiまで失敗した場合は解析失敗として不完全なtext結果を保存しない。Gemini呼び出しは1レシピにつき1回に固定し、timeout、HTTP 429、HTTP 5xxを含む失敗でもCloud Tasksから再試行しない。説明欄全文やGemini生応答は通常ログへ残さず、実際に使ったproviderだけをRecipe内部記録と構造化ログへ残す。この内部記録は公開Recipe APIへ追加しない。
 
 取得時間についてGoogleによる応答時間保証は確認できないため、旧方式と同等以上であるとは事前に断定しない。`YOUTUBE_API_KEY`を設定した実URL再PoCでData API requestのelapsed timeを記録する。
 
@@ -578,7 +578,7 @@ TikTok動画はoEmbedタイトルを先に`glm-5.3-flash`で解析し、材料�
 
 TikTok写真はoEmbedおよび動画用`yt-dlp`の対象外であるため、URLの`/photo/<postId>`判定後、TikTok Embed Playerが使用する公開メタデータ経路から投稿文と画像URLを取得する。この経路は公開ドキュメント化された正式APIではないため、Provider変更で利用不能になる可能性を運用上の制約として扱う。先頭10枚を順番に試行し、成功した画像が1枚以上あれば投稿文・ハッシュタグとともにZ.aiへ1回入力する。画像を主根拠、投稿文を補助情報とする。
 
-書面許可のない自動抽出は有効化しない。`TIKTOK_MEDIA_ANALYSIS_ENABLED=false`を新しい環境の既定値とし、許可を確認した環境だけで動画フォールバックと写真解析を有効化する。dev環境は書面許可を確認済みのため`true`とする。
+書面許可のない自動抽出は有効化しない。そのため、必要な利用許可を確認できない環境はTikTok対応のdeployment対象にしない。foodfolioを動かす対象環境では `TIKTOK_MEDIA_ANALYSIS_ENABLED=true` を前提とし、動画・写真media routeを常時利用可能にする。
 
 有効化後は動画または写真を非公開GCS bucketへ一時保存し、署名URLでZ.aiへ渡す。通常完了時は即時削除し、異常終了時は1日後のlifecycle削除を安全網とする。メディア本体、署名URL、yt-dlp生出力は通常ログやRecipe DBへ保存しない。
 
