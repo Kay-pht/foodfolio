@@ -984,7 +984,7 @@ iOS側は `code` をユーザー向け日本語メッセージへmappingする�
 |  404 | NOT_FOUND                   | 対象resourceなし / 他User所有                                   |
 |  409 | DUPLICATE_RECIPE            | 正規化URL重複                                                   |
 |  409 | RECIPE_ANALYSIS_IN_PROGRESS | pending / processing中のRecipe編集                              |
-|  409 | RECIPE_NOT_EDITABLE           | `not_recipe` のRecipe編集                                       |
+|  409 | RECIPE_NOT_EDITABLE         | `not_recipe` のRecipe編集                                       |
 |  422 | VALIDATION_ERROR            | 編集値等の業務validation不正                                    |
 |  429 | ANALYSIS_LIMIT_EXCEEDED     | 解析受付上限（ユーザー未処理 / 日次 / 月次、全体未処理 / 日次） |
 |  500 | INTERNAL_ERROR              | 想定外エラー                                                    |
