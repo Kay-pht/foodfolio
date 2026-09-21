@@ -407,11 +407,14 @@ pending
 processing
 completed
 failed
+not_recipe
 ```
 
 `partial` は独立statusにしない。
 
 一部項目が取得できなくても解析処理そのものが正常終了した場合は `completed` とする。
+
+`not_recipe` は技術的な解析失敗ではなく、semantic gateが1つの具体的なレシピではないと正常判定したterminal stateとする。Recipeは削除せず、通常編集不可・元URL閲覧可・削除可とする。
 
 ### 7.6 Ingredient
 
@@ -744,7 +747,7 @@ Request例：
 
 すべてoptionalとし、送信された項目だけ変更する。
 
-`analysisStatus` が `pending` または `processing` のRecipeは編集不可とし、Backendでも `RECIPE_ANALYSIS_IN_PROGRESS` として拒否する。
+`analysisStatus` が `pending` または `processing` のRecipeは編集不可とし、Backendでも `RECIPE_ANALYSIS_IN_PROGRESS` として拒否する。`not_recipe` も通常のレシピ編集対象ではないため、PATCHを `RECIPE_NOT_EDITABLE` として拒否する。
 
 画像、人数、調理時間、手順、URL、解析状態はこのAPIから変更不可とする。
 
@@ -981,6 +984,7 @@ iOS側は `code` をユーザー向け日本語メッセージへmappingする�
 |  404 | NOT_FOUND                   | 対象resourceなし / 他User所有                                   |
 |  409 | DUPLICATE_RECIPE            | 正規化URL重複                                                   |
 |  409 | RECIPE_ANALYSIS_IN_PROGRESS | pending / processing中のRecipe編集                              |
+|  409 | RECIPE_NOT_EDITABLE         | `not_recipe` のRecipe編集                                       |
 |  422 | VALIDATION_ERROR            | 編集値等の業務validation不正                                    |
 |  429 | ANALYSIS_LIMIT_EXCEEDED     | 解析受付上限（ユーザー未処理 / 日次 / 月次、全体未処理 / 日次） |
 |  500 | INTERNAL_ERROR              | 想定外エラー                                                    |
@@ -1134,51 +1138,74 @@ PoCで成立した方式を本番モジュールへ移植する。ただしYouTu
 - クックパッド
 - 一般Web
 
+一般WebではHTML / OGP / JSON-LD / page textからAI入力可能な本文を構成する。本文中に「レシピ」「材料」等の特定語がないことだけを理由にAI入力を破棄しない。HTTP取得失敗、本文なし、size上限超過等は取得失敗としてよいが、recipe / non-recipeのsemantic判定はJevへ渡す。
+
 YouTubeではページHTML、`ytInitialPlayerResponse`、oEmbedを説明文取得の主経路として使用しない。YouTube Data API呼び出しに必要な `YOUTUBE_API_KEY` はBackendのSecretとしてGoogle Cloud Secret Managerで管理し、Cloud Run Workerへ環境変数として渡す。
 
 認証回避や非公開コンテンツ取得は行わない。Instagram media fallbackは、ユーザーがFoodfolioへ共有して解析を依頼した公開投稿だけを対象とし、取得したメディアをAI解析のために一時利用して通常完了時は即時削除する。TikTok動画フォールバックは書面許可を確認した環境だけで有効化する。dev環境は書面許可を確認済みのため有効とする。
 
 ### 14.1 YouTube説明欄優先・動画フォールバック
 
-YouTube Data APIで取得した説明欄は、外部AIを使わない純粋関数で十分性を判定する。「十分」は、対象料理の範囲に分量表現を伴う材料行が2件以上あり、かつ調理動作を伴う工程行が2件以上ある場合に限定する。装飾記号付き・全角括弧付きの材料見出しと、見出しのない番号付き工程も同じ構造として扱う。対象料理に材料と工程が明記されていれば、「動画を見ながら」等の補助的な案内だけでは不十分にしない。空、概要だけ、材料だけ、工程だけ、リンク・宣伝中心、本文だけでは工程を確認できない「詳しくは動画で」等の動画参照、または区切りを確実に判定できない説明欄は不十分とする。別料理や後続セクションの動画参照・宣伝を対象料理へ適用しない。判定不能は十分側へ倒さない。
+YouTube Data APIで取得した説明欄は、まず外部AIを使わない純粋関数で十分性を判定する。「十分」は、対象料理の範囲に分量表現を伴う材料行が2件以上あり、かつ調理動作を伴う工程行が2件以上ある場合に限定する。空、概要だけ、材料だけ、工程だけ、リンク・宣伝中心、本文だけでは工程を確認できない動画参照、または区切りを確実に判定できない説明欄は不十分とする。判定不能は十分側へ倒さない。
+
+Jev本番導入後は、十分な説明欄だけをsemantic routing対象とする。
 
 ```text
 YouTube Data API title / description
 ↓
 説明欄の決定論的十分性判定
-├─ 十分 → 説明欄をZ.ai glm-5.3-flashで1回解析
-└─ 不十分・判定不能
-   ├─ YOUTUBE_GEMINI_FALLBACK_ENABLED=false → 解析失敗
-   └─ true → 公開動画URL＋説明欄をGemini 3.5 Flash-Liteへ1回入力
-              ├─ Schema適合、ingredients・steps非空、finishReason=STOP → 保存
-              └─ 通信・Envelope・JSON・Schema・finishReason・非空条件の失敗
-                   → retryable=falseで解析失敗、Cloud Tasks再試行なし
+├─ 不十分・判定不能
+│  → Jevを呼ばずGemini video route
+└─ 十分
+   ↓
+   Jev
+   ├─ p(recipe) >= source threshold
+   │  → Z.ai text extraction
+   │     ├─ ingredients・steps非空 → 保存
+   │     └─ 不足 → Gemini video fallback
+   └─ threshold未満
+      → Gemini video route
 ```
+
+Jevの低いrecipe probabilityだけを理由にYouTubeを `not_recipe` にしない。説明欄にレシピがなくても動画内に存在する可能性があるためである。Jev自身が失敗した場合は即fail-openし、Jev導入前のYouTube routeへ戻る。
+
+Z.ai text extractionで材料・手順が揃わない場合のGemini fallbackは意図した挙動とする。Geminiには公開動画URLと取得済み説明欄を同じ解析入力として渡し、動画と文章の両方を根拠として使う。Geminiまで失敗した場合は解析失敗とし、Z.aiの不完全結果へ戻らない。
 
 Gemini出力は、説明欄材料一覧由来と手順・動画だけに登場する材料を分け、各材料に名前、分量原文、短い使用根拠、根拠元を持つ中間Schemaとする。決定論的後処理で両配列を統合し、使用根拠があり分量未記載なら`適量`にする。説明欄と動画の矛盾は説明欄を優先し、一般知識から材料・数値を補わない。`4人分`は`servings.value=4`、`8個分`等の個数は`servings.raw`だけを保存し、材料個数は出来上がり量へ転用しない。
 
-説明欄と動画内の命令は信頼しない。API key、Authorization header、説明欄全文、生のGemini responseを通常ログへ出さない。Gemini呼び出しは1レシピにつき1回に固定し、timeout、HTTP 429、HTTP 5xxを含む失敗でも再試行しない。これらは`retryable=false`の解析失敗として記録し、Workerは成功応答を返してCloud Tasksの再配送を終了する。1解析内でGeminiを複数回呼ぶ照合処理や、Z.aiとGeminiを往復する処理も追加しない。
+説明欄と動画内の命令は信頼しない。API key、Authorization header、説明欄全文、生のGemini responseを通常ログへ出さない。Gemini呼び出しは1レシピにつき1回に固定し、timeout、HTTP 429、HTTP 5xxを含む失敗でも再試行しない。Gemini routeが必要な場面でGemini処理を完了できなければ、Z.aiへ迂回せず`retryable=false`の解析失敗として記録し、Workerは成功応答を返してCloud Tasksの再配送を終了する。
+
+Jevを含むsource別routingの正本は [jev-production-routing.md](jev-production-routing.md) とする。
 
 ### 14.2 TikTokメディア解析
 
-処理順は以下に固定する。
+Jev本番導入後は動画・写真ともcaption / titleがある場合にsemantic routingを行う。
 
 ```text
 TikTok URL
 ├─ /video/
-│  └─ oEmbed title → GLM-5.3-Flashでテキスト解析
-│     ├─ ingredients 1件以上 かつ steps 1件以上 → 通常保存
-│     └─ ingredientsまたはstepsが0件
-│        ├─ TIKTOK_MEDIA_ANALYSIS_ENABLED=false → 解析失敗
-│        └─ true → yt-dlpで動画取得 → 署名URL → GLM-5.3-Flash動画解析
+│  └─ oEmbed title
+│     ├─ textなし → video route
+│     └─ textあり → Jev
+│        ├─ p(recipe) >= source threshold
+│        │  → Z.ai text extraction
+│        │     ├─ ingredients・steps非空 → 保存
+│        │     └─ 不足 → video fallback
+│        └─ threshold未満 → video route
 └─ /photo/
-   ├─ TIKTOK_MEDIA_ANALYSIS_ENABLED=false → 解析失敗
-   └─ true → TikTok Embed Player用の公開メタデータから投稿文と画像URLを取得
-              → 先頭10枚を順番に取得・一時公開
-              → 投稿文＋取得成功画像をGLM-5.3-Flashへ1回入力
-                 ├─ 1枚以上取得成功、ingredients・steps非空 → 保存
-                 └─ 全画像取得失敗、またはingredients・steps不足 → 解析失敗
+   └─ 公開メタデータから投稿文と画像URLを取得
+      ├─ captionなし → photo media route
+      └─ captionあり → Jev
+         ├─ p(recipe) >= source threshold
+         │  → Z.ai text extraction
+         │     ├─ ingredients・steps非空 → 保存
+         │     └─ 不足 → photo media fallback
+         └─ threshold未満 → photo media route
 ```
+
+Jevがtext routeを選んでも `ingredients > 0 AND steps > 0` を満たさない場合は必ずmediaへ戻る。JevだけでTikTokを `not_recipe` にしない。Jev自身が失敗した場合は即fail-openし、動画は従来のtext-first route、写真は従来のphoto media routeへ戻る。
+
+TikTokの動画・写真media routeは必要な利用許可を満たしたうえで、foodfolioを動かす対象環境では常時有効とする。media route選択後に取得・Provider・解析が失敗した場合は解析失敗とし、textだけの不完全結果へ戻らない。
 
 - `yt-dlp`は`2026.08.19`へ固定し、実行ファイルのSHA-256をDocker build時に検証する
 - 動画取得は初回を含めて最大5回。5回すべて失敗した場合は非リトライ可能とし、Cloud Tasksで同じ取得を繰り返さない
@@ -1188,12 +1215,14 @@ TikTok URL
 - AI処理終了後はGCS objectとWorker一時ファイルを削除し、異常終了時もbucket lifecycleで1日後に削除する。動画を保持し続けないよう、この専用bucketのsoft deleteは無効化する
 - 動画、署名URL、yt-dlpの生出力は通常ログへ記録しない
 - テストは自作または利用許可済み動画を使用する
-- 写真投稿はoEmbedを通さず、`/photo/<postId>`を主経路として処理する。投稿文にレシピ情報が十分でも画像解析を省略しない
+- 写真投稿はoEmbedを通さず、`/photo/<postId>`を主経路として処理する。captionがthreshold以上の場合のみtext extractionを先行し、不完全なら画像解析へfallbackする
 - 写真投稿は元の順序の先頭10枚だけを試行し、一部の取得または一時公開に失敗しても、1枚以上成功すれば成功分を連番へ詰めて解析を続ける
-- Z.aiには投稿文・ハッシュタグと取得成功画像だけを渡す。画像を主根拠、投稿文を補助情報とし、コメント、投稿者プロフィール、楽曲情報は渡さない
+- photo media routeではZ.aiへ投稿文・ハッシュタグと取得成功画像だけを渡す。画像を主根拠、投稿文を補助情報とし、コメント、投稿者プロフィール、楽曲情報は渡さない
 - 写真の代表画像は一時署名URLではなく、先頭の取得元画像URLとする。`image/resolve`でも同じ公開メタデータから先頭画像を再解決する
 - 写真も動画もcanonical URLを`https://www.tiktok.com/@<author>/<photo|video>/<postId>`とし、共有・tracking queryを除去する
 - 写真の一時画像は動画と同じ非公開GCS bucketを使用し、処理後に削除する
+
+source別thresholdと詳細routeは [jev-production-routing.md](jev-production-routing.md) を正本とする。
 
 ### 14.3 SourceContent
 
@@ -1229,7 +1258,7 @@ imageUrl = null
 
 ### 15.1 Provider / Model
 
-MVP標準はZ.aiとし、YouTube説明欄が不十分な場合だけGeminiを使用する：
+MVPのレシピ抽出はZ.aiを標準とし、YouTube等のmedia fallbackにGemini / media解析を使用する。Jev本番導入後はこれらの抽出Providerの前段にsemantic routerを置く。JevはRecipeを生成せず、hard non-recipe判定またはtext / media route選択だけを担う：
 
 ```text
 Provider: Z.ai
@@ -1317,6 +1346,14 @@ servings.value = null
 原文はUI表示可能とするが、人数変更UIは表示しない。
 
 中央値・平均値等へ変換してはならない。
+
+### 15.6 Jev semantic routing
+
+Jevは `RecipeContentClassifier` のようなApplication interface越しに利用し、TypeSafe固有request / responseはInfrastructure adapterへ閉じ込める。productionからPoCコードを直接importしない。
+
+Jev requestは1 Worker delivery（Cloud Tasksの1回のanalysis attempt）につき最大1回とし、timeout、network error、429、529、response body read失敗、invalid JSON / schema等ではretryせず即fail-openする。下流の既存retryable errorによってCloud Tasksが新しいdeliveryを開始した場合は、そのdeliveryでJevを再度最大1回呼んでよい。Jev errorはWorkerの `retryable error` として扱わず、同じWorker実行内でJev導入前の解析routeへ戻る。
+
+初期threshold、source別routing、ログ、`not_recipe` の詳細は [jev-production-routing.md](jev-production-routing.md) を正本とする。
 
 ---
 
@@ -1426,9 +1463,11 @@ POST /internal/tasks/recipe-analysis
 pending
   ↓
 processing
-  ├─ success ----------------> completed
+  ├─ recipe success ---------> completed
+  ├─ hard non-recipe --------> not_recipe
+  ├─ Jev failure ------------> fail-openして解析継続
   ├─ permanent error --------> failed
-  └─ retryable error
+  └─ 従来解析側のretryable error
        ├─ attempts remaining -> pending -> Cloud Tasks retry
        └─ final attempt ------> failed
 ```
@@ -1470,6 +1509,7 @@ Worker受信時：
 ```text
 completed -> 何もせず成功応答
 failed -> 何もせず成功応答
+not_recipe -> 何もせず成功応答
 pending / processing -> 処理対象
 ```
 
@@ -1488,6 +1528,8 @@ pending / processing -> 処理対象
 - JSON parse失敗
 - Schema validation失敗
 - 一時的DB / network障害
+
+Jevのtimeout、network error、HTTP 429 / 529、body read失敗、response不正はこのretryable error一覧へ含めない。Jevは1 Worker delivery（Cloud Tasksの1回のanalysis attempt）につき最大1回だけ呼び、失敗時は同一Worker実行内で従来routeへfail-openする。下流の既存retryable errorで新しいdeliveryが開始した場合は、その新しいdeliveryで再度最大1回呼んでよい。
 
 ただし、14.1のYouTube Geminiフォールバックは、1レシピにつきGeminiを1回だけ呼ぶ制約を優先する例外とする。Geminiのtimeout、HTTP 429、HTTP 5xx、JSON・Schema不正を含む全失敗は`retryable=false`とし、Cloud Tasksで再試行しない。ここでの`retryable=false`は障害原因が恒久的という意味ではなく、この1回制約に基づいて当該レシピの処理を終了することを表す。
 
@@ -1700,6 +1742,7 @@ recipeAnalysisNotificationEnabled = true
 
 - completed
 - failed
+- not_recipe
 
 ### 22.2 iOS通知許可要求
 
@@ -1743,7 +1786,7 @@ Token refresh時も同APIを呼ぶ。
 
 ### 22.5 通知送信
 
-Workerがcompleted / failedへ遷移した後：
+Workerがcompleted / failed / not_recipeへ遷移した後：
 
 ```text
 UserSetting.recipeAnalysisNotificationEnabled
@@ -1765,7 +1808,7 @@ FCM送信
 
 ```text
 recipeId
-analysisResult = completed | failed
+analysisResult = completed | failed | not_recipe
 ```
 
 通知tap時はログイン済みであれば該当Recipe詳細を開く。
@@ -2165,7 +2208,7 @@ Tag追加・削除、Recipe削除等のmutationはオンライン必須とする
 - tags
 - save時PATCH
 
-`pending / processing` 中は編集画面へ遷移させない。Backendでも同状態のPATCHを拒否する。
+`pending / processing / not_recipe` は編集画面へ遷移させない。Backendでも同状態のPATCHを拒否し、`not_recipe` は `RECIPE_NOT_EDITABLE` とする。
 
 編集はオンライン必須とし、成功レスポンスをSwiftDataへ即時反映する。
 
@@ -2349,15 +2392,29 @@ providerRequestId
 latencyMs
 inputTokens
 outputTokens
+jevModel
+recipeProbability
+nonRecipeProbability
+jevThresholdName
+jevThresholdValue
+jevSelectedRoute
+jevFinalRoute
+jevLatencyMs
+jevFailureClass
+jevInputChars
+jevInputSha256
 ```
 
-`analysisAttempt` と `errorCode` は診断用ログ項目であり、Recipe DBへ永続保存しない。
+`analysisAttempt` と `errorCode` は診断用ログ項目であり、Recipe DBへ永続保存しない。Jev probability / thresholdもRecipe DBへ永続保存せず構造化ログへ記録する。閾値再評価を容易にするため、Jev route決定時だけでなく最終解析outcomeにもprobability / threshold snapshotを含める。Jevへ送った本文はログへ保存せず、正規化済み入力の `inputChars` とSHA-256だけを記録する。
+
+Jevログだけではthreshold未満ケースのtext route成功可否を断定できないため、候補probability帯をログから抽出し、元URLを再取得して `inputSha256` 一致を確認したうえで再評価する。詳細は [jev-production-routing.md](jev-production-routing.md) を参照する。
 
 禁止：
 
 - Firebase ID Token
 - Apple authorization code / Apple credential
 - Z.ai API Key
+- TypeSafe / Jev API Key
 - YouTube Data API Key
 - DB password
 - source本文全文
@@ -2383,20 +2440,30 @@ WORKER_URL
 ZAI_API_KEY
 YOUTUBE_API_KEY
 GEMINI_API_KEY
-YOUTUBE_GEMINI_FALLBACK_ENABLED=false
+TYPESAFE_API_KEY
+YOUTUBE_GEMINI_FALLBACK_ENABLED=true
+INSTAGRAM_MEDIA_FALLBACK_ENABLED=true
 AI_MODEL=glm-5.3-flash
 MAX_ANALYSIS_ATTEMPTS=3
-TIKTOK_MEDIA_ANALYSIS_ENABLED=true # dev。新規環境の既定値はfalse
+TIKTOK_MEDIA_ANALYSIS_ENABLED=true
 TIKTOK_VIDEO_BUCKET
 TIKTOK_VIDEO_MAX_ATTEMPTS=5
 YT_DLP_PATH=/usr/local/bin/yt-dlp
+JEV_GENERAL_WEB_NON_RECIPE_THRESHOLD=0.80
+JEV_YOUTUBE_RECIPE_THRESHOLD=0.99
+JEV_INSTAGRAM_RECIPE_THRESHOLD=0.99
+JEV_TIKTOK_VIDEO_RECIPE_THRESHOLD=0.99
+JEV_TIKTOK_PHOTO_RECIPE_THRESHOLD=0.99
+JEV_AI_CHAT_NON_RECIPE_THRESHOLD=0.99
 ```
 
 `MAX_ANALYSIS_ATTEMPTS` はCloud Tasks Queueのretry設定とWorkerの最終試行判定で同じ値を使用する。
 
-`ZAI_API_KEY` / `YOUTUBE_API_KEY` / `GEMINI_API_KEY` / DB接続情報はSecret ManagerからCloud Runへ渡す。`YOUTUBE_GEMINI_FALLBACK_ENABLED`は既定で`false`とし、`true`でも実際にGeminiが必要になるまでAPI keyは使用しない。fallbackが必要な時点でkeyが未設定なら、識別可能な設定エラーとして解析を失敗させる。
+`ZAI_API_KEY` / `YOUTUBE_API_KEY` / `GEMINI_API_KEY` / `TYPESAFE_API_KEY` / DB接続情報はSecret ManagerからCloud Runへ渡す。`TYPESAFE_API_KEY` はJevを呼ぶWorkerだけに付与し、API serviceへは原則付与しない。
 
-`TIKTOK_MEDIA_ANALYSIS_ENABLED`は書面許可を確認した環境だけで`true`とし、TikTok動画フォールバックと写真投稿の主経路をまとめて制御する。dev環境は許可確認済みのため有効化する。`TIKTOK_VIDEO_BUCKET`は名前を維持した公開アクセス禁止の一時保存専用bucketであり、動画・写真本体や署名URLをDBへ保存しない。
+`YOUTUBE_GEMINI_FALLBACK_ENABLED` / `INSTAGRAM_MEDIA_FALLBACK_ENABLED` / `TIKTOK_MEDIA_ANALYSIS_ENABLED` は、foodfolioを動かす対象環境ではすべて `true` を前提とする。flagを実装上の安全装置として残しても、OFF状態を通常運用のrouteとして扱わない。必要なAPI key・利用許可・bucket等が不足している場合は環境設定不備として識別可能に失敗させる。
+
+TikTok media解析は必要な書面許可を確認した環境だけをdeployment対象とする。`TIKTOK_VIDEO_BUCKET`は名前を維持した公開アクセス禁止の一時保存専用bucketであり、動画・写真本体や署名URLをDBへ保存しない。
 
 Firebase Admin / Cloud Tasks等のGCP認証にはCloud Run Service AccountのApplication Default Credentialsを基本とし、Service Account JSON key fileを配布しない。
 

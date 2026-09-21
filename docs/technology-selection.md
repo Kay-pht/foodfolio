@@ -22,7 +22,7 @@
 
 詳細なAPI仕様、データモデル、画面単位の実装構造、エラーコード等は後続の実装設計で扱う。
 
-本書の選定内容は2026-08-27時点のMVP要件および各サービスの公開仕様を前提とする。
+本書の選定内容は2026-09-21時点のMVP要件、完了済みPoC、および各サービスの公開仕様を前提とする。
 
 ---
 
@@ -70,28 +70,29 @@
 
 ## 3. 採用技術スタック
 
-| 領域              | 採用技術                                        | 状態                 |
-| ----------------- | ----------------------------------------------- | -------------------- |
-| iOS               | Swift + SwiftUI                                 | 採用                 |
-| Minimum iOS       | iOS 26.0                                        | 採用                 |
-| iOSローカルDB     | SwiftData                                       | 採用                 |
-| iOS画像保存       | FileManager / Application Support               | 採用                 |
-| Backend Runtime   | Node.js + TypeScript                            | 採用                 |
-| Backend Hosting   | Google Cloud Run                                | 採用                 |
-| Database          | Neon PostgreSQL                                 | 採用                 |
-| ORM               | Prisma                                          | 採用                 |
-| Authentication    | Firebase Authentication                         | 採用                 |
-| 非同期Queue       | Google Cloud Tasks                              | 採用                 |
-| Worker            | Google Cloud Run                                | 採用                 |
-| Push Notification | Firebase Cloud Messaging + APNs                 | 採用                 |
-| AI Provider       | Z.ai / `glm-5.3-flash`                          | PoC合格・MVP採用     |
-| AI出力検証        | JSON Schema相当 + アプリ側Schema validation     | 採用                 |
-| YouTube metadata  | YouTube Data API v3 `videos.list(part=snippet)` | 採用                 |
-| IaC               | Terraform                                       | 採用                 |
-| Secrets           | Google Cloud Secret Manager                     | 採用                 |
-| Crash Reporting   | TestFlight標準のクラッシュ情報                  | 初回TestFlightで利用 |
-| Analytics         | TestFlight標準のセッション情報                  | 初回TestFlightで利用 |
-| 画像Cloud Storage | MVP初期は専用Storageを持たない                  | 採用                 |
+| 領域               | 採用技術                                        | 状態                 |
+| ------------------ | ----------------------------------------------- | -------------------- |
+| iOS                | Swift + SwiftUI                                 | 採用                 |
+| Minimum iOS        | iOS 26.0                                        | 採用                 |
+| iOSローカルDB      | SwiftData                                       | 採用                 |
+| iOS画像保存        | FileManager / Application Support               | 採用                 |
+| Backend Runtime    | Node.js + TypeScript                            | 採用                 |
+| Backend Hosting    | Google Cloud Run                                | 採用                 |
+| Database           | Neon PostgreSQL                                 | 採用                 |
+| ORM                | Prisma                                          | 採用                 |
+| Authentication     | Firebase Authentication                         | 採用                 |
+| 非同期Queue        | Google Cloud Tasks                              | 採用                 |
+| Worker             | Google Cloud Run                                | 採用                 |
+| Push Notification  | Firebase Cloud Messaging + APNs                 | 採用                 |
+| AI Provider        | Z.ai / `glm-5.3-flash`                          | PoC合格・MVP採用     |
+| AI semantic router | TypeSafe / Jev `jev-1.13.0`                     | PoC完了・採用        |
+| AI出力検証         | JSON Schema相当 + アプリ側Schema validation     | 採用                 |
+| YouTube metadata   | YouTube Data API v3 `videos.list(part=snippet)` | 採用                 |
+| IaC                | Terraform                                       | 採用                 |
+| Secrets            | Google Cloud Secret Manager                     | 採用                 |
+| Crash Reporting    | TestFlight標準のクラッシュ情報                  | 初回TestFlightで利用 |
+| Analytics          | TestFlight標準のセッション情報                  | 初回TestFlightで利用 |
+| 画像Cloud Storage  | MVP初期は専用Storageを持たない                  | 採用                 |
 
 ---
 
@@ -337,13 +338,15 @@ Cloud Run WorkerへTask配送
 ↓
 URL情報取得
 ↓
+Jev semantic routing（対象sourceのみ、失敗時fail-open）
+↓
 AI解析
 ↓
 結果Validation
 ↓
 DB更新
 ↓
-completed / failed
+completed / failed / not_recipe
 ↓
 通知設定ONならFCM送信
 ```
@@ -374,7 +377,7 @@ PoCの固定5 fixtureと5実URL×3回のE2E結果に基づき、MVPの標準AI�
 - API: Chat Completions JSON mode
 - Backend側でRecipe Schema validationを必須とする
 
-YouTubeだけは、YouTube Data APIで取得した説明欄に材料と複数工程が明確にある場合は標準Z.ai経路を使い、不十分または判定不能の場合に限ってGemini `gemini-3.5-flash-lite`へ公開動画URLと説明欄を同じ1リクエストで渡す。Geminiの根拠付き中間Schemaを決定論的にRecipe Schemaへ変換し、材料・手順が空の結果は保存しない。このfallbackは`YOUTUBE_GEMINI_FALLBACK_ENABLED`で既定無効とする。
+YouTubeは、YouTube Data APIで取得した説明欄が不十分・判定不能な場合、またはJevがvideo routeを選んだ場合、またはZ.ai text extractionで材料・手順が揃わなかった場合にGemini `gemini-3.5-flash-lite`へ公開動画URLと説明欄を同じ1リクエストで渡す。Geminiの根拠付き中間Schemaを決定論的にRecipe Schemaへ変換し、材料・手順が空の結果は保存しない。foodfolioを動かす対象環境ではこのGemini video routeを常時有効とする。
 
 Gemini 3.5 Flash-Lite Free Tierも同じ5 fixtureで比較したが、人数範囲を根拠なく平均化した1件があり、Hallucination 0件の基準を満たさなかった。OpenAIとDeepSeekはZ.aiが全基準を満たしたため、追加課金を避けて未実施とした。
 
@@ -437,6 +440,23 @@ Schema validation
 ```
 
 TypeScript側のSchema validation libraryは実装設計時に決定する。
+
+### 9.5 Semantic routing / Jev
+
+TypeSafe / Jevをレシピ抽出Providerとは分離したsemantic routerとして採用する。
+
+Jevの責務は以下に限定する。
+
+- 一般WebとChatGPT / Gemini共有で、十分に高い `p(non_recipe)` の場合にhard `not_recipe` とする
+- YouTube / Instagram / TikTokでtext routeとmedia / video routeを選択する
+
+JevはRecipe Schemaを生成しない。text route選択後もZ.ai結果が `ingredients > 0 AND steps > 0` を満たさない場合はmedia / videoへfallbackする。
+
+production requestは1 Worker delivery（Cloud Tasksの1回のanalysis attempt）につき最大1回とし、Jevのtimeout、network error、429、529、invalid response等ではretryせず既存routeへ即fail-openする。既存retryable errorでCloud Tasksが新しいdeliveryを開始した場合は、そのdeliveryで再度最大1回のJev判定を許可する。Jev errorをCloud Tasks retryの起点にはしない。
+
+thresholdはsource別設定値とし、classification probability、使用threshold、選択route、最終routeを構造化ログへ残す。Jev入力本文はログへ残さず、再検証用に文字数とSHA-256を記録する。
+
+初期thresholdとsource別routingの正本は [jev-production-routing.md](jev-production-routing.md) とする。
 
 ---
 
@@ -546,19 +566,19 @@ AI入力 / imageUrlへ変換
 
 Data APIへ変更後も、AIへ渡す中心情報は動画タイトルと動画説明欄であり、代表画像は`snippet.thumbnails`から取得する。
 
-説明欄の材料行と複数工程を決定論的に確認できる場合は動画を送らずZ.aiで解析する。どちらかが不足するか判定不能の場合だけ、設定で許可されていれば公開YouTube URLと説明欄をGemini `gemini-3.5-flash-lite`へ同時に渡す。Gemini呼び出しは1レシピにつき1回に固定し、timeout、HTTP 429、HTTP 5xxを含む失敗でもCloud Tasksから再試行しない。説明欄全文やGemini生応答は通常ログへ残さず、実際に使ったproviderだけをRecipe内部記録と構造化ログへ残す。この内部記録は公開Recipe APIへ追加しない。
+説明欄の材料行と複数工程を決定論的に確認できる場合はまずZ.ai text routeを候補とする。Jev判定でvideo routeとなった場合、またはZ.ai結果に材料・手順が揃わなかった場合は、公開YouTube URLと説明欄をGemini `gemini-3.5-flash-lite`へ同時に渡す。Gemini video routeは対象環境で常時有効とし、Geminiまで失敗した場合は解析失敗として不完全なtext結果を保存しない。Gemini呼び出しは1レシピにつき1回に固定し、timeout、HTTP 429、HTTP 5xxを含む失敗でもCloud Tasksから再試行しない。説明欄全文やGemini生応答は通常ログへ残さず、実際に使ったproviderだけをRecipe内部記録と構造化ログへ残す。この内部記録は公開Recipe APIへ追加しない。
 
 取得時間についてGoogleによる応答時間保証は確認できないため、旧方式と同等以上であるとは事前に断定しない。`YOUTUBE_API_KEY`を設定した実URL再PoCでData API requestのelapsed timeを記録する。
 
 ### 11.2 その他のサービス
 
-Instagram、TikTok等は一般Webページと取得条件が異なるため、公開仕様と実測結果に基づいてサービス別Extractorを使用する。
+Instagram、TikTok等は一般Webページと取得条件が異なるため、公開仕様と実測結果に基づいてサービス別Extractorを使用する。Instagramは取得・正規化後のmetadata / caption textが非空なら、recipe関連キーワードの有無で先に除外せずJevへ渡し、text routeかmedia routeかを選択する。textが実際に存在しない場合だけJevを呼ばずmedia routeへ進む。
 
-TikTok動画はoEmbedタイトルを先に`glm-5.3-flash`で解析し、材料または手順が0件の場合だけ動画フォールバックの候補とする。動画入力にも同じ`glm-5.3-flash`を使用する。取得は`yt-dlp 2026.08.19`、初回を含めて最大5回、MP4 100MB以下とする。
+TikTok動画はoEmbed等から判定用textを取得できた場合、まずJevでtext routeかvideo routeかを選択する。Jevがtext routeを選んだ場合だけ`glm-5.3-flash`でtext extractionを行い、材料または手順が不足した場合はvideo fallbackへ進む。判定用textが存在しない場合はJevを呼ばずvideo routeへ進む。動画入力にも同じ`glm-5.3-flash`を使用する。取得は`yt-dlp 2026.08.19`、初回を含めて最大5回、MP4 100MB以下とする。
 
-TikTok写真はoEmbedおよび動画用`yt-dlp`の対象外であるため、URLの`/photo/<postId>`判定後、TikTok Embed Playerが使用する公開メタデータ経路から投稿文と画像URLを取得する。この経路は公開ドキュメント化された正式APIではないため、Provider変更で利用不能になる可能性を運用上の制約として扱う。先頭10枚を順番に試行し、成功した画像が1枚以上あれば投稿文・ハッシュタグとともにZ.aiへ1回入力する。画像を主根拠、投稿文を補助情報とする。
+TikTok写真はoEmbedおよび動画用`yt-dlp`の対象外であるため、URLの`/photo/<postId>`判定後、TikTok Embed Playerが使用する公開メタデータ経路から投稿文と画像URLを取得する。この経路は公開ドキュメント化された正式APIではないため、Provider変更で利用不能になる可能性を運用上の制約として扱う。投稿文・ハッシュタグ等の判定用textが存在する場合はまずJevでtext routeかphoto media routeかを選択し、text routeで材料または手順が不足した場合だけ画像解析へfallbackする。判定用textが存在しない場合はJevを呼ばずphoto media routeへ進む。photo media routeでは先頭10枚を順番に試行し、成功した画像が1枚以上あれば投稿文・ハッシュタグとともにZ.aiへ1回入力し、画像を主根拠、投稿文を補助情報とする。
 
-書面許可のない自動抽出は有効化しない。`TIKTOK_MEDIA_ANALYSIS_ENABLED=false`を新しい環境の既定値とし、許可を確認した環境だけで動画フォールバックと写真解析を有効化する。dev環境は書面許可を確認済みのため`true`とする。
+書面許可のない自動抽出は有効化しない。そのため、必要な利用許可を確認できない環境はTikTok対応のdeployment対象にしない。foodfolioを動かす対象環境では `TIKTOK_MEDIA_ANALYSIS_ENABLED=true` を前提とし、動画・写真media routeを常時利用可能にする。
 
 有効化後は動画または写真を非公開GCS bucketへ一時保存し、署名URLでZ.aiへ渡す。通常完了時は即時削除し、異常終了時は1日後のlifecycle削除を安全網とする。メディア本体、署名URL、yt-dlp生出力は通常ログやRecipe DBへ保存しない。
 
@@ -906,8 +926,10 @@ Async
   Cloud Run Worker
 
 AI
-  Provider abstraction
+  Semantic router: TypeSafe / Jev
+  Recipe extraction abstraction
   Z.ai / glm-5.3-flash
+  Gemini / media fallback
 
 Notification
   Firebase Cloud Messaging
