@@ -37,6 +37,12 @@ p(non_recipe)
 
 Jevが返す確率は「最終的なレシピ抽出結果」ではない。どの解析経路へ進むか、または明確なnon-recipeとして終了するかを決めるために使用する。
 
+### 2.1 PoC記録と採用判断の関係
+
+`docs/poc-jev-media-routing-results.md` 等に残る `validationReady=false` / `productionQualified=false` は、その文書を作成した時点の検証母数と判定を保存するhistorical recordであり、数値や当時の判定は書き換えない。
+
+2026-09-21時点では実ユーザーがいない開発段階であること、Jev障害時は既存routeへfail-openすること、media系は低確率時も `not_recipe` にせずmediaへ送ること、確率・threshold・最終routeをログへ残して後から再評価できることを前提に、プロジェクト判断として本書のroutingを初期実装から適用する。過去PoC文書のqualification flagをruntimeのrollout gateとして扱わない。
+
 ---
 
 ## 3. 全体アーキテクチャ
