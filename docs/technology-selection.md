@@ -452,7 +452,7 @@ Jevの責務は以下に限定する。
 
 JevはRecipe Schemaを生成しない。text route選択後もZ.ai結果が `ingredients > 0 AND steps > 0` を満たさない場合はmedia / videoへfallbackする。
 
-production requestは1解析につき最大1回とし、Jevのtimeout、network error、429、529、invalid response等ではretryせず既存routeへ即fail-openする。Jev errorをCloud Tasks retryの起点にはしない。
+production requestは1 Worker delivery（Cloud Tasksの1回のanalysis attempt）につき最大1回とし、Jevのtimeout、network error、429、529、invalid response等ではretryせず既存routeへ即fail-openする。既存retryable errorでCloud Tasksが新しいdeliveryを開始した場合は、そのdeliveryで再度最大1回のJev判定を許可する。Jev errorをCloud Tasks retryの起点にはしない。
 
 thresholdはsource別設定値とし、classification probability、使用threshold、選択route、最終routeを構造化ログへ残す。Jev入力本文はログへ残さず、再検証用に文字数とSHA-256を記録する。
 
