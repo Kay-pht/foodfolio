@@ -416,8 +416,6 @@ not_recipe
 
 `not_recipe` は技術的な解析失敗ではなく、semantic gateが1つの具体的なレシピではないと正常判定したterminal stateとする。Recipeは削除せず、通常編集不可・元URL閲覧可・削除可とする。
 
-配布済みの旧iOS buildは `AnalysisStatus` をclosed enumとしてdecodeするため、未対応buildへ `not_recipe` を返してはならない。Backend / Prisma / APIが新statusを表現可能になった後も、Jevによる `not_recipe` の生成は専用hard-reject flagを既定OFFとして分離する。対応iOS buildへの移行とproduction qualificationの両方を確認するまで、対象Backendで新statusを発生させない。
-
 ### 7.6 Ingredient
 
 ```text
@@ -1166,11 +1164,11 @@ YouTube Data API title / description
    │        ├─ YOUTUBE_GEMINI_FALLBACK_ENABLED=false → 解析失敗
    │        └─ true → Gemini video fallback
    └─ threshold未満
-      ├─ YOUTUBE_GEMINI_FALLBACK_ENABLED=false → Z.ai text extraction
+      ├─ YOUTUBE_GEMINI_FALLBACK_ENABLED=false → 解析失敗
       └─ true → Gemini video route
 ```
 
-Jevの低いrecipe probabilityだけを理由にYouTubeを `not_recipe` にしない。説明欄にレシピがなくても動画内に存在する可能性があるためである。十分な説明欄でJevがmedia routeを選んでも、Gemini fallbackが無効なら既存のZ.ai text routeを維持し、有効なtext経路をJev判定だけでterminal failureへ変えない。Jev自身が失敗した場合は即fail-openし、Jev導入前のYouTube routeへ戻る。
+Jevの低いrecipe probabilityだけを理由にYouTubeを `not_recipe` にしない。説明欄にレシピがなくても動画内に存在する可能性があるためである。Jev自身が失敗した場合は即fail-openし、Jev導入前のYouTube routeへ戻る。
 
 Gemini出力は、説明欄材料一覧由来と手順・動画だけに登場する材料を分け、各材料に名前、分量原文、短い使用根拠、根拠元を持つ中間Schemaとする。決定論的後処理で両配列を統合し、使用根拠があり分量未記載なら`適量`にする。説明欄と動画の矛盾は説明欄を優先し、一般知識から材料・数値を補わない。`4人分`は`servings.value=4`、`8個分`等の個数は`servings.raw`だけを保存し、材料個数は出来上がり量へ転用しない。
 
@@ -1191,14 +1189,8 @@ TikTok URL
 │        ├─ p(recipe) >= source threshold
 │        │  → Z.ai text extraction
 │        │     ├─ ingredients・steps非空 → 保存
-│        │     └─ 不足
-│        │        ├─ TIKTOK_MEDIA_ANALYSIS_ENABLED=true → video fallback
-│        │        └─ false → 既存のfallback-disabled失敗
-│        └─ threshold未満
-│           ├─ TIKTOK_MEDIA_ANALYSIS_ENABLED=true → video route
-│           └─ false → Z.ai text extraction
-│                      ├─ ingredients・steps非空 → 保存
-│                      └─ 不足 → 既存のfallback-disabled失敗
+│        │     └─ 不足 → video fallback
+│        └─ threshold未満 → video route
 └─ /photo/
    └─ 公開メタデータから投稿文と画像URLを取得
       ├─ captionなし → photo media route
@@ -1210,7 +1202,7 @@ TikTok URL
          └─ threshold未満 → photo media route
 ```
 
-Jevがtext routeを選んでも `ingredients > 0 AND steps > 0` を満たさない場合は、mediaが有効ならmediaへ戻る。JevだけでTikTokを `not_recipe` にしない。Jev自身が失敗した場合は即fail-openし、動画は従来のtext-first route、写真は従来のphoto media routeへ戻る。動画・写真のmedia routeは引き続き `TIKTOK_MEDIA_ANALYSIS_ENABLED` と既存の利用許可条件に従い、無効時にJevがmedia取得を強制有効化してはならない。特にTikTok動画でtextが存在する場合、media無効時はJevのthreshold判定だけでtext attemptを飛ばさず、現在のtext-first挙動を維持する。Instagramも同じ原則とし、metadata textがある場合は `INSTAGRAM_MEDIA_FALLBACK_ENABLED=false` ならJevがmedia routeを選択してもZ.ai text extractionを試す。
+Jevがtext routeを選んでも `ingredients > 0 AND steps > 0` を満たさない場合は必ずmediaへ戻る。JevだけでTikTokを `not_recipe` にしない。Jev自身が失敗した場合は即fail-openし、動画は従来のtext-first route、写真は従来のphoto media routeへ戻る。動画・写真のmedia routeは引き続き `TIKTOK_MEDIA_ANALYSIS_ENABLED` と既存の利用許可条件に従い、無効時にJevがmedia取得を強制有効化してはならない。
 
 - `yt-dlp`は`2026.08.19`へ固定し、実行ファイルのSHA-256をDocker build時に検証する
 - 動画取得は初回を含めて最大5回。5回すべて失敗した場合は非リトライ可能とし、Cloud Tasksで同じ取得を繰り返さない
@@ -1358,7 +1350,7 @@ Jevは `RecipeContentClassifier` のようなApplication interface越しに利�
 
 Jev requestは1解析につき最大1回とし、timeout、network error、429、529、response body read失敗、invalid JSON / schema等ではretryせず即fail-openする。Jev errorはWorkerの `retryable error` として扱わず、同じWorker実行内でJev導入前の解析routeへ戻る。
 
-初期threshold、source別routing、qualification境界、ログ、`not_recipe` の詳細は [jev-production-routing.md](jev-production-routing.md) を正本とする。一般Web hard rejectは `APP_ENV` から独立した `JEV_GENERAL_WEB_HARD_REJECT_ENABLED=false` を初期値とし、checked-in production qualificationと対応iOSへの移行を確認した後だけ明示的に有効化する。AI共有会話はnon-recipe検証が揃うまでclassificationをログするだけでhard rejectしない。
+初期threshold、source別routing、ログ、`not_recipe` の詳細は [jev-production-routing.md](jev-production-routing.md) を正本とする。
 
 ---
 
@@ -2453,7 +2445,6 @@ TIKTOK_MEDIA_ANALYSIS_ENABLED=true # dev。新規環境の既定値はfalse
 TIKTOK_VIDEO_BUCKET
 TIKTOK_VIDEO_MAX_ATTEMPTS=5
 YT_DLP_PATH=/usr/local/bin/yt-dlp
-JEV_GENERAL_WEB_HARD_REJECT_ENABLED=false
 JEV_GENERAL_WEB_NON_RECIPE_THRESHOLD=0.80
 JEV_YOUTUBE_RECIPE_THRESHOLD=0.99
 JEV_INSTAGRAM_RECIPE_THRESHOLD=0.99
@@ -2464,7 +2455,7 @@ JEV_AI_CHAT_NON_RECIPE_THRESHOLD=0.99
 
 `MAX_ANALYSIS_ATTEMPTS` はCloud Tasks Queueのretry設定とWorkerの最終試行判定で同じ値を使用する。
 
-`ZAI_API_KEY` / `YOUTUBE_API_KEY` / `GEMINI_API_KEY` / `TYPESAFE_API_KEY` / DB接続情報はSecret ManagerからCloud Runへ渡す。`TYPESAFE_API_KEY` はJevを呼ぶWorkerだけに付与し、API serviceへは原則付与しない。`JEV_GENERAL_WEB_HARD_REJECT_ENABLED` は既定 `false` とし、`APP_ENV` から独立して管理する。production qualificationと `not_recipe` 対応クライアントへの移行を確認するまで `true` にしない。`YOUTUBE_GEMINI_FALLBACK_ENABLED`は既定で`false`とし、`true`でも実際にGeminiが必要になるまでAPI keyは使用しない。fallbackが必要な時点でkeyが未設定なら、識別可能な設定エラーとして解析を失敗させる。
+`ZAI_API_KEY` / `YOUTUBE_API_KEY` / `GEMINI_API_KEY` / `TYPESAFE_API_KEY` / DB接続情報はSecret ManagerからCloud Runへ渡す。`TYPESAFE_API_KEY` はJevを呼ぶWorkerだけに付与し、API serviceへは原則付与しない。`YOUTUBE_GEMINI_FALLBACK_ENABLED`は既定で`false`とし、`true`でも実際にGeminiが必要になるまでAPI keyは使用しない。fallbackが必要な時点でkeyが未設定なら、識別可能な設定エラーとして解析を失敗させる。
 
 `TIKTOK_MEDIA_ANALYSIS_ENABLED`は書面許可を確認した環境だけで`true`とし、TikTok動画フォールバックと写真投稿の主経路をまとめて制御する。dev環境は許可確認済みのため有効化する。`TIKTOK_VIDEO_BUCKET`は名前を維持した公開アクセス禁止の一時保存専用bucketであり、動画・写真本体や署名URLをDBへ保存しない。
 
