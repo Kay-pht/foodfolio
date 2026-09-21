@@ -22,7 +22,7 @@
 
 詳細なAPI仕様、データモデル、画面単位の実装構造、エラーコード等は後続の実装設計で扱う。
 
-本書の選定内容は2026-08-27時点のMVP要件および各サービスの公開仕様を前提とする。
+本書の選定内容は2026-09-21時点のMVP要件、完了済みPoC、および各サービスの公開仕様を前提とする。
 
 ---
 
@@ -85,6 +85,7 @@
 | Worker            | Google Cloud Run                                | 採用                 |
 | Push Notification | Firebase Cloud Messaging + APNs                 | 採用                 |
 | AI Provider       | Z.ai / `glm-5.3-flash`                          | PoC合格・MVP採用     |
+| AI semantic router | TypeSafe / Jev `jev-1.13.0`                     | PoC完了・採用        |
 | AI出力検証        | JSON Schema相当 + アプリ側Schema validation     | 採用                 |
 | YouTube metadata  | YouTube Data API v3 `videos.list(part=snippet)` | 採用                 |
 | IaC               | Terraform                                       | 採用                 |
@@ -337,13 +338,15 @@ Cloud Run WorkerへTask配送
 ↓
 URL情報取得
 ↓
+Jev semantic routing（対象sourceのみ、失敗時fail-open）
+↓
 AI解析
 ↓
 結果Validation
 ↓
 DB更新
 ↓
-completed / failed
+completed / failed / not_recipe
 ↓
 通知設定ONならFCM送信
 ```
@@ -437,6 +440,23 @@ Schema validation
 ```
 
 TypeScript側のSchema validation libraryは実装設計時に決定する。
+
+### 9.5 Semantic routing / Jev
+
+TypeSafe / Jevをレシピ抽出Providerとは分離したsemantic routerとして採用する。
+
+Jevの責務は以下に限定する。
+
+- 一般WebとChatGPT / Gemini共有で、十分に高い `p(non_recipe)` の場合にhard `not_recipe` とする
+- YouTube / Instagram / TikTokでtext routeとmedia / video routeを選択する
+
+JevはRecipe Schemaを生成しない。text route選択後もZ.ai結果が `ingredients > 0 AND steps > 0` を満たさない場合はmedia / videoへfallbackする。
+
+production requestは1解析につき最大1回とし、Jevのtimeout、network error、429、529、invalid response等ではretryせず既存routeへ即fail-openする。Jev errorをCloud Tasks retryの起点にはしない。
+
+thresholdはsource別設定値とし、classification probability、使用threshold、選択route、最終routeを構造化ログへ残す。Jev入力本文はログへ残さず、再検証用に文字数とSHA-256を記録する。
+
+初期thresholdとsource別routingの正本は [jev-production-routing.md](jev-production-routing.md) とする。
 
 ---
 
@@ -906,8 +926,10 @@ Async
   Cloud Run Worker
 
 AI
-  Provider abstraction
+  Semantic router: TypeSafe / Jev
+  Recipe extraction abstraction
   Z.ai / glm-5.3-flash
+  Gemini / media fallback
 
 Notification
   Firebase Cloud Messaging
