@@ -627,9 +627,10 @@ processing
 
 ### routing
 
-- 一般Web `p(non_recipe) >= 0.80` → `not_recipe`
+- 一般Web `p(non_recipe) >= 0.80` + dev環境 → `not_recipe`
+- 一般Web `p(non_recipe) >= 0.80` + 外部ユーザー環境 + qualification未完了 → Z.ai
 - 一般Web threshold未満 → Z.ai
-- AI chat `p(non_recipe) >= 0.99` → `not_recipe`
+- AI chatはcandidate thresholdを超えても初期実装ではZ.aiを継続し、classification / thresholdをログへ残す
 - AI chat recipe probabilityが0.77程度でもrejectしない
 - YouTube description insufficient → Jev未呼び出し + Gemini
 - YouTube sufficient + threshold以上 → text
