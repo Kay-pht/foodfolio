@@ -8,4 +8,8 @@ export class NoopNotificationSender implements NotificationSender {
   sendRecipeAnalysisFailed(): Promise<string[]> {
     return Promise.resolve([]);
   }
+
+  sendRecipeAnalysisNotRecipe(): Promise<string[]> {
+    return Promise.resolve([]);
+  }
 }

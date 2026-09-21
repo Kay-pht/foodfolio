@@ -23,6 +23,7 @@ enum AnalysisStatus {
   processing
   completed
   failed
+  not_recipe
 }
 
 enum AiProvider {

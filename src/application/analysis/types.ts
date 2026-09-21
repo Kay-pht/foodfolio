@@ -149,6 +149,8 @@ export interface PublishedVideo {
 export interface TemporaryVideoStore {
   publish(filePath: string): Promise<PublishedVideo>;
 }
+export const NOT_RECIPE_MESSAGE = "レシピとして判定できませんでした";
+
 export interface NotificationSender {
   sendRecipeAnalysisCompleted(
     tokens: string[],
@@ -159,6 +161,10 @@ export interface NotificationSender {
     tokens: string[],
     recipeId: string,
     title: string,
+  ): Promise<string[]>;
+  sendRecipeAnalysisNotRecipe(
+    tokens: string[],
+    recipeId: string,
   ): Promise<string[]>;
 }
 
