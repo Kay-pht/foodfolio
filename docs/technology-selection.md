@@ -447,8 +447,7 @@ TypeSafe / Jevをレシピ抽出Providerとは分離したsemantic routerとし�
 
 Jevの責務は以下に限定する。
 
-- qualification済みの一般Web等で、十分に高い `p(non_recipe)` の場合にhard `not_recipe` とする
-- ChatGPT / Gemini共有はnon-recipe検証が揃うまでclassificationのみ記録し、初期実装ではhard rejectしない
+- 一般WebとChatGPT / Gemini共有で、十分に高い `p(non_recipe)` の場合にhard `not_recipe` とする
 - YouTube / Instagram / TikTokでtext routeとmedia / video routeを選択する
 
 JevはRecipe Schemaを生成しない。text route選択後もZ.ai結果が `ingredients > 0 AND steps > 0` を満たさない場合はmedia / videoへfallbackする。
@@ -457,7 +456,7 @@ production requestは1解析につき最大1回とし、Jevのtimeout、network 
 
 thresholdはsource別設定値とし、classification probability、使用threshold、選択route、最終routeを構造化ログへ残す。Jev入力本文はログへ残さず、再検証用に文字数とSHA-256を記録する。
 
-初期threshold、source別routing、hard rejectのqualification境界は [jev-production-routing.md](jev-production-routing.md) を正本とする。一般Webの0.80はchecked-in PoCのproduction qualificationが完了するまでは候補値に留め、hard rejectは `APP_ENV` ではなく既定OFFの専用flagで制御する。対応iOSへの移行も確認するまでterminal `not_recipe` を発生させない。
+初期thresholdとsource別routingの正本は [jev-production-routing.md](jev-production-routing.md) とする。
 
 ---
 
