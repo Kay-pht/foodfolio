@@ -6,6 +6,11 @@ import {
   hasRequiredRecipeContent,
   type AiSharedRecipeThumbnailResult,
 } from "./recipe-thumbnail.js";
+import type {
+  JevRoutingDecision,
+  JevRoutingProvider,
+  JevSelectedRoute,
+} from "./jev-routing.js";
 import {
   AnalysisError,
   NOT_RECIPE_MESSAGE,
@@ -29,6 +34,9 @@ export interface AnalysisDependencies {
   prisma: PrismaClient;
   sourceExtractor: SourceContentExtractor;
   recipeExtractor: RecipeExtractor;
+  jevRouter?: JevRoutingProvider;
+  textRecipeExtractor?: RecipeExtractor;
+  youtubeVideoFallback?: RecipeExtractor;
   tiktokVideoFallback?: TikTokVideoRecipeFallback;
   tiktokPhotoAnalysis?: TikTokPhotoRecipeAnalysis;
   instagramMediaFallback?: InstagramMediaRecipeFallback;
@@ -43,6 +51,12 @@ interface FallbackOptions {
   disabledCode: string;
   disabledMessage: string;
   incompleteMessage: string;
+}
+
+interface RouteExecutionTrace {
+  finalRoute: JevSelectedRoute;
+  textExtractionComplete: boolean;
+  mediaFallbackUsed: boolean;
 }
 
 export interface NotRecipeTransitionDependencies {
@@ -164,11 +178,47 @@ export class RecipeAnalysisService {
         "reclaiming stale recipe analysis lease",
       );
 
+    let routingDecision: JevRoutingDecision | null = null;
+    let routingTrace: RouteExecutionTrace | null = null;
+
     try {
       const source = await this.deps.sourceExtractor.extract(
         new URL(recipe.originalUrl),
       );
-      const { result, videoFallbackUsed } = await this.extractRecipe(source);
+      routingDecision = this.deps.jevRouter
+        ? await this.deps.jevRouter.route(source)
+        : null;
+      if (routingDecision?.snapshot)
+        this.logJevDecision(recipeId, attempt, routingDecision, log);
+
+      if (routingDecision?.selectedRoute === "not_recipe") {
+        routingTrace = this.initialRouteTrace("not_recipe");
+        const completed = await completeNotRecipeAnalysis(
+          this.deps,
+          recipeId,
+          runId,
+          attempt,
+          log,
+        );
+        if (!completed) return this.resultAfterLostOwnership(recipeId);
+        this.logJevOutcome(
+          recipeId,
+          attempt,
+          routingDecision,
+          routingTrace,
+          "not_recipe",
+          log,
+        );
+        return { retry: false };
+      }
+
+      if (routingDecision)
+        routingTrace = this.initialRouteTrace(routingDecision.selectedRoute);
+      const { result, videoFallbackUsed } = await this.extractRecipe(
+        source,
+        routingDecision,
+        routingTrace,
+      );
       const title = result.recipe.title?.trim() || "タイトル未取得のレシピ";
       const staged = await this.deps.prisma.$transaction(async (tx) => {
         const owned = await tx.recipe.findFirst({
@@ -247,6 +297,15 @@ export class RecipeAnalysisService {
         },
         "recipe analysis completed",
       );
+      if (routingDecision)
+        this.logJevOutcome(
+          recipeId,
+          attempt,
+          routingDecision,
+          routingTrace,
+          "completed",
+          log,
+        );
       await this.notify(recipe.userId, recipeId, title, "completed", log);
       return { retry: false };
     } catch (error) {
@@ -289,30 +348,221 @@ export class RecipeAnalysisService {
         },
         "recipe analysis failed",
       );
+      if (routingDecision)
+        this.logJevOutcome(
+          recipeId,
+          attempt,
+          routingDecision,
+          routingTrace,
+          final ? "failed" : "pending",
+          log,
+        );
       if (final)
         await this.notify(recipe.userId, recipeId, title, "failed", log);
       return { retry: !final };
     }
   }
 
+  private initialRouteTrace(
+    selectedRoute: JevSelectedRoute,
+  ): RouteExecutionTrace {
+    return {
+      finalRoute: selectedRoute,
+      textExtractionComplete: false,
+      mediaFallbackUsed: false,
+    };
+  }
+
   private async extractRecipe(
+    source: SourceContent,
+    routingDecision: JevRoutingDecision | null,
+    trace: RouteExecutionTrace | null,
+  ): Promise<{ result: RecipeExtractionResult; videoFallbackUsed: boolean }> {
+    if (!routingDecision || routingDecision.selectedRoute === "fail_open")
+      return this.extractLegacyRecipe(source);
+
+    switch (routingDecision.selectedRoute) {
+      case "text":
+        return this.extractRoutedText(source, trace);
+      case "youtube_video":
+        return this.extractYoutubeVideo(source, trace);
+      case "instagram_media":
+        return this.extractInstagramMedia(source, trace);
+      case "tiktok_video":
+        return this.extractTikTokVideo(source, trace);
+      case "tiktok_photo_media":
+        return this.extractTikTokPhoto(source, trace);
+      case "not_recipe":
+        throw new AnalysisError(
+          "INTERNAL_ANALYSIS_ERROR",
+          false,
+          "not_recipe routing must be completed before extraction",
+        );
+      case "fail_open":
+        return this.extractLegacyRecipe(source);
+    }
+  }
+
+  private async extractRoutedText(
+    source: SourceContent,
+    trace: RouteExecutionTrace | null,
+  ): Promise<{ result: RecipeExtractionResult; videoFallbackUsed: boolean }> {
+    const textExtractor =
+      this.deps.textRecipeExtractor ?? this.deps.recipeExtractor;
+    const textResult = await textExtractor.extract(source);
+    const complete = hasRequiredRecipeContent(textResult);
+    if (trace) {
+      trace.finalRoute = "text";
+      trace.textExtractionComplete = complete;
+    }
+
+    if (source.sourceType === "youtube") {
+      if (complete) return { result: textResult, videoFallbackUsed: false };
+      return this.extractYoutubeVideo(source, trace, textResult);
+    }
+
+    if (source.sourceType === "instagram") {
+      if (complete) return { result: textResult, videoFallbackUsed: false };
+      return this.extractInstagramMedia(source, trace, textResult);
+    }
+
+    if (source.sourceType === "tiktok") {
+      if (complete) return { result: textResult, videoFallbackUsed: false };
+      return source.tiktokMediaKind === "photo"
+        ? this.extractTikTokPhoto(source, trace, textResult)
+        : this.extractTikTokVideo(source, trace, textResult);
+    }
+
+    return { result: textResult, videoFallbackUsed: false };
+  }
+
+  private async extractYoutubeVideo(
+    source: SourceContent,
+    trace: RouteExecutionTrace | null,
+    textResult?: RecipeExtractionResult,
+  ): Promise<{ result: RecipeExtractionResult; videoFallbackUsed: boolean }> {
+    if (trace) {
+      trace.finalRoute = "youtube_video";
+      trace.mediaFallbackUsed = !!textResult;
+    }
+    if (!this.deps.youtubeVideoFallback)
+      throw new AnalysisError(
+        "YOUTUBE_GEMINI_FALLBACK_DISABLED",
+        false,
+        "YouTube Gemini video analysis is disabled",
+      );
+    const mediaResult = await this.deps.youtubeVideoFallback.extract(source);
+    if (!hasRequiredRecipeContent(mediaResult))
+      throw new AnalysisError(
+        "SOURCE_CONTENT_UNAVAILABLE",
+        false,
+        "YouTube video did not contain enough recipe information",
+      );
+    return {
+      result: textResult
+        ? combineExtractionResults(textResult, mediaResult)
+        : mediaResult,
+      videoFallbackUsed: true,
+    };
+  }
+
+  private async extractInstagramMedia(
+    source: SourceContent,
+    trace: RouteExecutionTrace | null,
+    textResult?: RecipeExtractionResult,
+  ): Promise<{ result: RecipeExtractionResult; videoFallbackUsed: boolean }> {
+    if (trace) {
+      trace.finalRoute = "instagram_media";
+      trace.mediaFallbackUsed = !!textResult;
+    }
+    const fallback =
+      this.deps.instagramMediaFallback ?? this.deps.instagramVideoFallback;
+    if (!fallback)
+      throw new AnalysisError(
+        "INSTAGRAM_MEDIA_FALLBACK_DISABLED",
+        false,
+        "Instagram media analysis is disabled",
+      );
+    const mediaResult = await fallback.extract(source);
+    if (!hasRequiredRecipeContent(mediaResult))
+      throw new AnalysisError(
+        "SOURCE_CONTENT_UNAVAILABLE",
+        false,
+        "Instagram media did not contain enough recipe information",
+      );
+    return {
+      result: textResult
+        ? combineExtractionResults(textResult, mediaResult)
+        : mediaResult,
+      videoFallbackUsed: true,
+    };
+  }
+
+  private async extractTikTokVideo(
+    source: SourceContent,
+    trace: RouteExecutionTrace | null,
+    textResult?: RecipeExtractionResult,
+  ): Promise<{ result: RecipeExtractionResult; videoFallbackUsed: boolean }> {
+    if (trace) {
+      trace.finalRoute = "tiktok_video";
+      trace.mediaFallbackUsed = !!textResult;
+    }
+    if (!this.deps.tiktokVideoFallback)
+      throw new AnalysisError(
+        "TIKTOK_MEDIA_ANALYSIS_DISABLED",
+        false,
+        "TikTok video analysis is disabled",
+      );
+    const mediaResult = await this.deps.tiktokVideoFallback.extract(source);
+    if (!hasRequiredRecipeContent(mediaResult))
+      throw new AnalysisError(
+        "SOURCE_CONTENT_UNAVAILABLE",
+        false,
+        "TikTok video did not contain enough recipe information",
+      );
+    return {
+      result: textResult
+        ? combineExtractionResults(textResult, mediaResult)
+        : mediaResult,
+      videoFallbackUsed: true,
+    };
+  }
+
+  private async extractTikTokPhoto(
+    source: SourceContent,
+    trace: RouteExecutionTrace | null,
+    textResult?: RecipeExtractionResult,
+  ): Promise<{ result: RecipeExtractionResult; videoFallbackUsed: boolean }> {
+    if (trace) {
+      trace.finalRoute = "tiktok_photo_media";
+      trace.mediaFallbackUsed = !!textResult;
+    }
+    if (!this.deps.tiktokPhotoAnalysis)
+      throw new AnalysisError(
+        "TIKTOK_MEDIA_ANALYSIS_DISABLED",
+        false,
+        "TikTok photo analysis is disabled",
+      );
+    const mediaResult = await this.deps.tiktokPhotoAnalysis.extract(source);
+    if (!hasRequiredRecipeContent(mediaResult))
+      throw new AnalysisError(
+        "SOURCE_CONTENT_UNAVAILABLE",
+        false,
+        "TikTok photos did not contain enough recipe information",
+      );
+    return {
+      result: textResult
+        ? combineExtractionResults(textResult, mediaResult)
+        : mediaResult,
+      videoFallbackUsed: true,
+    };
+  }
+
+  private async extractLegacyRecipe(
     source: SourceContent,
   ): Promise<{ result: RecipeExtractionResult; videoFallbackUsed: boolean }> {
     if (source.sourceType === "tiktok" && source.tiktokMediaKind === "photo") {
-      if (!this.deps.tiktokPhotoAnalysis)
-        throw new AnalysisError(
-          "TIKTOK_MEDIA_ANALYSIS_DISABLED",
-          false,
-          "TikTok photo analysis is disabled",
-        );
-      const result = await this.deps.tiktokPhotoAnalysis.extract(source);
-      if (!hasRequiredRecipeContent(result))
-        throw new AnalysisError(
-          "SOURCE_CONTENT_UNAVAILABLE",
-          false,
-          "TikTok photos did not contain enough recipe information",
-        );
-      return { result, videoFallbackUsed: true };
+      return this.extractTikTokPhoto(source, null);
     }
 
     if (source.sourceType === "tiktok")
@@ -376,15 +626,61 @@ export class RecipeAnalysisService {
       );
     return {
       result: textResult
-        ? {
-            ...mediaResult,
-            inputTokens: textResult.inputTokens + mediaResult.inputTokens,
-            outputTokens: textResult.outputTokens + mediaResult.outputTokens,
-            latencyMs: textResult.latencyMs + mediaResult.latencyMs,
-          }
+        ? combineExtractionResults(textResult, mediaResult)
         : mediaResult,
       videoFallbackUsed: true,
     };
+  }
+
+  private logJevDecision(
+    recipeId: string,
+    attempt: number,
+    decision: JevRoutingDecision,
+    log: (fields: Record<string, unknown>, message: string) => void,
+  ): void {
+    const snapshot = decision.snapshot;
+    if (!snapshot) return;
+    log(
+      {
+        event: "jev_routing_decision",
+        recipeId,
+        analysisAttempt: attempt,
+        ...snapshot,
+      },
+      "Jev routing decision",
+    );
+  }
+
+  private logJevOutcome(
+    recipeId: string,
+    attempt: number,
+    decision: JevRoutingDecision,
+    trace: RouteExecutionTrace | null,
+    finalAnalysisStatus: "completed" | "not_recipe" | "pending" | "failed",
+    log: (fields: Record<string, unknown>, message: string) => void,
+  ): void {
+    const snapshot = decision.snapshot;
+    if (!snapshot?.jevSucceeded) return;
+    log(
+      {
+        event: "jev_routing_outcome",
+        recipeId,
+        analysisAttempt: attempt,
+        sourceType: snapshot.sourceType,
+        mediaKind: snapshot.mediaKind,
+        jevModel: snapshot.jevModel,
+        recipeProbability: snapshot.recipeProbability,
+        nonRecipeProbability: snapshot.nonRecipeProbability,
+        thresholdName: snapshot.thresholdName,
+        thresholdValue: snapshot.thresholdValue,
+        selectedRoute: snapshot.selectedRoute,
+        finalRoute: trace?.finalRoute ?? decision.selectedRoute,
+        textExtractionComplete: trace?.textExtractionComplete ?? false,
+        mediaFallbackUsed: trace?.mediaFallbackUsed ?? false,
+        finalAnalysisStatus,
+      },
+      "Jev routing outcome",
+    );
   }
 
   private async completeAnalysis(
@@ -547,4 +843,16 @@ export class RecipeAnalysisService {
       );
     }
   }
+}
+
+function combineExtractionResults(
+  textResult: RecipeExtractionResult,
+  mediaResult: RecipeExtractionResult,
+): RecipeExtractionResult {
+  return {
+    ...mediaResult,
+    inputTokens: textResult.inputTokens + mediaResult.inputTokens,
+    outputTokens: textResult.outputTokens + mediaResult.outputTokens,
+    latencyMs: textResult.latencyMs + mediaResult.latencyMs,
+  };
 }
