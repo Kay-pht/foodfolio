@@ -572,11 +572,11 @@ Data APIへ変更後も、AIへ渡す中心情報は動画タイトルと動画�
 
 ### 11.2 その他のサービス
 
-Instagram、TikTok等は一般Webページと取得条件が異なるため、公開仕様と実測結果に基づいてサービス別Extractorを使用する。
+Instagram、TikTok等は一般Webページと取得条件が異なるため、公開仕様と実測結果に基づいてサービス別Extractorを使用する。Instagramは取得・正規化後のmetadata / caption textが非空なら、recipe関連キーワードの有無で先に除外せずJevへ渡し、text routeかmedia routeかを選択する。textが実際に存在しない場合だけJevを呼ばずmedia routeへ進む。
 
-TikTok動画はoEmbedタイトルを先に`glm-5.3-flash`で解析し、材料または手順が0件の場合だけ動画フォールバックの候補とする。動画入力にも同じ`glm-5.3-flash`を使用する。取得は`yt-dlp 2026.08.19`、初回を含めて最大5回、MP4 100MB以下とする。
+TikTok動画はoEmbed等から判定用textを取得できた場合、まずJevでtext routeかvideo routeかを選択する。Jevがtext routeを選んだ場合だけ`glm-5.3-flash`でtext extractionを行い、材料または手順が不足した場合はvideo fallbackへ進む。判定用textが存在しない場合はJevを呼ばずvideo routeへ進む。動画入力にも同じ`glm-5.3-flash`を使用する。取得は`yt-dlp 2026.08.19`、初回を含めて最大5回、MP4 100MB以下とする。
 
-TikTok写真はoEmbedおよび動画用`yt-dlp`の対象外であるため、URLの`/photo/<postId>`判定後、TikTok Embed Playerが使用する公開メタデータ経路から投稿文と画像URLを取得する。この経路は公開ドキュメント化された正式APIではないため、Provider変更で利用不能になる可能性を運用上の制約として扱う。先頭10枚を順番に試行し、成功した画像が1枚以上あれば投稿文・ハッシュタグとともにZ.aiへ1回入力する。画像を主根拠、投稿文を補助情報とする。
+TikTok写真はoEmbedおよび動画用`yt-dlp`の対象外であるため、URLの`/photo/<postId>`判定後、TikTok Embed Playerが使用する公開メタデータ経路から投稿文と画像URLを取得する。この経路は公開ドキュメント化された正式APIではないため、Provider変更で利用不能になる可能性を運用上の制約として扱う。投稿文・ハッシュタグ等の判定用textが存在する場合はまずJevでtext routeかphoto media routeかを選択し、text routeで材料または手順が不足した場合だけ画像解析へfallbackする。判定用textが存在しない場合はJevを呼ばずphoto media routeへ進む。photo media routeでは先頭10枚を順番に試行し、成功した画像が1枚以上あれば投稿文・ハッシュタグとともにZ.aiへ1回入力し、画像を主根拠、投稿文を補助情報とする。
 
 書面許可のない自動抽出は有効化しない。そのため、必要な利用許可を確認できない環境はTikTok対応のdeployment対象にしない。foodfolioを動かす対象環境では `TIKTOK_MEDIA_ANALYSIS_ENABLED=true` を前提とし、動画・写真media routeを常時利用可能にする。
 
