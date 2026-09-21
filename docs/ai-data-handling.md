@@ -1,10 +1,10 @@
 # AI解析におけるデータ送信方針
 
-最終更新日: 2026-09-15
+最終更新日: 2026-09-21
 
 ## 1. 結論
 
-Foodfolioの現行実装では、Z.ai / Google Geminiへレシピ解析を依頼し、ChatGPT / Geminiの公開共有レシピでは条件を満たす場合にOpenAIへ代表サムネイル生成を依頼する。いずれのAI Providerへのrequestにも、Foodfolioの利用者を識別するためのアカウント情報を含めない。
+Foodfolioの現行実装では、Z.ai / Google Geminiへレシピ解析を依頼し、ChatGPT / Geminiの公開共有レシピでは条件を満たす場合にOpenAIへ代表サムネイル生成を依頼する。Jev本番導入後は、これらの前段でTypeSafe / Jevへ判定用textを送るsemantic routingを追加する。いずれのAI Providerへのrequestにも、Foodfolioの利用者を識別するためのアカウント情報を含めない。
 
 そのため、FoodfolioではAI利用そのものを理由とした専用の同意状態、同意API、同意撤回、同意を前提としたアプリ利用制限を持たない。AI Providerの利用と送信対象はプライバシーポリシーで開示する。
 
@@ -12,7 +12,7 @@ Foodfolioの現行実装では、Z.ai / Google Geminiへレシピ解析を依頼
 
 ## 2. AI Providerへ送らない情報
 
-現行のAI経路では、少なくとも以下をZ.ai / Gemini / OpenAIのrequest bodyやProvider向け識別メタデータとして渡さない。
+Jev本番導入後を含むAI経路では、少なくとも以下をTypeSafe / Jev、Z.ai、Gemini、OpenAIのrequest bodyやProvider向け識別メタデータとして渡さない。
 
 - FoodfolioのDB上の `User.id`
 - Firebase UID
@@ -28,6 +28,37 @@ BackendはRecipeの所有者として `recipe.userId` を保持するが、こ�
 OpenAIの画像生成には、ChatGPT / Geminiの共有会話全文、共有URL、Foodfolio User ID、Recipe IDを送らない。Recipe IDはFoodfolio側の生成画像保存先prefixにのみ利用する。
 
 ## 3. AI Providerへ送る情報
+
+### TypeSafe / Jev
+
+Jevはレシピ抽出ではなくsemantic gate / routerとして使用し、SourceContentから抽出した判定用textだけを送る。
+
+sourceごとの主な入力は以下。
+
+- 一般Web: タイトル、説明、Recipe JSON-LDまたはページ本文から構成した `textForAi`
+- YouTube: 決定論的な説明欄十分性判定を通過した場合のタイトル・説明欄
+- Instagram: 取得できたmetadata / caption text
+- TikTok動画: 取得できたtitle / caption text
+- TikTok写真: 取得できた投稿文・ハッシュタグ。画像自体や画像URLはJevへ送らない
+- ChatGPT / Gemini公開共有: 正規化したuser / assistant transcript
+
+Jevへ以下は送らない。
+
+- Foodfolio User ID / Recipe所有者情報
+- email / Firebase UID / token
+- 画像・動画本体
+- 一時signed URL
+- コメント、投稿者プロフィール等のroutingに不要な情報
+
+Jevへ送った本文は通常ログへ保存しない。閾値再評価のため、Foodfolio側の構造化ログには正規化済みJev入力の文字数とSHA-256を保存できるが、これはProvider送信本文の複製ではない。
+
+Jev障害時は同じWorker実行内で既存のZ.ai / Gemini / media routeへfail-openし、Jev障害だけを理由にRecipeをfailedへしない。
+
+本番有効化前に、外部AI利用の開示対象へTypeSafe / Jevを追加し、実際の送信内容と本書が一致していることを確認する。
+
+設計根拠:
+
+- `docs/jev-production-routing.md`
 
 ### Z.ai
 
@@ -136,7 +167,11 @@ SourceContent
   - tiktokMediaKind
   - tiktokPhotoImageUrls
         ↓
-Z.ai / Gemini Adapter
+必要なsourceのみ RecipeContentClassifier
+        ↓
+TypeSafe / Jev
+        ↓ route decision / fail-open
+Z.ai / Gemini / Media Adapter
         ↓
 ExtractedRecipe
   - title
@@ -146,13 +181,13 @@ ExtractedRecipe
 OpenAI Image API
 ```
 
-`SourceContent`やOpenAI向け画像生成入力にFoodfolioの利用者識別子を追加しないことを、AI Provider境界の基本ルールとする。
+`SourceContent`、Jev判定入力、OpenAI向け画像生成入力にFoodfolioの利用者識別子を追加しないことを、AI Provider境界の基本ルールとする。Jevのclassification probability、threshold、route、入力hash等の運用ログはFoodfolio側のobservabilityであり、Providerへ追加送信する識別メタデータとして扱わない。
 
 ## 5. AI専用同意を持たない理由
 
 Apple App Review Guidelines 5.1.2(i) は、個人データを第三者（第三者AIを含む）と共有する場合の開示と許可について定めている。
 
-Foodfolioの現行AI Provider requestは、上記のとおりFoodfolio利用者を識別するアカウント情報を含めない。したがって、現行のデータフローでは「AIを利用すること」だけを理由に独立したAI同意状態を持たず、外部AIの利用目的と送信対象をプライバシーポリシーで開示する方針とする。
+FoodfolioのAI Provider requestは、Jev本番導入後も上記のとおりFoodfolio利用者を識別するアカウント情報を含めない。したがって、現行のデータフローでは「AIを利用すること」だけを理由に独立したAI同意状態を持たず、外部AIの利用目的と送信対象をプライバシーポリシーで開示する方針とする。
 
 参考:
 
