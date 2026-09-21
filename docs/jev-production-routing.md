@@ -670,6 +670,19 @@ processing
 
 Jev本番導入は2PRに分ける。
 
+### 16.1 Specification as Code
+
+このdocs-only設計PRでは `specs/tasks/*.yaml` を変更しない。既存の `JEV-RECIPE-GATE-POC-001` はPoC専用のhistorical specとして維持し、production routingの契約へ流用・書き換えしない。
+
+後続の各実装PRでは、production挙動へ影響するコード変更へ着手する前に、そのPRの対象範囲に対応する新しい `specs/tasks/*.yaml` を追加または確定し、`npm run check:specs` を成功させる。Spec確定前にproduction codeを変更しない。
+
+- PR 1では `not_recipe` のstate / API / iOS / notification契約をspec化する
+- PR 2ではJev adapter、fail-open、source別routing、threshold、observability契約をspec化する
+
+これにより、PoC specの「production routing unchanged」という契約と、本番導入実装のSpecification as Codeを混在させない。
+
+
+
 ### PR 1: not_recipe基盤
 
 対象:
