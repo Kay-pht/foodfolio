@@ -612,7 +612,7 @@ MVPでは以下を扱う。
 
 特定サイト専用の入力方式ではなく、可能な限り**任意のWeb URLを受け付けられる設計**を基本とする。
 
-Jev本番導入後は、SourceContent取得後にsource別のsemantic gate / routerを適用する。一般WebとChatGPT / Gemini共有では明確なnon-recipeを早期終了し、YouTube / Instagram / TikTokではtext解析とmedia解析の振り分けに使う。Jevが失敗した場合は解析失敗にせず、Jev導入前の既存routeへ即時fallbackする。詳細は [jev-production-routing.md](jev-production-routing.md) を参照する。
+Jev本番導入後は、SourceContent取得後にsource別のsemantic gate / routerを適用する。hard non-recipeによる早期終了はqualification済みsourceだけで行う。初期導入では一般Webはdev環境に限定し、ChatGPT / Gemini共有はclassificationをログへ残しつつ従来のZ.ai解析を継続する。YouTube / Instagram / TikTokではtext解析とmedia解析の振り分けに使う。Jevが失敗した場合は解析失敗にせず、Jev導入前の既存routeへ即時fallbackする。詳細は [jev-production-routing.md](jev-production-routing.md) を参照する。
 
 TikTok動画はJevがtext routeを選んだ場合にテキスト解析を先行し、材料または手順が不足する場合は動画解析へフォールバックする。TikTok写真もcaptionのrecipe probabilityが閾値以上ならテキスト解析を先行し、不足時だけ写真解析へフォールバックする。
 
