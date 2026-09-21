@@ -1529,7 +1529,7 @@ pending / processing -> 処理対象
 - Schema validation失敗
 - 一時的DB / network障害
 
-Jevのtimeout、network error、HTTP 429 / 529、body read失敗、response不正はこのretryable error一覧へ含めない。Jevは1解析につき1回だけ呼び、失敗時は同一Worker実行内で従来routeへfail-openする。
+Jevのtimeout、network error、HTTP 429 / 529、body read失敗、response不正はこのretryable error一覧へ含めない。Jevは1 Worker delivery（Cloud Tasksの1回のanalysis attempt）につき最大1回だけ呼び、失敗時は同一Worker実行内で従来routeへfail-openする。下流の既存retryable errorで新しいdeliveryが開始した場合は、その新しいdeliveryで再度最大1回呼んでよい。
 
 ただし、14.1のYouTube Geminiフォールバックは、1レシピにつきGeminiを1回だけ呼ぶ制約を優先する例外とする。Geminiのtimeout、HTTP 429、HTTP 5xx、JSON・Schema不正を含む全失敗は`retryable=false`とし、Cloud Tasksで再試行しない。ここでの`retryable=false`は障害原因が恒久的という意味ではなく、この1回制約に基づいて当該レシピの処理を終了することを表す。
 
