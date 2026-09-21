@@ -18,7 +18,12 @@ describe("ProductionSourceContentExtractor representative image resolution", () 
     ).resolves.toBe("https://example.com/images/dish.jpg");
     await expect(
       extractor.extract(new URL("https://example.com/recipe")),
-    ).rejects.toMatchObject({ code: "SOURCE_CONTENT_UNAVAILABLE" });
+    ).resolves.toEqual({
+      sourceType: "web",
+      resolvedUrl: "https://example.com/recipe",
+      imageUrl: "https://example.com/images/dish.jpg",
+      textForAi: "PAGE_TEXT\nplain page",
+    });
   });
 
   it("uses the same YouTube thumbnail priority as initial extraction", async () => {

@@ -98,6 +98,29 @@ describe("YoutubeAwareRecipeExtractor", () => {
     },
   );
 
+  it("keeps the legacy fail-open route for sufficient descriptions with incomplete Z.ai output", async () => {
+    const incomplete = recipeResult("zai");
+    incomplete.recipe.steps = [];
+    const extractZai = vi.fn(async () => incomplete);
+    const extractGemini = vi.fn(async () => recipeResult("gemini"));
+    const router = new YoutubeAwareRecipeExtractor(
+      { extract: extractZai },
+      { extract: extractGemini },
+    );
+    const description =
+      "材料\n豚肉 200g\n白菜 1/4個\n作り方\n1. 白菜を切る\n2. 豚肉を炒める";
+
+    await expect(
+      router.extract(youtubeSource(description)),
+    ).rejects.toMatchObject({
+      code: "AI_RECIPE_INCOMPLETE",
+      retryable: true,
+      provider: "zai",
+    });
+    expect(extractZai).toHaveBeenCalledOnce();
+    expect(extractGemini).not.toHaveBeenCalled();
+  });
+
   it("returns a distinct error when Gemini fallback is disabled", async () => {
     const router = new YoutubeAwareRecipeExtractor(
       { extract: async () => recipeResult("zai") },

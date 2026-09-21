@@ -4,6 +4,7 @@ import { loadConfig } from "../../src/config/env.js";
 const workerEnvironment = {
   DATABASE_URL: "postgresql://localhost/foodfolio",
   ZAI_API_KEY: "test-zai-key",
+  TYPESAFE_API_KEY: "test-typesafe-key",
   YOUTUBE_API_KEY: "test-youtube-key",
 };
 

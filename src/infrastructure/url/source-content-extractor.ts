@@ -13,8 +13,6 @@ import {
 import { SafeHttpClient } from "./safe-http-client.js";
 
 const MAX_AI_CHARS = 18_000;
-const RECIPE_CONTENT_PATTERN =
-  /(レシピ|材料|分量|下ごしらえ|下準備|作り方|作りかた|つくり方|つくりかた|手順|調理|recipe|ingredients?|instructions?)/i;
 const normalize = (value: unknown): string | null =>
   typeof value === "string" && value.replace(/\s+/g, " ").trim()
     ? value.replace(/\s+/g, " ").trim()
@@ -91,7 +89,7 @@ function htmlContent(html: string): {
   const text = parts.join("\n\n").slice(0, MAX_AI_CHARS);
   return {
     imageUrl,
-    text: RECIPE_CONTENT_PATTERN.test(text) ? text : null,
+    text: text || null,
   };
 }
 

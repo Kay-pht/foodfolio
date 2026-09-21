@@ -1,0 +1,157 @@
+id: JEV-PRODUCTION-ROUTING-001
+type: feature
+status: approved
+
+objective: >-
+  Enable Jev as the production semantic gate and source-aware router in the Worker after SourceContent
+  extraction, while keeping Jev optional through fail-open behavior and preserving the existing
+  not_recipe foundation, media fallbacks, provider retry semantics, and privacy boundaries.
+
+requirements:
+  - id: JEV-RT-1
+    condition: Production application code needs a recipe/non-recipe semantic classification.
+    expected: >-
+      The Application layer depends on a RecipeContentClassifier abstraction rather than TypeSafe APIs.
+      The production TypeSafe/Jev adapter uses jev-1.13.0, performs at most one HTTP request per Worker
+      delivery with a 3000 ms timeout, validates the choice probabilities, and converts timeout, network,
+      HTTP, body-read, and malformed-response failures into fail-open classification failures without
+      retrying Jev.
+    verification:
+      - tests/unit/typesafe-jev-recipe-content-classifier.test.ts
+      - tests/unit/jev-production-routing.test.ts
+      - src/application/analysis/types.ts
+  - id: JEV-RT-2
+    condition: A general Web, Kurashiru, or Cookpad page has fetchable non-empty text, including text without recipe keywords.
+    expected: >-
+      Semantic keyword gating does not terminate extraction before Jev. Jev receives the extracted text;
+      p(non_recipe) at or above JEV_GENERAL_WEB_NON_RECIPE_THRESHOLD (default 0.80) transitions the
+      Recipe to terminal not_recipe, while lower probability continues to the existing Z.ai text route.
+    verification:
+      - tests/unit/instagram-source-content-extractor.test.ts
+      - tests/unit/jev-production-routing.test.ts
+      - tests/e2e/jev-production-routing.test.ts
+  - id: JEV-RT-3
+    condition: A ChatGPT or Gemini shared conversation has been serialized into SourceContent text.
+    expected: >-
+      Jev receives the serialized conversation. p(non_recipe) at or above
+      JEV_AI_CHAT_NON_RECIPE_THRESHOLD (default 0.99) transitions to not_recipe; lower values continue
+      to Z.ai regardless of recipe probability, including recipe probabilities around 0.77.
+    verification:
+      - tests/unit/ai-shared-source-content-extractor.test.ts
+      - tests/unit/jev-production-routing.test.ts
+      - tests/e2e/jev-production-routing.test.ts
+  - id: JEV-RT-4
+    condition: YouTube metadata is extracted for recipe analysis.
+    expected: >-
+      assessYoutubeDescription runs before Jev. Insufficient or unknown descriptions bypass Jev and use
+      Gemini video analysis. Sufficient descriptions use Jev with JEV_YOUTUBE_RECIPE_THRESHOLD
+      (default 0.99): matched classifications try Z.ai text first and fall back to Gemini when ingredients
+      or steps are incomplete, while unmatched classifications use Gemini directly. Gemini failure after
+      that route is selected fails analysis and never saves or returns to an incomplete text result.
+    verification:
+      - tests/unit/youtube-aware-recipe-extractor.test.ts
+      - tests/unit/jev-production-routing.test.ts
+      - tests/e2e/jev-production-routing.test.ts
+      - tests/e2e/gemini-youtube-failure.test.ts
+  - id: JEV-RT-5
+    condition: Instagram, TikTok video, or TikTok photo SourceContent is ready for routing.
+    expected: >-
+      Empty text bypasses Jev and selects the appropriate media route. Non-empty text is classified
+      without recipe-keyword prefiltering. p(recipe) at or above the source-specific default 0.99
+      threshold tries Z.ai text first and falls back to the corresponding media route when required
+      content is incomplete; lower probability selects media directly. Jev alone never produces
+      not_recipe for these media sources, and a selected media route failure never falls back to text.
+    verification:
+      - tests/unit/instagram-source-content-extractor.test.ts
+      - tests/unit/jev-production-routing.test.ts
+      - tests/e2e/jev-production-routing.test.ts
+      - tests/e2e/backend-worker.test.ts
+  - id: JEV-RT-6
+    condition: A Jev request fails for any source where classification would otherwise run.
+    expected: >-
+      The same Worker delivery immediately follows the pre-Jev route for that source. Jev failure alone
+      never moves the Recipe to pending or failed and never causes a Cloud Tasks retry. A later Worker
+      delivery caused by an existing downstream retryable error may make one new Jev request.
+    verification:
+      - tests/e2e/jev-production-routing.test.ts
+      - tests/unit/youtube-aware-recipe-extractor.test.ts
+  - id: JEV-RT-7
+    condition: Jev is called or a successful Jev decision reaches a final Worker outcome.
+    expected: >-
+      Structured logs record the documented routing decision and outcome fields, including probabilities,
+      threshold name/value/match, selected and final routes, model, latency, input character count, and
+      SHA-256 of the exact normalized classifier input. Logs do not contain source text, raw Jev responses,
+      credentials, authorization headers, or signed media URLs.
+    verification:
+      - tests/e2e/jev-production-routing.test.ts
+      - docs/jev-production-routing.md
+  - id: JEV-RT-8
+    condition: The production Worker is configured and deployed from Terraform.
+    expected: >-
+      TYPESAFE_API_KEY is required by the Worker, is sourced from Secret Manager only into the Worker,
+      and the six source-specific threshold environment variables are configurable with the approved
+      defaults. The target Terraform deployment keeps YouTube, Instagram, and TikTok media analysis
+      enabled, while the API service does not receive the TypeSafe secret.
+    verification:
+      - tests/unit/production-build-config-proof.test.mjs
+      - infra/terraform/main.tf
+      - src/config/env.ts
+
+edge_cases:
+  - TypeSafe returns 429 or 529 on the only Jev request in a Worker delivery.
+  - Fetch succeeds but response.text() rejects.
+  - TypeSafe returns non-JSON, an unknown choice, an out-of-range probability, or probabilities that do not sum to one.
+  - General Web content is meaningful text but contains none of the old recipe keywords.
+  - Instagram metadata text is non-empty but contains none of the old recipe keywords.
+  - YouTube description is structurally sufficient, Jev selects text, and Z.ai returns ingredients without steps or steps without ingredients.
+  - TikTok photo has caption text and Jev selects the text fast route, but Z.ai output is incomplete.
+  - Jev succeeds, downstream media or provider analysis fails, and the Worker must not reroute to an incomplete text result.
+  - A downstream retryable error causes another Cloud Tasks delivery after a previous successful Jev decision.
+
+security_invariants:
+  - Jev receives extracted SourceContent text only and never receives Foodfolio user IDs, email, Firebase UID, device tokens, authentication tokens, Recipe ownership data, or private credentials.
+  - Raw source text, full AI conversations, raw Jev responses, API keys, Authorization headers, and signed media URLs are not written to normal logs.
+  - TYPESAFE_API_KEY is injected through Secret Manager into the Worker and is not exposed to the public API service.
+  - Existing SSRF protections and media retrieval boundaries are unchanged.
+
+compatibility:
+  - The merged not_recipe API and iOS contract from PR 1 remains unchanged.
+  - Existing Z.ai, Gemini, Instagram media, TikTok video, and TikTok photo adapters remain the execution mechanisms after routing.
+  - Jev failure preserves the pre-Jev routing behavior for each source rather than introducing a new terminal state.
+  - Existing Cloud Tasks retry behavior continues to be driven by downstream AnalysisError semantics, not Jev availability.
+
+non_functional:
+  - Jev adds at most one provider request per Worker delivery and uses a 3000 ms request timeout.
+  - Thresholds are independently configurable by source and validated as probabilities from 0 through 1.
+  - Jev routing probabilities are not persisted in the Recipe database.
+  - Routing logs are sufficient to reassess thresholds without logging classifier input text.
+  - Production code does not import the PoC implementation.
+
+out_of_scope:
+  - Using Jev to generate Recipe fields.
+  - Persisting Jev probabilities or raw responses in PostgreSQL.
+  - An off, observe, or enforce rollout mode.
+  - A threshold-management UI or automatic threshold optimization.
+  - Automatically reclassifying existing completed, failed, or not_recipe Recipes.
+  - Changing iOS UI or the not_recipe notification contract established by PR 1.
+
+acceptance_criteria:
+  - Production has a RecipeContentClassifier abstraction and a single-attempt TypeSafe/Jev adapter.
+  - General Web and AI shared links can reach terminal not_recipe only at their configured hard-reject thresholds.
+  - YouTube, Instagram, TikTok video, and TikTok photo use the documented text/media routing and incomplete-text fallback behavior.
+  - Every Jev failure class fails open within the same delivery without a Jev retry or Jev-caused Worker retry.
+  - General Web and Instagram no longer use recipe-keyword presence as a semantic prefilter before Jev.
+  - Routing decision and final outcome logs contain the documented snapshot and exact-input SHA-256 but no source body.
+  - Worker configuration and Terraform inject the TypeSafe secret and approved threshold defaults only where required.
+  - npm run verify succeeds on the final PR head and the PR remains unmerged for independent review.
+
+regression:
+  required: false
+  tests:
+    - tests/e2e/backend-worker.test.ts
+    - tests/e2e/jev-production-routing.test.ts
+    - tests/unit/typesafe-jev-recipe-content-classifier.test.ts
+    - tests/unit/jev-production-routing.test.ts
+    - tests/unit/youtube-aware-recipe-extractor.test.ts
+    - tests/unit/instagram-source-content-extractor.test.ts
+    - tests/unit/production-build-config-proof.test.mjs

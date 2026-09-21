@@ -456,7 +456,7 @@ PoCではretry挙動を検証したが、本番でのJevは必須処理ではな
 
 ここでいう「1回」はJev API自身を同じWorker delivery内で再試行しないという意味である。Jev成功後にZ.ai・media・DB等の既存retryable errorでCloud Tasksが新しいdeliveryを開始した場合、その新しいdeliveryではJevを再度最大1回呼んでよい。Jev probabilityやrouting decisionをこの制約のためだけにDBへ永続化しない。
 
-Jev requestには明示的なtimeoutを設定する。具体的な初期timeout値は実装PRで、PoCの実測レイテンシとWorker全体のtimeout制約を確認して確定する。ただし複数attemptは導入しない。
+Jev requestには明示的なtimeoutを設定する。PR 2でPoCの実測レイテンシとWorker全体のtimeout制約を確認した結果、**初期timeoutは3000ms** とする。timeout時も同一delivery内でJevを再試行せず、即fail-openする。
 
 ---
 

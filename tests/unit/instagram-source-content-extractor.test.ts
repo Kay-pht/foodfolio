@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { SafeHttpClient } from "../../src/infrastructure/url/safe-http-client.js";
 import { ProductionSourceContentExtractor } from "../../src/infrastructure/url/source-content-extractor.js";
 
-describe("Instagram source metadata extraction", () => {
-  it("returns empty text instead of failing so video fallback can run", async () => {
+describe("HTML source metadata extraction", () => {
+  it("keeps non-keyword Instagram metadata so Jev can classify it", async () => {
     const http = {
       async get() {
         return {
@@ -19,17 +19,17 @@ describe("Instagram source metadata extraction", () => {
     } as SafeHttpClient;
     const extractor = new ProductionSourceContentExtractor(http, "unused");
 
-    await expect(
-      extractor.extract(new URL("https://www.instagram.com/reel/Chunk8-jurw/")),
-    ).resolves.toEqual({
-      sourceType: "instagram",
-      resolvedUrl: "https://www.instagram.com/reel/Chunk8-jurw/",
-      imageUrl: "https://images.example/cover.jpg",
-      textForAi: null,
-    });
+    const result = await extractor.extract(
+      new URL("https://www.instagram.com/reel/Chunk8-jurw/"),
+    );
+
+    expect(result.sourceType).toBe("instagram");
+    expect(result.imageUrl).toBe("https://images.example/cover.jpg");
+    expect(result.textForAi).toContain("今日の晩ごはん");
+    expect(result.textForAi).toContain("おいしくできました");
   });
 
-  it("keeps recipe-bearing Instagram metadata for the text-first path", async () => {
+  it("keeps recipe-bearing Instagram metadata for Jev classification", async () => {
     const http = {
       async get() {
         return {
@@ -51,5 +51,29 @@ describe("Instagram source metadata extraction", () => {
 
     expect(result.sourceType).toBe("instagram");
     expect(result.textForAi).toContain("材料 パスタ100g。作り方 茹でる。");
+  });
+
+  it("keeps meaningful general Web text even without recipe keywords", async () => {
+    const http = {
+      async get() {
+        return {
+          finalUrl: "https://example.com/story",
+          statusCode: 200,
+          contentType: "text/html",
+          body: `<!doctype html><html><head>
+            <title>秋の食卓について</title>
+          </head><body>旬の食材と家族の思い出を紹介します。</body></html>`,
+        };
+      },
+    } as SafeHttpClient;
+    const extractor = new ProductionSourceContentExtractor(http, "unused");
+
+    const result = await extractor.extract(
+      new URL("https://example.com/story"),
+    );
+
+    expect(result.sourceType).toBe("web");
+    expect(result.textForAi).toContain("秋の食卓について");
+    expect(result.textForAi).toContain("旬の食材と家族の思い出を紹介します。");
   });
 });

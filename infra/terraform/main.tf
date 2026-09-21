@@ -22,6 +22,7 @@ locals {
     "foodfolio-dev-database-direct-url",
     "foodfolio-dev-gemini-api-key",
     "foodfolio-dev-openai-api-key",
+    "foodfolio-dev-typesafe-api-key",
     "foodfolio-dev-zai-api-key",
     "foodfolio-dev-youtube-api-key",
   ])
@@ -251,6 +252,30 @@ resource "google_cloud_run_v2_service" "worker" {
         value = "gpt-image-2.5-flare"
       }
       env {
+        name  = "JEV_GENERAL_WEB_NON_RECIPE_THRESHOLD"
+        value = tostring(var.jev_general_web_non_recipe_threshold)
+      }
+      env {
+        name  = "JEV_YOUTUBE_RECIPE_THRESHOLD"
+        value = tostring(var.jev_youtube_recipe_threshold)
+      }
+      env {
+        name  = "JEV_INSTAGRAM_RECIPE_THRESHOLD"
+        value = tostring(var.jev_instagram_recipe_threshold)
+      }
+      env {
+        name  = "JEV_TIKTOK_VIDEO_RECIPE_THRESHOLD"
+        value = tostring(var.jev_tiktok_video_recipe_threshold)
+      }
+      env {
+        name  = "JEV_TIKTOK_PHOTO_RECIPE_THRESHOLD"
+        value = tostring(var.jev_tiktok_photo_recipe_threshold)
+      }
+      env {
+        name  = "JEV_AI_CHAT_NON_RECIPE_THRESHOLD"
+        value = tostring(var.jev_ai_chat_non_recipe_threshold)
+      }
+      env {
         name  = "GENERATED_RECIPE_IMAGE_BUCKET"
         value = google_storage_bucket.generated_recipe_images.name
       }
@@ -300,6 +325,15 @@ resource "google_cloud_run_v2_service" "worker" {
         value_source {
           secret_key_ref {
             secret  = google_secret_manager_secret.app["foodfolio-dev-zai-api-key"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "TYPESAFE_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.app["foodfolio-dev-typesafe-api-key"].secret_id
             version = "latest"
           }
         }
