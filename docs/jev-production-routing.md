@@ -121,18 +121,18 @@ PoCの `poc/jev-recipe-gate/jev.ts` をproductionから直接importしない。P
 
 初期値は以下とする。
 
-| 用途                                 |                初期条件 |
-| ------------------------------------ | ----------------------: |
-| 一般Web hard non-recipe              | `p(non_recipe) >= 0.80` |
-| YouTube text route                   |     `p(recipe) >= 0.99` |
-| Instagram text route                 |     `p(recipe) >= 0.99` |
-| TikTok動画 text route                |     `p(recipe) >= 0.99` |
-| TikTok写真 text route                |     `p(recipe) >= 0.99` |
-| ChatGPT / Gemini共有 hard non-recipe | `p(non_recipe) >= 0.99` |
+| 用途                                      |                初期条件 |
+| ----------------------------------------- | ----------------------: |
+| 一般Web hard non-recipe候補               | `p(non_recipe) >= 0.80` |
+| YouTube text route                        |     `p(recipe) >= 0.99` |
+| Instagram text route                      |     `p(recipe) >= 0.99` |
+| TikTok動画 text route                     |     `p(recipe) >= 0.99` |
+| TikTok写真 text route                     |     `p(recipe) >= 0.99` |
+| ChatGPT / Gemini共有 hard non-recipe候補  | `p(non_recipe) >= 0.99` |
 
-一般Webの0.80とmedia系の0.99はPoC結果を初期根拠とする。
+一般Webの0.80とmedia系の0.99はPoC結果を初期根拠とする。ただし、一般Webの500/500 corpusはchecked-in PoC記録上まだproduction-qualifiedではないため、0.80は当面dev環境でのみhard rejectへ使用できる候補値とする。外部ユーザーを受け入れる環境でhard rejectを有効にする前に、追加検証結果をリポジトリへ記録し、本書のqualificationを更新する。
 
-AIチャット共有は実URLでrecipe判定まで確認済みだが、non-recipe実URL母数が不足しているため、0.99から保守的に開始する。
+AIチャット共有は実URLからrecipe判定まで確認済みだが、non-recipe実URLが0件でhard reject thresholdを検証できていない。そのため0.99は将来検証する候補値としてログへ記録するだけとし、初期実装ではAIチャットを `not_recipe` にしない。
 
 閾値はsourceごとに独立して変更できる構成とする。同じ0.99から開始しても、将来同じ値を維持する前提にはしない。
 
@@ -167,11 +167,15 @@ SourceContent
 Jev
 ↓
 p(non_recipe) >= 0.80
-├─ yes → not_recipe
-└─ no  → 従来どおりZ.ai
+├─ yes
+│  ├─ APP_ENV=dev → not_recipe
+│  └─ 外部ユーザー環境 → qualification完了まではZ.ai
+└─ no → 従来どおりZ.ai
 ```
 
 0.80未満を「recipe確定」とは扱わない。曖昧なものは従来解析へ送る。
+
+checked-in PoCでは一般Web corpusの最終production qualificationが未完了であるため、0.80のhard rejectはdevでのみ先行利用する。外部ユーザーを受け入れる環境で有効化するには、false rejectを含む追加検証結果をリポジトリへ記録してから本書を更新する。
 
 ### 6.2 YouTube
 
@@ -190,8 +194,12 @@ description sufficiency
      p(recipe) >= 0.99
      ├─ yes → Z.ai text extraction
      │         ├─ ingredients > 0 AND steps > 0 → completed
-     │         └─ 不足 → Gemini video fallback
-     └─ no  → Gemini video route
+     │         └─ 不足
+     │              ├─ Gemini enabled → Gemini video fallback
+     │              └─ Gemini disabled → 既存のtext不完全時の失敗処理
+     └─ no
+          ├─ Gemini enabled → Gemini video route
+          └─ Gemini disabled → Z.ai text extraction
 ```
 
 Jevの確率が低いことだけを理由にYouTubeを `not_recipe` にしない。説明欄にレシピがなくても動画内に存在する可能性があるため。
@@ -264,12 +272,14 @@ shared conversation
 ↓
 Jev
 ↓
-p(non_recipe) >= 0.99
-├─ yes → not_recipe
-└─ no  → 従来どおりZ.ai
+classification probabilityを構造化ログへ記録
+↓
+初期実装では判定結果にかかわらずZ.ai
 ```
 
 AIチャットでは `p(recipe) >= 0.99` を要求しない。実URL検証でChatGPTのrecipe例が `p(recipe) ≈ 0.77-0.79` だったため、recipe probabilityが低いこと自体はreject条件にしない。
+
+また、non-recipe実URLが0件であるため `p(non_recipe) >= 0.99` も現時点ではhard reject条件として未検証である。0.99は候補thresholdとしてログに残し、non-recipeを含む検証データが揃ってから有効化を判断する。
 
 ---
 
@@ -356,11 +366,10 @@ not_recipe
 
 ### 8.5 hard reject対象
 
-初期実装でJev単独のhard `not_recipe` を許可するのは以下だけ。
+初期実装でJev単独のhard `not_recipe` を許可するのは、qualification境界を満たしたsourceだけとする。
 
-- 一般Web
-- ChatGPT共有
-- Gemini共有
+- 一般Web: checked-in PoCのproduction qualification完了まではdev環境のみ許可
+- ChatGPT / Gemini共有: non-recipe検証が不足しているため初期実装では許可しない
 
 YouTube / Instagram / TikTokはmedia側にレシピが存在する可能性があるため、Jevの低いrecipe probabilityだけでは `not_recipe` にしない。
 
