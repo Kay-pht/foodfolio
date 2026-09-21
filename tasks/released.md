@@ -3,6 +3,16 @@
 `tasks/unreleased.md` で指定した必要な反映先がすべて反映済みになった項目を、日付とversion情報を保ったまま記録する。
 日付は日本時間（JST）の `YYYY-MM-DD`、iOSは `version (build)`、Cloud RunはGit SHAとservice revisionを記載する。
 
+## 2026-09-21
+
+- [x] `REL-20260915-02` Foodfolio 1.0をApp Storeで初回公開する
+  - 内容: 外部TestFlightで承認済みのFoodfolio 1.0 build 13を、無料のiPhoneアプリとして日本のApp Storeへ公開する。主カテゴリはFood & Drink、副カテゴリなし、Apple承認後は手動公開とする。Share Extensionは2026-09-18にiOS更新後の実機でURL送信からレシピ追加まで正常動作を確認済み
+  - PR: [#107](https://github.com/Kay-pht/foodfolio/pull/107)
+  - main反映: `d24acde99a07f617b68de61e6461c3a9e1d1bc46`
+  - 必要な反映先:
+    - [x] App Store本番 — 反映日: `2026-09-21`、version: `1.0 (13)`、Build ID: `8c5ebc62-634c-47f2-b1d8-08bc1c608c1e`、App Store ID: `6806783378`
+  - 備考: 2026-09-16にApp Privacyを公開し、Submission ID `2b364edb-27d0-4981-8c9b-25911c1dcb4e`でApp Reviewへ提出した。2026-09-21にAppleの公開APIで、Bundle ID `com.keyukt.foodfolio`、version `1.0`、日本ストアでの公開を確認した
+
 ## 2026-09-15
 
 - [x] `REL-20260915-01` AI共有レシピの取り込みと生成サムネイル
@@ -16,7 +26,7 @@
     - [x] TestFlight内部テスト — 反映日: `2026-09-15`、version: `1.0 (13)`、Build ID: `8c5ebc62-634c-47f2-b1d8-08bc1c608c1e`、group: `Foodfolio Internal`
     - [x] TestFlight外部テスト — 反映日: `2026-09-15`、version: `1.0 (13)`、Build ID: `8c5ebc62-634c-47f2-b1d8-08bc1c608c1e`、group: `Foodfolio External`、Beta App Review `APPROVED`
   - 配布build source: `b920e03366bad11ef3e1972ff9fa59f87b2283e3`
-  - 備考: dev実地検証でChatGPT共有レシピからWebP画像を生成し、Recipeの画像URLからpublic readできること、bucket一覧は403となること、アカウント削除後に生成objectとFirebaseテストアカウントが削除されることを確認済み。既存保存済みAI共有レシピへのバックフィルは行わない。外部グループの公開リンク有効状態と既存テスター2件は維持。実機でのbuild 13更新と動作確認は `tasks/todo.md` で別管理する。
+  - 備考: dev実地検証でChatGPT共有レシピからWebP画像を生成し、Recipeの画像URLからpublic readできること、bucket一覧は403となること、アカウント削除後に生成objectとFirebaseテストアカウントが削除されることを確認済み。既存保存済みAI共有レシピへのバックフィルは行わない。外部グループの公開リンク有効状態と既存テスター2件は維持。追加の外部TestFlight実機検証は、App Store本番公開の完了に伴い2026-09-21に不要としてクローズした。
 
 ## 2026-09-14
 
