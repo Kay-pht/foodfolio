@@ -681,8 +681,6 @@ Jev本番導入は2PRに分ける。
 
 これにより、PoC specの「production routing unchanged」という契約と、本番導入実装のSpecification as Codeを混在させない。
 
-
-
 ### PR 1: not_recipe基盤
 
 対象:
