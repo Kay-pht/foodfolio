@@ -1138,6 +1138,8 @@ PoCで成立した方式を本番モジュールへ移植する。ただしYouTu
 - クックパッド
 - 一般Web
 
+一般WebではHTML / OGP / JSON-LD / page textからAI入力可能な本文を構成する。本文中に「レシピ」「材料」等の特定語がないことだけを理由にAI入力を破棄しない。HTTP取得失敗、本文なし、size上限超過等は取得失敗としてよいが、recipe / non-recipeのsemantic判定はJevへ渡す。
+
 YouTubeではページHTML、`ytInitialPlayerResponse`、oEmbedを説明文取得の主経路として使用しない。YouTube Data API呼び出しに必要な `YOUTUBE_API_KEY` はBackendのSecretとしてGoogle Cloud Secret Managerで管理し、Cloud Run Workerへ環境変数として渡す。
 
 認証回避や非公開コンテンツ取得は行わない。Instagram media fallbackは、ユーザーがFoodfolioへ共有して解析を依頼した公開投稿だけを対象とし、取得したメディアをAI解析のために一時利用して通常完了時は即時削除する。TikTok動画フォールバックは書面許可を確認した環境だけで有効化する。dev環境は書面許可を確認済みのため有効とする。
@@ -1166,6 +1168,8 @@ YouTube Data API title / description
 ```
 
 Jevの低いrecipe probabilityだけを理由にYouTubeを `not_recipe` にしない。説明欄にレシピがなくても動画内に存在する可能性があるためである。Jev自身が失敗した場合は即fail-openし、Jev導入前のYouTube routeへ戻る。
+
+Z.ai text extractionで材料・手順が揃わない場合のGemini fallbackは意図した挙動とする。Geminiには公開動画URLと取得済み説明欄を同じ解析入力として渡し、動画と文章の両方を根拠として使う。Geminiまで失敗した場合は解析失敗とし、Z.aiの不完全結果へ戻らない。
 
 Gemini出力は、説明欄材料一覧由来と手順・動画だけに登場する材料を分け、各材料に名前、分量原文、短い使用根拠、根拠元を持つ中間Schemaとする。決定論的後処理で両配列を統合し、使用根拠があり分量未記載なら`適量`にする。説明欄と動画の矛盾は説明欄を優先し、一般知識から材料・数値を補わない。`4人分`は`servings.value=4`、`8個分`等の個数は`servings.raw`だけを保存し、材料個数は出来上がり量へ転用しない。
 
@@ -1199,7 +1203,9 @@ TikTok URL
          └─ threshold未満 → photo media route
 ```
 
-Jevがtext routeを選んでも `ingredients > 0 AND steps > 0` を満たさない場合は必ずmediaへ戻る。JevだけでTikTokを `not_recipe` にしない。Jev自身が失敗した場合は即fail-openし、動画は従来のtext-first route、写真は従来のphoto media routeへ戻る。動画・写真のmedia routeは引き続き `TIKTOK_MEDIA_ANALYSIS_ENABLED` と既存の利用許可条件に従い、無効時にJevがmedia取得を強制有効化してはならない。
+Jevがtext routeを選んでも `ingredients > 0 AND steps > 0` を満たさない場合は必ずmediaへ戻る。JevだけでTikTokを `not_recipe` にしない。Jev自身が失敗した場合は即fail-openし、動画は従来のtext-first route、写真は従来のphoto media routeへ戻る。
+
+TikTokの動画・写真media routeは必要な利用許可を満たしたうえで、foodfolioを動かす対象環境では常時有効とする。media route選択後に取得・Provider・解析が失敗した場合は解析失敗とし、textだけの不完全結果へ戻らない。
 
 - `yt-dlp`は`2026.08.19`へ固定し、実行ファイルのSHA-256をDocker build時に検証する
 - 動画取得は初回を含めて最大5回。5回すべて失敗した場合は非リトライ可能とし、Cloud Tasksで同じ取得を繰り返さない
@@ -2435,10 +2441,11 @@ ZAI_API_KEY
 YOUTUBE_API_KEY
 GEMINI_API_KEY
 TYPESAFE_API_KEY
-YOUTUBE_GEMINI_FALLBACK_ENABLED=false
+YOUTUBE_GEMINI_FALLBACK_ENABLED=true
+INSTAGRAM_MEDIA_FALLBACK_ENABLED=true
 AI_MODEL=glm-5.3-flash
 MAX_ANALYSIS_ATTEMPTS=3
-TIKTOK_MEDIA_ANALYSIS_ENABLED=true # dev。新規環境の既定値はfalse
+TIKTOK_MEDIA_ANALYSIS_ENABLED=true
 TIKTOK_VIDEO_BUCKET
 TIKTOK_VIDEO_MAX_ATTEMPTS=5
 YT_DLP_PATH=/usr/local/bin/yt-dlp
@@ -2452,9 +2459,11 @@ JEV_AI_CHAT_NON_RECIPE_THRESHOLD=0.99
 
 `MAX_ANALYSIS_ATTEMPTS` はCloud Tasks Queueのretry設定とWorkerの最終試行判定で同じ値を使用する。
 
-`ZAI_API_KEY` / `YOUTUBE_API_KEY` / `GEMINI_API_KEY` / `TYPESAFE_API_KEY` / DB接続情報はSecret ManagerからCloud Runへ渡す。`TYPESAFE_API_KEY` はJevを呼ぶWorkerだけに付与し、API serviceへは原則付与しない。`YOUTUBE_GEMINI_FALLBACK_ENABLED`は既定で`false`とし、`true`でも実際にGeminiが必要になるまでAPI keyは使用しない。fallbackが必要な時点でkeyが未設定なら、識別可能な設定エラーとして解析を失敗させる。
+`ZAI_API_KEY` / `YOUTUBE_API_KEY` / `GEMINI_API_KEY` / `TYPESAFE_API_KEY` / DB接続情報はSecret ManagerからCloud Runへ渡す。`TYPESAFE_API_KEY` はJevを呼ぶWorkerだけに付与し、API serviceへは原則付与しない。
 
-`TIKTOK_MEDIA_ANALYSIS_ENABLED`は書面許可を確認した環境だけで`true`とし、TikTok動画フォールバックと写真投稿の主経路をまとめて制御する。dev環境は許可確認済みのため有効化する。`TIKTOK_VIDEO_BUCKET`は名前を維持した公開アクセス禁止の一時保存専用bucketであり、動画・写真本体や署名URLをDBへ保存しない。
+`YOUTUBE_GEMINI_FALLBACK_ENABLED` / `INSTAGRAM_MEDIA_FALLBACK_ENABLED` / `TIKTOK_MEDIA_ANALYSIS_ENABLED` は、foodfolioを動かす対象環境ではすべて `true` を前提とする。flagを実装上の安全装置として残しても、OFF状態を通常運用のrouteとして扱わない。必要なAPI key・利用許可・bucket等が不足している場合は環境設定不備として識別可能に失敗させる。
+
+TikTok media解析は必要な書面許可を確認した環境だけをdeployment対象とする。`TIKTOK_VIDEO_BUCKET`は名前を維持した公開アクセス禁止の一時保存専用bucketであり、動画・写真本体や署名URLをDBへ保存しない。
 
 Firebase Admin / Cloud Tasks等のGCP認証にはCloud Run Service AccountのApplication Default Credentialsを基本とし、Service Account JSON key fileを配布しない。
 
