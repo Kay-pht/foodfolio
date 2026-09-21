@@ -22,18 +22,15 @@ export class YoutubeAwareRecipeExtractor implements RecipeExtractor {
 
     const assessment = assessYoutubeDescription(input.youtubeDescription ?? "");
     if (assessment.sufficient) {
-      const textResult = await this.textExtractor.extract(input);
-      if (hasRequiredRecipeContent(textResult)) return textResult;
-      if (!this.geminiFallback)
+      const result = await this.textExtractor.extract(input);
+      if (!hasRequiredRecipeContent(result))
         throw new AnalysisError(
-          "YOUTUBE_GEMINI_FALLBACK_DISABLED",
-          false,
-          "YouTube description extraction was incomplete and Gemini fallback is disabled",
+          "AI_RECIPE_INCOMPLETE",
+          true,
+          "YouTube description extraction did not contain ingredients and steps",
+          "zai",
         );
-      return combineResults(
-        textResult,
-        await this.geminiFallback.extract(input),
-      );
+      return result;
     }
 
     if (!this.geminiFallback)
@@ -44,16 +41,4 @@ export class YoutubeAwareRecipeExtractor implements RecipeExtractor {
       );
     return this.geminiFallback.extract(input);
   }
-}
-
-function combineResults(
-  textResult: RecipeExtractionResult,
-  fallbackResult: RecipeExtractionResult,
-): RecipeExtractionResult {
-  return {
-    ...fallbackResult,
-    inputTokens: textResult.inputTokens + fallbackResult.inputTokens,
-    outputTokens: textResult.outputTokens + fallbackResult.outputTokens,
-    latencyMs: textResult.latencyMs + fallbackResult.latencyMs,
-  };
 }
