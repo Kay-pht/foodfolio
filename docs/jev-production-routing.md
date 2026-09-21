@@ -400,7 +400,7 @@ Jev failureはWorker retry対象外とする。
 
 ## 10. Jev request / retry方針
 
-productionではJev requestを1解析につき最大1回とする。
+productionではJev requestを **1 Worker delivery（Cloud Tasksの1回のanalysis attempt）につき最大1回** とする。
 
 ```text
 Jev request
@@ -411,6 +411,8 @@ Jev request
 ```
 
 PoCではretry挙動を検証したが、本番でのJevは必須処理ではないため、Jev自身の成功率向上よりも解析レイテンシと単純性を優先する。
+
+ここでいう「1回」はJev API自身を同じWorker delivery内で再試行しないという意味である。Jev成功後にZ.ai・media・DB等の既存retryable errorでCloud Tasksが新しいdeliveryを開始した場合、その新しいdeliveryではJevを再度最大1回呼んでよい。Jev probabilityやrouting decisionをこの制約のためだけにDBへ永続化しない。
 
 Jev requestには明示的なtimeoutを設定する。具体的な初期timeout値は実装PRで、PoCの実測レイテンシとWorker全体のtimeout制約を確認して確定する。ただし複数attemptは導入しない。
 
@@ -614,7 +616,7 @@ processing
 - 529 → retryせずfail-open
 - response body read failure → retryせずfail-open
 - malformed JSON → retryせずfail-open
-- request最大1回
+- 1 Worker delivery内でrequest最大1回
 
 ### routing
 
@@ -684,7 +686,7 @@ Jev本番導入は2PRに分ける。
 
 - `RecipeContentClassifier`
 - TypeSafe / Jev production adapter
-- request 1 attempt
+- Jev request 1 attempt / Worker delivery
 - fail-open
 - source別threshold
 - source別routing
