@@ -362,12 +362,13 @@ describe("Jev production routing E2E", () => {
     const url = "https://example.com/retryable";
     const recipe = await createRecipe(context, "web", url);
     const classify = vi.fn(async () => classification(0.9, 0.1));
-    const extractText = vi
-      .fn()
-      .mockRejectedValueOnce(
-        new AnalysisError("AI_PROVIDER_ERROR", true, "temporary", "zai"),
-      )
-      .mockResolvedValueOnce(completeResult());
+    let extractionAttempt = 0;
+    const extractText = vi.fn(async () => {
+      extractionAttempt += 1;
+      if (extractionAttempt === 1)
+        throw new AnalysisError("AI_PROVIDER_ERROR", true, "temporary", "zai");
+      return completeResult();
+    });
 
     const service = new RecipeAnalysisService({
       prisma: context.prisma,
