@@ -374,7 +374,7 @@ MVPでは失敗原因ごとのメッセージを出し分けず、共通の解�
 
 ### 9.4 レシピではないと判定した場合
 
-Jevによるsemantic gateで、一般WebまたはChatGPT / Gemini共有が1つの具体的なレシピではないと高い確度で判定された場合は、解析失敗とは分離して `not_recipe` とする。
+Jevによるsemantic gateで、qualification済みのsourceが1つの具体的なレシピではないと高い確度で判定された場合は、解析失敗とは分離して `not_recipe` とする。初期導入では一般Webのhard rejectはproduction qualification完了までdev環境に限定し、ChatGPT / Gemini共有はnon-recipe検証が不足しているためhard rejectせず従来のZ.ai解析を継続する。
 
 `not_recipe` はエラーではなく正常終了の一種とし、保存済みRecipe自体は削除しない。ユーザーには「レシピとして判定できませんでした」と表示し、元URLの閲覧とRecipe削除は可能、通常のレシピ編集は不可とする。
 
