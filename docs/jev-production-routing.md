@@ -48,6 +48,8 @@ Jevが返す確率は「最終的なレシピ抽出結果」ではない。ど�
 本設計のレビュー時に以下を未確定事項として扱わない。
 
 - 一般Webでは、URL取得・本文抽出・source判定等の機械処理は残すが、**「レシピらしい語があるか」等のsemanticな機械判定だけでJev到達前に終了しない**。本文を取得できた一般WebはJevへ渡し、recipe / non-recipeの意味判定をJevへ集約する。
+- Instagramでは、取得・正規化後のmetadata / caption textが非空なら、**「レシピ」「材料」等のキーワード有無で先に除外せずJevへ渡す**。textが実際に存在しない場合だけJevを呼ばずmedia routeへ進む。
+- TikTok動画・写真では、判定用textが存在する場合は**高コストなmedia解析より先にJevを呼び、text routeかmedia routeかを選ぶ**。textが存在しない場合だけJevを呼ばずmedia routeへ進む。
 - YouTube / Instagram / TikTokのmedia解析は、foodfolioを動かす対象環境では**常時有効**を前提とする。必要な権限・API key・利用許可を満たせない環境は対応環境としてデプロイしない。
 - Jevがmedia / video routeを選んだ後にmedia取得・Provider・解析が失敗した場合は、その解析を失敗として終了する。**不完全なtextだけでレシピ生成する経路へ戻さない**。
 - ChatGPT / Gemini共有は初期実装から `p(non_recipe) >= 0.99` をhard `not_recipe` として適用する。0.99は絶対的正解率の意味ではなく、運用ログを見ながらsource別に後から調整する初期thresholdである。
@@ -221,6 +223,8 @@ Jevの確率が低いことだけを理由にYouTubeを `not_recipe` にしな�
 Z.ai text extractionで材料・手順が揃わない場合にGeminiへ進むのは意図したfallbackである。Geminiには公開動画URLだけでなく取得済みの説明欄等も同じ解析入力として渡す。Gemini routeまで進んで失敗した場合は解析失敗とし、Z.aiの不完全結果を保存しない。
 
 ### 6.3 Instagram
+
+Instagramは、正規化後のmetadata / caption textが1文字でも存在する場合はJevへ渡す。「レシピ」「材料」等の特定語を含むかどうかでJev到達前にtextを破棄しない。ここでいう「metadata textなし」は、semanticなキーワード判定の結果ではなく、取得・正規化後に判定用textが実際に空である場合だけを指す。
 
 ```text
 metadata textなし
