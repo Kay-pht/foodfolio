@@ -61,7 +61,7 @@
     "test:dev:e2e": "node scripts/verify-dev-e2e.mjs",
     "deploy:hosting": "GOOGLE_CLOUD_QUOTA_PROJECT=foodfolio-af28aa npx --yes firebase-tools@15.29.0 deploy --only hosting --project foodfolio-af28aa",
     "test": "npm run test:unit && npm run test:integration && npm run test:e2e",
-    "verify:ios": "IOS_EXPECTED_TEST_COUNT=110 bash scripts/verify-ios.sh",
+    "verify:ios": "IOS_EXPECTED_TEST_COUNT=112 bash scripts/verify-ios.sh",
     "verify": "npm run tasks:check && npm run verify:autonomous-p0 && npm run format:check && npm run lint && npm run check:architecture && npm run check:docs && npm run prisma:generate && npm run prisma:validate && npm run build && npm run test:unit && npm run test:integration && npm run test:e2e"
   },
   "dependencies": {
