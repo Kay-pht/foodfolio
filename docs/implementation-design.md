@@ -747,7 +747,7 @@ Request例：
 
 すべてoptionalとし、送信された項目だけ変更する。
 
-`analysisStatus` が `pending` または `processing` のRecipeは編集不可とし、Backendでも `RECIPE_ANALYSIS_IN_PROGRESS` として拒否する。
+`analysisStatus` が `pending` または `processing` のRecipeは編集不可とし、Backendでも `RECIPE_ANALYSIS_IN_PROGRESS` として拒否する。`not_recipe` も通常のレシピ編集対象ではないため、PATCHを `RECIPE_NOT_EDITABLE` として拒否する。
 
 画像、人数、調理時間、手順、URL、解析状態はこのAPIから変更不可とする。
 
@@ -984,6 +984,7 @@ iOS側は `code` をユーザー向け日本語メッセージへmappingする�
 |  404 | NOT_FOUND                   | 対象resourceなし / 他User所有                                   |
 |  409 | DUPLICATE_RECIPE            | 正規化URL重複                                                   |
 |  409 | RECIPE_ANALYSIS_IN_PROGRESS | pending / processing中のRecipe編集                              |
+|  409 | RECIPE_NOT_EDITABLE           | `not_recipe` のRecipe編集                                       |
 |  422 | VALIDATION_ERROR            | 編集値等の業務validation不正                                    |
 |  429 | ANALYSIS_LIMIT_EXCEEDED     | 解析受付上限（ユーザー未処理 / 日次 / 月次、全体未処理 / 日次） |
 |  500 | INTERNAL_ERROR              | 想定外エラー                                                    |
@@ -1344,7 +1345,7 @@ servings.value = null
 
 Jevは `RecipeContentClassifier` のようなApplication interface越しに利用し、TypeSafe固有request / responseはInfrastructure adapterへ閉じ込める。productionからPoCコードを直接importしない。
 
-Jev requestは1解析につき最大1回とし、timeout、network error、429、529、response body read失敗、invalid JSON / schema等ではretryせず即fail-openする。Jev errorはWorkerの `retryable error` として扱わず、同じWorker実行内でJev導入前の解析routeへ戻る。
+Jev requestは1 Worker delivery（Cloud Tasksの1回のanalysis attempt）につき最大1回とし、timeout、network error、429、529、response body read失敗、invalid JSON / schema等ではretryせず即fail-openする。下流の既存retryable errorによってCloud Tasksが新しいdeliveryを開始した場合は、そのdeliveryでJevを再度最大1回呼んでよい。Jev errorはWorkerの `retryable error` として扱わず、同じWorker実行内でJev導入前の解析routeへ戻る。
 
 初期threshold、source別routing、ログ、`not_recipe` の詳細は [jev-production-routing.md](jev-production-routing.md) を正本とする。
 
@@ -2201,7 +2202,7 @@ Tag追加・削除、Recipe削除等のmutationはオンライン必須とする
 - tags
 - save時PATCH
 
-`pending / processing` 中は編集画面へ遷移させない。Backendでも同状態のPATCHを拒否する。
+`pending / processing / not_recipe` は編集画面へ遷移させない。Backendでも同状態のPATCHを拒否し、`not_recipe` は `RECIPE_NOT_EDITABLE` とする。
 
 編集はオンライン必須とし、成功レスポンスをSwiftDataへ即時反映する。
 
