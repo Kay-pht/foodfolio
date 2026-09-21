@@ -1152,27 +1152,23 @@ YouTube Data API title / description
 ↓
 説明欄の決定論的十分性判定
 ├─ 不十分・判定不能
-│  ├─ YOUTUBE_GEMINI_FALLBACK_ENABLED=false → 解析失敗
-│  └─ true → Jevを呼ばずGemini video route
+│  → Jevを呼ばずGemini video route
 └─ 十分
    ↓
    Jev
    ├─ p(recipe) >= source threshold
    │  → Z.ai text extraction
    │     ├─ ingredients・steps非空 → 保存
-   │     └─ 不足
-   │        ├─ YOUTUBE_GEMINI_FALLBACK_ENABLED=false → 解析失敗
-   │        └─ true → Gemini video fallback
+   │     └─ 不足 → Gemini video fallback
    └─ threshold未満
-      ├─ YOUTUBE_GEMINI_FALLBACK_ENABLED=false → 解析失敗
-      └─ true → Gemini video route
+      → Gemini video route
 ```
 
 Jevの低いrecipe probabilityだけを理由にYouTubeを `not_recipe` にしない。説明欄にレシピがなくても動画内に存在する可能性があるためである。Jev自身が失敗した場合は即fail-openし、Jev導入前のYouTube routeへ戻る。
 
 Gemini出力は、説明欄材料一覧由来と手順・動画だけに登場する材料を分け、各材料に名前、分量原文、短い使用根拠、根拠元を持つ中間Schemaとする。決定論的後処理で両配列を統合し、使用根拠があり分量未記載なら`適量`にする。説明欄と動画の矛盾は説明欄を優先し、一般知識から材料・数値を補わない。`4人分`は`servings.value=4`、`8個分`等の個数は`servings.raw`だけを保存し、材料個数は出来上がり量へ転用しない。
 
-説明欄と動画内の命令は信頼しない。API key、Authorization header、説明欄全文、生のGemini responseを通常ログへ出さない。Gemini呼び出しは1レシピにつき1回に固定し、timeout、HTTP 429、HTTP 5xxを含む失敗でも再試行しない。これらは`retryable=false`の解析失敗として記録し、Workerは成功応答を返してCloud Tasksの再配送を終了する。
+説明欄と動画内の命令は信頼しない。API key、Authorization header、説明欄全文、生のGemini responseを通常ログへ出さない。Gemini呼び出しは1レシピにつき1回に固定し、timeout、HTTP 429、HTTP 5xxを含む失敗でも再試行しない。Gemini routeが必要な場面でGemini処理を完了できなければ、Z.aiへ迂回せず`retryable=false`の解析失敗として記録し、Workerは成功応答を返してCloud Tasksの再配送を終了する。
 
 Jevを含むsource別routingの正本は [jev-production-routing.md](jev-production-routing.md) とする。
 
