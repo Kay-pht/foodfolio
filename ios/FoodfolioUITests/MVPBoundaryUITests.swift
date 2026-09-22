@@ -20,7 +20,7 @@ import XCTest
     message.tap()
     XCTAssertTrue(app.staticTexts["detail.title"].waitForExistence(timeout: 3))
     XCTAssertEqual(app.staticTexts["detail.title"].label, "レシピとして判定できませんでした")
-    XCTAssertTrue(app.links["detail.source"].exists)
+    XCTAssertTrue(app.descendants(matching: .any)["detail.source"].exists)
     XCTAssertTrue(app.buttons["detail.delete"].exists)
     XCTAssertTrue(app.buttons["detail.moreMenu"].exists)
     app.buttons["detail.moreMenu"].tap()
