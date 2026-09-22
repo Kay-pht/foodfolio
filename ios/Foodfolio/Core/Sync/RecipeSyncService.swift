@@ -100,9 +100,9 @@ final class RecipeSyncService {
   private func shouldReconcile(now: Date, mode: RecipeSyncReconciliationMode) -> Bool {
     switch mode {
     case .forced:
-      true
+      return true
     case .sessionStart:
-      !hasReconciledThisSession
+      return !hasReconciledThisSession
     case .scheduled:
       guard let last = defaults.object(forKey: reconciliationKey) as? Date else { return true }
       return now.timeIntervalSince(last) >= Self.reconciliationInterval
