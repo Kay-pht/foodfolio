@@ -120,8 +120,8 @@ resource "google_monitoring_alert_policy" "api_5xx" {
         group_by_fields      = ["resource.label.service_name"]
       }
 
-      comparison      = "COMPARISON_GE"
-      threshold_value = 3
+      comparison      = "COMPARISON_GT"
+      threshold_value = 2
       duration        = "0s"
 
       trigger {
