@@ -1,0 +1,103 @@
+id: RUNTIME-MONITORING-001
+type: feature
+status: approved
+
+objective: >-
+  Detect the initial set of Foodfolio runtime failures with Google Cloud
+  Monitoring and notify the externally managed Slack #foodfolio-alerts channel
+  without adding application-level Slack code or CI/CD notifications.
+
+requirements:
+  - id: RTM-1
+    condition: Terraform configures runtime alert policies.
+    expected: The existing Cloud Monitoring Slack notification channel is supplied only by full resource name, while Terraform never creates the Slack channel, OAuth connection, webhook, or token-bearing notification resource.
+    verification:
+      - infra/terraform/variables.tf
+      - infra/terraform/monitoring.tf
+      - docs/runtime-monitoring.md
+  - id: RTM-2
+    condition: The public foodfolio-dev-api /healthz endpoint is unavailable from multiple public uptime checker locations.
+    expected: A CRITICAL incident opens only after at least two checker locations fail concurrently for 60 seconds, and metric-based recovery notification is sent when the condition clears.
+    verification:
+      - infra/terraform/monitoring.tf
+      - src/api/build-api.ts
+      - docs/runtime-monitoring.md
+  - id: RTM-3
+    condition: foodfolio-dev-api returns server errors.
+    expected: The built-in Cloud Run request_count metric opens an ERROR incident when at least three 5xx responses occur in a five-minute aggregation window, without introducing a custom log-based metric, and recovery notification is enabled.
+    verification:
+      - infra/terraform/monitoring.tf
+      - docs/runtime-monitoring.md
+  - id: RTM-4
+    condition: Recipe Analysis reaches its final failed state in foodfolio-dev-worker.
+    expected: A LogMatch policy matches only structured logs with analysisStatus=failed, excludes retry-state analysisStatus=pending, opens an ERROR incident on the first matching final failure, and rate-limits Slack notifications to at most one per hour.
+    verification:
+      - infra/terraform/monitoring.tf
+      - src/application/analysis/analysis-service.ts
+      - docs/runtime-monitoring.md
+  - id: RTM-5
+    condition: Cloud Run memory utilization for the API or Worker remains above 90 percent.
+    expected: Separate WARNING policies identify the affected service and require the high-memory condition to persist for five minutes so a momentary spike does not alert.
+    verification:
+      - infra/terraform/monitoring.tf
+      - docs/runtime-monitoring.md
+  - id: RTM-6
+    condition: Runtime monitoring infrastructure is added.
+    expected: Monitoring and Logging APIs are Terraform-managed, while application code, Firebase/APNs user notifications, deploy-dev workflow behavior, GitHub notifications, Billing alerts, and runtime Email notification channels remain unchanged.
+    verification:
+      - infra/terraform/main.tf
+      - .github/workflows/deploy-dev.yml
+      - docs/runtime-monitoring.md
+
+edge_cases:
+  - A single public uptime checker location fails transiently; no uptime incident is opened.
+  - One or two API 5xx responses occur inside a five-minute window; no API 5xx incident is opened.
+  - Recipe Analysis logs analysisStatus=pending while Cloud Tasks retry is still possible; no final-failure alert matches that log.
+  - Several final Recipe Analysis failures occur within one hour; the LogMatch policy does not flood Slack with more than one notification per configured rate-limit period.
+  - Cloud Run scales to zero and memory metrics are absent; missing metric data is treated as inactive rather than as high memory.
+  - A short memory spike exceeds 90 percent but does not persist for five minutes; no high-memory incident is opened.
+
+security_invariants:
+  - Slack OAuth tokens, bot tokens, and webhook URLs are never stored in repository files or Terraform state by this change.
+  - Runtime alert documentation and notifications do not expand recipe IDs, source URLs, request bodies, authentication data, or other user content into custom Slack messages.
+  - The Slack notification channel is referenced by its non-secret Google Cloud resource name only.
+  - No application component receives permission or credentials to send Slack messages directly.
+
+compatibility:
+  - Existing /healthz behavior remains unchanged.
+  - Existing structured Recipe Analysis failure logging remains unchanged and is consumed as-is by Cloud Logging.
+  - Existing Cloud Run API and Worker service definitions, Cloud Tasks retry behavior, Firebase/APNs notifications, deployment workflow, and Billing budget behavior are preserved.
+  - Monitoring resources remain in the existing dev Terraform state and target foodfolio-af28aa.
+
+non_functional:
+  - Use built-in Cloud Run metrics when they directly express the required signal instead of creating redundant custom metrics.
+  - Keep monitoring configuration isolated in infra/terraform/monitoring.tf except for shared API enablement and input variables.
+  - Keep the initial alert set limited to API uptime, API 5xx, Recipe Analysis final failure, API memory, and Worker memory.
+  - Metric-based policies send recovery notifications; the Recipe Analysis LogMatch policy uses a one-hour notification rate limit.
+
+out_of_scope:
+  - GitHub Actions, Quality, Deploy, pull request, or commit Slack notifications.
+  - Slack Bot or Incoming Webhook implementation.
+  - Terraform management of the Slack workspace, Slack channel, or Cloud Monitoring Slack OAuth connection.
+  - Billing alert changes.
+  - Firebase/APNs notification changes.
+  - Cloud Tasks retry-progress notifications.
+  - Per-request notification for every API 5xx.
+  - Intentional outage, OOM, or other destructive production-style alert tests.
+  - Automatically applying Terraform from deploy-dev.yml.
+
+acceptance_criteria:
+  - Monitoring and Logging APIs are present in the Terraform-managed required API set.
+  - Terraform accepts an existing Slack notification channel full resource name and creates no Slack notification-channel resource.
+  - The public /healthz uptime check runs every 60 seconds over HTTPS with a 10-second timeout and validates a successful health response.
+  - The uptime alert requires at least two simultaneous failed checker locations for 60 seconds and has CRITICAL severity.
+  - API 5xx uses run.googleapis.com/request_count and alerts at three or more 5xx responses in a five-minute aggregation window with ERROR severity.
+  - Recipe Analysis final failure uses a LogMatch filter for foodfolio-dev-worker and jsonPayload.analysisStatus=failed, with a one-hour notification rate limit and ERROR severity.
+  - API and Worker memory policies alert separately when the built-in memory-utilization signal remains above 90 percent for five minutes with WARNING severity.
+  - Metric-based runtime policies notify on incident open and close through the configured Slack channel.
+  - No application Slack client, webhook, runtime Email channel, GitHub notification, Firebase/APNs change, or deploy-dev Terraform application path is added.
+  - Runtime monitoring setup, thresholds, manual Slack setup, and validation boundaries are documented.
+
+regression:
+  required: false
+  tests: []
