@@ -57,6 +57,19 @@ describe("actionable runtime alert notifications", () => {
     );
   });
 
+  it("keeps Worker memory investigation broad while final failures stay filtered", () => {
+    const workerMemory = resource("worker_memory_high");
+    const finalFailure = resource(
+      "recipe_analysis_final_failure",
+      "api_memory_high",
+    );
+
+    expect(monitoring).toContain("worker_logs_url");
+    expect(workerMemory).toContain("${local.worker_logs_url}");
+    expect(workerMemory).not.toContain("${local.worker_failure_logs_url}");
+    expect(finalFailure).toContain("${local.worker_failure_logs_url}");
+  });
+
   it("renders guaranteed operational fields for final analysis failures", () => {
     const policy = resource("recipe_analysis_final_failure", "api_memory_high");
 

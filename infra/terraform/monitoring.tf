@@ -2,6 +2,7 @@ locals {
   api_uptime_host         = trimprefix(google_cloud_run_v2_service.api.uri, "https://")
   api_logs_url            = "https://console.cloud.google.com/logs/query;query=${urlencode("resource.type=\"cloud_run_revision\"\nresource.labels.service_name=\"${google_cloud_run_v2_service.api.name}\"")}?project=${var.project_id}"
   api_5xx_logs_url        = "https://console.cloud.google.com/logs/query;query=${urlencode("resource.type=\"cloud_run_revision\"\nresource.labels.service_name=\"${google_cloud_run_v2_service.api.name}\"\nhttpRequest.status>=500")}?project=${var.project_id}"
+  worker_logs_url         = "https://console.cloud.google.com/logs/query;query=${urlencode("resource.type=\"cloud_run_revision\"\nresource.labels.service_name=\"${google_cloud_run_v2_service.worker.name}\"")}?project=${var.project_id}"
   worker_failure_logs_url = "https://console.cloud.google.com/logs/query;query=${urlencode("resource.type=\"cloud_run_revision\"\nresource.labels.service_name=\"${google_cloud_run_v2_service.worker.name}\"\njsonPayload.analysisStatus=\"failed\"")}?project=${var.project_id}"
 }
 
@@ -292,7 +293,7 @@ resource "google_monitoring_alert_policy" "worker_memory_high" {
       ## 最初に行うこと
 
       1. [Cloud Runメトリクス](https://console.cloud.google.com/run/detail/${var.region}/${google_cloud_run_v2_service.worker.name}/metrics?project=${var.project_id})でメモリ、インスタンス数、リクエスト数を確認する。
-      2. [Workerログ](${local.worker_failure_logs_url})でOOM、再起動、失敗した解析のエラー分類を確認する。
+      2. [Workerログ](${local.worker_logs_url})でOOM、再起動、失敗した解析のエラー分類を確認する。
       3. 継続・再発する場合は対象リビジョンと直前の変更を照合する。
 
       `Alert closed` は使用率がしきい値以下へ戻ったことを示します。解析失敗が残っていないかログで確認してください。
