@@ -27,6 +27,7 @@ import {
   type TikTokPhotoRecipeAnalysis,
   type TikTokVideoRecipeFallback,
 } from "./types.js";
+import { describeAnalysisFailure } from "./operational-failure.js";
 
 const PROCESSING_LEASE_MS = 660_000;
 
@@ -338,13 +339,23 @@ export class RecipeAnalysisService {
         },
       });
       if (changed.count === 0) return this.resultAfterLostOwnership(recipeId);
+      const operationalFailure = final
+        ? describeAnalysisFailure({
+            errorCode: analysisError.code,
+            provider: analysisError.provider,
+            attempt,
+          })
+        : null;
       log(
         {
           recipeId,
           analysisStatus: final ? "failed" : "pending",
           analysisAttempt: attempt,
+          ...(final ? { analysisAttemptLabel: String(attempt) } : {}),
+          ...(final ? { severity: "ERROR" } : {}),
           errorCode: analysisError.code,
           provider: analysisError.provider,
+          ...(operationalFailure ?? {}),
         },
         "recipe analysis failed",
       );

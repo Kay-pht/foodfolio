@@ -52,6 +52,7 @@ export TF_VAR_monitoring_slack_notification_channel='projects/foodfolio-af28aa/n
 - checker region を限定せず Cloud Monitoring の public checker locations を使用する
 - CRITICAL: 同時に2 location以上が失敗した状態が60秒継続
 - incident open / close を Slack 通知する
+- 通知本文には、利用不能の影響、APIログとCloud Runメトリクスの確認順、close後に確認すべき内容を日本語で記載する
 
 Cloud Monitoring は checker region を明示指定する場合に最低3 locationsを含む設定を要求するため、初版では `selected_regions` を固定しない。アラート側で失敗 location 数を集約し、単一 location の一時失敗では incident を開かない。
 
@@ -67,6 +68,9 @@ Cloud Monitoring は checker region を明示指定する場合に最低3 locati
 - ERROR: 5分の集計 window 内に3件以上
 - 1件または2件の単発 5xx では incident を開かない
 - incident open / close を Slack 通知する
+- 通知本文には、一部の利用者操作が失敗していること、原因はアラート単体では確定できないこと、5xxへ絞ったログ確認手順を記載する
+
+Cloud Monitoring の自動生成文に表示される response class と、policy が監視する class の取り違えを避けるため、集約後にも `metric.label.response_code_class` を保持する。policy の filter と通知本文は5xxだけを対象とする。
 
 この標準 metric は Cloud Run container instance まで到達した request を数える。Cloud Run 側で container 到達前に拒否された request はこの signal には含まれない。
 
@@ -87,10 +91,15 @@ jsonPayload.analysisStatus="failed"
 - severity: ERROR
 - 最初の final failure で incident を開く
 - notification rate limit: 1 hour
-- Slack へ recipe ID、source URL、request body 等の利用者データを独自展開しない
-- `errorCode`、`provider`、`analysisAttempt` は通知本文へ複製せず、Worker logs で確認する
+- final failure log には、アプリケーションが管理する値だけから `target`、`summary`、`impact`、`retryPolicy`、`nextAction` を追加する
+- Slack には `errorCode`、正規化した `provider`、`analysisAttempt` と上記の対応情報を展開する
+- `provider` が存在しない取得段階の失敗では `not_applicable` を記録し、label extraction に必要なフィールドを欠落させない
+- Slack へ recipe ID、source URL、request body、認証情報、例外メッセージ等の利用者データや任意文字列を展開しない
+- 通知の「次に行うこと」は、エラー分類に対応するログと依存先の確認手順を示す。通知だけで根本原因を断定しない
 
 LogMatch policy の notification rate limit は Cloud Monitoring の log-based alert 機能で適用する。
+
+Recipe Analysis final failure は単発イベントであり、incident の自動closeは復旧を意味しない。Worker内の自動再試行が終了した時点で通知し、再実行が必要かどうかはエラー分類とログに基づいて判断する。
 
 ### API / Worker high memory
 
@@ -101,6 +110,7 @@ Cloud Run 標準 metric `run.googleapis.com/container/memory/utilizations` を�
 - WARNING: utilization `> 0.9` が5分継続
 - missing data は inactive と扱う
 - incident open / close を Slack 通知する
+- API と Worker の各通知には、想定される影響、Cloud Runメトリクスと対象ログの確認順、close後にもOOMや失敗処理を確認する必要があることを記載する
 
 Cloud Run が scale-to-zero して metric が存在しない状態は high memory とみなさない。
 
@@ -133,7 +143,7 @@ Terraform が管理しないもの:
 - Firebase / APNs user notification
 - Billing alert の新設・変更
 
-アプリケーションコードは監視のために変更しない。API `/health` と Recipe Analysis の structured failure log を既存のまま利用する。
+API `/health` は既存のまま利用する。Recipe Analysis の既存 final failure log には、Slackで初動判断できる非機密の運用フィールドを追加する。解析結果、再試行判定、利用者向け通知の挙動は変更しない。
 
 ## Validation
 
