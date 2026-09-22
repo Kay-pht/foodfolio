@@ -1,6 +1,6 @@
 # TestFlight準備の確認記録
 
-最終更新日: 2026-09-18。自動テスト、署名済みArchive、Apple側の処理状態、実機確認は別の証跡として扱う。
+最終更新日: 2026-09-22。自動テスト、署名済みArchive、Apple側の処理状態、実機確認は別の証跡として扱う。
 
 ## 公開ページ
 
@@ -66,7 +66,14 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 
 ## 既存TestFlight配布履歴
 
-- 最新の内部・外部配布はversion `1.0`、build `12`、iPhone、iOS `26.0` 以上。接続先は既存のFoodfolio dev API。
+- 記録上の最新の内部・外部配布はversion `1.0`、build `13`、iPhone、iOS `26.0` 以上。接続先は既存のFoodfolio dev API。Apple側の現在状態は次回配布前に再取得する。
+
+## 1.0.1 (14) の準備
+
+- 2026-09-22の準備PRはmain `fe56f2cf30e322a55af2e093495e510d4bff009c` を起点に、FoodfolioとShare Extensionのversion/buildを `1.0.1 (14)` に更新する。実際の配布ソースはマージ後のSHAで確定する。
+- Appleの公開lookupでは日本向けFoodfolioがversion `1.0` として取得できた。既存build番号、App Store Connectのversion枠、審査・TestFlight状態は次回配布前に再取得する。
+- backend側には新しい解析経路と同期APIがある。dev API/Workerのデプロイ・migration・Secret参照・Ready・trafficを確認してから、1.0.1の配布可否を判断する。
+- 署名済みArchive、Apple processing、内部・外部グループ、Beta App Review、What to Test、実機動作は未確認。確認後、別々に証跡を追記する。
 - build 2 (`bc3cca8b-6824-4ffc-bac0-708c6862325c`): Archive / export / Apple validation / upload成功。
 - build 3 (`cb9cbeec-da15-4e08-b2a1-79b1a86ef79e`): 当時の判断に基づくAI送信同意を含むbuild。Archive / export / Apple validation / upload成功。
 - build 5 (`aaf7a5b6-645c-4cc1-aa39-c9c5f9cffef5`): Share ExtensionとApp Group対応、および当時のAI同意実装を含む。Apple processing `VALID`、内部 `IN_BETA_TESTING`、外部 `READY_FOR_BETA_SUBMISSION` を確認済み。

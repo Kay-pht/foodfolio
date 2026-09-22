@@ -1,0 +1,88 @@
+id: APP-STORE-UPDATE-1-0-1
+type: maintenance
+status: approved
+
+objective: >-
+  Prepare the current main source for a Foodfolio App Store update from the
+  publicly available 1.0 (13) to 1.0.1 (14), with the existing Internal and
+  External TestFlight groups used before App Review and manual public release.
+
+requirements:
+  - id: ASUP101-1
+    condition: The iOS update project is generated.
+    expected: >-
+      ios/project.yml sets MARKETING_VERSION 1.0.1 and CURRENT_PROJECT_VERSION 14;
+      Foodfolio and FoodfolioShareExtension use both values in the generated project.
+    verification:
+      - ios/project.yml
+      - ios/Foodfolio.xcodeproj/project.pbxproj
+  - id: ASUP101-2
+    condition: The release candidate is validated before distribution.
+    expected: >-
+      Repository-defined backend and iOS verification passes, including unit,
+      integration, E2E, lint, format, build, and SwiftData migration checks.
+    verification:
+      - package.json
+      - scripts/verify-ios.sh
+      - scripts/test-ios-swiftdata-migration.sh
+  - id: ASUP101-3
+    condition: The updated source is distributed for beta review.
+    expected: >-
+      A signed 1.0.1 (14) archive is uploaded and processed as VALID; the build
+      is assigned to the existing Foodfolio Internal and Foodfolio External groups,
+      with What to Test and any required Beta App Review read back from Apple.
+    verification:
+      - docs/testflight-preparation.md
+      - tasks/unreleased.md
+  - id: ASUP101-4
+    condition: The public update is prepared and released after Apple approval.
+    expected: >-
+      App Store Connect version 1.0.1 selects the processed build and has accurate
+      update notes and metadata; App Review and subsequent manual release are
+      separately authorized and read back before recorded as complete.
+    verification:
+      - docs/app-store-release.md
+      - tasks/unreleased.md
+  - id: ASUP101-5
+    condition: Backend dependencies of this source are checked.
+    expected: >-
+      The dev API and Worker used by the iOS build are verified for required
+      migrations, configuration, Ready state, and traffic before distribution.
+    verification:
+      - docs/jev-production-routing.md
+      - docs/testflight-preparation.md
+
+edge_cases:
+  - Version 1.0.1 or build 14 is already reserved or uploaded in App Store Connect.
+  - Apple requires a new Beta App Review, export declaration, or metadata change.
+  - The main backend deployment is incomplete or its configuration is not ready.
+  - Apple rejects the update or the current public version changes before release.
+
+security_invariants:
+  - Signing material, App Store Connect tokens, review credentials, and tester addresses are not committed or printed.
+  - Existing tester membership and public-link settings are preserved.
+  - No existing build, group, user data, or unrelated cloud resource is deleted.
+
+compatibility:
+  - Bundle identifiers, minimum iOS version, existing backend environment, and TestFlight groups remain unchanged.
+  - Existing local recipes and SwiftData migration behavior remain supported.
+
+non_functional:
+  - Local verification, CI, deployment, Apple processing, review, and device behavior are recorded separately.
+  - Archive and IPA artifacts are stored outside the repository.
+  - Apple and deployment writes are followed by current-state read-back.
+
+out_of_scope:
+  - Public release or App Review submission in the preparation PR.
+  - Changing testers, TestFlight public links, pricing, or storefront regions.
+  - Rotating secrets or changing unrelated cloud resources.
+
+acceptance_criteria:
+  - Foodfolio and FoodfolioShareExtension are version 1.0.1 build 14.
+  - npm run check:specs, npm run verify, and npm run verify:ios pass.
+  - The preparation PR records the remaining Apple, backend, and device checks without claiming distribution.
+  - After merge, Apple processing, TestFlight, App Review, and public release are each verified before their checklist items are completed.
+
+regression:
+  required: false
+  tests: []
