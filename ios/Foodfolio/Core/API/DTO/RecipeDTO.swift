@@ -64,4 +64,5 @@ struct SyncResponse: Codable, Sendable {
   let nextCursor: String
 }
 struct RecipeIDsResponse: Codable, Sendable { let recipeIds: [String] }
+struct RecipeBatchResponse: Codable, Sendable { let recipes: [RecipeDTO] }
 struct SettingDTO: Codable, Sendable { let recipeAnalysisNotificationEnabled: Bool }

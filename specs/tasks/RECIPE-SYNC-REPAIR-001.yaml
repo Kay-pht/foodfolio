@@ -1,0 +1,102 @@
+id: RECIPE-SYNC-REPAIR-001
+type: bug
+status: approved
+
+objective: >-
+  Repair recipes that exist on the authenticated user's server account but are missing from the
+  iOS SwiftData cache without resetting the differential-sync cursor or downloading every recipe,
+  so cross-device and Share Extension saves can self-heal for every recipe source type.
+
+requirements:
+  - id: RSR-1
+    condition: The authenticated client requests full recipe data for one or more known recipe IDs.
+    expected: >-
+      A batch read endpoint accepts at most 100 recipe IDs and returns full RecipeDTO-compatible
+      objects only for recipes owned by the authenticated user. Missing or non-owned IDs are omitted
+      rather than exposing data or failing the whole batch.
+    verification:
+      - tests/integration/mvp-critical.test.ts
+  - id: RSR-2
+    condition: Reconciliation finds recipe IDs that are present on the server but absent from SwiftData.
+    expected: >-
+      The iOS client requests only those missing IDs through the batch endpoint, in chunks of at most
+      100, and upserts the returned recipes without clearing or resetting the differential-sync cursor.
+    verification:
+      - ios/FoodfolioIntegrationTests/SyncMetadataTests.swift
+  - id: RSR-3
+    condition: Reconciliation finds recipe IDs that are present locally but absent from the server.
+    expected: >-
+      Only the stale local recipes identified from the reconciliation snapshot are removed, including
+      their cached images, without deleting a recipe added locally after that snapshot was taken.
+    verification:
+      - ios/FoodfolioIntegrationTests/MVPCriticalIntegrationTests.swift
+  - id: RSR-4
+    condition: A user signs in or the authenticated app performs its first Home sync in the current app session.
+    expected: >-
+      Server/local recipe-ID reconciliation runs once for that app session even if both login and
+      Home appearance request the session-start repair.
+    verification:
+      - ios/FoodfolioIntegrationTests/SyncMetadataTests.swift
+  - id: RSR-5
+    condition: The user explicitly performs pull-to-refresh.
+    expected: >-
+      Recipe-ID reconciliation runs regardless of the last scheduled reconciliation timestamp so a
+      visible cache omission can be repaired immediately.
+    verification:
+      - ios/FoodfolioIntegrationTests/SyncMetadataTests.swift
+  - id: RSR-6
+    condition: Sync is triggered by foreground activation, push handling, or analysis polling after the session-start repair.
+    expected: >-
+      Differential sync remains the normal path and recipe-ID reconciliation runs only when the
+      existing 24-hour reconciliation interval has elapsed.
+    verification:
+      - ios/FoodfolioIntegrationTests/SyncMetadataTests.swift
+
+edge_cases:
+  - Multiple recipes are missing locally at the same time.
+  - More than 100 recipes are missing locally and batch retrieval must be chunked.
+  - A requested recipe is deleted between the recipe-ID snapshot and the batch read.
+  - A recipe ID belongs to another authenticated user.
+  - Login sync and initial Home sync both occur during the same app session.
+  - Pull-to-refresh occurs shortly after a successful scheduled or session-start reconciliation.
+  - A reconciliation request fails before all missing recipe batches are restored.
+
+security_invariants:
+  - Every batch read requires the existing authenticated user middleware.
+  - Batch lookup always constrains rows by request.appUser.id as well as recipe ID.
+  - Recipe data from another user is never returned even when its UUID is supplied explicitly.
+  - No recipe contents, authentication tokens, or user identifiers are added to logs.
+
+compatibility:
+  - Existing GET /v1/recipes/:recipeId and differential GET /v1/sync contracts remain unchanged.
+  - Existing GET /v1/sync/recipe-ids remains the authoritative ID snapshot used for reconciliation.
+  - All recipe source types use the same repair path; ChatGPT and Gemini receive no special persistence behavior.
+  - Existing cursor values remain valid and are not reset solely to repair a missing local recipe.
+
+non_functional:
+  - A normal repair with up to 100 missing recipes requires one recipe-ID request and one batch-detail request.
+  - Batch requests are capped at 100 IDs to bound request and database work.
+  - High-frequency analysis polling must not perform recipe-ID reconciliation on every poll.
+  - Reconciliation remains idempotent and retries safely after a failed request.
+
+out_of_scope:
+  - Determining the historical runtime event that originally caused the reported AI recipe omission.
+  - Replacing cursor-based differential synchronization.
+  - Adding real-time sockets or a new push-notification protocol for cross-device changes.
+  - Changing Share Extension duplicate detection or recipe persistence semantics.
+
+acceptance_criteria:
+  - A server recipe missing from SwiftData is restored during session-start reconciliation without a full sync.
+  - Multiple missing recipes are restored through batch retrieval and more than 100 are safely chunked.
+  - Pull-to-refresh immediately performs reconciliation even when the 24-hour interval has not elapsed.
+  - Repeated session-start requests reconcile only once per app session.
+  - Normal subsequent syncs continue using the saved differential cursor and do not repeatedly fetch recipe IDs.
+  - The batch endpoint never returns another user's recipe and rejects malformed or oversized batch requests.
+  - Existing stale-local deletion behavior continues while avoiding deletion of recipes added after the reconciliation snapshot.
+
+regression:
+  required: true
+  tests:
+    - tests/integration/mvp-critical.test.ts
+    - ios/FoodfolioIntegrationTests/SyncMetadataTests.swift
+    - ios/FoodfolioIntegrationTests/MVPCriticalIntegrationTests.swift
