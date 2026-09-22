@@ -45,6 +45,17 @@ MVP 作成段階に限り、次の値を使用する。
 - 秘密情報のローテーション
 - 一般公開リリース
 
+## Runtime monitoring
+
+ランタイム監視の正本は [../runtime-monitoring.md](../runtime-monitoring.md) とする。
+
+- Runtime alert は Cloud Monitoring から Slack `#foodfolio-alerts` へ送る。
+- Slack Workspace、channel、Cloud Monitoring との OAuth 接続は人間が Cloud Console から設定し、Terraform 管理外とする。
+- Terraform は既存 Slack notification channel の full resource name のみを input として参照し、OAuth token、Bot token、webhook URL を保持しない。
+- GitHub / Quality / Deploy 通知、runtime Email notification、Firebase/APNs user notification とは分離する。
+- 現行 `deploy-dev.yml` は Terraform を実行しないため、runtime monitoring の Terraform input を deploy workflow へ伝搬しない。
+- runtime monitoring の `terraform apply` や実環境での alert test は、コード変更・plan と区別して扱う。意図的な outage や OOM を発生させるテストは行わない。
+
 ## Apple 側でユーザーが行う準備
 
 Apple Developer Program 加入、規約同意、MFA、App Store Connect の新規アプリレコード作成、必要な Apple キーの初回発行はユーザーが行う。Backend・Core UI・Simulator 中心の実装開始時には未完了でもよいが、次の期限までに完了している必要がある。

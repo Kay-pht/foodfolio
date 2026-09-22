@@ -84,3 +84,16 @@ variable "jev_ai_chat_non_recipe_threshold" {
     error_message = "Jev AI chat threshold must be between 0 and 1."
   }
 }
+
+variable "monitoring_slack_notification_channel" {
+  description = "Existing Cloud Monitoring Slack notification channel full resource name"
+  type        = string
+
+  validation {
+    condition = can(regex(
+      "^projects/${var.project_id}/notificationChannels/[^/]+$",
+      var.monitoring_slack_notification_channel,
+    ))
+    error_message = "Monitoring Slack notification channel must be a full resource name in the configured project."
+  }
+}
