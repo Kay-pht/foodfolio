@@ -106,11 +106,11 @@ Cloud Run が scale-to-zero して metric が存在しない状態は high memor
 
 ## Severity
 
-| Severity | 対象 |
-| --- | --- |
+| Severity   | 対象                                            |
+| ---------- | ----------------------------------------------- |
 | `CRITICAL` | Public API が複数 location から継続して利用不能 |
-| `ERROR` | API 5xx の継続発生、Recipe Analysis の最終失敗 |
-| `WARNING` | API / Worker の memory utilization 高止まり |
+| `ERROR`    | API 5xx の継続発生、Recipe Analysis の最終失敗  |
+| `WARNING`  | API / Worker の memory utilization 高止まり     |
 
 INFO 通知は初版では作成しない。
 
