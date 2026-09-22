@@ -42,7 +42,7 @@ export TF_VAR_monitoring_slack_notification_channel='projects/foodfolio-af28aa/n
 
 ### Public API uptime
 
-`GET /healthz` に対する HTTPS Uptime Check を使用する。
+`GET /health` に対する HTTPS Uptime Check を使用する。レビュー時に稼働中の `foodfolio-dev-api` の両 Cloud Run URL で `/health` は 200 と `{"status":"ok"}` を返し、`/healthz` は Google Frontend の 404 を返したため、公開監視には `/health` を指定する。
 
 - period: 60 seconds
 - timeout: 10 seconds
@@ -133,7 +133,7 @@ Terraform が管理しないもの:
 - Firebase / APNs user notification
 - Billing alert の新設・変更
 
-アプリケーションコードは監視のために変更しない。API `/healthz` と Recipe Analysis の structured failure log を既存のまま利用する。
+アプリケーションコードは監視のために変更しない。API `/health` と Recipe Analysis の structured failure log を既存のまま利用する。
 
 ## Validation
 

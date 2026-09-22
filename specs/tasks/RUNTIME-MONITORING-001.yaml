@@ -16,7 +16,7 @@ requirements:
       - infra/terraform/monitoring.tf
       - docs/runtime-monitoring.md
   - id: RTM-2
-    condition: The public foodfolio-dev-api /healthz endpoint is unavailable from multiple public uptime checker locations.
+    condition: The public foodfolio-dev-api /health endpoint is unavailable from multiple public uptime checker locations.
     expected: A CRITICAL incident opens only after at least two checker locations fail concurrently for 60 seconds, and metric-based recovery notification is sent when the condition clears.
     verification:
       - infra/terraform/monitoring.tf
@@ -64,7 +64,7 @@ security_invariants:
   - No application component receives permission or credentials to send Slack messages directly.
 
 compatibility:
-  - Existing /healthz behavior remains unchanged.
+  - Existing application health endpoint behavior remains unchanged.
   - Existing structured Recipe Analysis failure logging remains unchanged and is consumed as-is by Cloud Logging.
   - Existing Cloud Run API and Worker service definitions, Cloud Tasks retry behavior, Firebase/APNs notifications, deployment workflow, and Billing budget behavior are preserved.
   - Monitoring resources remain in the existing dev Terraform state and target foodfolio-af28aa.
@@ -89,7 +89,7 @@ out_of_scope:
 acceptance_criteria:
   - Monitoring and Logging APIs are present in the Terraform-managed required API set.
   - Terraform accepts an existing Slack notification channel full resource name and creates no Slack notification-channel resource.
-  - The public /healthz uptime check runs every 60 seconds over HTTPS with a 10-second timeout and validates a successful health response.
+  - The public /health uptime check runs every 60 seconds over HTTPS with a 10-second timeout and validates a successful health response.
   - The uptime alert requires at least two simultaneous failed checker locations for 60 seconds and has CRITICAL severity.
   - API 5xx uses run.googleapis.com/request_count and alerts at three or more 5xx responses in a five-minute aggregation window with ERROR severity.
   - Recipe Analysis final failure uses a LogMatch filter for foodfolio-dev-worker and jsonPayload.analysisStatus=failed, with a one-hour notification rate limit and ERROR severity.

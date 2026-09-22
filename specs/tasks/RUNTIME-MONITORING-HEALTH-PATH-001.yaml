@@ -1,0 +1,46 @@
+id: RUNTIME-MONITORING-HEALTH-PATH-001
+type: bug
+status: approved
+
+objective: >-
+  Point the public API uptime check at the health path that returns a successful
+  response on the deployed foodfolio-dev-api service.
+
+requirements:
+  - id: RMHP-1
+    condition: Cloud Monitoring checks the deployed public API health endpoint.
+    expected: The uptime check requests GET /health, requires HTTP 2xx and status ok, and its incident documentation names the same path.
+    verification:
+      - infra/terraform/monitoring.tf
+      - tests/unit/runtime-monitoring-health-path.test.mjs
+  - id: RMHP-2
+    condition: Operators use the runtime monitoring documentation.
+    expected: The monitoring guide identifies GET /health as the public API uptime endpoint.
+    verification:
+      - docs/runtime-monitoring.md
+
+edge_cases:
+  - The unavailable public /healthz path must not be used by the uptime check.
+
+security_invariants:
+  - The health request contains no secrets or user data.
+
+compatibility:
+  - Application route behavior remains unchanged.
+  - Existing alert thresholds and notification channels remain unchanged.
+
+non_functional:
+  - Keep the change limited to the uptime path, its display and incident text, and corresponding documentation.
+
+out_of_scope:
+  - Terraform apply or an intentional service outage.
+
+acceptance_criteria:
+  - The configured public uptime request uses GET /health with the existing HTTP and JSON success checks.
+  - Alert documentation and the runtime monitoring guide name GET /health.
+  - The regression test fails with the prior /healthz configuration and passes with the corrected path.
+
+regression:
+  required: true
+  tests:
+    - tests/unit/runtime-monitoring-health-path.test.mjs

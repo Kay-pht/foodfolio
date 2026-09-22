@@ -3,13 +3,13 @@ locals {
 }
 
 resource "google_monitoring_uptime_check_config" "api_health" {
-  display_name = "${local.name_prefix}-api-healthz"
+  display_name = "${local.name_prefix}-api-health"
   timeout      = "10s"
   period       = "60s"
   checker_type = "STATIC_IP_CHECKERS"
 
   http_check {
-    path           = "/healthz"
+    path           = "/health"
     port           = 443
     request_method = "GET"
     use_ssl        = true
@@ -52,7 +52,7 @@ resource "google_monitoring_alert_policy" "api_uptime" {
 
       - Project: `${var.project_id}`
       - Cloud Run service: `${google_cloud_run_v2_service.api.name}`
-      - Endpoint: `GET /healthz`
+      - Endpoint: `GET /health`
       - Monitoring: https://console.cloud.google.com/monitoring/alerting?project=${var.project_id}
       - Cloud Run: https://console.cloud.google.com/run?project=${var.project_id}
     EOT
