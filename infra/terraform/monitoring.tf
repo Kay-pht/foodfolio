@@ -29,7 +29,7 @@ resource "google_monitoring_uptime_check_config" "api_health" {
   }
 
   content_matchers {
-    content = "ok"
+    content = "\"ok\""
     matcher = "MATCHES_JSON_PATH"
     json_path_matcher {
       json_path    = "$.status"
@@ -208,9 +208,9 @@ resource "google_monitoring_alert_policy" "api_memory_high" {
         group_by_fields      = ["resource.label.service_name"]
       }
 
-      comparison             = "COMPARISON_GT"
-      threshold_value        = 0.9
-      duration               = "300s"
+      comparison              = "COMPARISON_GT"
+      threshold_value         = 0.9
+      duration                = "300s"
       evaluation_missing_data = "EVALUATION_MISSING_DATA_INACTIVE"
 
       trigger {
@@ -259,9 +259,9 @@ resource "google_monitoring_alert_policy" "worker_memory_high" {
         group_by_fields      = ["resource.label.service_name"]
       }
 
-      comparison             = "COMPARISON_GT"
-      threshold_value        = 0.9
-      duration               = "300s"
+      comparison              = "COMPARISON_GT"
+      threshold_value         = 0.9
+      duration                = "300s"
       evaluation_missing_data = "EVALUATION_MISSING_DATA_INACTIVE"
 
       trigger {
