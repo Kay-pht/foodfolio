@@ -1,12 +1,14 @@
-# App Store 初回リリース準備
+# App Store リリース管理
 
-## 次回更新 1.0.1 (14) の準備
+## 更新 1.0.1 (14) の提出状況
 
 2026-09-22に日本向けApple公開lookupでversion `1.0` の配信を確認した。以下の1.0 (13) に関する審査待ち・未公開の記録は当時の記録であり、現在の公開状態を示さない。現行1.0のApp Store Connect build番号・公開日時は次回更新前に再取得する。
 
-次回更新では現行mainのiOS・backend変更を `1.0.1 (14)` として準備する。既存の無料・日本のみ・手動公開方針を引き継ぐ。新versionのApp Store Connect枠、更新内容、metadata、署名済みbuild、審査用アカウント、backendの稼働状態はマージ後に確認する。App Review提出と一般公開はそれぞれ実行直前に確認する。
+main `c4f85fbc0d076645c2f43655e1291647583c5c40` から `1.0.1 (14)` をArchiveし、Apple validationとuploadに成功した。Build IDは `7db14f24-ffd5-4c9f-9bdf-966b3937e711`。processing `VALID`、未期限、暗号化申告 `false` を確認した。
 
-更新内容の文案: 「レシピの同期で欠けたデータを再取得できるようにし、共有シートの送信状況を分かりやすくしました。」公開用文面は配布されたbuildの動作と照合してから保存する。
+App Store Connect version ID `2cd5cd24-e587-400d-afaf-a24a50ba4b14` を作成し、build 14を選択した。既存の無料・日本のみ・手動公開方針、App Privacy、年齢レーティング、カテゴリ、日本語metadata、審査情報、6.5-inchスクリーンショット3枚を読み戻した。2026-09-22にApp Reviewへ提出し、Submission ID `fc385487-84a2-4fa0-b595-90b451cbdd5d`、versionとsubmissionはいずれも `WAITING_FOR_REVIEW`。Apple承認後の手動公開は未実施。
+
+保存済みの更新内容: 「レシピの同期で端末から欠けたデータを再取得できるようにし、レシピではないURLの表示を分かりやすくしました。共有シートでは、送信中の進行状況と送信完了が分かりやすく表示されます。」
 
 ## 対象と公開方針
 

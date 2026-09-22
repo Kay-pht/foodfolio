@@ -70,10 +70,10 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 
 ## 1.0.1 (14) の準備
 
-- 2026-09-22の準備PRはmain `fe56f2cf30e322a55af2e093495e510d4bff009c` を起点に、FoodfolioとShare Extensionのversion/buildを `1.0.1 (14)` に更新する。実際の配布ソースはマージ後のSHAで確定する。
-- Appleの公開lookupでは日本向けFoodfolioがversion `1.0` として取得できた。既存build番号、App Store Connectのversion枠、審査・TestFlight状態は次回配布前に再取得する。
-- backend側には新しい解析経路と同期APIがある。dev API/Workerのデプロイ・migration・Secret参照・Ready・trafficを確認してから、1.0.1の配布可否を判断する。
-- 署名済みArchive、Apple processing、内部・外部グループ、Beta App Review、What to Test、実機動作は未確認。確認後、別々に証跡を追記する。
+- 配布ソースは準備PR #119をマージしたmain `c4f85fbc0d076645c2f43655e1291647583c5c40`。
+- Appleの公開lookupでは日本向けFoodfolio version `1.0` の配信を確認した。更新buildはversion `1.0.1`、build `14` として処理された。
+- backend側の最新デプロイ対象SHAは `fe56f2cf30e322a55af2e093495e510d4bff009c`。dev API `foodfolio-dev-api-00041-cbd` とWorker `foodfolio-dev-worker-00045-gvp` は同SHAのimageでReady、traffic 100%であり、必要なSecret参照とJev設定を確認した。準備PR #119のDeploy devはdeploy対象差分なしとして正常終了し、このrevisionを維持した。
+- 署名済みArchive、Apple validation、upload、processing、内部・外部グループへの割り当て、What to Test保存を完了した。内部は配布中、外部はBeta App Review待ち。実機動作は別途確認する。
 - build 2 (`bc3cca8b-6824-4ffc-bac0-708c6862325c`): Archive / export / Apple validation / upload成功。
 - build 3 (`cb9cbeec-da15-4e08-b2a1-79b1a86ef79e`): 当時の判断に基づくAI送信同意を含むbuild。Archive / export / Apple validation / upload成功。
 - build 5 (`aaf7a5b6-645c-4cc1-aa39-c9c5f9cffef5`): Share ExtensionとApp Group対応、および当時のAI同意実装を含む。Apple processing `VALID`、内部 `IN_BETA_TESTING`、外部 `READY_FOR_BETA_SUBMISSION` を確認済み。
@@ -85,6 +85,7 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 - build 11 (`00863d38-fc2a-4ae8-a331-f64959c54fca`): 共有タグの多対多永続化と旧SwiftData storeの移行を含む。Apple processing `VALID`、build有効、内部・外部とも `IN_BETA_TESTING`、Beta App Review `APPROVED` を確認し、`Foodfolio Internal` と `Foodfolio External` へ割り当て済み。日本語の「テストしてほしいこと」も保存・再取得確認済み。
 - build 12 (`366c4a95-5fc5-449b-962f-a124b577bb47`): 「作りたい」レシピの保存・専用表示と、同期・編集操作の競合対策を含む。Apple processing `VALID`、build有効、内部・外部とも `IN_BETA_TESTING`、Beta App Review `APPROVED` を確認し、`Foodfolio Internal` と `Foodfolio External` へ割り当て済み。日本語の「テストしてほしいこと」も保存・再取得確認済み。
 - build 13 (`8c5ebc62-634c-47f2-b1d8-08bc1c608c1e`): 公開ChatGPT / Gemini共有会話のレシピ取り込みと生成サムネイルを含む。Apple processing `VALID`、build有効、内部・外部とも `IN_BETA_TESTING`、Beta App Review `APPROVED` を確認し、`Foodfolio Internal` と `Foodfolio External` へ割り当て済み。日本語の「テストしてほしいこと」も保存・再取得確認済み。
+- build 14 (`7db14f24-ffd5-4c9f-9bdf-966b3937e711`): 欠損レシピ同期、`not_recipe`表示、Jev経路、Share Extensionの送信表示改善を含む。Apple processing `VALID`、build有効、暗号化申告 `false`、内部 `IN_BETA_TESTING` を確認した。内部・外部グループへ割り当て済みで、Beta App Reviewは `WAITING_FOR_REVIEW`。
 - build 3 / 5に含まれるAI同意実装は配布履歴として残るが、現在のソース仕様では廃止対象であり、次回buildでは利用しない。
 - 内部グループ `Foodfolio Internal` に既存App Store Connect管理者1名を登録済み。
 
@@ -180,6 +181,15 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 - build 13を `Foodfolio Internal` と `Foodfolio External` へ割り当て、日本語の「テストしてほしいこと」を保存・再取得した。内部・外部とも `IN_BETA_TESTING`、自動通知有効、Beta App Review `APPROVED` を確認した。
 - `Foodfolio External` の公開リンク有効状態を維持した。既存テスター構成は変更せず、API再取得時点で2件（`INSTALLED` 1件、`INVITED` 1件）。2026-09-18にiOS更新後の実機でShare ExtensionのURL送信からレシピ追加まで確認済み。その他のbuild 13実機動作は別途確認する。
 
+## build 14のTestFlight提出結果
+
+- 配布ソースはmain `c4f85fbc0d076645c2f43655e1291647583c5c40`。mainのQualityは成功した。Deploy devはdeploy対象差分なしとして正常終了し、Backend SHA `fe56f2cf30e322a55af2e093495e510d4bff009c` のAPI `foodfolio-dev-api-00041-cbd` とWorker `foodfolio-dev-worker-00045-gvp`、traffic 100%を維持した。
+- 準備PRの最新HEADでは `npm run verify` がunit 347件、integration 51件、E2E 42件を含めて成功し、`npm run verify:ios` は118件成功、失敗0、skip 0。
+- Release Archive、署名・entitlement確認、IPA export、Apple validation、uploadに成功。本体とShare Extensionはともに `1.0.1 (14)`、本体はproduction APNs、Sign in with Apple、共通App Group、Extensionは共通App Groupを保持している。
+- App Store Connect Build ID `7db14f24-ffd5-4c9f-9bdf-966b3937e711` のprocessing `VALID`、build有効、暗号化申告 `false` をAPIで確認した。
+- build 14を既存の `Foodfolio Internal` と `Foodfolio External` へ割り当て、日本語の「テストしてほしいこと」を保存・再取得した。内部は `IN_BETA_TESTING`、外部のBeta App Reviewはsubmission ID `7db14f24-ffd5-4c9f-9bdf-966b3937e711`、`WAITING_FOR_REVIEW`。
+- `Foodfolio External` の公開リンク有効状態と自動通知を維持した。既存テスター構成は変更せず、API再取得時点で2件（`INSTALLED` 1件、`INVITED` 1件）。Apple承認後の外部状態とbuild 14の実機動作は未確認。
+
 ## 入力文面の控え（認証情報を除く）
 
 ### Beta App Description
@@ -203,6 +213,10 @@ build 12では、レシピ詳細のメニューから「作りたい」を追加
 build 13では、公開されたChatGPTまたはGeminiの共有会話URLをアプリ内の追加ボタンから保存し、会話内の材料・手順と後から加えた変更が1件のレシピへ反映されることをご確認ください。材料と手順が揃い、元画像がない新規レシピでは生成サムネイルが表示されることもご確認ください。画像生成に失敗した場合もレシピ解析自体は完了し、既存レシピへ画像が自動追加されない仕様です。あわせて、起動・認証、通常URLの保存、検索、編集、同期、Push通知をご確認ください。既知の制限として、Share Extensionからの追加は正常に完了しない場合があります。アプリ内の追加ボタンを使用してください。
 
 2026-09-18追記: 上記はApp Store Connectへ保存した当時のWhat to Test文面である。iOS更新後の実機ではShare Extensionの制限は再現せず、URL送信からレシピ追加まで正常に完了することを確認した。このPRはApp Store Connect上の保存済み文面自体は変更しない。
+
+### What to Test（build 14）
+
+build 14では、起動時または手動更新時に端末から欠けた保存済みレシピを再取得できること、レシピではないURLが分かりやすく表示され、元URLの確認と削除ができることをご確認ください。Share Extensionでは送信後に「確認中」と進行状況が表示され、成功時に「送信」と表示されます。あわせて、起動・認証、通常URLと公開ChatGPT／Gemini共有会話の保存、材料・手順、生成サムネイル、検索、編集、タグ、「作りたい」、同期、Push通知をご確認ください。
 
 ### Review Notes
 
