@@ -26,3 +26,5 @@ xcuserdata/
 src/generated/prisma/
 mail-list.md
 marketing/app-store/output/
+marketing/app-store/.generated/
+marketing/app-store/bezels/

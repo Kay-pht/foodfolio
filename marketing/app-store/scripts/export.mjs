@@ -1,13 +1,89 @@
 import { createServer } from "node:http";
-import { mkdir, readFile } from "node:fs/promises";
+import { access, mkdir, readFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { execFile } from "node:child_process";
 import path from "node:path";
+import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { slides } from "../src/slides.js";
+import { slides, sourceAssets } from "../src/slides.js";
 
+const execFileAsync = promisify(execFile);
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..");
 const output = path.join(root, "output");
+const generatedFrames = path.join(root, ".generated", "frames");
+const bezels = path.join(root, "bezels");
+const framesJson = path.join(bezels, "frames.json");
+const cli = path.join(
+  root,
+  "node_modules",
+  ".bin",
+  process.platform === "win32" ? "dkbezeler.cmd" : "dkbezeler",
+);
+
+async function exists(target) {
+  try {
+    await access(target, constants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function ensureOfficialBezels() {
+  if (await exists(framesJson)) return;
+
+  if (process.platform !== "darwin") {
+    throw new Error(
+      [
+        "Apple公式Product Bezelが未セットアップです。",
+        "Appleの配布物はDMGのため、自動展開はmacOSでのみ行います。",
+        "macOSで marketing/app-store から npm run generate を実行するか、",
+        "Apple Design ResourcesからiPhone 17のProduct Bezelsを取得して bezels/ に配置してください。",
+      ].join("\n"),
+    );
+  }
+
+  console.log("Apple公式 iPhone 17 Product Bezels を取得します...");
+  await execFileAsync(cli, ["init", "iphone-17"], {
+    cwd: root,
+    maxBuffer: 10 * 1024 * 1024,
+  });
+}
+
+async function buildFramedScreenshots() {
+  await ensureOfficialBezels();
+  await mkdir(generatedFrames, { recursive: true });
+
+  for (const fileName of sourceAssets) {
+    const input = path.join(root, "assets", fileName);
+    const baseName = path.parse(fileName).name;
+    const framed = path.join(generatedFrames, `${baseName}-framed.png`);
+
+    if (await exists(framed)) continue;
+
+    console.log(`frame ${fileName}`);
+    await execFileAsync(
+      cli,
+      [
+        input,
+        "--dir",
+        bezels,
+        "--out",
+        generatedFrames,
+        "--name",
+        baseName,
+      ],
+      {
+        cwd: root,
+        maxBuffer: 10 * 1024 * 1024,
+      },
+    );
+  }
+}
+
+await buildFramedScreenshots();
 
 const mimeTypes = new Map([
   [".html", "text/html; charset=utf-8"],
@@ -32,7 +108,9 @@ const server = createServer(async (request, response) => {
 
     const file = await readFile(candidate);
     response.writeHead(200, {
-      "Content-Type": mimeTypes.get(path.extname(candidate).toLowerCase()) ?? "application/octet-stream",
+      "Content-Type":
+        mimeTypes.get(path.extname(candidate).toLowerCase()) ??
+        "application/octet-stream",
       "Cache-Control": "no-store",
     });
     response.end(file);
@@ -62,12 +140,16 @@ try {
   for (const slide of slides) {
     const url = `http://127.0.0.1:${address.port}/src/index.html?slide=${encodeURIComponent(slide.id)}`;
     await page.goto(url, { waitUntil: "networkidle" });
-    await page.waitForFunction(() => document.documentElement.dataset.ready === "true");
+    await page.waitForFunction(
+      () => document.documentElement.dataset.ready === "true",
+    );
 
     const artboard = page.locator("#artboard");
     const box = await artboard.boundingBox();
     if (!box || box.width !== 1320 || box.height !== 2868) {
-      throw new Error(`Unexpected artboard size for ${slide.id}: ${JSON.stringify(box)}`);
+      throw new Error(
+        `Unexpected artboard size for ${slide.id}: ${JSON.stringify(box)}`,
+      );
     }
 
     const destination = path.join(output, `${slide.id}.png`);

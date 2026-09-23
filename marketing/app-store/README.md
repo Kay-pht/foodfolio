@@ -1,17 +1,21 @@
 # Foodfolio App Store screenshots
 
-App Store掲載用のプロモーション画像を、既存のiPhoneスクリーンショットを素材としてHTML/CSSで組み立てます。
+App Store掲載用の画像をHTML/CSSで組み立てます。
 
-## 方針
+## 今回の方針
 
-- `assets/` の元スクリーンショット自体は編集しない
-- 見せ方はHTML/CSS側で作る
-- スクリーンショット上の丸囲み・吹き出し・矢印・タップ位置もHTML/CSSのオーバーレイ
-- コピー、背景、余白、影、傾き、端末フレームもコードで変更可能
-- 生成物は `output/` に出し、Git管理しない
-- 出力サイズはiPhone 6.9インチ用の `1320 x 2868` px
+- 小さい説明文は使わない
+- 1枚につき「大きな日本語1メッセージ」を基本にする
+- 元スクリーンショット自体は編集しない
+- 操作を示す丸囲み・吹き出しだけHTML/CSSで重ねる
+- 疑似Dynamic Islandなど、実機に見えない自作パーツは追加しない
+- 端末枠にはApple公式Product Bezelsを使用する
+- 生成物とダウンロードしたProduct BezelsはGit管理しない
+- 最終出力は1320 x 2868 px
 
-## セットアップ
+元スクリーンショットは1206 x 2622 pxです。AppleのApp Store Connect仕様では、この解像度は6.3インチディスプレイ用の有効サイズで、iPhone 17 Proも同じ区分です。
+
+## 初回セットアップ
 
 ```bash
 cd marketing/app-store
@@ -27,36 +31,24 @@ npx playwright install chromium
 npm run appstore:generate
 ```
 
-またはこのディレクトリから:
+初回の生成時だけ、Apple公式のiPhone 17 Product Bezelsを取得します。
+Product Bezel取得には `@diklein/dkbezeler` を使用します。ベゼル画像そのものは同パッケージには含まれず、Appleの公開配布物から取得されます。
 
-```bash
-npm run generate
-```
+AppleのProduct BezelsはDMGで配布されているため、自動セットアップはmacOS前提です。
 
-`output/` に6枚のPNGが生成されます。
+## コピー
 
-## 編集箇所
+1. 「レシピを、ひとつに。」
+2. 「URLを、貼るだけ。」
+3. 「シェアで、すぐ保存。」
+4. 「『作りたい』が、すぐ見つかる。」
+5. 「材料も手順も、見やすい。」
+6. 「好きなだけ、保存できる。」
 
-- `src/slides.js`
-  - コピー
-  - 使用する元スクショ
-  - 操作ステップ
-  - スクショ上の注釈位置
-- `src/styles.css`
-  - 配色
-  - タイポグラフィ
-  - 端末サイズ・傾き
-  - 吹き出し、丸囲み、背景装飾
-- `scripts/export.mjs`
-  - 出力処理
+補助文も52px以上、見出しは126px以上にして、App Store上で縮小された状態でも読みやすいことを優先しています。
 
-## 現在の6枚
+## 編集場所
 
-1. Web / SNS / AI Chat のレシピを一か所にまとめる
-2. URLを貼るだけで追加
-3. 共有メニューからFoodfolioへ追加
-4. 「作りたい」で候補を整理
-5. 材料・作り方を料理中に見やすく確認
-6. 保存数を気にせず好きなだけ一か所に集約
-
-元スクショそのものは壊さず、操作説明だけをコード上で重ねるため、素材差し替え時も同じデザインを再利用できます。
+- `src/slides.js`: コピー、スクショ、注釈位置
+- `src/styles.css`: サイズ、配色、傾き、背景
+- `scripts/export.mjs`: Apple公式ベゼル適用とPNG出力
