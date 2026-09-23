@@ -301,15 +301,21 @@ describe("API/Worker application E2E", () => {
         throw new AnalysisError("AI_TIMEOUT", true, "timeout", "zai");
       },
     };
-    const worker = buildWorker(
-      new RecipeAnalysisService({
-        prisma: context.prisma,
-        sourceExtractor,
-        recipeExtractor: failingAi,
-        notifications,
-        maxAttempts: 3,
-      }),
-    );
+    const logs: Array<Record<string, unknown>> = [];
+    const service = new RecipeAnalysisService({
+      prisma: context.prisma,
+      sourceExtractor,
+      recipeExtractor: failingAi,
+      notifications,
+      maxAttempts: 3,
+    });
+    const worker = buildWorker({
+      process: (recipeId, attempt, log) =>
+        service.process(recipeId, attempt, (fields, message) => {
+          logs.push({ ...fields, message });
+          log(fields, message);
+        }),
+    });
     const first = await worker.inject({
       method: "POST",
       url: "/internal/tasks/recipe-analysis",
@@ -336,6 +342,19 @@ describe("API/Worker application E2E", () => {
     });
     expect(failedRecipe.analysisStatus).toBe("failed");
     expect(failedRecipe.analysisProvider).toBe("zai");
+    expect(
+      logs.find(({ analysisStatus }) => analysisStatus === "failed"),
+    ).toMatchObject({
+      analysisAttempt: 3,
+      analysisAttemptLabel: "3",
+      errorCode: "AI_TIMEOUT",
+      provider: "zai",
+      severity: "ERROR",
+      target: "レシピ解析",
+      summary: "AIによるレシピ解析が最終試行まで成功しませんでした。",
+      retryPolicy: "final_failure",
+      message: "recipe analysis failed",
+    });
     expect(notifications.failed).toEqual([]);
     await worker.close();
   });

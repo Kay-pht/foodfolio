@@ -1,5 +1,5 @@
 id: RUNTIME-MONITORING-001
-type: feature
+type: bug
 status: approved
 
 objective: >-
@@ -43,29 +43,47 @@ requirements:
       - docs/runtime-monitoring.md
   - id: RTM-6
     condition: Runtime monitoring infrastructure is added.
-    expected: Monitoring and Logging APIs are Terraform-managed, while application code, Firebase/APNs user notifications, deploy-dev workflow behavior, GitHub notifications, Billing alerts, and runtime Email notification channels remain unchanged.
+    expected: Monitoring and Logging APIs are Terraform-managed, while the application only adds non-sensitive Recipe Analysis operational log fields; Firebase/APNs user notifications, deploy-dev workflow behavior, GitHub notifications, Billing alerts, and runtime Email notification channels remain unchanged.
     verification:
       - infra/terraform/main.tf
       - .github/workflows/deploy-dev.yml
       - docs/runtime-monitoring.md
+  - id: RTM-7
+    condition: A runtime alert is delivered to Slack.
+    expected: The notification explains in Japanese what happened, the expected impact, the first response action, and whether a close notification means recovery, without requiring the responder to interpret raw Cloud Monitoring condition text.
+    verification:
+      - infra/terraform/monitoring.tf
+      - tests/unit/runtime-monitoring-health-path.test.mjs
+      - docs/runtime-monitoring.md
+  - id: RTM-8
+    condition: Recipe Analysis reaches its final failed state.
+    expected: The final failure log has ERROR severity and contains guaranteed non-sensitive operational fields for the error classification, provider, attempt, summary, impact, retry policy, and next action; the LogMatch policy extracts them into the Slack notification.
+    verification:
+      - src/application/analysis/analysis-service.ts
+      - src/application/analysis/operational-failure.ts
+      - tests/unit/analysis-operational-failure.test.ts
+      - tests/unit/runtime-monitoring-health-path.test.mjs
+      - tests/e2e/backend-worker.test.ts
 
 edge_cases:
   - A single public uptime checker location fails transiently; no uptime incident is opened.
   - One or two API 5xx responses occur inside a five-minute window; no API 5xx incident is opened.
   - Recipe Analysis logs analysisStatus=pending while Cloud Tasks retry is still possible; no final-failure alert matches that log.
   - Several final Recipe Analysis failures occur within one hour; the LogMatch policy does not flood Slack with more than one notification per configured rate-limit period.
+  - A Recipe Analysis failure has no AI provider because source retrieval failed; the log and notification use an explicit `not_applicable` value instead of omitting an extracted label.
   - Cloud Run scales to zero and memory metrics are absent; missing metric data is treated as inactive rather than as high memory.
   - A short memory spike exceeds 90 percent but does not persist for five minutes; no high-memory incident is opened.
 
 security_invariants:
   - Slack OAuth tokens, bot tokens, and webhook URLs are never stored in repository files or Terraform state by this change.
   - Runtime alert documentation and notifications do not expand recipe IDs, source URLs, request bodies, authentication data, or other user content into custom Slack messages.
+  - Operational summaries and next actions are derived only from controlled error classifications and never include exception messages or arbitrary external content.
   - The Slack notification channel is referenced by its non-secret Google Cloud resource name only.
   - No application component receives permission or credentials to send Slack messages directly.
 
 compatibility:
   - Existing application health endpoint behavior remains unchanged.
-  - Existing structured Recipe Analysis failure logging remains unchanged and is consumed as-is by Cloud Logging.
+  - Existing Recipe Analysis failure detection, final-state handling, and retry decisions remain unchanged; only non-sensitive operational log fields are added.
   - Existing Cloud Run API and Worker service definitions, Cloud Tasks retry behavior, Firebase/APNs notifications, deployment workflow, and Billing budget behavior are preserved.
   - Monitoring resources remain in the existing dev Terraform state and target foodfolio-af28aa.
 
@@ -73,6 +91,7 @@ non_functional:
   - Use built-in Cloud Run metrics when they directly express the required signal instead of creating redundant custom metrics.
   - Keep monitoring configuration isolated in infra/terraform/monitoring.tf except for shared API enablement and input variables.
   - Keep the initial alert set limited to API uptime, API 5xx, Recipe Analysis final failure, API memory, and Worker memory.
+  - Alert instructions distinguish confirmed facts from investigation steps and do not claim a root cause that the alert signal cannot prove.
   - Metric-based policies send recovery notifications; the Recipe Analysis LogMatch policy uses a one-hour notification rate limit.
 
 out_of_scope:
@@ -97,7 +116,11 @@ acceptance_criteria:
   - Metric-based runtime policies notify on incident open and close through the configured Slack channel.
   - No application Slack client, webhook, runtime Email channel, GitHub notification, Firebase/APNs change, or deploy-dev Terraform application path is added.
   - Runtime monitoring setup, thresholds, manual Slack setup, and validation boundaries are documented.
+  - All five alert policies provide actionable Japanese documentation; the Recipe Analysis notification includes extracted operational fields and the other policies provide signal-specific first-response steps and filtered investigation links.
 
 regression:
-  required: false
-  tests: []
+  required: true
+  tests:
+    - tests/unit/runtime-monitoring-health-path.test.mjs
+    - tests/unit/analysis-operational-failure.test.ts
+    - tests/e2e/backend-worker.test.ts
