@@ -29,10 +29,15 @@ describe("describeAnalysisFailure", () => {
         provider: "zai",
         attempt: 3,
       }),
-    ).toMatchObject({
+    ).toEqual({
+      target: "レシピ解析",
       provider: "zai",
       summary: "レシピ解析が最終的に失敗しました。",
+      impact:
+        "対象のレシピは解析完了にならず、アプリでは解析失敗として表示されます。",
       retryPolicy: "final_failure",
+      nextAction:
+        "WorkerログのFUTURE_ERRORと同時刻のログを確認し、再発状況と影響範囲を調査してください。",
     });
   });
 });

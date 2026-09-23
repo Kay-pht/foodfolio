@@ -63,6 +63,6 @@ export function describeAnalysisFailure(
   return {
     ...common,
     summary: "レシピ解析が最終的に失敗しました。",
-    nextAction: `Workerログの${input.errorCode}と同時刻の例外を確認し、再発状況と影響範囲を調査してください。`,
+    nextAction: `Workerログの${input.errorCode}と同時刻のログを確認し、再発状況と影響範囲を調査してください。`,
   };
 }
