@@ -110,3 +110,9 @@
 - [x] app store用の画像修正
 - [x] tag機能のバグ調査
 - [x] chatgptなどのAIで聞いたレシピのメニュー作成.geminiにも対応する予定。サムネはどうする問題
+- [x] TikTokタイトル不足時の動画フォールバックをdevへ反映し、実アプリで許可済みURLを検証
+- [x] MVPリリース・ユーザー検証
+  - [x] Apple承認後、`Foodfolio External` の外部テスターへ招待が送信されたことをAPIで確認する
+    - 2026-09-14: build 12はBeta App Review `APPROVED`、外部 `IN_BETA_TESTING`、自動通知有効。既存テスター2件は `INSTALLED` 1件、`INVITED` 1件
+    - 2026-09-15: build 13はBeta App Review `APPROVED`、外部 `IN_BETA_TESTING`、自動通知有効。既存テスター2件は `INSTALLED` 1件、`INVITED` 1件
+  - [x] 外部テスターの実機でbuild 13への更新、ChatGPT / Gemini共有会話の取り込み、生成サムネイル、主要フローを確認する
