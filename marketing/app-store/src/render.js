@@ -37,6 +37,13 @@ for (const chip of slide.chips ?? []) {
 
 if (slide.sourceMenu?.length) {
   slide.sourceMenu.forEach((item, index) => {
+    if (index === slide.sourceMenu.length - 1) {
+      const arrow = document.createElement("span");
+      arrow.className = "source-menu__arrow";
+      arrow.textContent = "→";
+      sourceMenu.append(arrow);
+    }
+
     const element = document.createElement("span");
     element.className = "source-menu__item";
     if (index === slide.sourceMenu.length - 1) {
@@ -44,13 +51,6 @@ if (slide.sourceMenu?.length) {
     }
     element.textContent = item;
     sourceMenu.append(element);
-
-    if (index < slide.sourceMenu.length - 1) {
-      const arrow = document.createElement("span");
-      arrow.className = "source-menu__arrow";
-      arrow.textContent = "→";
-      sourceMenu.append(arrow);
-    }
   });
 } else {
   sourceMenu.hidden = true;

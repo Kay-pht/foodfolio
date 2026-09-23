@@ -184,7 +184,7 @@ export const slides = [
     title: ["保存数、", "気にしなくていい。"],
     body: ["好きなレシピを好きなだけ。", "あちこちのブックマークを、ひとつの料理帳へ。"],
     chips: ["保存数 無制限", "一か所に集約", "端末間同期"],
-    sourceMenu: ["Web", "SNS", "AI Chat", "レシピサイト"],
+    sourceMenu: ["Web", "SNS", "AI Chat", "Foodfolio"],
     layout: "stack",
     images: [
       asset("S__76292199_0.jpg"),
