@@ -67,8 +67,8 @@ export const slides = [
   {
     id: "04-want-to-cook",
     theme: "coral",
-    kicker: "次に作るレシピをまとめて",
-    title: ["「作りたい」が、", "すぐ見つかる。"],
+    kicker: "気になるレシピをまとめて",
+    title: ["作りたいレシピが、", "すぐ見つかる。"],
     layout: "single",
     tilt: 4,
     images: [framed("S__76292198_0")],
@@ -106,7 +106,7 @@ export const slides = [
   {
     id: "06-unlimited",
     theme: "sun",
-    kicker: "保存数を気にしない",
+    kicker: "レシピを一か所に",
     title: ["好きなだけ、", "保存できる。"],
     layout: "stack",
     images: [
