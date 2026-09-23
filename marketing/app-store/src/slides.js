@@ -1,0 +1,62 @@
+const asset = (name) => `../assets/${name}`;
+
+export const slides = [
+  {
+    id: "01-one-place",
+    eyebrow: "ぜんぶ、ここに",
+    title: ["レシピ、もう", "散らからない。"],
+    body: ["WebもSNSもAIチャットも。", "見つけたレシピを、ぜんぶひとつの料理帳へ。"],
+    chips: ["Web", "SNS", "AIチャット"],
+    layout: "single",
+    images: [asset("S__76292201_0.jpg")],
+  },
+  {
+    id: "02-url",
+    eyebrow: "たったこれだけ",
+    title: ["URLを貼るだけ。", "もう保存できる。"],
+    body: ["コピーしたレシピを見つけて、", "そのままFoodfolioに追加。"],
+    chips: ["かんたん追加", "URLだけ"],
+    layout: "single",
+    images: [asset("S__76292197_0.jpg")],
+  },
+  {
+    id: "03-share",
+    eyebrow: "見つけたら、その場で",
+    title: ["見つけた瞬間、", "そのまま追加。"],
+    body: ["共有メニューからFoodfolioへ。", "気になるレシピを、その場で保存。"],
+    chips: ["シェア拡張", "SNSから"],
+    layout: "single",
+    images: [asset("S__76292202.jpg")],
+  },
+  {
+    id: "04-want-to-cook",
+    eyebrow: "次に作るものがすぐ決まる",
+    title: ["「作りたい」が、", "今日の候補になる。"],
+    body: ["気になるレシピだけをまとめて、", "次に作るものをすぐ見つけられます。"],
+    chips: ["作りたい", "迷わない"],
+    layout: "single",
+    images: [asset("S__76292198_0.jpg")],
+  },
+  {
+    id: "05-readable",
+    eyebrow: "料理中も見やすい",
+    title: ["材料も、作り方も。", "すっきり見やすく。"],
+    body: ["保存したレシピは、料理中に見やすい形で", "ひとまとめにして確認できます。"],
+    chips: ["材料", "手順", "元レシピ"],
+    layout: "duo",
+    images: [asset("S__76292196_0.jpg"), asset("S__76292195_0.jpg")],
+  },
+  {
+    id: "06-unlimited",
+    eyebrow: "どんどん増やせる",
+    title: ["保存数は、", "気にしなくていい。"],
+    body: ["好きなレシピを好きなだけ。", "あちこちのブックマークを、一か所へ。"],
+    chips: ["保存数 無制限", "ひとつに集約", "端末間同期"],
+    layout: "stack",
+    images: [
+      asset("S__76292199_0.jpg"),
+      asset("S__76292200_0.jpg"),
+      asset("S__76292201_0.jpg"),
+    ],
+  },
+];

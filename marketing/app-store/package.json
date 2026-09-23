@@ -1,0 +1,11 @@
+{
+  "name": "foodfolio-app-store-marketing",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "node scripts/export.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}

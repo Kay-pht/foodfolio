@@ -25,3 +25,4 @@ ios/.derived-data*/
 xcuserdata/
 src/generated/prisma/
 mail-list.md
+marketing/app-store/output/
