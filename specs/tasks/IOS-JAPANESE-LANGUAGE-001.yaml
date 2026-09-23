@@ -1,0 +1,61 @@
+id: IOS-JAPANESE-LANGUAGE-001
+type: bug
+status: approved
+
+objective: >-
+  Declare Japanese as Foodfolio's development and supported language so the App Store
+  product page reports the language consistently with the application's Japanese UI.
+
+requirements:
+  - id: IJL-1
+    condition: The Xcode project is generated from ios/project.yml.
+    expected: The generated application project uses Japanese as its development region and includes Japanese in its known regions.
+    verification:
+      - ios/project.yml
+      - ios/Foodfolio.xcodeproj/project.pbxproj
+      - tests/unit/ios-localization-config.test.mjs
+  - id: IJL-2
+    condition: Apple inspects the main application bundle to determine its supported languages.
+    expected: The main application contains a Japanese localized resource under ja.lproj and continues to display the existing Foodfolio name.
+    verification:
+      - tests/unit/ios-localization-config.test.mjs
+  - id: IJL-3
+    condition: The Share Extension is packaged with the application.
+    expected: The extension declares the same Japanese development language and contains its own Japanese localized bundle-display-name resource.
+    verification:
+      - tests/unit/ios-localization-config.test.mjs
+
+edge_cases:
+  - A Japanese-only application must not claim English localization merely because XcodeGen previously defaulted the development language to English.
+  - The product-page metadata can be Japanese while the uploaded binary still reports English; the binary localization declaration remains authoritative for the Languages field.
+  - The main application and Share Extension are separate bundles and must not depend on each other's localized Info.plist resources.
+
+security_invariants:
+  - Bundle identifiers, signing configuration, entitlements, authentication, networking, and stored user data remain unchanged.
+  - No App Store Connect credentials, review credentials, or signing material are added to the repository or test output.
+
+compatibility:
+  - Existing Japanese SwiftUI labels and accessibility text remain unchanged.
+  - The main application and Share Extension continue to use the display name Foodfolio.
+  - The change remains compatible with XcodeGen and the repository's iOS 26 deployment target.
+
+non_functional:
+  - The localization declaration must be generated reproducibly from ios/project.yml.
+  - The regression test must validate both the XcodeGen source and generated project instead of relying on manual Xcode configuration.
+  - The fix must not introduce an English translation or change existing user-facing wording.
+
+out_of_scope:
+  - Adding English UI translations or a language selector.
+  - Changing App Store product-page descriptions, screenshots, pricing, territories, or release controls.
+  - Uploading a build, submitting App Review, or publicly releasing an update.
+
+acceptance_criteria:
+  - ios/project.yml declares Japanese as the development language.
+  - The generated Xcode project declares Japanese as its development region and known localization.
+  - Both application bundles contain Japanese localized Info.plist resources with the Foodfolio display name.
+  - The focused regression test, npm run verify, and npm run verify:ios pass.
+
+regression:
+  required: true
+  tests:
+    - tests/unit/ios-localization-config.test.mjs
