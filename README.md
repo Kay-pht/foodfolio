@@ -10,6 +10,10 @@
 </p>
 
 <p align="center">
+  <a href="https://apps.apple.com/jp/app/id6806783378"><strong>App StoreでFoodfolioを見る</strong></a>
+</p>
+
+<p align="center">
   <a href="https://github.com/Kay-pht/foodfolio/actions/workflows/quality.yml">
     <img src="https://github.com/Kay-pht/foodfolio/actions/workflows/quality.yml/badge.svg?branch=main" alt="Quality" />
   </a>
