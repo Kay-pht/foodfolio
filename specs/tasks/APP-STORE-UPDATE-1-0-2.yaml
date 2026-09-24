@@ -1,0 +1,126 @@
+id: APP-STORE-UPDATE-1-0-2
+type: maintenance
+status: approved
+
+objective: >-
+  Prepare the current main source for a Foodfolio App Store update from the
+  publicly available 1.0.1 (14) to 1.0.2 (15), publish the approved Japanese
+  marketing presentation, and apply the already merged runtime monitoring
+  configuration before App Review and a separately confirmed manual release.
+
+requirements:
+  - id: ASUP102-1
+    condition: The iOS update project is generated.
+    expected: >-
+      ios/project.yml sets MARKETING_VERSION 1.0.2 and CURRENT_PROJECT_VERSION 15;
+      Foodfolio and FoodfolioShareExtension use both values in the generated project.
+    verification:
+      - ios/project.yml
+      - ios/Foodfolio.xcodeproj/project.pbxproj
+  - id: ASUP102-2
+    condition: Apple inspects the uploaded application bundles.
+    expected: >-
+      The main app and Share Extension declare Japanese as their development and
+      supported language, while both installed bundle display names remain Foodfolio.
+    verification:
+      - ios/project.yml
+      - ios/Foodfolio/Resources/ja.lproj/InfoPlist.strings
+      - ios/FoodfolioShareExtension/Resources/ja.lproj/InfoPlist.strings
+      - tests/unit/ios-localization-config.test.mjs
+  - id: ASUP102-3
+    condition: App Store Connect version 1.0.2 is prepared.
+    expected: >-
+      The Japanese product-page name is レシピ保存/管理アプリ - Foodfolio, the six
+      approved 1320 x 2868 screenshots replace the currently published three-image
+      set in their specified order, and the installed app name is not changed.
+    verification:
+      - marketing/app-store/README.md
+      - marketing/app-store/src/slides.js
+      - tests/unit/app-store-marketing.test.mjs
+      - docs/app-store-release.md
+  - id: ASUP102-4
+    condition: The release candidate is validated before distribution.
+    expected: >-
+      Repository-defined verification passes, including specification, unit,
+      integration, E2E, lint, format, backend build, iOS tests, SwiftData migration,
+      localization bundle checks, and App Store marketing regression checks.
+    verification:
+      - package.json
+      - scripts/verify-ios.sh
+      - scripts/test-ios-swiftdata-migration.sh
+  - id: ASUP102-5
+    condition: Runtime monitoring merged in PR 121 and PR 122 is applied.
+    expected: >-
+      A current remote-state Terraform plan is reviewed, the existing Slack
+      notification channel is referenced by full resource name, no unrelated resource
+      is changed, and the five alert policies are applied and read back without an
+      intentional outage or synthetic failure.
+    verification:
+      - infra/terraform/main.tf
+      - infra/terraform/monitoring.tf
+      - docs/runtime-monitoring.md
+      - tasks/unreleased.md
+  - id: ASUP102-6
+    condition: The update is distributed and submitted.
+    expected: >-
+      A signed 1.0.2 (15) archive is uploaded and processed as VALID, assigned to the
+      existing Foodfolio Internal and Foodfolio External groups, and the App Store
+      version, metadata, screenshots, TestFlight state, and App Review submission are
+      read back before the update is considered prepared.
+    verification:
+      - docs/testflight-preparation.md
+      - docs/app-store-release.md
+      - tasks/unreleased.md
+  - id: ASUP102-7
+    condition: Apple approves version 1.0.2.
+    expected: >-
+      Public release remains manual, is executed only after a separate final user
+      confirmation, and is verified through App Store Connect and the Japanese public
+      App Store lookup before release tracking is completed.
+    verification:
+      - docs/app-store-release.md
+      - tasks/unreleased.md
+      - tasks/released.md
+
+edge_cases:
+  - Version 1.0.2 or build 15 is already reserved or uploaded in App Store Connect.
+  - App Store Connect rejects the product-page name or one of the screenshot assets.
+  - The uploaded binary still reports English or changes the installed display name.
+  - The Terraform plan contains changes outside the five runtime alert policies or required APIs.
+  - Apple requires a new Beta App Review, export declaration, metadata answer, or agreement.
+  - The current public version changes before release.
+
+security_invariants:
+  - Signing material, App Store Connect tokens, review credentials, tester addresses, Slack credentials, and Terraform-sensitive values are not committed or printed.
+  - Existing tester membership, public-link settings, pricing, and storefront regions are preserved.
+  - The approved screenshots contain no unauthorized personal information or unlicensed content.
+  - No existing build, group, user data, notification channel, or unrelated cloud resource is deleted.
+
+compatibility:
+  - Bundle identifiers, minimum iOS version, backend environment, authentication, entitlements, and TestFlight groups remain unchanged.
+  - The installed app and Share Extension names remain Foodfolio.
+  - The application remains Japanese-only; English UI translation and a language selector are not introduced.
+
+non_functional:
+  - Local verification, CI, Terraform plan/apply, Apple processing, review, public release, and device behavior are recorded as separate proof layers.
+  - Archive, IPA, generated screenshot output, and downloaded Product Bezels remain outside Git.
+  - Apple and GCP writes are followed by current-state read-back.
+
+out_of_scope:
+  - English UI translation or an in-app language selector.
+  - Changing pricing, storefront regions, tester membership, or TestFlight public-link settings.
+  - Rotating secrets or changing unrelated GCP resources.
+  - Intentional outage, OOM, or final-failure generation for alert delivery testing.
+  - Public release before Apple approval and separate final user confirmation.
+
+acceptance_criteria:
+  - Foodfolio and FoodfolioShareExtension are version 1.0.2 build 15.
+  - Japanese is declared in both built bundles and the installed display name remains Foodfolio.
+  - The preparation PR records the approved App Store name, six screenshots, runtime monitoring apply, and remaining Apple steps.
+  - npm run check:specs, npm run verify, and npm run verify:ios pass.
+  - The Terraform plan is limited to intended monitoring resources before apply, and applied policies are read back afterward.
+  - Apple processing, TestFlight, App Review, and public release are each verified before their checklist items are completed.
+
+regression:
+  required: false
+  tests: []
