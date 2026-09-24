@@ -369,6 +369,9 @@ resource "google_cloud_run_v2_service" "worker" {
       }
     }
   }
+  lifecycle {
+    ignore_changes = [client, client_version]
+  }
   depends_on = [
     google_project_service.required,
     google_project_iam_member.worker_roles,
@@ -457,6 +460,9 @@ resource "google_cloud_run_v2_service" "api" {
         }
       }
     }
+  }
+  lifecycle {
+    ignore_changes = [client, client_version]
   }
   depends_on = [
     google_project_service.required,

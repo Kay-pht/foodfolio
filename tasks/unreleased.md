@@ -6,6 +6,17 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
 
 ## 未反映
 
+- [ ] `REL-20260924-01` Foodfolio 1.0.2で日本語表示情報とApp Store掲載内容を更新する
+  - 内容: iOS本体とShare Extensionが日本語対応アプリであることをAppleへ正しく申告し、インストール後のアプリ名は`Foodfolio`のまま維持する。App Store上の表示名を「レシピ保存/管理アプリ - Foodfolio」へ変更し、利用許可を確認済みの新しい日本語マーケティング画像6枚へ差し替える。あわせて、PR #121/#122でmainへ追加した5つのCloud Monitoring alert policyを既存Slack通知先へ反映する
+  - PR: 日本語申告 [#124](https://github.com/Kay-pht/foodfolio/pull/124)、App Store画像 [#125](https://github.com/Kay-pht/foodfolio/pull/125)、Runtime Monitoring [#121](https://github.com/Kay-pht/foodfolio/pull/121) / [#122](https://github.com/Kay-pht/foodfolio/pull/122)、配布準備 [#126](https://github.com/Kay-pht/foodfolio/pull/126)
+  - main反映: `fe508d6d093d31fe33faa3d72d6081dd1f31daa9`（PR #124まで）
+  - 必要な反映先:
+    - [ ] TestFlight内部テスト — 対象version/build: `1.0.2 (15)`
+    - [ ] TestFlight外部テスト — 対象version/build: `1.0.2 (15)`、既存`Foodfolio External`を維持
+    - [ ] App Store本番 — 対象version/build: `1.0.2 (15)`、Apple承認後に手動公開
+    - [x] GCP runtime monitoring — 反映日: `2026-09-24`、project: `foodfolio-af28aa`、既存5 alert policiesを`0 add / 5 update / 0 destroy`で更新し、既存Slack notification channel `#foodfolio-alerts`への紐付け、日本語subject、Recipe Analysisの8つの非機密label extractorをAPIで再取得
+  - 備考: App Store掲載名だけを変更し、`CFBundleDisplayName`と`CFBundleName`は本体・Share Extensionとも`Foodfolio`を維持する。英語UI翻訳と言語選択機能は対象外。公開直前にユーザーの最終確認を行う。監視反映では意図的な障害・OOM・最終失敗を発生させていないため、実Slack通知の発火確認は実施していない
+
 - [ ] `REL-20260918-01` Share Extensionの送信表示を一般向けにする
   - 内容: Post後は「確認中」とスピナーを表示し、成功時は「✓ 送信」と表示する。利用者向けUIから「Backend」という内部用語を削除する
   - PR: #110

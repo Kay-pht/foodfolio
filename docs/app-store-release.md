@@ -1,5 +1,36 @@
 # App Store リリース管理
 
+## 更新 1.0.2 (15) の準備方針
+
+2026-09-24時点で、日本向けApp Store公開版とApp Store Connectのversion `1.0.1`はいずれも公開中（`READY_FOR_SALE`）。公開ページには旧スクリーンショット3枚が掲載され、binary由来の対応言語は英語と表示されている。main `fe508d6d093d31fe33faa3d72d6081dd1f31daa9`には、日本語をdevelopment languageとして宣言し、本体とShare Extensionへ`ja.lproj/InfoPlist.strings`を含めるPR #124と、新しいApp Store画像生成元を追加するPR #125が含まれるが、どちらも次のbinaryとApp Store versionへは未反映である。
+
+次の更新は`1.0.2 (15)`とし、以下を対象にする。
+
+- App Store掲載名: `レシピ保存/管理アプリ - Foodfolio`
+- インストール後の本体・Share Extension表示名: `Foodfolio`のまま維持
+- 対応言語: 日本語。英語UI翻訳や言語選択機能は追加しない
+- スクリーンショット: 利用許可を確認済みの日本語画像6枚を指定順で登録
+- TestFlight: 既存の`Foodfolio Internal`と`Foodfolio External`を維持
+- 価格・配信地域・カテゴリ・App Privacy: 現行設定を維持し、提出前に再取得する
+- リリース方法: Apple承認後の手動公開。実行直前にユーザーの最終確認を得る
+
+更新内容:
+
+「App Store上で対応言語が日本語と正しく表示されるよう改善しました。」
+
+### 新しいスクリーンショット
+
+`npm run appstore:generate`で生成した次の6枚を、App Store Connectが受け付ける`1320 x 2868`画像として登録する。登録先のscreenshot display typeは、アップロード前にApp Store Connectがversion `1.0.2`へ返す有効なセットを取得して確定する。生成物自体はGit管理しない。
+
+1. `01-one-place.png` — 対応するWeb・SNS・AI共有元とレシピ管理
+2. `02-unlimited.png` — 無料・保存数無制限
+3. `03-url.png` — URL貼り付けによる追加
+4. `04-readable.png` — 材料と作り方の確認
+5. `05-share.png` — Share Extensionからの保存
+6. `06-want-to-cook.png` — 「作りたい」による整理
+
+PR #125の仕様とローカル生成結果により、6枚すべて`1320 x 2868`であること、見出し・注釈・端末枠に欠けがないことを確認済み。元画像に含まれる料理写真、TikTok表示、投稿名、各サービスロゴは、ユーザーからApp Store掲載用素材としての利用許可を確認済み。
+
 ## 更新 1.0.1 (14) の提出状況
 
 2026-09-22に日本向けApple公開lookupでversion `1.0` の配信を確認した。以下の1.0 (13) に関する審査待ち・未公開の記録は当時の記録であり、現在の公開状態を示さない。現行1.0のApp Store Connect build番号・公開日時は次回更新前に再取得する。

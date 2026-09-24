@@ -12,6 +12,20 @@ GitHub Actions、Quality、Deploy、PR、commit の通知とは分離する。�
 - Terraform state: 既存の dev state
 - 通知先: Slack `#foodfolio-alerts`
 
+## 反映状況
+
+2026-09-24に既存dev Terraform stateを使い、PR #121/#122の5 alert policiesを対象限定で適用した。適用planは`0 add / 5 update / 0 destroy`で、Cloud Run service、Slack notification channel、その他のGCP resourceは変更していない。
+
+適用後、Cloud Monitoring APIから次を再取得した。
+
+- alert policyは5件すべて有効
+- 5件すべてが既存Slack notification channel `#foodfolio-alerts`を参照
+- API uptime、API 5xx、API memory、Worker memoryの日本語subjectを確認
+- Recipe Analysis final failureの日本語subject、30分auto-close、8つの非機密label extractorを確認
+- API `/health`は`{"status":"ok"}`、API / Workerは適用前と同じrevisionへtraffic 100%
+
+意図的な障害、5xx、OOM、Recipe Analysis最終失敗は発生させていないため、実Slack通知の発火確認は行っていない。実障害発生時の通知と復旧通知は、incidentとログを照合して別途確認する。
+
 ## Slack Notification Channel
 
 Slack Workspace、Slack channel、Google Cloud と Slack の OAuth 接続は Terraform 管理外とする。人間が Google Cloud Console の Cloud Monitoring から公式 Slack integration を設定する。
