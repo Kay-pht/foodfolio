@@ -8,7 +8,7 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
 
 - [ ] `REL-20260924-01` Foodfolio 1.0.2で日本語表示情報とApp Store掲載内容を更新する
   - 内容: iOS本体とShare Extensionが日本語対応アプリであることをAppleへ正しく申告し、インストール後のアプリ名は`Foodfolio`のまま維持する。App Store上の表示名を「レシピ保存/管理アプリ - Foodfolio」へ変更し、利用許可を確認済みの新しい日本語マーケティング画像6枚へ差し替える。あわせて、PR #121/#122でmainへ追加した5つのCloud Monitoring alert policyを既存Slack通知先へ反映する
-  - PR: 日本語申告 [#124](https://github.com/Kay-pht/foodfolio/pull/124)、App Store画像 [#125](https://github.com/Kay-pht/foodfolio/pull/125)、Runtime Monitoring [#121](https://github.com/Kay-pht/foodfolio/pull/121) / [#122](https://github.com/Kay-pht/foodfolio/pull/122)、配布準備: 未作成
+  - PR: 日本語申告 [#124](https://github.com/Kay-pht/foodfolio/pull/124)、App Store画像 [#125](https://github.com/Kay-pht/foodfolio/pull/125)、Runtime Monitoring [#121](https://github.com/Kay-pht/foodfolio/pull/121) / [#122](https://github.com/Kay-pht/foodfolio/pull/122)、配布準備 [#126](https://github.com/Kay-pht/foodfolio/pull/126)
   - main反映: `fe508d6d093d31fe33faa3d72d6081dd1f31daa9`（PR #124まで）
   - 必要な反映先:
     - [ ] TestFlight内部テスト — 対象version/build: `1.0.2 (15)`
