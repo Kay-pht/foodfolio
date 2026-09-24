@@ -19,6 +19,7 @@ https://www.figma.com/board/jL7FstV1ZltOhmeaIEHkOo
 - 画面遷移を必要以上に増やさず、Dropdown / Sheetなど同一画面上のUIを優先する
 - 一覧は画像と料理名に絞り、情報を詰め込みすぎない
 - URL保存はAI解析を待たずに完了させる
+- iOS Share Extensionでも共有URLの受付完了までを明示し、AI解析完了は待たない
 - タグ操作はレシピの文脈内で行い、MVPでは独立したタグ管理画面を持たない
 
 ---
@@ -109,6 +110,18 @@ URL追加は手入力ではなく、クリップボードからの貼り付け�
 保存成功後はSheetを閉じ、レシピ一覧へ戻る。
 
 AI解析はバックグラウンドで行う。
+
+### 5.4 Share Extension
+
+Safari / YouTube / Instagram / TikTok等の共有シートからFoodfolioを選択した場合は、共有された最初のHTTP / HTTPS URLを1件だけ対象とする。
+
+- URL取得中は共有URLを確認していることを表示する
+- URL確認後にユーザーが送信すると「確認中」とスピナーを表示する
+- 受付成功時は「✓ 送信」「Foodfolioへの追加を受け付けました。」と表示する
+- 失敗時は理由を表示し、再試行可能なエラーでは「再試行」を提供する
+- 未ログイン時はFoodfolioアプリでのログインを案内する
+
+Share Extension内ではAI解析完了を待たず、Backendへの追加受付が完了した時点を成功とする。
 
 ---
 
@@ -269,10 +282,11 @@ ON：
 
 - AI解析成功時に通知する
 - AI解析失敗時に通知する
+- `not_recipe` の場合は「レシピとして判定できませんでした」という専用通知を送る
 
 OFF：
 
-- 成功時も失敗時も通知しない
+- 成功・失敗・`not_recipe` のいずれも通知しない
 
 成功・失敗で別々のトグルには分けない。
 
@@ -321,5 +335,6 @@ MVPでは以下を表示する。
 - ジャンルDropdown
 - タグDropdown
 - タグ追加Bottom Sheet
+- iOS Share Extension
 
 これらは独立画面として数えない。
