@@ -1,6 +1,6 @@
 # App Store リリース管理
 
-## 更新 1.0.2 (15) の準備方針
+## 更新 1.0.2 (15) の提出状況
 
 2026-09-24時点で、日本向けApp Store公開版とApp Store Connectのversion `1.0.1`はいずれも公開中（`READY_FOR_SALE`）。公開ページには旧スクリーンショット3枚が掲載され、binary由来の対応言語は英語と表示されている。main `fe508d6d093d31fe33faa3d72d6081dd1f31daa9`には、日本語をdevelopment languageとして宣言し、本体とShare Extensionへ`ja.lproj/InfoPlist.strings`を含めるPR #124と、新しいApp Store画像生成元を追加するPR #125が含まれるが、どちらも次のbinaryとApp Store versionへは未反映である。
 
@@ -20,7 +20,7 @@
 
 ### 新しいスクリーンショット
 
-`npm run appstore:generate`で生成した次の6枚を、App Store Connectが受け付ける`1320 x 2868`画像として登録する。登録先のscreenshot display typeは、アップロード前にApp Store Connectがversion `1.0.2`へ返す有効なセットを取得して確定する。生成物自体はGit管理しない。
+`npm run appstore:generate`で生成した次の6枚を、App Store Connectが受け付ける`1320 x 2868`画像として`APP_IPHONE_67`へ登録した。生成物自体はGit管理しない。
 
 1. `01-one-place.png` — 対応するWeb・SNS・AI共有元とレシピ管理
 2. `02-unlimited.png` — 無料・保存数無制限
@@ -30,6 +30,12 @@
 6. `06-want-to-cook.png` — 「作りたい」による整理
 
 PR #125の仕様とローカル生成結果により、6枚すべて`1320 x 2868`であること、見出し・注釈・端末枠に欠けがないことを確認済み。元画像に含まれる料理写真、TikTok表示、投稿名、各サービスロゴは、ユーザーからApp Store掲載用素材としての利用許可を確認済み。
+
+main `f0c1501e33cca924adabc1f409cce8a8c6bd791a` からRelease Archiveを作成し、Apple validationとuploadに成功した。本体とShare Extensionはともに`1.0.2 (15)`で、日本語`InfoPlist.strings`、インストール後の表示名`Foodfolio`、本体のproduction APNs・Sign in with Apple・共通App Group、Extensionの共通App Groupを確認した。App Store Connect Build IDは`5407229d-ef1b-47cf-8c98-60f8f1c8848e`で、processing `VALID`、未期限、`APP_STORE_ELIGIBLE`、暗号化申告`false`を再取得した。
+
+App Store Connect version ID `466babf4-c636-4fe0-8511-238b7e1d2c77`を作成してbuild 15を選択した。App Store掲載名「レシピ保存/管理アプリ - Foodfolio」、日本語の更新内容、審査情報を保存し、`1320 x 2868`画像6枚はApp Store Connect APIが受け付ける`APP_IPHONE_67`へ指定順で登録した。6枚すべてasset delivery `COMPLETE`、旧`APP_IPHONE_65`画像セットは削除済み。無料、日本のみ、主カテゴリ`Food & Drink`、年齢区分、手動公開を再取得した。
+
+2026-09-24にApp Reviewへ提出し、Submission IDは`db504a03-0150-4de4-9ecd-66b117fae1a6`。versionとsubmissionはいずれも`WAITING_FOR_REVIEW`。Apple承認後の手動公開は実施していない。
 
 ## 更新 1.0.1 (14) の提出状況
 
