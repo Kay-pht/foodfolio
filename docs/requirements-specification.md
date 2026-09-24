@@ -75,7 +75,7 @@ foodfolioでは、外部レシピのURLを単にブックマークするので�
 
 ### 5.1 レシピ保存
 
-ユーザーがアプリ内にURLを貼り付ける。
+ユーザーは、アプリ内にURLを貼り付けるか、iOS共有メニューからFoodfolioへURLを送る。
 
 ↓
 
@@ -612,7 +612,7 @@ MVPでは以下を扱う。
 
 特定サイト専用の入力方式ではなく、可能な限り**任意のWeb URLを受け付けられる設計**を基本とする。
 
-Jev本番導入後は、SourceContent取得後にsource別のsemantic gate / routerを適用する。一般WebとChatGPT / Gemini共有では明確なnon-recipeを早期終了し、YouTube / Instagram / TikTokではtext解析とmedia解析の振り分けに使う。Jevが失敗した場合は解析失敗にせず、Jev導入前の既存routeへ即時fallbackする。詳細は [jev-production-routing.md](jev-production-routing.md) を参照する。
+現行のJev対応コードでは、SourceContent取得後にsource別のsemantic gate / routerを適用する。一般WebとChatGPT / Gemini共有では明確なnon-recipeを早期終了し、YouTube / Instagram / TikTokではtext解析とmedia解析の振り分けに使う。Jevが失敗した場合は解析失敗にせず、Jev導入前の既存routeへ即時fallbackする。詳細は [jev-production-routing.md](jev-production-routing.md) を参照する。
 
 TikTok動画はJevがtext routeを選んだ場合にテキスト解析を先行し、材料または手順が不足する場合は動画解析へフォールバックする。TikTok写真もcaptionのrecipe probabilityが閾値以上ならテキスト解析を先行し、不足時だけ写真解析へフォールバックする。
 
@@ -628,7 +628,6 @@ TikTok動画はJevがtext routeを選んだ場合にテキスト解析を先行�
 
 以下は初期MVPの対象外とする。
 
-- iOS共有メニューからの直接保存
 - URLを持たない自作レシピの新規作成
 - ユーザー間交流
 - 他ユーザーのレシピ閲覧
@@ -656,12 +655,6 @@ TikTok動画はJevがtext routeを選んだ場合にテキスト解析を先行�
 MVP後の追加機能は、TestFlightでの利用実態を確認して優先順位を決める。
 
 現時点で優先度が高い候補は以下。
-
-### iOS Share Extension
-
-YouTubeやInstagramなどを見ている状態から、**共有 → foodfolio** だけでレシピを保存できるようにする。
-
-アプリを開いてURLをコピー＆ペーストする工程をなくす。
 
 ### 課金
 
