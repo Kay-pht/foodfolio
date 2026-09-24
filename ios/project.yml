@@ -1,6 +1,7 @@
 name: Foodfolio
 options:
   bundleIdPrefix: com.keyukt
+  developmentLanguage: ja
   deploymentTarget:
     iOS: "26.0"
   xcodeVersion: "26.0"

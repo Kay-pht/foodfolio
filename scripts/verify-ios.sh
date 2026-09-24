@@ -22,6 +22,8 @@ RESULTS_DIR="$(mktemp -d "${TMPDIR:-/tmp}/foodfolio-verify-ios.XXXXXX")"
 readonly RESULTS_DIR
 readonly DERIVED_DATA_PATH="${RESULTS_DIR}/DerivedData"
 readonly RESULT_BUNDLE_PATH="${RESULTS_DIR}/Foodfolio.xcresult"
+readonly APP_BUNDLE_PATH="${DERIVED_DATA_PATH}/Build/Products/Debug-iphonesimulator/Foodfolio.app"
+readonly EXTENSION_BUNDLE_PATH="${APP_BUNDLE_PATH}/PlugIns/FoodfolioShareExtension.appex"
 
 cleanup() {
   rm -rf -- "${RESULTS_DIR}"
@@ -31,6 +33,20 @@ trap cleanup EXIT
 IOS_DERIVED_DATA_PATH="${DERIVED_DATA_PATH}" \
   IOS_RESULT_BUNDLE_PATH="${RESULT_BUNDLE_PATH}" \
   bash "${SCRIPT_DIR}/test-ios.sh"
+
+verify_japanese_bundle_resource() {
+  local bundle_path="$1"
+  local bundle_label="$2"
+  local resource_path="${bundle_path}/ja.lproj/InfoPlist.strings"
+
+  if [[ ! -f "${resource_path}" ]]; then
+    echo "${bundle_label} is missing ja.lproj/InfoPlist.strings" >&2
+    exit 1
+  fi
+}
+
+verify_japanese_bundle_resource "${APP_BUNDLE_PATH}" "Foodfolio.app"
+verify_japanese_bundle_resource "${EXTENSION_BUNDLE_PATH}" "FoodfolioShareExtension.appex"
 
 summary_json="$(
   xcrun xcresulttool get test-results summary \
