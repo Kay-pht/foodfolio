@@ -25,4 +25,23 @@ export default tseslint.config(
       },
     },
   },
+  {
+    files: ["marketing/app-store/src/**/*.js"],
+    languageOptions: {
+      globals: {
+        document: "readonly",
+        URLSearchParams: "readonly",
+        window: "readonly",
+      },
+    },
+  },
+  {
+    files: ["marketing/app-store/scripts/**/*.mjs"],
+    languageOptions: {
+      globals: {
+        document: "readonly",
+        URL: "readonly",
+      },
+    },
+  },
 );

@@ -1,0 +1,166 @@
+id: APP-STORE-PORTRAIT-SCREENSHOTS-001
+type: bug
+status: approved
+
+objective: >-
+  Present the Foodfolio App Store screenshots with current portrait iPhone frames
+  and clear, readable layouts that use the full portrait artboard.
+
+requirements:
+  - id: APS-1
+    condition: A 1206 x 2622 portrait source screenshot is framed for export.
+    expected: The generator explicitly selects the official iPhone 18 Pro Burgundy portrait bezel and produces a 1350 x 2760 framed image.
+    verification:
+      - marketing/app-store/scripts/export.mjs
+      - marketing/app-store/src/frame-config.js
+      - tests/unit/app-store-marketing.test.mjs
+  - id: APS-2
+    condition: Any of the six App Store artwork slides is rendered.
+    expected: Every phone remains legible and fills the lower visual area; the unlimited-storage and materials/steps slides use intentional decorative rotation.
+    verification:
+      - marketing/app-store/src/slides.js
+      - marketing/app-store/src/styles.css
+      - tests/unit/app-store-marketing.test.mjs
+  - id: APS-3
+    condition: The screenshot set is exported for App Store Connect.
+    expected: All six PNG files are exactly 1320 x 2868 pixels and visually show portrait phones without clipped headlines or annotations.
+    verification:
+      - marketing/app-store/scripts/export.mjs
+      - marketing/app-store/README.md
+  - id: APS-4
+    condition: A slide includes an instructional callout or a materials/steps label.
+    expected: The added text is positioned beside the exact control or section it describes and does not point at unrelated screenshot content.
+    verification:
+      - marketing/app-store/src/render.js
+      - marketing/app-store/src/slides.js
+      - tests/unit/app-store-marketing.test.mjs
+  - id: APS-5
+    condition: A slide headline is rendered over the marketing background.
+    expected: The 70-pixel kicker and headline are horizontally centered, while the background provides visual depth without reducing text or screenshot legibility.
+    verification:
+      - marketing/app-store/src/styles.css
+      - tests/unit/app-store-marketing.test.mjs
+  - id: APS-6
+    condition: The artwork explains supported recipe sources.
+    expected: TikTok, Instagram, YouTube, Web, ChatGPT, and Gemini are named individually in large readable text instead of being collapsed into SNS or AI chat wording.
+    verification:
+      - marketing/app-store/src/slides.js
+      - marketing/app-store/src/styles.css
+      - tests/unit/app-store-marketing.test.mjs
+  - id: APS-7
+    condition: A marketing slide is rendered with one, two, or three device screenshots.
+    expected: A shared edge-to-edge background image scales from the artboard center without a detached rectangular panel or layout-specific offset, and every slide uses the same coral background treatment as the first slide.
+    verification:
+      - marketing/app-store/src/styles.css
+      - tests/unit/app-store-marketing.test.mjs
+  - id: APS-8
+    condition: The want-to-cook and share-extension instructional slides are exported.
+    expected: Each highlight ring is tightly aligned with its target, and the share suggestion row obscures the computer name and personal contact names without obscuring the Foodfolio app icon.
+    verification:
+      - marketing/app-store/src/render.js
+      - marketing/app-store/src/slides.js
+      - marketing/app-store/src/styles.css
+      - tests/unit/app-store-marketing.test.mjs
+  - id: APS-9
+    condition: A long instructional note is rendered beside the want-to-cook control.
+    expected: Explicit line breaks are preserved so the note remains inside its callout without reducing the primary callout font size.
+    verification:
+      - marketing/app-store/src/slides.js
+      - marketing/app-store/src/styles.css
+      - tests/unit/app-store-marketing.test.mjs
+  - id: APS-10
+    condition: The supported-source bubbles are rendered on the first slide.
+    expected: Each source name uses larger readable type and is paired with the corresponding brand icon, while Web uses a generic globe icon rather than an unrelated brand.
+    verification:
+      - marketing/app-store/package.json
+      - marketing/app-store/src/render.js
+      - marketing/app-store/src/slides.js
+      - marketing/app-store/src/styles.css
+      - tests/unit/app-store-marketing.test.mjs
+  - id: APS-11
+    condition: The URL or share-extension slide uses its shortened one-line headline.
+    expected: The URL headline is 176 pixels with an 1130-pixel phone beginning 500 pixels from the top, while the share headline is 144 pixels with an 1180-pixel phone beginning 420 pixels from the top so both compositions have balanced margins and a reduced headline gap.
+    verification:
+      - marketing/app-store/src/render.js
+      - marketing/app-store/src/slides.js
+      - marketing/app-store/src/styles.css
+      - tests/unit/app-store-marketing.test.mjs
+  - id: APS-12
+    condition: The six screenshots are exported in marketing-story order.
+    expected: The unlimited-storage slide is second, the materials/steps slide is fourth, and the remaining slides use matching zero-padded output names.
+    verification:
+      - marketing/app-store/scripts/export.mjs
+      - marketing/app-store/src/slides.js
+      - tests/unit/app-store-marketing.test.mjs
+  - id: APS-13
+    condition: The unlimited-storage slide is rendered.
+    expected: Three distinct recipe detail screens are layered at different positions and rotations, with the center phone visually dominant and the side phones behind it to communicate abundance.
+    verification:
+      - marketing/app-store/src/render.js
+      - marketing/app-store/src/slides.js
+      - marketing/app-store/src/styles.css
+      - tests/unit/app-store-marketing.test.mjs
+  - id: APS-14
+    condition: The materials/steps comparison slide is rendered in fourth position.
+    expected: Two enlarged phones are staggered vertically and rotated in opposite directions, while both labels remain attached to their corresponding phone and readable.
+    verification:
+      - marketing/app-store/src/render.js
+      - marketing/app-store/src/slides.js
+      - marketing/app-store/src/styles.css
+      - tests/unit/app-store-marketing.test.mjs
+
+edge_cases:
+  - Previously generated landscape frames are present in the local generated-frame directory.
+  - A slide contains two screenshots for comparing ingredients and steps.
+  - A callout is displayed over a portrait screen.
+  - Two screenshots require labels at different vertical positions because the relevant sections are not aligned.
+  - Six source names must remain readable without creating a paragraph of small text.
+  - The same first-slide coral background must remain aligned for single-device, two-device, and three-device layouts.
+  - Share suggestions contain a device name and personal contact names while the Foodfolio app icon must remain visible.
+  - A long callout requires multiple lines while staying inside the device artwork.
+  - Six icon-and-label bubbles must fit across two rows without overlapping each other or the phone.
+  - Only the two one-line instructional slides use the rebalanced phone placement; the two-line want-to-cook slide and the remaining compositions stay unchanged.
+  - The official iPhone 18 bezel is absent while an older frames.json is already present locally.
+  - Rotated phones may extend beyond the artboard, but the key screen content, labels, and all headlines must remain readable.
+  - Renumbering must not leave stale PNGs that look like additional slides in the output directory.
+
+security_invariants:
+  - The generator continues to serve only files resolved beneath the marketing app-store directory.
+  - Original screenshots remain unmodified.
+
+compatibility:
+  - Final PNG dimensions remain 1320 x 2868 pixels.
+  - The official Apple Product Bezel workflow remains in use.
+  - Generation remains available through npm run appstore:generate on macOS.
+  - Official iPhone 18 Product Bezels are downloaded from Apple only when the selected frame is absent.
+
+non_functional:
+  - Headlines and callouts must remain readable when the artwork is viewed at App Store thumbnail size.
+  - Generated images and downloaded bezel assets remain excluded from Git.
+
+out_of_scope:
+  - Changing the captured in-app UI.
+  - Uploading screenshots to App Store Connect.
+  - Editing the source JPEG screenshots.
+
+acceptance_criteria:
+  - The portrait bezel is selected explicitly and stale landscape frames are regenerated.
+  - All six exports use portrait devices and have no excessive empty lower half; only the second and fourth slides use intentional rotation.
+  - Every callout and comparison label visibly identifies the intended control or section.
+  - Every headline is centered and remains readable against the revised background.
+  - Source names and all supporting marketing text remain readable at App Store thumbnail size.
+  - The background has no detached rectangular panel, remains centered across every layout, and uses the same coral color treatment as the first slide on all six exports.
+  - Personal names in the share suggestion row are unreadable, while the Foodfolio selection callout stays legible and aligned.
+  - Explicit callout line breaks are preserved in the exported PNG.
+  - Every supported-source bubble has a recognizable icon and remains readable at thumbnail size.
+  - The URL and share-extension slides have visually balanced one-line headlines and a smaller gap above the enlarged phone without clipping the title or phone horizontally or at the bottom.
+  - Export order is one-place, unlimited, URL, readable, share, want-to-cook.
+  - The second slide visibly contains three different recipe detail screens in a layered, rotated composition.
+  - The fourth slide visibly contains two enlarged, oppositely rotated phones in a staggered comparison composition.
+  - Every exported phone uses the official iPhone 18 Pro Burgundy bezel.
+  - Automated regression checks, repository verification, and visual inspection of all six exports pass.
+
+regression:
+  required: true
+  tests:
+    - tests/unit/app-store-marketing.test.mjs
