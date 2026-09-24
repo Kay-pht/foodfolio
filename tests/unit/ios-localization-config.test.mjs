@@ -19,6 +19,9 @@ const extensionInfoPlistStrings = readText(
   "../../ios/FoodfolioShareExtension/Resources/ja.lproj/InfoPlist.strings",
 );
 
+const expectedJapaneseBundleNames =
+  '"CFBundleDisplayName" = "Foodfolio";\n"CFBundleName" = "Foodfolio";\n';
+
 describe("Foodfolio Japanese bundle localization", () => {
   it("generates the Xcode project with Japanese as the development language", () => {
     expect(projectSource).toMatch(
@@ -30,13 +33,11 @@ describe("Foodfolio Japanese bundle localization", () => {
     );
   });
 
-  it("packages a Japanese Info.plist localization in the main application", () => {
-    expect(appInfoPlistStrings).toBe('"CFBundleDisplayName" = "Foodfolio";\n');
+  it("keeps the installed main application name as Foodfolio", () => {
+    expect(appInfoPlistStrings).toBe(expectedJapaneseBundleNames);
   });
 
-  it("packages a Japanese Info.plist localization in the Share Extension", () => {
-    expect(extensionInfoPlistStrings).toBe(
-      '"CFBundleDisplayName" = "Foodfolio";\n',
-    );
+  it("keeps the installed Share Extension name as Foodfolio", () => {
+    expect(extensionInfoPlistStrings).toBe(expectedJapaneseBundleNames);
   });
 });
