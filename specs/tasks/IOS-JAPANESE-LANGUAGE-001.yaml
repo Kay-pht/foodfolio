@@ -5,8 +5,7 @@ status: approved
 objective: >-
   Declare Japanese as Foodfolio's development and supported language so the App Store
   product page reports the language consistently with the application's Japanese UI,
-  while keeping the installed app name as Foodfolio and using
-  レシピ保存/管理アプリ - Foodfolio as the Japanese App Store listing name.
+  while keeping the installed app name as Foodfolio.
 
 requirements:
   - id: IJL-1
@@ -28,16 +27,11 @@ requirements:
     verification:
       - tests/unit/ios-localization-config.test.mjs
       - scripts/verify-ios.sh
-  - id: IJL-4
-    condition: The Japanese App Store product-page metadata is configured for this release.
-    expected: The App Store listing name is レシピ保存/管理アプリ - Foodfolio while the installed application display name remains Foodfolio.
-    verification:
-      - specs/tasks/IOS-JAPANESE-LANGUAGE-001.yaml
 
 edge_cases:
   - A Japanese-only application must not claim English localization merely because XcodeGen previously defaulted the development language to English.
   - The product-page metadata can be Japanese while the uploaded binary still reports English; the binary localization declaration remains authoritative for the Languages field.
-  - The App Store listing name and the installed application display name are intentionally different and must not be coupled.
+  - A future App Store listing name may intentionally differ from the installed application display name and must not be coupled to CFBundleDisplayName.
   - The main application and Share Extension are separate bundles and must not depend on each other's localized Info.plist resources.
 
 security_invariants:
@@ -58,6 +52,8 @@ non_functional:
 
 out_of_scope:
   - Adding English UI translations or a language selector.
+  - Changing or read-back verifying App Store Connect product-page metadata in this PR.
+  - The intended future Japanese App Store listing name is レシピ保存/管理アプリ - Foodfolio, but applying and verifying that metadata is a separate release operation.
   - Changing App Store product-page descriptions, screenshots, pricing, territories, or release controls.
   - Automating App Store Connect metadata changes from this repository.
   - Uploading a build, submitting App Review, or publicly releasing an update.
@@ -66,7 +62,6 @@ acceptance_criteria:
   - ios/project.yml declares Japanese as the development language.
   - The generated Xcode project declares Japanese as its development region and known localization.
   - Both application bundles contain Japanese localized Info.plist resources with CFBundleDisplayName and CFBundleName set to Foodfolio.
-  - The Japanese App Store listing name is specified as レシピ保存/管理アプリ - Foodfolio and remains separate from the installed name Foodfolio.
   - The focused regression test, npm run verify, and npm run verify:ios pass.
 
 regression:
