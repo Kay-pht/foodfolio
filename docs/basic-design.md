@@ -52,6 +52,7 @@ YouTube、Instagram、TikTok、クラシル、クックパッド、その他Web�
 - ユーザーごとにレシピを管理
 - データはサーバー側に保存
 - URLからレシピを登録
+- iOS Share Extensionからの共有保存
 - バックグラウンドAI解析
 - レシピ一覧
 - レシピ詳細
@@ -67,7 +68,6 @@ YouTube、Instagram、TikTok、クラシル、クックパッド、その他Web�
 ### 3.2 MVP対象外
 
 - URLを持たない自作レシピの新規作成
-- iOS Share Extension
 - 課金
 - 保存件数制限
 - AIによるタグ自動生成
@@ -663,9 +663,9 @@ Sheet内：
 
 1つのON / OFFで制御する。
 
-ON：解析成功・解析失敗の両方を通知する。
+ON：解析成功・解析失敗・`not_recipe`（レシピとして判定できない場合）の専用通知を送る。
 
-OFF：どちらも通知しない。
+OFF：いずれも通知しない。
 
 成功・失敗ごとの個別トグルは設けない。
 
@@ -738,6 +738,24 @@ Sheetを閉じてレシピ一覧へ即時復帰
 ↓
 料理名・画像等を一覧へ反映
 ```
+
+### 18.2.1 Share Extensionから保存
+
+```text
+Safari / YouTube / Instagram / TikTok等で共有
+↓
+Foodfolioを選択
+↓
+共有URLを確認して送信
+↓
+「確認中」を表示
+↓
+受付成功時は「✓ 送信」を表示
+↓
+レシピ一覧には通常のURL追加と同じ非同期解析結果が同期される
+```
+
+Share Extensionはログイン済みのFirebase認証状態をApp Group経由で共有し、AI解析完了を待たずに追加受付まで行う。
 
 ### 18.3 レシピ検索
 
