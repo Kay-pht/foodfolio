@@ -42,6 +42,20 @@ URLを貼り付けるか共有シートからFoodfolioへ送ると、レシピ�
 
 `YouTube` · `Instagram` · `TikTok` · `クラシル` · `クックパッド` · `その他Webサイト` · `ChatGPT公開共有` · `Gemini公開共有`
 
+## 現在のリリース状況
+
+2026-09-24時点では、App Store公開版は`1.0.1`で、次の`1.0.2 (15)`をAppleへ提出済みです。
+
+- Release Archive、Apple validation / upload、App Store Connectでのprocessing `VALID`まで完了
+- Internal TestFlightは`IN_BETA_TESTING`
+- External TestFlightへbuild 15を割り当て済みで、Beta App Reviewは`WAITING_FOR_REVIEW`
+- App Store version `1.0.2`もApp Reviewへ提出済みで、`WAITING_FOR_REVIEW`
+- Apple承認後の一般公開は自動では行わず、最終確認後に手動公開
+- App Store掲載名は「レシピ保存/管理アプリ - Foodfolio」、インストール後の表示名は`Foodfolio`のまま
+- 日本語の新しいApp Storeスクリーンショット6枚（`1320 x 2868`）を登録済み
+
+提出証跡は[PR #128](https://github.com/Kay-pht/foodfolio/pull/128)、リリース管理の正本は[docs/app-store-release.md](docs/app-store-release.md)を参照してください。
+
 ## 主な機能
 
 | 機能                         | 内容                                                                                                                                      |
@@ -131,7 +145,7 @@ Neon PostgreSQLをユーザーデータのSource of Truthとしつつ、iOS側�
 
 ### 6. Runtime監視をコードで管理
 
-TerraformでCloud MonitoringのAPI uptime、API 5xx、Recipe Analysis最終失敗、API / Worker memoryを監視します。Runtime alertは外部管理のSlack notification channelへ送り、通知本文には原因の要約・影響・最初の対応・調査リンクを含めつつ、Recipe ID・URL・request body・認証情報・例外メッセージは展開しません。詳細は[Runtime monitoring](docs/runtime-monitoring.md)に記録しています。
+TerraformでCloud MonitoringのAPI uptime、API 5xx、Recipe Analysis最終失敗、API / Worker memoryを監視します。5つのalert policyは2026-09-24に既存のSlack notification channelへ適用済みです。通知本文には原因の要約・影響・最初の対応・調査リンクを含めつつ、Recipe ID・URL・request body・認証情報・例外メッセージは展開しません。意図的な障害を起こす実通知テストは実施していません。詳細は[Runtime monitoring](docs/runtime-monitoring.md)に記録しています。
 
 ### 7. CIで設計・仕様・テストまで検証
 
