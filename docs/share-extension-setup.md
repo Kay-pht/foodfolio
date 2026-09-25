@@ -1,6 +1,6 @@
 # Share Extension 外部設定
 
-Foodfolio の共有シート連携では、アプリ本体と Share Extension の間で App Group `group.com.keyukt.foodfolio` を共有し、AI同意状態とFirebase Auth状態を参照する。
+Foodfolio の共有シート連携では、アプリ本体と Share Extension の間で App Group `group.com.keyukt.foodfolio` を共有し、Firebase Auth状態を参照する。AI利用の専用同意状態は現行実装では持たない。
 
 ## Apple Developer 側で必要な設定
 
@@ -26,7 +26,8 @@ Share Extension Bundle ID `com.keyukt.foodfolio.ShareExtension` をFirebase iOS 
 
 - Safari / ChromeからURLを共有するとFoodfolioが共有候補に表示される。
 - YouTube / TikTok / InstagramなどからURLまたはURLを含むテキストが共有された場合、最初のHTTP/HTTPS URLを1件保存する。
-- ログイン済みかつAI解析同意済みの場合、`レシピを追加中…` → `追加しました` と表示して閉じる。
+- ログイン済みの場合、共有URLを確認して送信すると `確認中` とスピナーを表示する。
+- Backendが追加を受け付けた場合は `✓ 送信` と `Foodfolioへの追加を受け付けました。` を表示し、`閉じる` で共有シートを終了する。
+- 再試行可能な失敗では `再試行` を表示し、同じURLを再送できる。
 - 未ログイン時は `Foodfolioアプリでログインしてください。` と表示する。
-- AI解析未同意時は `FoodfolioアプリでAI解析への同意を行ってください。` と表示する。
 - URLを取得できない場合は `URLを取得できませんでした。` と表示する。

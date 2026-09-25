@@ -1166,7 +1166,7 @@ YouTubeではページHTML、`ytInitialPlayerResponse`、oEmbedを説明文取�
 
 YouTube Data APIで取得した説明欄は、まず外部AIを使わない純粋関数で十分性を判定する。「十分」は、対象料理の範囲に分量表現を伴う材料行が2件以上あり、かつ調理動作を伴う工程行が2件以上ある場合に限定する。空、概要だけ、材料だけ、工程だけ、リンク・宣伝中心、本文だけでは工程を確認できない動画参照、または区切りを確実に判定できない説明欄は不十分とする。判定不能は十分側へ倒さない。
 
-Jev本番導入後は、十分な説明欄だけをsemantic routing対象とする。
+現行のJev対応コードでは、十分な説明欄だけをsemantic routing対象とする。
 
 ```text
 YouTube Data API title / description
@@ -1197,7 +1197,7 @@ Jevを含むsource別routingの正本は [jev-production-routing.md](jev-product
 
 ### 14.2 TikTokメディア解析
 
-Jev本番導入後は動画・写真ともcaption / titleがある場合にsemantic routingを行う。
+現行のJev対応コードでは動画・写真ともcaption / titleがある場合にsemantic routingを行う。
 
 ```text
 TikTok URL
@@ -1276,7 +1276,7 @@ imageUrl = null
 
 ### 15.1 Provider / Model
 
-MVPのレシピ抽出はZ.aiを標準とし、YouTube等のmedia fallbackにGemini / media解析を使用する。Jev本番導入後はこれらの抽出Providerの前段にsemantic routerを置く。JevはRecipeを生成せず、hard non-recipe判定またはtext / media route選択だけを担う：
+MVPのレシピ抽出はZ.aiを標準とし、YouTube等のmedia fallbackにGemini / media解析を使用する。現行のJev対応コードではこれらの抽出Providerの前段にsemantic routerを置く。JevはRecipeを生成せず、hard non-recipe判定またはtext / media route選択だけを担う：
 
 ```text
 Provider: Z.ai
@@ -2452,6 +2452,8 @@ Jevログだけではthreshold未満ケースのtext route成功可否を断定�
 
 初回TestFlightではCrashlytics / Analyticsを利用せず、TestFlight標準のセッション、クラッシュ、フィードバックを利用する。利用者数が増えた段階で、取得データとイベントを再設計する。
 
+Runtime alertはTerraformでCloud Monitoringへ定義し、API uptime、API 5xx、Recipe Analysis最終失敗、API memory、Worker memoryを監視する。通知先は外部管理のSlack notification channelを参照し、閾値・調査導線・機密情報をSlackへ出さない境界の正本は [runtime-monitoring.md](runtime-monitoring.md) とする。
+
 ---
 
 ## 31. Secrets / Environment Variables
@@ -2604,6 +2606,8 @@ UI automationはMVPの主要flowに限定する。
 Pull RequestではDraft中に実装とReady前の確認を進め、Draftの `opened` / `synchronize` ではAuto Fix / QualityのPR用runnerを起動しない。Ready後の同一repository・人間起点PRではAuto Fixを先に実行し、最新HEADを確定してからQualityを `workflow_dispatch` する。QualityはPR contextを検証したうえでbaseとHEADのprospective merge treeを構築し、その仮マージ結果に対して検証する。Auto Fix Appがformat commitをpushした場合はbot起点の最新 `synchronize` RunへQuality dispatch責務を引き継ぎ、Auto Fix処理を繰り返さずQualityを1回だけ起動する。
 
 Auto Fix対象外の非Auto-Fix bot PR（Dependabot等）とfork PRは例外とし、Ready時にread-only Qualityを `pull_request` から直接実行する。これらのdirect QualityはGitHubのpull request merge refを検証対象とする。自動修正やPR Quality proofの再利用はsame-repositoryの信頼できる経路に限定する。
+
+同一repository・人間起点PRでは、Auto Fix成功後からQuality完了までHEAD commitに `Quality Gate` statusを公開し、Quality完了時にsuccess / failure / errorへ更新する。これはPR画面で実Quality完了前に成功済みと誤認するのを防ぐ表示用statusであり、base更新後のfreshnessは最終merge guardが現在のbase + headのexact tree proofを再確認して保証する。
 
 Qualityは変更ファイルを分類し、Backendまたは共有設定へ影響する変更ではBackend向けのformat、lint、architecture、Prisma、build、unit、integration、E2E等を実行する。未知のパスは安全側でBackend変更として扱う。iOS関連の変更では、Ubuntu上のSwift 6.3公式コンテナを使用して `swift format lint --recursive --strict` を実行する。CIではmacOS runnerを使用せず、iOSのbuild、test、結合テスト、UI E2Eはローカルの `npm run verify:ios` で検証する。
 
@@ -2780,7 +2784,6 @@ dev deployは成功した`main` Qualityの対象SHAだけを受け取り、Backe
 本実装設計でも以下は対象外とする。
 
 - URLなし自作Recipe作成
-- iOS Share Extension
 - Tag master rename
 - Tag master delete
 - Tag複数選択検索

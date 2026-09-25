@@ -1,10 +1,10 @@
 # AI解析におけるデータ送信方針
 
-最終更新日: 2026-09-21
+最終更新日: 2026-09-24
 
 ## 1. 結論
 
-Foodfolioの現行実装では、Z.ai / Google Geminiへレシピ解析を依頼し、ChatGPT / Geminiの公開共有レシピでは条件を満たす場合にOpenAIへ代表サムネイル生成を依頼する。Jev本番導入後は、これらの前段でTypeSafe / Jevへ判定用textを送るsemantic routingを追加する。いずれのAI Providerへのrequestにも、Foodfolioの利用者を識別するためのアカウント情報を含めない。
+Foodfolioの現行コードでは、TypeSafe / Jevへ判定用textを送るsemantic routingをZ.ai / Google Gemini等の解析経路の前段に置く。Z.ai / Google Geminiへレシピ解析を依頼し、ChatGPT / Geminiの公開共有レシピでは条件を満たす場合にOpenAIへ代表サムネイル生成を依頼する。いずれのAI Providerへのrequestにも、Foodfolioの利用者を識別するためのアカウント情報を含めない。
 
 そのため、FoodfolioではAI利用そのものを理由とした専用の同意状態、同意API、同意撤回、同意を前提としたアプリ利用制限を持たない。AI Providerの利用と送信対象はプライバシーポリシーで開示する。
 
@@ -12,7 +12,7 @@ Foodfolioの現行実装では、Z.ai / Google Geminiへレシピ解析を依頼
 
 ## 2. AI Providerへ送らない情報
 
-Jev本番導入後を含むAI経路では、少なくとも以下をTypeSafe / Jev、Z.ai、Gemini、OpenAIのrequest bodyやProvider向け識別メタデータとして渡さない。
+現行のJev semantic routingを含むAI経路では、少なくとも以下をTypeSafe / Jev、Z.ai、Gemini、OpenAIのrequest bodyやProvider向け識別メタデータとして渡さない。
 
 - FoodfolioのDB上の `User.id`
 - Firebase UID
@@ -54,7 +54,7 @@ Jevへ送った本文は通常ログへ保存しない。閾値再評価のた�
 
 Jev障害時は同じWorker実行内で既存のZ.ai / Gemini / media routeへfail-openし、Jev障害だけを理由にRecipeをfailedへしない。
 
-本番有効化前に、外部AI利用の開示対象へTypeSafe / Jevを追加し、実際の送信内容と本書が一致していることを確認する。
+TypeSafe / Jevを実環境で有効にする環境では、外部AI利用の開示対象にTypeSafe / Jevを含め、実際の送信内容と本書が一致していることを確認する。
 
 設計根拠:
 
@@ -187,7 +187,7 @@ OpenAI Image API
 
 Apple App Review Guidelines 5.1.2(i) は、個人データを第三者（第三者AIを含む）と共有する場合の開示と許可について定めている。
 
-FoodfolioのAI Provider requestは、Jev本番導入後も上記のとおりFoodfolio利用者を識別するアカウント情報を含めない。したがって、現行のデータフローでは「AIを利用すること」だけを理由に独立したAI同意状態を持たず、外部AIの利用目的と送信対象をプライバシーポリシーで開示する方針とする。
+FoodfolioのAI Provider requestは、現行のJev semantic routingを含めても上記のとおりFoodfolio利用者を識別するアカウント情報を含めない。したがって、現行のデータフローでは「AIを利用すること」だけを理由に独立したAI同意状態を持たず、外部AIの利用目的と送信対象をプライバシーポリシーで開示する方針とする。
 
 参考:
 

@@ -10,6 +10,10 @@
 </p>
 
 <p align="center">
+  <a href="https://apps.apple.com/jp/app/id6806783378"><strong>App StoreでFoodfolioを見る</strong></a>
+</p>
+
+<p align="center">
   <a href="https://github.com/Kay-pht/foodfolio/actions/workflows/quality.yml">
     <img src="https://github.com/Kay-pht/foodfolio/actions/workflows/quality.yml/badge.svg?branch=main" alt="Quality" />
   </a>
@@ -42,18 +46,33 @@ URLを貼り付けるか共有シートからFoodfolioへ送ると、レシピ�
 
 `YouTube` · `Instagram` · `TikTok` · `クラシル` · `クックパッド` · `その他Webサイト` · `ChatGPT公開共有` · `Gemini公開共有`
 
+## 現在のリリース状況
+
+2026-09-24時点では、App Store公開版は`1.0.1`で、次の`1.0.2 (15)`をAppleへ提出済みです。
+
+- Release Archive、Apple validation / upload、App Store Connectでのprocessing `VALID`まで完了
+- Internal TestFlightは`IN_BETA_TESTING`
+- External TestFlightへbuild 15を割り当て済みで、Beta App Reviewは`WAITING_FOR_REVIEW`
+- App Store version `1.0.2`もApp Reviewへ提出済みで、`WAITING_FOR_REVIEW`
+- Apple承認後の一般公開は自動では行わず、最終確認後に手動公開
+- App Store掲載名は「レシピ保存/管理アプリ - Foodfolio」、インストール後の表示名は`Foodfolio`のまま
+- 日本語の新しいApp Storeスクリーンショット6枚（`1320 x 2868`）を登録済み
+
+提出証跡は[PR #128](https://github.com/Kay-pht/foodfolio/pull/128)、リリース管理の正本は[docs/app-store-release.md](docs/app-store-release.md)を参照してください。
+
 ## 主な機能
 
-| 機能                       | 内容                                                                                                                                |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| URL / 共有シートから保存   | アプリへのURL貼り付けに加え、iOS Share ExtensionからレシピURLを直接追加できます。                                                   |
-| バックグラウンドAI解析     | 保存をAI処理完了まで待たせず、非同期で料理名・材料・分量・人数・調理時間・ジャンル・手順を構造化します。                            |
-| ChatGPT / Gemini共有レシピ | 公開共有会話からレシピ部分を取り込み、通常のレシピと同じ形式で保存できます。条件を満たす場合は完成料理のサムネイルも生成します。    |
-| レシピ詳細                 | 保存した材料・分量・手順をFoodfolio内で確認できます。基準人数を取得できたレシピは、表示人数に応じて計算可能な分量を比例表示します。 |
-| 検索・絞り込み             | 料理名・材料のテキスト検索と、ジャンル・ユーザータグによる絞り込みに対応しています。                                                |
-| オフライン閲覧・検索       | 同期済みレシピはSwiftDataへ保持し、一覧・詳細・検索をオフラインでも利用できます。                                                   |
-| 編集・タグ整理             | 料理名・材料・分量・ジャンルの編集と、自由入力タグの作成・付与・解除に対応しています。                                              |
-| 解析完了通知               | バックグラウンド解析の完了・失敗をPush通知で受け取れます。                                                                          |
+| 機能                         | 内容                                                                                                                                      |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| URL / 共有シートから保存     | アプリへのURL貼り付けに加え、iOS Share ExtensionからレシピURLを直接追加できます。                                                         |
+| バックグラウンドAI解析       | 保存をAI処理完了まで待たせず、非同期で料理名・材料・分量・人数・調理時間・ジャンル・手順を構造化します。                                  |
+| レシピ判定・解析ルーティング | TypeSafe / Jevで明確なnon-recipeを判定し、SNSではテキスト解析と画像・動画解析の経路を振り分けます。Jev障害時は既存経路へfail-openします。 |
+| ChatGPT / Gemini共有レシピ   | 公開共有会話からレシピ部分を取り込み、通常のレシピと同じ形式で保存できます。条件を満たす場合は完成料理のサムネイルも生成します。          |
+| レシピ詳細                   | 保存した材料・分量・手順をFoodfolio内で確認できます。基準人数を取得できたレシピは、表示人数に応じて計算可能な分量を比例表示します。       |
+| 検索・絞り込み               | 料理名・材料のテキスト検索と、ジャンル・ユーザータグによる絞り込みに対応しています。                                                      |
+| オフライン閲覧・検索         | 同期済みレシピはSwiftDataへ保持し、一覧・詳細・検索をオフラインでも利用できます。                                                         |
+| 編集・タグ整理               | 料理名・材料・分量・ジャンルの編集と、自由入力タグの作成・付与・解除に対応しています。                                                    |
+| 解析結果通知                 | バックグラウンド解析の完了・失敗に加え、レシピとして判定できなかった場合も専用のPush通知で受け取れます。                                  |
 
 ## 使い方
 
@@ -84,7 +103,9 @@ flowchart TD
     Queue --> Worker["Cloud Run Worker"]
 
     Worker --> Fetch["URL / Media Extraction"]
-    Fetch --> AI["Z.ai / Gemini"]
+    Fetch --> Jev["TypeSafe / Jev<br/>semantic routing"]
+    Jev -->|text / media route| AI["Z.ai / Gemini"]
+    Jev -->|明確なnon-recipe| DB
     AI --> Schema["JSON Schema Validation"]
     Schema --> DB
 
@@ -92,10 +113,14 @@ flowchart TD
     Image --> GCS["Google Cloud Storage"]
     GCS --> DB
 
-    DB --> Sync["Cursor-based Sync"]
+    DB --> Sync["Cursor sync + ID reconciliation"]
     Sync --> App
     Worker --> Notify["FCM → APNs"]
     Notify --> App
+
+    API --> Monitor["Cloud Monitoring"]
+    Worker --> Monitor
+    Monitor --> Slack["Slack runtime alerts"]
 ```
 
 BackendはAPIとWorkerを同じNode.js / TypeScriptコードベースで管理しつつ、Cloud Runでは別サービスとして実行します。URL保存とAI解析を分離し、ユーザー操作のレスポンス時間と外部AI処理の失敗を切り離しています。
@@ -108,7 +133,7 @@ BackendはAPIとWorkerを同じNode.js / TypeScriptコードベースで管理�
 
 ### 2. ローカルコピーを使ったオフライン体験
 
-Neon PostgreSQLをユーザーデータのSource of Truthとしつつ、iOS側にはSwiftDataのローカルコピーを保持しています。通常同期はBackend発行cursorによる差分同期で、hard deleteは定期的なRecipe ID照合で検出します。
+Neon PostgreSQLをユーザーデータのSource of Truthとしつつ、iOS側にはSwiftDataのローカルコピーを保持しています。通常同期はBackend発行cursorによる差分同期です。Recipe ID照合ではhard deleteを検出するだけでなく、Serverに存在してSwiftDataから欠けたRecipeだけを`batch-get`で再取得し、cursorをresetせず自己修復します。
 
 ### 3. 外部URLを扱うための安全な取得境界
 
@@ -122,9 +147,13 @@ Neon PostgreSQLをユーザーデータのSource of Truthとしつつ、iOS側�
 
 レシピ解析ではFoodfolioのUser ID・メールアドレス・認証Token・端末TokenをAI Providerへ渡さない方針です。AI共有レシピの画像生成では、共有会話全文ではなく、抽出後のタイトル・材料・手順だけを使用します。詳細は[AI解析におけるデータ送信方針](docs/ai-data-handling.md)に記録しています。
 
-### 6. CIで設計・仕様・テストまで検証
+### 6. Runtime監視をコードで管理
 
-GitHub ActionsのQuality workflowでは、変更範囲に応じてSpecification as Code、アーキテクチャ境界、ドキュメント整合性、format / lint、Prisma、build、unit / integration / E2E、iOS lintなどを検証します。BackendにはVitestとTestcontainers、iOSにはunit / integration / UI test targetを用意しています。
+TerraformでCloud MonitoringのAPI uptime、API 5xx、Recipe Analysis最終失敗、API / Worker memoryを監視します。5つのalert policyは2026-09-24に既存のSlack notification channelへ適用済みです。通知本文には原因の要約・影響・最初の対応・調査リンクを含めつつ、Recipe ID・URL・request body・認証情報・例外メッセージは展開しません。意図的な障害を起こす実通知テストは実施していません。詳細は[Runtime monitoring](docs/runtime-monitoring.md)に記録しています。
+
+### 7. CIで設計・仕様・テストまで検証
+
+GitHub ActionsのQuality workflowでは、変更範囲に応じてSpecification as Code、アーキテクチャ境界、ドキュメント整合性、format / lint、Prisma、build、unit / integration / E2E、iOS lintなどを検証します。Ready後の同一repository PRではAuto Fix後にHEADへ`Quality Gate` statusを公開し、実Quality完了前の成功誤認を防ぎます。最終merge guardは現在のbase + headのexact tree proofを確認します。BackendにはVitestとTestcontainers、iOSにはunit / integration / UI test targetを用意しています。
 
 ## Tech stack
 
@@ -134,7 +163,7 @@ GitHub ActionsのQuality workflowでは、変更範囲に応じてSpecification 
 | Backend         | Node.js 24, TypeScript 5.9, Fastify 5                                                   |
 | Data            | PostgreSQL (Neon), Prisma 7, Google Cloud Storage                                       |
 | Async / Cloud   | Cloud Run, Cloud Tasks, FCM / APNs, Terraform, Docker                                   |
-| AI / Extraction | Z.ai, Google Gemini, OpenAI Image API, Cheerio, Ajv                                     |
+| AI / Extraction | TypeSafe / Jev, Z.ai, Google Gemini, OpenAI Image API, Cheerio, Ajv                     |
 | Quality         | Vitest, Testcontainers, ESLint, Prettier, swift format, GitHub Actions                  |
 
 ## Repository structure
@@ -156,6 +185,7 @@ foodfolio/
 ├── prisma/                        # DB schema / migrations
 ├── schemas/                       # AI extraction JSON Schema
 ├── infra/terraform/               # cloud infrastructure
+├── marketing/app-store/           # App Store screenshot assets / export tooling
 ├── tests/                         # backend unit / integration / E2E
 ├── specs/                         # Specification as Code
 └── docs/                          # requirements / design / operations
@@ -184,6 +214,10 @@ iOS SimulatorではXcodeの`Foodfolio Local` schemeを使用すると、ロー�
 - [UI / UX設計](docs/ui-ux-design.md)
 - [技術選定](docs/technology-selection.md)
 - [実装設計](docs/implementation-design.md)
+- [Jev本番ルーティング](docs/jev-production-routing.md)
+- [Runtime monitoring](docs/runtime-monitoring.md)
+- [Share Extensionセットアップ](docs/share-extension-setup.md)
 - [AIデータ取扱い](docs/ai-data-handling.md)
 - [AI共有レシピの生成サムネイル設計](docs/ai-shared-thumbnail-generation.md)
 - [ローカル開発](docs/local-development.md)
+- [App Store画像生成](marketing/app-store/README.md)

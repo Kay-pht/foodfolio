@@ -1,7 +1,7 @@
 # Jev 本番導入・ルーティング設計
 
-最終更新日: 2026-09-21
-状態: 承認済み設計。PR 1の `not_recipe` 基盤は本番コードへ反映済み。Jev production routingはPR 2で実装する。
+最終更新日: 2026-09-24
+状態: 実装済み。PR #116で `not_recipe` 基盤、PR #118でJev production routingを本番コードへ反映済み。
 
 ## 1. 目的
 
@@ -707,15 +707,15 @@ processing
 
 ---
 
-## 16. 実装PRの分割
+## 16. 実装PRの分割と完了状態
 
-Jev本番導入は2PRに分ける。
+Jev本番導入は2PRに分けて実装し、両方ともmainへ反映済み。
 
 ### 16.1 Specification as Code
 
-このdocs-only設計PRでは `specs/tasks/*.yaml` を変更しない。既存の `JEV-RECIPE-GATE-POC-001` はPoC専用のhistorical specとして維持し、production routingの契約へ流用・書き換えしない。
+設計PRでは `specs/tasks/*.yaml` を変更せず、既存の `JEV-RECIPE-GATE-POC-001` はPoC専用のhistorical specとして維持した。production routingの契約へ流用・書き換えしていない。
 
-後続の各実装PRでは、production挙動へ影響するコード変更へ着手する前に、そのPRの対象範囲に対応する新しい `specs/tasks/*.yaml` を追加または確定し、`npm run check:specs` を成功させる。Spec確定前にproduction codeを変更しない。
+実装PRでは、production挙動へ影響するコード変更へ着手する前に対象範囲のSpecification as Codeを追加し、PR #116では `JEV-PRODUCTION-NOT-RECIPE-001`、PR #118では `JEV-PRODUCTION-ROUTING-001` を実装・検証の正本として確定した。
 
 - PR 1では `not_recipe` のstate / API / iOS / notification契約をspec化する
 - PR 2ではJev adapter、fail-open、source別routing、threshold、observability契約をspec化する
@@ -723,6 +723,8 @@ Jev本番導入は2PRに分ける。
 これにより、PoC specの「production routing unchanged」という契約と、本番導入実装のSpecification as Codeを混在させない。
 
 ### PR 1: not_recipe基盤
+
+状態: 完了（PR #116）
 
 対象:
 
@@ -737,9 +739,11 @@ Jev本番導入は2PRに分ける。
 - tests
 - 関連docs更新
 
-このPRではJev production routingをまだ有効化しない。
+PR #116ではJev production routingを有効化せず、`not_recipe` を安全に扱う基盤だけを先に導入した。routing本体はPR #118で追加済み。
 
 ### PR 2: Jev production routing
+
+状態: 完了（PR #118）
 
 対象:
 
@@ -760,11 +764,11 @@ Jev本番導入は2PRに分ける。
 
 ---
 
-## 17. 今回のdocs PRで実装しないもの
+## 17. 設計PR時点の非変更範囲（履歴）
 
-本ドキュメント追加PRは設計確定だけを行う。
+以下は本書を最初に追加したdocs-only設計PRでは変更しなかった範囲である。現在はPR #116 / #118により必要なproduction実装が反映済み。
 
-変更しない:
+設計PRでは変更しなかったもの:
 
 - production code
 - Prisma schema / migration
