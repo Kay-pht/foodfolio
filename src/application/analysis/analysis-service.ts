@@ -348,6 +348,7 @@ export class RecipeAnalysisService {
         : null;
       log(
         {
+          ...(analysisError.diagnostics ?? {}),
           recipeId,
           analysisStatus: final ? "failed" : "pending",
           analysisAttempt: attempt,

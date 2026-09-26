@@ -298,7 +298,11 @@ describe("API/Worker application E2E", () => {
     const notifications = new FakeNotifications();
     const failingAi: RecipeExtractor = {
       extract: async () => {
-        throw new AnalysisError("AI_TIMEOUT", true, "timeout", "zai");
+        throw new AnalysisError("AI_TIMEOUT", true, "timeout", "zai", {
+          aiFailureStage: "request_timeout",
+          model: "glm-5.3-flash",
+          latencyMs: 120_001,
+        });
       },
     };
     const logs: Array<Record<string, unknown>> = [];
@@ -349,6 +353,9 @@ describe("API/Worker application E2E", () => {
       analysisAttemptLabel: "3",
       errorCode: "AI_TIMEOUT",
       provider: "zai",
+      aiFailureStage: "request_timeout",
+      model: "glm-5.3-flash",
+      latencyMs: 120_001,
       severity: "ERROR",
       target: "レシピ解析",
       summary: "AIによるレシピ解析が最終試行まで成功しませんでした。",

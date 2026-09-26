@@ -108,7 +108,10 @@ jsonPayload.analysisStatus="failed"
 - final failure log には、アプリケーションが管理する値だけから `target`、`summary`、`impact`、`retryPolicy`、`nextAction` を追加する
 - Slack には `errorCode`、正規化した `provider`、`analysisAttempt` と上記の対応情報を展開する
 - `provider` が存在しない取得段階の失敗では `not_applicable` を記録し、label extraction に必要なフィールドを欠落させない
+- Z.ai失敗では、利用可能な範囲で `aiFailureStage`、`model`、`providerRequestId`、`providerHttpStatus`、`providerFinishReason`、`latencyMs`、token数、response文字数、schema検証メタデータを同じ構造化ログへ記録する
+- `aiFailureStage` は transport / HTTP / response envelope / content / schema のどこで失敗したかを、アプリケーション管理の固定値で表す。Provider由来の任意メッセージは記録しない
 - Slack へ recipe ID、source URL、request body、認証情報、例外メッセージ等の利用者データや任意文字列を展開しない
+- Cloud Loggingにもsource本文、prompt、署名付きmedia URL、AI response本文、raw error bodyを記録しない。responseは文字数、正規化済みfinish reason、固定schemaのkeyword/pathだけを診断に利用する
 - 通知の「次に行うこと」は、エラー分類に対応するログと依存先の確認手順を示す。通知だけで根本原因を断定しない
 
 LogMatch policy の notification rate limit は Cloud Monitoring の log-based alert 機能で適用する。

@@ -1,0 +1,93 @@
+id: AI-FAILURE-DIAGNOSTIC-LOGGING-001
+type: bug
+status: approved
+
+objective: >-
+  Preserve privacy-safe Z.ai failure diagnostics in Recipe Analysis structured logs so an
+  operator can distinguish transport, HTTP, missing-content, malformed-JSON, and schema
+  failures without storing source content or the provider raw response.
+
+requirements:
+  - id: AFDL-1
+    condition: A Z.ai request fails before a valid RecipeExtractionResult is returned.
+    expected: >-
+      The AnalysisError carries stable diagnostic metadata for the configured model, elapsed
+      latency, normalized failure stage, and any provider request ID available from response
+      headers or the JSON envelope. HTTP failures also carry the status code. Diagnostics do
+      not change the existing errorCode or retry decision.
+    verification:
+      - src/application/analysis/types.ts
+      - src/infrastructure/ai/zai-recipe-extractor.ts
+      - tests/unit/zai-video-extraction.test.ts
+  - id: AFDL-2
+    condition: Z.ai returns HTTP success without string content or with content that is not valid JSON.
+    expected: >-
+      Both cases retain errorCode AI_INVALID_JSON but are distinguishable as content_missing
+      and content_invalid_json. The log contains responseContentChars and a normalized finish
+      reason when available, but never contains the content itself.
+    verification:
+      - src/infrastructure/ai/zai-recipe-extractor.ts
+      - tests/unit/zai-video-extraction.test.ts
+  - id: AFDL-3
+    condition: Z.ai returns JSON that does not satisfy the extracted Recipe schema.
+    expected: >-
+      The failure log identifies schema_invalid and includes only validation error count,
+      schema keywords, and schema instance paths derived from the repository-owned schema.
+      Values from the provider response are not logged.
+    verification:
+      - src/infrastructure/ai/zai-recipe-extractor.ts
+      - tests/unit/zai-video-extraction.test.ts
+  - id: AFDL-4
+    condition: Recipe Analysis logs a pending or final AnalysisError.
+    expected: >-
+      The existing structured failure log includes the error's privacy-safe diagnostics so
+      Cloud Logging can correlate errorCode, attempt, provider, model, request ID, latency,
+      HTTP status, and failure stage. Slack alert labels and notification content remain
+      unchanged.
+    verification:
+      - src/application/analysis/analysis-service.ts
+      - tests/e2e/backend-worker.test.ts
+      - docs/runtime-monitoring.md
+
+edge_cases:
+  - Fetch throws before an HTTP response exists; request ID, status, and response metadata are absent.
+  - The provider request ID exists only in the response JSON envelope rather than the response header.
+  - The provider returns an unrecognized finish_reason; the log records unknown rather than arbitrary provider text.
+  - The provider omits usage metadata; token diagnostics are absent rather than synthesized.
+  - AJV returns multiple validation errors; logged keywords and paths are deduplicated and bounded.
+
+security_invariants:
+  - Source text, prompts, signed media URLs, AI response content, and raw provider error bodies are never added to logs.
+  - API keys, authorization headers, user IDs, email addresses, and device tokens are never added to diagnostics.
+  - Provider-controlled free-form error messages and finish reasons are not copied directly into logs.
+  - Diagnostic arrays and strings are bounded and consist only of normalized values or repository-owned schema paths.
+
+compatibility:
+  - Existing AnalysisError error codes and retryability remain unchanged.
+  - Existing Recipe state transitions, Cloud Tasks retry behavior, alert matching, and Slack notification labels remain unchanged.
+  - Successful Recipe Analysis logging and stored recipe data remain unchanged.
+
+non_functional:
+  - Keep provider response interpretation inside the Z.ai Infrastructure adapter.
+  - Keep failure-log projection in the Recipe Analysis Application service.
+  - Use structured scalar fields and bounded arrays that Cloud Logging can query without parsing messages.
+  - Do not add a database column or persist diagnostics outside Cloud Logging.
+
+out_of_scope:
+  - Logging source content, prompts, raw AI responses, or raw provider error bodies.
+  - Changing retry counts, retry delays, provider fallback, model selection, or alert thresholds.
+  - Adding Cloud Logging sinks, changing retention, or exporting logs to another service.
+  - Reprocessing recipes that previously failed.
+
+acceptance_criteria:
+  - Missing content and malformed JSON produce distinguishable structured failure stages.
+  - Failure logs include available model, provider request ID, latency, HTTP status, token counts, and safe response metadata.
+  - Schema failures expose bounded schema diagnostics without response values.
+  - No source text, prompt, signed media URL, raw response, secret, or provider free-form error message is logged.
+  - Focused unit and E2E regression tests and the full Backend verification suite pass.
+
+regression:
+  required: true
+  tests:
+    - tests/unit/zai-video-extraction.test.ts
+    - tests/e2e/backend-worker.test.ts

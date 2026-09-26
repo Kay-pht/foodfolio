@@ -2,6 +2,7 @@ import { Ajv2020 } from "ajv/dist/2020.js";
 import recipeSchema from "../../../schemas/extracted-recipe.schema.json" with { type: "json" };
 import {
   AnalysisError,
+  type AnalysisFailureDiagnostics,
   type ExtractedRecipe,
   type MediaRecipeExtractor,
   type OrderedPublishedMedia,
@@ -14,6 +15,38 @@ import { RECIPE_EXTRACTION_SYSTEM_PROMPT } from "../../shared/recipe-extraction-
 
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 const validate = ajv.compile<ExtractedRecipe>(recipeSchema);
+
+const KNOWN_FINISH_REASONS = new Set([
+  "stop",
+  "length",
+  "tool_calls",
+  "content_filter",
+]);
+
+function normalizedFinishReason(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  return KNOWN_FINISH_REASONS.has(value) ? value : "unknown";
+}
+
+function normalizedProviderRequestId(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  return /^[A-Za-z0-9._:-]{1,128}$/.test(value) ? value : undefined;
+}
+
+function isTimeoutError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error.name === "TimeoutError" || error.name === "AbortError")
+  );
+}
+
+function numericUsage(
+  usage: Record<string, unknown> | undefined,
+  key: "prompt_tokens" | "completion_tokens",
+): number | undefined {
+  const value = usage?.[key];
+  return typeof value === "number" ? value : undefined;
+}
 
 type ZaiContentItem =
   | { type: "image_url"; image_url: { url: string } }
@@ -102,6 +135,13 @@ export class ZaiRecipeExtractor
     content: string | ZaiContentItem[];
   }): Promise<RecipeExtractionResult> {
     const startedAt = Date.now();
+    const baseDiagnostics = (
+      aiFailureStage: AnalysisFailureDiagnostics["aiFailureStage"],
+    ): AnalysisFailureDiagnostics => ({
+      aiFailureStage,
+      model: this.model,
+      latencyMs: Date.now() - startedAt,
+    });
     let response: Response;
     try {
       response = await fetch("https://api.z.ai/api/paas/v4/chat/completions", {
@@ -125,20 +165,34 @@ export class ZaiRecipeExtractor
           stream: false,
         }),
       });
-    } catch {
+    } catch (error) {
       throw new AnalysisError(
         "AI_TIMEOUT",
         true,
         "AI request timed out",
         "zai",
+        baseDiagnostics(
+          isTimeoutError(error) ? "request_timeout" : "request_network",
+        ),
       );
     }
+    const headerRequestId = normalizedProviderRequestId(
+      response.headers.get("x-request-id"),
+    );
+    const responseDiagnostics = (
+      aiFailureStage: AnalysisFailureDiagnostics["aiFailureStage"],
+    ): AnalysisFailureDiagnostics => ({
+      ...baseDiagnostics(aiFailureStage),
+      providerHttpStatus: response.status,
+      ...(headerRequestId ? { providerRequestId: headerRequestId } : {}),
+    });
     if (response.status === 429)
       throw new AnalysisError(
         "AI_RATE_LIMITED",
         true,
         "AI rate limited",
         "zai",
+        responseDiagnostics("http_rate_limited"),
       );
     if (response.status >= 500)
       throw new AnalysisError(
@@ -146,6 +200,7 @@ export class ZaiRecipeExtractor
         true,
         "AI provider unavailable",
         "zai",
+        responseDiagnostics("http_provider_error"),
       );
     if (!response.ok)
       throw new AnalysisError(
@@ -153,43 +208,100 @@ export class ZaiRecipeExtractor
         false,
         "AI provider rejected request",
         "zai",
+        responseDiagnostics("http_rejected"),
       );
-    const value = (await response.json()) as Record<string, unknown>;
+    let value: Record<string, unknown>;
+    try {
+      const parsed: unknown = await response.json();
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+        throw new SyntaxError("Invalid response envelope");
+      value = parsed as Record<string, unknown>;
+    } catch (error) {
+      if (isTimeoutError(error))
+        throw new AnalysisError(
+          "AI_TIMEOUT",
+          true,
+          "AI response body timed out",
+          "zai",
+          responseDiagnostics("request_timeout"),
+        );
+      throw new AnalysisError(
+        "AI_INVALID_JSON",
+        true,
+        "AI response envelope is not JSON",
+        "zai",
+        responseDiagnostics("response_envelope_invalid_json"),
+      );
+    }
     const choices = Array.isArray(value.choices) ? value.choices : [];
     const choice = choices[0] as Record<string, unknown> | undefined;
     const message = choice?.message as Record<string, unknown> | undefined;
-    if (typeof message?.content !== "string")
+    const usage = value.usage as Record<string, unknown> | undefined;
+    const providerRequestId =
+      headerRequestId ?? normalizedProviderRequestId(value.request_id);
+    const content = message?.content;
+    const providerFinishReason = normalizedFinishReason(choice?.finish_reason);
+    const inputTokens = numericUsage(usage, "prompt_tokens");
+    const outputTokens = numericUsage(usage, "completion_tokens");
+    const contentDiagnostics = (
+      aiFailureStage: AnalysisFailureDiagnostics["aiFailureStage"],
+    ): AnalysisFailureDiagnostics => ({
+      ...responseDiagnostics(aiFailureStage),
+      ...(providerRequestId ? { providerRequestId } : {}),
+      ...(providerFinishReason ? { providerFinishReason } : {}),
+      responseContentChars: typeof content === "string" ? content.length : 0,
+      ...(inputTokens !== undefined ? { inputTokens } : {}),
+      ...(outputTokens !== undefined ? { outputTokens } : {}),
+    });
+    if (typeof content !== "string")
       throw new AnalysisError(
         "AI_INVALID_JSON",
         true,
         "AI response content is missing",
         "zai",
+        contentDiagnostics("content_missing"),
       );
     let recipe: unknown;
     try {
-      recipe = JSON.parse(message.content);
+      recipe = JSON.parse(content);
     } catch {
       throw new AnalysisError(
         "AI_INVALID_JSON",
         true,
         "AI response is not JSON",
         "zai",
+        contentDiagnostics("content_invalid_json"),
       );
     }
-    if (!validate(recipe))
+    if (!validate(recipe)) {
+      const validationErrors = validate.errors ?? [];
       throw new AnalysisError(
         "AI_SCHEMA_INVALID",
         true,
         "AI response did not match schema",
         "zai",
+        {
+          ...contentDiagnostics("schema_invalid"),
+          schemaErrorCount: validationErrors.length,
+          schemaErrorKeywords: [
+            ...new Set(
+              validationErrors.map(({ keyword }) => keyword.slice(0, 64)),
+            ),
+          ].slice(0, 10),
+          schemaErrorPaths: [
+            ...new Set(
+              validationErrors.map(({ instancePath }) =>
+                (instancePath || "/").slice(0, 120),
+              ),
+            ),
+          ].slice(0, 10),
+        },
       );
-    const usage = value.usage as Record<string, unknown> | undefined;
+    }
     return {
       recipe,
       provider: "zai",
-      providerRequestId:
-        response.headers.get("x-request-id") ??
-        (typeof value.request_id === "string" ? value.request_id : null),
+      providerRequestId: providerRequestId ?? null,
       inputTokens:
         typeof usage?.prompt_tokens === "number" ? usage.prompt_tokens : 0,
       outputTokens:
