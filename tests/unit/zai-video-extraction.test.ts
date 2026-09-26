@@ -29,7 +29,294 @@ function successfulResponse(requestId: string) {
   );
 }
 
+const tiktokVideoSource = {
+  sourceType: "tiktok" as const,
+  resolvedUrl: "https://www.tiktok.com/@chef/video/123",
+  imageUrl: null,
+  textForAi: "TITLE\nパスタ",
+};
+
 describe("ZaiRecipeExtractor media input", () => {
+  it.each([
+    {
+      status: 429,
+      code: "AI_RATE_LIMITED",
+      retryable: true,
+      failureStage: "http_rate_limited",
+    },
+    {
+      status: 503,
+      code: "AI_PROVIDER_ERROR",
+      retryable: true,
+      failureStage: "http_provider_error",
+    },
+    {
+      status: 400,
+      code: "AI_PROVIDER_ERROR",
+      retryable: false,
+      failureStage: "http_rejected",
+    },
+  ])(
+    "retains HTTP diagnostics for provider status $status",
+    async ({ status, code, retryable, failureStage }) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(
+          async () =>
+            new Response('{"error":{"message":"provider secret detail"}}', {
+              status,
+              headers: { "x-request-id": "failed-request-id" },
+            }),
+        ),
+      );
+      const extractor = new ZaiRecipeExtractor("test-api-key");
+
+      await expect(
+        extractor.extractVideo(
+          tiktokVideoSource,
+          "https://storage.example/signed-video",
+        ),
+      ).rejects.toMatchObject({
+        code,
+        retryable,
+        diagnostics: {
+          aiFailureStage: failureStage,
+          model: "glm-5.3-flash",
+          providerRequestId: "failed-request-id",
+          providerHttpStatus: status,
+          latencyMs: expect.any(Number),
+        },
+      });
+    },
+  );
+
+  it.each([
+    {
+      status: 429,
+      code: "AI_RATE_LIMITED",
+      retryable: true,
+      failureStage: "http_rate_limited",
+    },
+    {
+      status: 503,
+      code: "AI_PROVIDER_ERROR",
+      retryable: true,
+      failureStage: "http_provider_error",
+    },
+    {
+      status: 400,
+      code: "AI_PROVIDER_ERROR",
+      retryable: false,
+      failureStage: "http_rejected",
+    },
+  ])(
+    "reads provider request ID from HTTP $status JSON error envelope when the header is absent",
+    async ({ status, code, retryable, failureStage }) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(
+          async () =>
+            new Response(
+              JSON.stringify({
+                request_id: "body-only-request-id",
+                error: { message: "provider secret detail" },
+              }),
+              { status },
+            ),
+        ),
+      );
+      const extractor = new ZaiRecipeExtractor("test-api-key");
+
+      await expect(
+        extractor.extractVideo(
+          tiktokVideoSource,
+          "https://storage.example/signed-video",
+        ),
+      ).rejects.toMatchObject({
+        code,
+        retryable,
+        diagnostics: {
+          aiFailureStage: failureStage,
+          model: "glm-5.3-flash",
+          providerRequestId: "body-only-request-id",
+          providerHttpStatus: status,
+          latencyMs: expect.any(Number),
+        },
+      });
+    },
+  );
+
+  it.each([
+    { errorName: "TimeoutError", failureStage: "request_timeout" },
+    { errorName: "TypeError", failureStage: "request_network" },
+  ])(
+    "normalizes $errorName without logging its message",
+    async ({ errorName, failureStage }) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => {
+          const error = new Error("private transport detail");
+          error.name = errorName;
+          throw error;
+        }),
+      );
+      const extractor = new ZaiRecipeExtractor("test-api-key");
+
+      await expect(
+        extractor.extractVideo(
+          tiktokVideoSource,
+          "https://storage.example/signed-video",
+        ),
+      ).rejects.toMatchObject({
+        code: "AI_TIMEOUT",
+        retryable: true,
+        diagnostics: {
+          aiFailureStage: failureStage,
+          model: "glm-5.3-flash",
+          latencyMs: expect.any(Number),
+        },
+      });
+    },
+  );
+
+  it("classifies a malformed provider response envelope", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response("provider response is not JSON", {
+            status: 200,
+            headers: { "x-request-id": "envelope-request-id" },
+          }),
+      ),
+    );
+    const extractor = new ZaiRecipeExtractor("test-api-key");
+
+    await expect(
+      extractor.extractVideo(
+        tiktokVideoSource,
+        "https://storage.example/signed-video",
+      ),
+    ).rejects.toMatchObject({
+      code: "INTERNAL_ANALYSIS_ERROR",
+      retryable: true,
+      diagnostics: {
+        aiFailureStage: "response_envelope_invalid_json",
+        providerRequestId: "envelope-request-id",
+        providerHttpStatus: 200,
+      },
+    });
+  });
+
+  it.each([
+    {
+      name: "missing content",
+      content: undefined,
+      failureStage: "content_missing",
+      responseContentChars: 0,
+      finishReason: "stop",
+      expectedFinishReason: "stop",
+    },
+    {
+      name: "malformed JSON",
+      content: "not-json",
+      failureStage: "content_invalid_json",
+      responseContentChars: 8,
+      finishReason: "provider free-form detail",
+      expectedFinishReason: "unknown",
+    },
+  ])(
+    "retains privacy-safe diagnostics for $name",
+    async ({
+      content,
+      failureStage,
+      responseContentChars,
+      finishReason,
+      expectedFinishReason,
+    }) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(
+          async () =>
+            new Response(
+              JSON.stringify({
+                request_id: "body-request-id",
+                choices: [
+                  { finish_reason: finishReason, message: { content } },
+                ],
+                usage: { prompt_tokens: 11, completion_tokens: 22 },
+              }),
+              {
+                status: 200,
+                headers: { "x-request-id": "header-request-id" },
+              },
+            ),
+        ),
+      );
+      const extractor = new ZaiRecipeExtractor("test-api-key");
+
+      await expect(
+        extractor.extractVideo(
+          tiktokVideoSource,
+          "https://storage.example/signed-video",
+        ),
+      ).rejects.toMatchObject({
+        code: "AI_INVALID_JSON",
+        retryable: true,
+        diagnostics: {
+          aiFailureStage: failureStage,
+          model: "glm-5.3-flash",
+          providerRequestId: "header-request-id",
+          providerHttpStatus: 200,
+          providerFinishReason: expectedFinishReason,
+          responseContentChars,
+          inputTokens: 11,
+          outputTokens: 22,
+          latencyMs: expect.any(Number),
+        },
+      });
+    },
+  );
+
+  it("retains bounded schema diagnostics without response values", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              request_id: "schema-request-id",
+              choices: [
+                {
+                  finish_reason: "length",
+                  message: { content: JSON.stringify({ title: "秘密の値" }) },
+                },
+              ],
+            }),
+            { status: 200 },
+          ),
+      ),
+    );
+    const extractor = new ZaiRecipeExtractor("test-api-key");
+
+    await expect(
+      extractor.extractVideo(
+        tiktokVideoSource,
+        "https://storage.example/signed-video",
+      ),
+    ).rejects.toMatchObject({
+      code: "AI_SCHEMA_INVALID",
+      diagnostics: {
+        aiFailureStage: "schema_invalid",
+        providerRequestId: "schema-request-id",
+        providerFinishReason: "length",
+        schemaErrorCount: expect.any(Number),
+        schemaErrorKeywords: expect.arrayContaining(["required"]),
+        schemaErrorPaths: expect.any(Array),
+      },
+    });
+  });
+
   it("keeps the existing single-video request shape", async () => {
     const fetchMock = vi.fn(async (_url: string | URL, init?: RequestInit) => {
       const request = JSON.parse(String(init?.body)) as Record<string, unknown>;

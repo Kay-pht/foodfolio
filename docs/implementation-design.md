@@ -1588,7 +1588,7 @@ INTERNAL_ANALYSIS_ERROR
 
 Providerのraw error responseやsource本文は保存・出力しない。
 
-Cloud Loggingには `recipeId / requestId / providerRequestId / errorCode / latency / attempt` 等の診断情報だけを構造化loggingし、取得本文・API key・Firebase tokenを出力しない。
+Cloud Loggingには `recipeId / sourceUrl / requestId / providerRequestId / errorCode / latencyMs / attempt` 等の診断情報だけを構造化loggingし、取得本文・API key・Firebase tokenを出力しない。失敗時の `sourceUrl` はRecipeのsource URLからuserinfo・query parameter・fragmentを除去した値だけを記録し、Slackには展開しない。Z.ai失敗では `aiFailureStage / model / providerHttpStatus / providerFinishReason / responseContentChars / inputTokens / outputTokens` を利用可能な範囲で追加する。schema不一致では値を出力せず、件数と固定schemaに対するkeyword/pathだけを上限付きで記録する。
 
 ---
 
@@ -2412,6 +2412,7 @@ Backendは構造化logを使用する。
 requestId
 userId
 recipeId
+sourceUrl
 analysisStatus
 analysisAttempt
 errorCode
@@ -2419,6 +2420,13 @@ provider
 model
 providerRequestId
 latencyMs
+aiFailureStage
+providerHttpStatus
+providerFinishReason
+responseContentChars
+schemaErrorCount
+schemaErrorKeywords
+schemaErrorPaths
 inputTokens
 outputTokens
 jevModel
