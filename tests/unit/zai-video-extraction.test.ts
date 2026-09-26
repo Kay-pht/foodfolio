@@ -91,6 +91,62 @@ describe("ZaiRecipeExtractor media input", () => {
   );
 
   it.each([
+    {
+      status: 429,
+      code: "AI_RATE_LIMITED",
+      retryable: true,
+      failureStage: "http_rate_limited",
+    },
+    {
+      status: 503,
+      code: "AI_PROVIDER_ERROR",
+      retryable: true,
+      failureStage: "http_provider_error",
+    },
+    {
+      status: 400,
+      code: "AI_PROVIDER_ERROR",
+      retryable: false,
+      failureStage: "http_rejected",
+    },
+  ])(
+    "reads provider request ID from HTTP $status JSON error envelope when the header is absent",
+    async ({ status, code, retryable, failureStage }) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(
+          async () =>
+            new Response(
+              JSON.stringify({
+                request_id: "body-only-request-id",
+                error: { message: "provider secret detail" },
+              }),
+              { status },
+            ),
+        ),
+      );
+      const extractor = new ZaiRecipeExtractor("test-api-key");
+
+      await expect(
+        extractor.extractVideo(
+          tiktokVideoSource,
+          "https://storage.example/signed-video",
+        ),
+      ).rejects.toMatchObject({
+        code,
+        retryable,
+        diagnostics: {
+          aiFailureStage: failureStage,
+          model: "glm-5.3-flash",
+          providerRequestId: "body-only-request-id",
+          providerHttpStatus: status,
+          latencyMs: expect.any(Number),
+        },
+      });
+    },
+  );
+
+  it.each([
     { errorName: "TimeoutError", failureStage: "request_timeout" },
     { errorName: "TypeError", failureStage: "request_network" },
   ])(
@@ -142,7 +198,7 @@ describe("ZaiRecipeExtractor media input", () => {
         "https://storage.example/signed-video",
       ),
     ).rejects.toMatchObject({
-      code: "AI_INVALID_JSON",
+      code: "INTERNAL_ANALYSIS_ERROR",
       retryable: true,
       diagnostics: {
         aiFailureStage: "response_envelope_invalid_json",

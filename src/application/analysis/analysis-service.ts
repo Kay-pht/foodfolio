@@ -31,6 +31,21 @@ import { describeAnalysisFailure } from "./operational-failure.js";
 
 const PROCESSING_LEASE_MS = 660_000;
 
+function sourceUrlForLogging(value: string): string | undefined {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "http:" && url.protocol !== "https:")
+      return undefined;
+    url.username = "";
+    url.password = "";
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return undefined;
+  }
+}
+
 export interface AnalysisDependencies {
   prisma: PrismaClient;
   sourceExtractor: SourceContentExtractor;
@@ -181,6 +196,7 @@ export class RecipeAnalysisService {
 
     let routingDecision: JevRoutingDecision | null = null;
     let routingTrace: RouteExecutionTrace | null = null;
+    const sourceUrl = sourceUrlForLogging(recipe.originalUrl);
 
     try {
       const source = await this.deps.sourceExtractor.extract(
@@ -350,6 +366,7 @@ export class RecipeAnalysisService {
         {
           ...(analysisError.diagnostics ?? {}),
           recipeId,
+          ...(sourceUrl ? { sourceUrl } : {}),
           analysisStatus: final ? "failed" : "pending",
           analysisAttempt: attempt,
           ...(final ? { analysisAttemptLabel: String(attempt) } : {}),

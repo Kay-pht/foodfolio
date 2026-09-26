@@ -13,8 +13,8 @@ requirements:
     expected: >-
       The AnalysisError carries stable diagnostic metadata for the configured model, elapsed
       latency, normalized failure stage, and any provider request ID available from response
-      headers or the JSON envelope. HTTP failures also carry the status code. Diagnostics do
-      not change the existing errorCode or retry decision.
+      headers or the JSON envelope, including non-2xx JSON error envelopes. HTTP failures also
+      carry the status code. Diagnostics do not change the existing errorCode or retry decision.
     verification:
       - src/application/analysis/types.ts
       - src/infrastructure/ai/zai-recipe-extractor.ts
@@ -40,10 +40,11 @@ requirements:
   - id: AFDL-4
     condition: Recipe Analysis logs a pending or final AnalysisError.
     expected: >-
-      The existing structured failure log includes the error's privacy-safe diagnostics so
-      Cloud Logging can correlate errorCode, attempt, provider, model, request ID, latency,
-      HTTP status, and failure stage. Slack alert labels and notification content remain
-      unchanged.
+      The existing structured failure log includes the error's privacy-safe diagnostics and a
+      sourceUrl with userinfo, query parameters, and fragment removed, so Cloud Logging can
+      correlate the failed source with errorCode, attempt, provider, model, request ID,
+      latency, HTTP status, and failure stage. Slack alert labels and notification content
+      remain unchanged and do not expose sourceUrl.
     verification:
       - src/application/analysis/analysis-service.ts
       - tests/e2e/backend-worker.test.ts
@@ -51,13 +52,14 @@ requirements:
 
 edge_cases:
   - Fetch throws before an HTTP response exists; request ID, status, and response metadata are absent.
-  - The provider request ID exists only in the response JSON envelope rather than the response header.
+  - The provider request ID exists only in a non-2xx response JSON error envelope rather than the response header.
   - The provider returns an unrecognized finish_reason; the log records unknown rather than arbitrary provider text.
   - The provider omits usage metadata; token diagnostics are absent rather than synthesized.
   - AJV returns multiple validation errors; logged keywords and paths are deduplicated and bounded.
 
 security_invariants:
   - Source text, prompts, signed media URLs, AI response content, and raw provider error bodies are never added to logs.
+  - sourceUrl is derived only from the Recipe source URL after removing userinfo, query parameters, and fragment.
   - API keys, authorization headers, user IDs, email addresses, and device tokens are never added to diagnostics.
   - Provider-controlled free-form error messages and finish reasons are not copied directly into logs.
   - Diagnostic arrays and strings are bounded and consist only of normalized values or repository-owned schema paths.
@@ -81,7 +83,8 @@ out_of_scope:
 
 acceptance_criteria:
   - Missing content and malformed JSON produce distinguishable structured failure stages.
-  - Failure logs include available model, provider request ID, latency, HTTP status, token counts, and safe response metadata.
+  - Failure logs include available model, provider request ID, latency, HTTP status, token counts, safe response metadata, and sanitized sourceUrl.
+  - HTTP 429, 5xx, and other 4xx failures retain a normalized request ID when it exists only in the JSON error envelope.
   - Schema failures expose bounded schema diagnostics without response values.
   - No source text, prompt, signed media URL, raw response, secret, or provider free-form error message is logged.
   - Focused unit and E2E regression tests and the full Backend verification suite pass.

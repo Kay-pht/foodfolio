@@ -33,6 +33,29 @@ function normalizedProviderRequestId(value: unknown): string | undefined {
   return /^[A-Za-z0-9._:-]{1,128}$/.test(value) ? value : undefined;
 }
 
+async function providerRequestIdFromJsonBody(
+  response: Response,
+): Promise<string | undefined> {
+  try {
+    const parsed: unknown = await response.json();
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+      return undefined;
+    const envelope = parsed as Record<string, unknown>;
+    const errorEnvelope =
+      envelope.error &&
+      typeof envelope.error === "object" &&
+      !Array.isArray(envelope.error)
+        ? (envelope.error as Record<string, unknown>)
+        : undefined;
+    return (
+      normalizedProviderRequestId(envelope.request_id) ??
+      normalizedProviderRequestId(errorEnvelope?.request_id)
+    );
+  } catch {
+    return undefined;
+  }
+}
+
 function isTimeoutError(error: unknown): boolean {
   return (
     error instanceof Error &&
@@ -179,12 +202,19 @@ export class ZaiRecipeExtractor
     const headerRequestId = normalizedProviderRequestId(
       response.headers.get("x-request-id"),
     );
+    const bodyRequestId =
+      !response.ok && !headerRequestId
+        ? await providerRequestIdFromJsonBody(response)
+        : undefined;
+    const responseRequestId = headerRequestId ?? bodyRequestId;
     const responseDiagnostics = (
       aiFailureStage: AnalysisFailureDiagnostics["aiFailureStage"],
     ): AnalysisFailureDiagnostics => ({
       ...baseDiagnostics(aiFailureStage),
       providerHttpStatus: response.status,
-      ...(headerRequestId ? { providerRequestId: headerRequestId } : {}),
+      ...(responseRequestId
+        ? { providerRequestId: responseRequestId }
+        : {}),
     });
     if (response.status === 429)
       throw new AnalysisError(
@@ -219,14 +249,14 @@ export class ZaiRecipeExtractor
     } catch (error) {
       if (isTimeoutError(error))
         throw new AnalysisError(
-          "AI_TIMEOUT",
+          "INTERNAL_ANALYSIS_ERROR",
           true,
           "AI response body timed out",
           "zai",
           responseDiagnostics("request_timeout"),
         );
       throw new AnalysisError(
-        "AI_INVALID_JSON",
+        "INTERNAL_ANALYSIS_ERROR",
         true,
         "AI response envelope is not JSON",
         "zai",
