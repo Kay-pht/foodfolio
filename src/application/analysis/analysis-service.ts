@@ -34,8 +34,7 @@ const PROCESSING_LEASE_MS = 660_000;
 function sourceUrlForLogging(value: string): string | undefined {
   try {
     const url = new URL(value);
-    if (url.protocol !== "http:" && url.protocol !== "https:")
-      return undefined;
+    if (url.protocol !== "http:" && url.protocol !== "https:") return undefined;
     url.username = "";
     url.password = "";
     url.search = "";

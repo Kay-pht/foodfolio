@@ -212,9 +212,7 @@ export class ZaiRecipeExtractor
     ): AnalysisFailureDiagnostics => ({
       ...baseDiagnostics(aiFailureStage),
       providerHttpStatus: response.status,
-      ...(responseRequestId
-        ? { providerRequestId: responseRequestId }
-        : {}),
+      ...(responseRequestId ? { providerRequestId: responseRequestId } : {}),
     });
     if (response.status === 429)
       throw new AnalysisError(
