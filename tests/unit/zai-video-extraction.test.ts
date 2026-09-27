@@ -378,7 +378,10 @@ describe("ZaiRecipeExtractor media input", () => {
   });
 
   it("preserves successful provider request IDs outside the failure-diagnostic normalization", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => successfulResponse("request/id")));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => successfulResponse("request/id")),
+    );
     const extractor = new ZaiRecipeExtractor("test-api-key");
 
     const result = await extractor.extractVideo(
