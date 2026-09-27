@@ -199,14 +199,14 @@ export class ZaiRecipeExtractor
         ),
       );
     }
-    const headerRequestId = normalizedProviderRequestId(
-      response.headers.get("x-request-id"),
-    );
+    const rawHeaderRequestId = response.headers.get("x-request-id");
+    const diagnosticHeaderRequestId =
+      normalizedProviderRequestId(rawHeaderRequestId);
     const bodyRequestId =
-      !response.ok && !headerRequestId
+      !response.ok && !diagnosticHeaderRequestId
         ? await providerRequestIdFromJsonBody(response)
         : undefined;
-    const responseRequestId = headerRequestId ?? bodyRequestId;
+    const responseRequestId = diagnosticHeaderRequestId ?? bodyRequestId;
     const responseDiagnostics = (
       aiFailureStage: AnalysisFailureDiagnostics["aiFailureStage"],
     ): AnalysisFailureDiagnostics => ({
@@ -266,7 +266,11 @@ export class ZaiRecipeExtractor
     const message = choice?.message as Record<string, unknown> | undefined;
     const usage = value.usage as Record<string, unknown> | undefined;
     const providerRequestId =
-      headerRequestId ?? normalizedProviderRequestId(value.request_id);
+      diagnosticHeaderRequestId ??
+      normalizedProviderRequestId(value.request_id);
+    const successfulProviderRequestId =
+      rawHeaderRequestId ??
+      (typeof value.request_id === "string" ? value.request_id : null);
     const content = message?.content;
     const providerFinishReason = normalizedFinishReason(choice?.finish_reason);
     const inputTokens = numericUsage(usage, "prompt_tokens");
@@ -329,7 +333,7 @@ export class ZaiRecipeExtractor
     return {
       recipe,
       provider: "zai",
-      providerRequestId: providerRequestId ?? null,
+      providerRequestId: successfulProviderRequestId,
       inputTokens:
         typeof usage?.prompt_tokens === "number" ? usage.prompt_tokens : 0,
       outputTokens:

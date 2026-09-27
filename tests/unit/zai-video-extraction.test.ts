@@ -377,6 +377,18 @@ describe("ZaiRecipeExtractor media input", () => {
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 
+  it("preserves successful provider request IDs outside the failure-diagnostic normalization", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => successfulResponse("request/id")));
+    const extractor = new ZaiRecipeExtractor("test-api-key");
+
+    const result = await extractor.extractVideo(
+      tiktokVideoSource,
+      "https://storage.example/signed-video",
+    );
+
+    expect(result.providerRequestId).toBe("request/id");
+  });
+
   it("sends image and video blocks in original Instagram post order", async () => {
     const fetchMock = vi.fn(async (_url: string | URL, init?: RequestInit) => {
       const request = JSON.parse(String(init?.body)) as {
