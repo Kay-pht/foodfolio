@@ -137,10 +137,11 @@ export class ProductionSourceContentExtractor
   }
 
   private async extractTikTok(url: URL): Promise<SourceContent> {
-    const post = tiktokPostRef(url);
+    const resolvedUrl = await this.resolveTikTokUrl(url);
+    const post = tiktokPostRef(resolvedUrl);
     if (post?.kind === "photo") return this.extractTikTokPhoto(post);
     const endpoint = new URL("https://www.tiktok.com/oembed");
-    endpoint.searchParams.set("url", url.toString());
+    endpoint.searchParams.set("url", resolvedUrl.toString());
     const response = await this.http.get(endpoint);
     let value: unknown;
     try {
@@ -163,13 +164,50 @@ export class ProductionSourceContentExtractor
     const thumbnailUrl = normalize(record.thumbnail_url);
     return {
       sourceType: "tiktok",
-      resolvedUrl: url.toString(),
+      resolvedUrl: resolvedUrl.toString(),
       imageUrl: thumbnailUrl
         ? new URL(thumbnailUrl, response.finalUrl).toString()
         : null,
       textForAi: title ? `TITLE\n${title}`.slice(0, MAX_AI_CHARS) : null,
       ...(post ? { tiktokMediaKind: "video" as const } : {}),
     };
+  }
+
+  private async resolveTikTokUrl(url: URL): Promise<URL> {
+    const host = url.hostname
+      .toLowerCase()
+      .replace(/\.$/u, "")
+      .replace(/^www\./u, "");
+    const segments = url.pathname.split("/").filter(Boolean);
+    const isLiteShortUrl =
+      host === "lite.tiktok.com" &&
+      segments[0] === "t" &&
+      Boolean(segments[1]);
+    if (!isLiteShortUrl) return url;
+
+    const response = await this.http.get(url);
+    let redirectedUrl: URL;
+    try {
+      redirectedUrl = new URL(response.finalUrl);
+    } catch {
+      throw new AnalysisError(
+        "SOURCE_CONTENT_UNAVAILABLE",
+        false,
+        "TikTok Lite short URL resolved to an invalid URL",
+      );
+    }
+
+    const post = tiktokPostRef(redirectedUrl);
+    if (!post)
+      throw new AnalysisError(
+        "SOURCE_CONTENT_UNAVAILABLE",
+        false,
+        "TikTok Lite short URL did not resolve to a supported TikTok post",
+      );
+
+    return new URL(
+      `https://www.tiktok.com/${post.author}/${post.kind}/${post.postId}`,
+    );
   }
 
   private async extractTikTokPhoto(post: {
