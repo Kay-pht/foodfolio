@@ -1,0 +1,55 @@
+id: TIKTOK-LITE-SHORT-URL-001
+type: bug
+status: approved
+
+objective: >-
+  Resolve supported TikTok Lite short share URLs to canonical TikTok post URLs
+  before metadata extraction so valid shares do not fail at the TikTok oEmbed
+  endpoint.
+
+requirements:
+  - id: TLSU-1
+    condition: The worker analyzes a https://lite.tiktok.com/t/... share URL.
+    expected: The URL is resolved through SafeHttpClient redirects, validated as a supported TikTok post, canonicalized to www.tiktok.com, and the canonical URL is used by the existing TikTok extraction path.
+    verification:
+      - src/infrastructure/url/source-content-extractor.ts
+      - tests/unit/tiktok-source-content-extractor.test.ts
+  - id: TLSU-2
+    condition: The worker analyzes an already canonical TikTok post URL.
+    expected: The existing direct TikTok extraction path remains unchanged and does not add a preliminary source fetch.
+    verification:
+      - src/infrastructure/url/source-content-extractor.ts
+      - tests/unit/tiktok-source-content-extractor.test.ts
+
+edge_cases:
+  - A TikTok Lite short URL that does not resolve to a supported TikTok photo or video post must fail without forwarding the resolved external URL to TikTok oEmbed.
+
+security_invariants:
+  - Short URL resolution must use SafeHttpClient so existing protocol, hostname, DNS, redirect-count, timeout, response-size, and public-address protections remain enforced.
+  - Only a URL reconstructed from a validated TikTok post reference may be forwarded after short URL resolution.
+
+compatibility:
+  - Existing canonical TikTok video URLs continue to use TikTok oEmbed directly.
+  - Existing canonical TikTok photo URLs continue to use the photo metadata path.
+  - SafeHttpClient fetch and retry error classifications continue to propagate unchanged.
+
+non_functional:
+  - Keep the fix limited to TikTok Lite short URL resolution and regression coverage.
+  - Do not add a new external service or dependency.
+
+out_of_scope:
+  - Retrying recipes that already reached the failed state before deployment.
+  - Changes to runtime monitoring or Slack notification content.
+  - Expanding support to unrelated non-TikTok URL shorteners.
+
+acceptance_criteria:
+  - The reproduced https://lite.tiktok.com/t/... flow resolves to its canonical TikTok post URL before oEmbed is called.
+  - Successful extraction stores the canonical TikTok post URL in SourceContent.resolvedUrl.
+  - Canonical TikTok post URLs do not incur an additional preliminary fetch.
+  - A short URL that resolves outside a supported TikTok post is rejected before oEmbed.
+  - Regression tests cover successful short URL resolution, canonical URL compatibility, and invalid redirect targets.
+
+regression:
+  required: true
+  tests:
+    - tests/unit/tiktok-source-content-extractor.test.ts
