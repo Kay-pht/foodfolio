@@ -180,9 +180,7 @@ export class ProductionSourceContentExtractor
       .replace(/^www\./u, "");
     const segments = url.pathname.split("/").filter(Boolean);
     const isLiteShortUrl =
-      host === "lite.tiktok.com" &&
-      segments[0] === "t" &&
-      Boolean(segments[1]);
+      host === "lite.tiktok.com" && segments[0] === "t" && Boolean(segments[1]);
     if (!isLiteShortUrl) return url;
 
     const response = await this.http.get(url);
