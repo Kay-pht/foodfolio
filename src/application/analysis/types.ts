@@ -69,6 +69,32 @@ export interface RecipeExtractionResult {
   outputTokens: number;
   latencyMs: number;
 }
+
+export type AiFailureStage =
+  | "request_timeout"
+  | "request_network"
+  | "http_rate_limited"
+  | "http_provider_error"
+  | "http_rejected"
+  | "response_envelope_invalid_json"
+  | "content_missing"
+  | "content_invalid_json"
+  | "schema_invalid";
+
+export interface AnalysisFailureDiagnostics {
+  aiFailureStage: AiFailureStage;
+  model: string;
+  latencyMs: number;
+  providerRequestId?: string;
+  providerHttpStatus?: number;
+  providerFinishReason?: string;
+  responseContentChars?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  schemaErrorCount?: number;
+  schemaErrorKeywords?: string[];
+  schemaErrorPaths?: string[];
+}
 export interface RecipeExtractor {
   extract(input: SourceContent): Promise<RecipeExtractionResult>;
 }
@@ -210,6 +236,7 @@ export class AnalysisError extends Error {
     public readonly retryable: boolean,
     message: string,
     public readonly provider?: "zai" | "gemini",
+    public readonly diagnostics?: AnalysisFailureDiagnostics,
   ) {
     super(message);
     this.name = "AnalysisError";

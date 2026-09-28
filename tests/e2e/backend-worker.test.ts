@@ -290,7 +290,8 @@ describe("API/Worker application E2E", () => {
     const recipe = await context.prisma.recipe.create({
       data: {
         userId: user.id,
-        originalUrl: "https://example.com/fail",
+        originalUrl:
+          "https://user:password@example.com/fail?access_token=secret#private",
         normalizedUrl: "https://example.com/fail",
         sourceType: "web",
       },
@@ -298,7 +299,11 @@ describe("API/Worker application E2E", () => {
     const notifications = new FakeNotifications();
     const failingAi: RecipeExtractor = {
       extract: async () => {
-        throw new AnalysisError("AI_TIMEOUT", true, "timeout", "zai");
+        throw new AnalysisError("AI_TIMEOUT", true, "timeout", "zai", {
+          aiFailureStage: "request_timeout",
+          model: "glm-5.3-flash",
+          latencyMs: 120_001,
+        });
       },
     };
     const logs: Array<Record<string, unknown>> = [];
@@ -349,6 +354,10 @@ describe("API/Worker application E2E", () => {
       analysisAttemptLabel: "3",
       errorCode: "AI_TIMEOUT",
       provider: "zai",
+      sourceUrl: "https://example.com/fail",
+      aiFailureStage: "request_timeout",
+      model: "glm-5.3-flash",
+      latencyMs: 120_001,
       severity: "ERROR",
       target: "レシピ解析",
       summary: "AIによるレシピ解析が最終試行まで成功しませんでした。",
