@@ -1,0 +1,57 @@
+id: ACTIONABLE-ANALYSIS-FAILURE-001
+type: bug
+status: approved
+objective: >-
+  Make final Recipe Analysis failure summaries displayed by the existing Slack alert
+  explain the observed failure and first response without requiring an initial log investigation.
+requirements:
+  - id: AAF-1
+    condition: An AI failure includes finish reason length.
+    expected: >-
+      The summary describes generation truncation, includes the configured output token limit
+      and observed token count when available, and never claims the limit was exceeded.
+      Z.ai diagnostics record the limit from the same constant used in the request.
+    verification:
+      - tests/unit/analysis-operational-failure.test.ts
+      - tests/unit/zai-video-extraction.test.ts
+  - id: AAF-2
+    condition: A known AI, source, shared conversation, or media error reaches final failure.
+    expected: >-
+      Summaries and next actions distinguish normalized AI stages and known error codes.
+      Ambiguous source errors describe only the failed operation, not an unproven root cause.
+      Unknown errors retain generic investigation guidance.
+    verification:
+      - tests/unit/analysis-operational-failure.test.ts
+  - id: AAF-3
+    condition: Worker logs final analysis failure.
+    expected: >-
+      Diagnostics reach the summary builder and the final failure log used by Slack.
+      Existing summary and next_action label extractors remain unchanged.
+    verification:
+      - tests/e2e/backend-worker.test.ts
+      - tests/unit/runtime-monitoring-health-path.test.mjs
+edge_cases:
+  - Missing token usage or configured limit does not synthesize a numeric limit.
+  - Network failure using legacy AI_TIMEOUT is described as network failure when its stage is request_network.
+  - HTTP rejection is not described as a provider outage.
+  - Unknown classifications do not leak provider free-form messages.
+security_invariants:
+  - Slack text uses repository-owned phrases and validated numeric metadata only.
+  - Source content, URLs, model names, request IDs, exception messages, raw responses and secrets are not added to Slack.
+compatibility:
+  - Preserve error codes, retryability, attempt counts, recipe states and alert thresholds.
+  - Existing Slack summary and next_action labels carry the more specific text without Terraform changes.
+non_functional:
+  - No extra external request or database schema change.
+out_of_scope:
+  - Increasing token limits or changing model, retry logic, source extraction or fallback.
+  - Deployment, Terraform apply, external alert drills and reprocessing failed recipes.
+acceptance_criteria:
+  - The reported length failure displays a 4000-token limit and truncation rather than a generic invalid JSON cause.
+  - Known error categories have operation-specific summaries and next actions without inferred root causes.
+  - Focused regression tests and full npm run verify pass.
+regression:
+  required: true
+  tests:
+    - tests/unit/analysis-operational-failure.test.ts
+    - tests/e2e/backend-worker.test.ts
