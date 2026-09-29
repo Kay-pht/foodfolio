@@ -359,6 +359,7 @@ export class RecipeAnalysisService {
             errorCode: analysisError.code,
             provider: analysisError.provider,
             attempt,
+            diagnostics: analysisError.diagnostics,
           })
         : null;
       log(

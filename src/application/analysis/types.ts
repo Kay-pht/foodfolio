@@ -91,6 +91,7 @@ export interface AnalysisFailureDiagnostics {
   responseContentChars?: number;
   inputTokens?: number;
   outputTokens?: number;
+  maxOutputTokens?: number;
   schemaErrorCount?: number;
   schemaErrorKeywords?: string[];
   schemaErrorPaths?: string[];

@@ -280,93 +280,113 @@ describe("API/Worker application E2E", () => {
     await worker.close();
   });
 
-  it("retries transient failure, marks final failure, and respects notification OFF", async () => {
-    const user = await context.prisma.user.create({
-      data: {
-        firebaseUid: "failed-user",
-        setting: { create: { recipeAnalysisNotificationEnabled: false } },
-      },
-    });
-    const recipe = await context.prisma.recipe.create({
-      data: {
-        userId: user.id,
-        originalUrl:
-          "https://user:password@example.com/fail?access_token=secret#private",
-        normalizedUrl: "https://example.com/fail",
-        sourceType: "web",
-      },
-    });
-    const notifications = new FakeNotifications();
-    const failingAi: RecipeExtractor = {
-      extract: async () => {
-        throw new AnalysisError("AI_TIMEOUT", true, "timeout", "zai", {
-          aiFailureStage: "request_timeout",
-          model: "glm-5.3-flash",
-          latencyMs: 120_001,
-        });
-      },
-    };
-    const logs: Array<Record<string, unknown>> = [];
-    const service = new RecipeAnalysisService({
-      prisma: context.prisma,
-      sourceExtractor,
-      recipeExtractor: failingAi,
-      notifications,
-      maxAttempts: 3,
-    });
-    const worker = buildWorker({
-      process: (recipeId, attempt, log) =>
-        service.process(recipeId, attempt, (fields, message) => {
-          logs.push({ ...fields, message });
-          log(fields, message);
-        }),
-    });
-    const first = await worker.inject({
-      method: "POST",
-      url: "/internal/tasks/recipe-analysis",
-      headers: { "x-cloudtasks-taskretrycount": "0" },
-      payload: { recipeId: recipe.id },
-    });
-    expect(first.statusCode).toBe(503);
-    expect(
-      (
-        await context.prisma.recipe.findUniqueOrThrow({
-          where: { id: recipe.id },
-        })
-      ).analysisStatus,
-    ).toBe("pending");
-    const final = await worker.inject({
-      method: "POST",
-      url: "/internal/tasks/recipe-analysis",
-      headers: { "x-cloudtasks-taskretrycount": "2" },
-      payload: { recipeId: recipe.id },
-    });
-    expect(final.statusCode).toBe(204);
-    const failedRecipe = await context.prisma.recipe.findUniqueOrThrow({
-      where: { id: recipe.id },
-    });
-    expect(failedRecipe.analysisStatus).toBe("failed");
-    expect(failedRecipe.analysisProvider).toBe("zai");
-    expect(
-      logs.find(({ analysisStatus }) => analysisStatus === "failed"),
-    ).toMatchObject({
-      analysisAttempt: 3,
-      analysisAttemptLabel: "3",
-      errorCode: "AI_TIMEOUT",
-      provider: "zai",
-      sourceUrl: "https://example.com/fail",
-      aiFailureStage: "request_timeout",
-      model: "glm-5.3-flash",
-      latencyMs: 120_001,
-      severity: "ERROR",
-      target: "レシピ解析",
-      summary: "AIによるレシピ解析が最終試行まで成功しませんでした。",
-      retryPolicy: "final_failure",
-      message: "recipe analysis failed",
-    });
-    expect(notifications.failed).toEqual([]);
-    await worker.close();
-  });
+  it.each([false, true])(
+    "retries transient failure, marks final failure, and respects notification OFF (truncated=%s)",
+    async (truncated) => {
+      const user = await context.prisma.user.create({
+        data: {
+          firebaseUid: `failed-user-${truncated}`,
+          setting: { create: { recipeAnalysisNotificationEnabled: false } },
+        },
+      });
+      const recipe = await context.prisma.recipe.create({
+        data: {
+          userId: user.id,
+          originalUrl:
+            "https://user:password@example.com/fail?access_token=secret#private",
+          normalizedUrl: "https://example.com/fail",
+          sourceType: "web",
+        },
+      });
+      const notifications = new FakeNotifications();
+      const failingAi: RecipeExtractor = {
+        extract: async () => {
+          throw new AnalysisError(
+            truncated ? "AI_INVALID_JSON" : "AI_TIMEOUT",
+            true,
+            "timeout",
+            "zai",
+            {
+              aiFailureStage: truncated
+                ? "content_invalid_json"
+                : "request_timeout",
+              ...(truncated
+                ? {
+                    providerFinishReason: "length",
+                    outputTokens: 4000,
+                    maxOutputTokens: 4000,
+                  }
+                : {}),
+              model: "glm-5.3-flash",
+              latencyMs: 120_001,
+            },
+          );
+        },
+      };
+      const logs: Array<Record<string, unknown>> = [];
+      const service = new RecipeAnalysisService({
+        prisma: context.prisma,
+        sourceExtractor,
+        recipeExtractor: failingAi,
+        notifications,
+        maxAttempts: 3,
+      });
+      const worker = buildWorker({
+        process: (recipeId, attempt, log) =>
+          service.process(recipeId, attempt, (fields, message) => {
+            logs.push({ ...fields, message });
+            log(fields, message);
+          }),
+      });
+      const first = await worker.inject({
+        method: "POST",
+        url: "/internal/tasks/recipe-analysis",
+        headers: { "x-cloudtasks-taskretrycount": "0" },
+        payload: { recipeId: recipe.id },
+      });
+      expect(first.statusCode).toBe(503);
+      expect(
+        (
+          await context.prisma.recipe.findUniqueOrThrow({
+            where: { id: recipe.id },
+          })
+        ).analysisStatus,
+      ).toBe("pending");
+      const final = await worker.inject({
+        method: "POST",
+        url: "/internal/tasks/recipe-analysis",
+        headers: { "x-cloudtasks-taskretrycount": "2" },
+        payload: { recipeId: recipe.id },
+      });
+      expect(final.statusCode).toBe(204);
+      const failedRecipe = await context.prisma.recipe.findUniqueOrThrow({
+        where: { id: recipe.id },
+      });
+      expect(failedRecipe.analysisStatus).toBe("failed");
+      expect(failedRecipe.analysisProvider).toBe("zai");
+      expect(
+        logs.find(({ analysisStatus }) => analysisStatus === "failed"),
+      ).toMatchObject({
+        analysisAttempt: 3,
+        analysisAttemptLabel: "3",
+        errorCode: truncated ? "AI_INVALID_JSON" : "AI_TIMEOUT",
+        provider: "zai",
+        sourceUrl: "https://example.com/fail",
+        aiFailureStage: truncated ? "content_invalid_json" : "request_timeout",
+        model: "glm-5.3-flash",
+        latencyMs: 120_001,
+        severity: "ERROR",
+        target: "レシピ解析",
+        summary: expect.stringContaining(
+          truncated ? "出力上限4000トークン" : "時間",
+        ),
+        retryPolicy: "final_failure",
+        message: "recipe analysis failed",
+      });
+      expect(notifications.failed).toEqual([]);
+      await worker.close();
+    },
+  );
 
   it("reclaims a processing recipe on Cloud Tasks retry after an interrupted worker", async () => {
     const user = await context.prisma.user.create({

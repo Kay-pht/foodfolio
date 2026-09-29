@@ -105,7 +105,7 @@ jsonPayload.analysisStatus="failed"
 - severity: ERROR
 - 最初の final failure で incident を開く
 - notification rate limit: 1 hour
-- final failure log には、アプリケーションが管理する値だけから `target`、`summary`、`impact`、`retryPolicy`、`nextAction` を追加する
+- final failure log には、アプリケーションが管理する固定文と検証した数値メタデータから `target`、`summary`、`impact`、`retryPolicy`、`nextAction` を追加する
 - Slack には `errorCode`、正規化した `provider`、`analysisAttempt` と上記の対応情報を展開する
 - `provider` が存在しない取得段階の失敗では `not_applicable` を記録し、label extraction に必要なフィールドを欠落させない
 - Z.ai失敗では、利用可能な範囲で `aiFailureStage`、`model`、`providerRequestId`、`providerHttpStatus`、`providerFinishReason`、`latencyMs`、token数、response文字数、schema検証メタデータを同じ構造化ログへ記録する
@@ -113,7 +113,12 @@ jsonPayload.analysisStatus="failed"
 - `aiFailureStage` は transport / HTTP / response envelope / content / schema のどこで失敗したかを、アプリケーション管理の固定値で表す。Provider由来の任意メッセージは記録しない
 - Slack へ recipe ID、source URL、request body、認証情報、例外メッセージ等の利用者データや任意文字列を展開しない。Cloud Loggingの `sourceUrl` はSlack labelや通知本文へ展開しない
 - Cloud Loggingにもsource本文、prompt、署名付きmedia URL、AI response本文、raw error bodyを記録しない。responseは文字数、正規化済みfinish reason、固定schemaのkeyword/pathだけを診断に利用する
-- 通知の「次に行うこと」は、エラー分類に対応するログと依存先の確認手順を示す。通知だけで根本原因を断定しない
+- 通知の `summary` と「次に行うこと」は、診断段階と既知のエラー分類から失敗内容と対応を具体的に示す。既存の `summary` / `next_action` labelを使用し、Terraformの変更は不要
+- `providerFinishReason=length` の失敗では「出力トークン上限に達して生成が打ち切られた」と表示し、利用可能なら設定上限と実際の出力token数を付記する。「上限を超えた」とは表示しない
+- Z.aiの `maxOutputTokens` はAPIへ送る `max_tokens` と同一の値を記録する。token数が欠落する場合は数値を補わない
+- 通信・時間切れ・HTTP 429・5xx・リクエスト拒否・本文欠落・不正JSON・schema不一致を区別する。診断がないAI提供元エラーではHTTP詳細を断定しない
+- 取得・共有会話・SNSメディアの既知のエラーは失敗した操作を示す。Instagramメタデータ取得失敗だけから年齢・地域・ログイン制限を特定しない。複数の原因を持つエラーは「詳細原因は未確認」と明示する
+- 未知のエラーでは従来のログ調査案内へ戻す。既存のエラーコード・再試行・通知条件は変更しない。改善した文面の実環境反映にはWorkerのデプロイが必要
 
 LogMatch policy の notification rate limit は Cloud Monitoring の log-based alert 機能で適用する。
 

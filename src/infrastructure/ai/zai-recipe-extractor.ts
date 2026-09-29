@@ -157,12 +157,14 @@ export class ZaiRecipeExtractor
     role: "user";
     content: string | ZaiContentItem[];
   }): Promise<RecipeExtractionResult> {
+    const maxOutputTokens = 4000;
     const startedAt = Date.now();
     const baseDiagnostics = (
       aiFailureStage: AnalysisFailureDiagnostics["aiFailureStage"],
     ): AnalysisFailureDiagnostics => ({
       aiFailureStage,
       model: this.model,
+      maxOutputTokens,
       latencyMs: Date.now() - startedAt,
     });
     let response: Response;
@@ -184,7 +186,7 @@ export class ZaiRecipeExtractor
             userMessage,
           ],
           response_format: { type: "json_object" },
-          max_tokens: 4000,
+          max_tokens: maxOutputTokens,
           stream: false,
         }),
       });

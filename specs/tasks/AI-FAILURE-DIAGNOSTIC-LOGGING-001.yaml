@@ -43,8 +43,9 @@ requirements:
       The existing structured failure log includes the error's privacy-safe diagnostics and a
       sourceUrl with userinfo, query parameters, and fragment removed, so Cloud Logging can
       correlate the failed source with errorCode, attempt, provider, model, request ID,
-      latency, HTTP status, and failure stage. Slack alert labels and notification content
-      remain unchanged and do not expose sourceUrl.
+      latency, HTTP status, and failure stage. Slack alert labels remain unchanged and do not expose sourceUrl. The later
+      ACTIONABLE-ANALYSIS-FAILURE-001 specification refines summary and nextAction using
+      these safe diagnostics without adding notification labels.
     verification:
       - src/application/analysis/analysis-service.ts
       - tests/e2e/backend-worker.test.ts
