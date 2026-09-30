@@ -56,7 +56,20 @@ final class RecipeRepository {
   }
 
   func updateMemo(id: String, memo: String?) async throws -> LocalRecipe {
-    struct Body: Encodable, Sendable { let memo: String? }
+    struct Body: Encodable, Sendable {
+      let memo: String?
+
+      private enum CodingKeys: String, CodingKey { case memo }
+
+      func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        if let memo {
+          try container.encode(memo, forKey: .memo)
+        } else {
+          try container.encodeNil(forKey: .memo)
+        }
+      }
+    }
     let dto: RecipeDTO = try await api.send(
       "/v1/recipes/\(id)", method: "PATCH", body: Body(memo: memo))
     return try await applyMutationResponse(dto)
