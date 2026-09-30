@@ -241,6 +241,7 @@ describe("MVP critical API integration", () => {
       ["processing", 409],
       ["completed", 200],
       ["failed", 200],
+      ["not_recipe", 409],
     ] as const) {
       const created = await app.inject({
         method: "POST",
