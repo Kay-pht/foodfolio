@@ -105,6 +105,59 @@ describe("YtDlpInstagramMediaRetriever", () => {
     expect(disposePublished).toHaveBeenCalledOnce();
   });
 
+  it("classifies single-video local cleanup independently from published cleanup", async () => {
+    const disposeLocal = vi.fn(async () => {
+      throw new Error("local cleanup failed");
+    });
+    const disposePublished = vi.fn(async () => {});
+    const singleVideoCollection: MediaCollection = {
+      items: [
+        {
+          index: 1,
+          kind: "video",
+          filePath: "/tmp/video.mp4",
+          sizeBytes: 123,
+          contentType: "video/mp4",
+        },
+      ],
+      attempts: 1,
+      dispose: disposeLocal,
+    };
+    const retriever = new YtDlpInstagramMediaRetriever(
+      config,
+      createMediaStore(disposePublished),
+      async () => ({
+        formats: [
+          {
+            url: "https://cdn.example/video.mp4",
+            width: 1080,
+            height: 1920,
+          },
+        ],
+      }),
+      { retrieve: vi.fn(async () => singleVideoCollection) },
+      vi.fn(),
+      async () => {},
+    );
+
+    await expect(
+      retriever.retrieve(new URL("https://www.instagram.com/reel/cleanup/")),
+    ).rejects.toMatchObject({
+      code: "INSTAGRAM_MEDIA_CLEANUP_FAILED",
+      retryable: true,
+      diagnostics: {
+        mediaFailureStage: "local_cleanup",
+        mediaFailureClass: "filesystem",
+        mediaIndex: 1,
+        mediaKind: "video",
+        mediaAttempt: 1,
+        mediaMaxAttempts: 2,
+      },
+    });
+    expect(disposeLocal).toHaveBeenCalledTimes(2);
+    expect(disposePublished).toHaveBeenCalledOnce();
+  });
+
   it("downloads, publishes, and deletes each carousel item before starting the next", async () => {
     const metadata = {
       entries: [1, 2, 3].map((index) => ({
@@ -284,8 +337,67 @@ describe("YtDlpInstagramMediaRetriever", () => {
     ).rejects.toMatchObject({
       code: "INSTAGRAM_MEDIA_UNSUPPORTED_MEDIA",
       retryable: false,
+      diagnostics: {
+        mediaFailureStage: "metadata_probe",
+        mediaFailureClass: "invalid_response",
+        mediaAttempt: 1,
+        mediaMaxAttempts: 2,
+      },
     });
     expect(assetDownloader).not.toHaveBeenCalled();
+  });
+
+  it("classifies work-directory removal failures as local cleanup", async () => {
+    const metadata = {
+      entries: [
+        { formats: [], thumbnails: [{ url: "https://cdn.example/1.jpg" }] },
+      ],
+    };
+    let rootRemovalFailures = 0;
+    const rootPrefix = join(tmpdir(), "foodfolio-instagram-media-");
+    const removeLocal = vi.fn(async (path: string, recursive: boolean) => {
+      const suffix = path.startsWith(rootPrefix)
+        ? path.slice(rootPrefix.length)
+        : "";
+      const isWorkDirectoryRoot =
+        recursive && path.startsWith(rootPrefix) && !suffix.includes("/");
+      if (isWorkDirectoryRoot && rootRemovalFailures < 2) {
+        rootRemovalFailures += 1;
+        throw new Error("filesystem cleanup failed");
+      }
+      if (recursive) {
+        await rm(path, { recursive: true, force: true });
+        return;
+      }
+      await rm(path, { force: true });
+    });
+    const retriever = new YtDlpInstagramMediaRetriever(
+      config,
+      createMediaStore(),
+      async () => metadata,
+      { retrieve: vi.fn() },
+      async (asset, workDirectory) => {
+        const filePath = join(workDirectory, `${asset.index}.jpg`);
+        await writeFile(filePath, new Uint8Array([1]));
+        return { filePath, sizeBytes: 1, contentType: "image/jpeg" };
+      },
+      async () => {},
+      removeLocal,
+    );
+
+    await expect(
+      retriever.retrieve(new URL("https://www.instagram.com/p/cleanup/")),
+    ).rejects.toMatchObject({
+      code: "INSTAGRAM_MEDIA_DOWNLOAD_FAILED",
+      retryable: false,
+      diagnostics: {
+        mediaFailureStage: "local_cleanup",
+        mediaFailureClass: "filesystem",
+        mediaAttempt: 2,
+        mediaMaxAttempts: 2,
+      },
+    });
+    expect(rootRemovalFailures).toBe(2);
   });
 
   it("retries the whole carousel and fails atomically when one entry download fails", async () => {
