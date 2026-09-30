@@ -110,6 +110,10 @@ jsonPayload.analysisStatus="failed"
 - `provider` が存在しない取得段階の失敗では `not_applicable` を記録し、label extraction に必要なフィールドを欠落させない
 - Z.ai失敗では、利用可能な範囲で `aiFailureStage`、`model`、`providerRequestId`、`providerHttpStatus`、`providerFinishReason`、`latencyMs`、token数、response文字数、schema検証メタデータを同じ構造化ログへ記録する
 - Recipe Analysis失敗ログには `sourceUrl` を追加するが、Recipeのsource URLからuserinfo、query parameter、fragmentを除去したURLだけを記録する
+- URL取得失敗では `sourceOperation`、`sourceFailureStage`、`sourceFailureClass`、`sourceHttpStatus`、`sourceRedirectCount` を利用可能な範囲で記録する。値はアプリケーション管理の固定分類と検証済み数値だけとし、redirect先URL、response body、例外メッセージは記録しない
+- TikTokでは短縮URL解決を `tiktok_short_url`、oEmbed取得を `tiktok_oembed` として区別し、同じ `SOURCE_FETCH_FAILED` でも失敗したHTTP処理をCloud Loggingで判別できるようにする
+- Instagramメディア取得失敗では `mediaFailureStage`、`mediaFailureClass`、`mediaHttpStatus`、`mediaIndex`、`mediaKind`、`mediaAttempt`、`mediaMaxAttempts` を利用可能な範囲で記録する。metadata取得、単一動画download、asset download/validate、GCS publish、local/published cleanupを固定値で区別し、media URL、HTTP header、署名URL、raw exceptionは記録しない
+- 上記source/media diagnosticsはCloud Loggingでの原因調査専用とし、既存のSlack label extractorや通知本文へ追加しない
 - `aiFailureStage` は transport / HTTP / response envelope / content / schema のどこで失敗したかを、アプリケーション管理の固定値で表す。Provider由来の任意メッセージは記録しない
 - Slack へ recipe ID、source URL、request body、認証情報、例外メッセージ等の利用者データや任意文字列を展開しない。Cloud Loggingの `sourceUrl` はSlack labelや通知本文へ展開しない
 - Cloud Loggingにもsource本文、prompt、署名付きmedia URL、AI response本文、raw error bodyを記録しない。responseは文字数、正規化済みfinish reason、固定schemaのkeyword/pathだけを診断に利用する
