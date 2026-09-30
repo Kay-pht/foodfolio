@@ -29,7 +29,7 @@ final class RecipeSyncService {
   private let tagRelationshipRepairKey = "tagRelationshipRepairVersion"
   private let tagRelationshipRepairVersion = 1
   private let recipeCacheSchemaVersionKey = "recipeCacheSchemaVersion"
-  private let recipeCacheSchemaVersion = 1
+  private let recipeCacheSchemaVersion = 2
   private var hasReconciledThisSession = false
 
   init(api: APIClient, repository: RecipeRepository, defaults: UserDefaults = .standard) {
