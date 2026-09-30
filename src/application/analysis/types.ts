@@ -84,11 +84,16 @@ export type AiFailureStage =
 export type SourceFailureOperation =
   "source_fetch" | "tiktok_short_url" | "tiktok_oembed";
 export type SourceFailureStage =
-  "request" | "redirect" | "response_status" | "response_size";
+  | "request"
+  | "redirect"
+  | "response_status"
+  | "response_body"
+  | "response_size";
 export type SourceFailureClass =
   | "timeout"
   | "network"
   | "redirect_missing_location"
+  | "redirect_invalid_location"
   | "redirect_limit"
   | "http_error"
   | "response_too_large";
