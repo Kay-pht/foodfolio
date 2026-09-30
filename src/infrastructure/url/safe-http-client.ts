@@ -48,6 +48,40 @@ function sourceDiagnostics(
   };
 }
 
+function sourceBodyFailure(
+  error: unknown,
+  operation: SourceFailureOperation,
+  redirectCount: number,
+  httpStatus: number,
+): AnalysisError {
+  return new AnalysisError(
+    "SOURCE_FETCH_FAILED",
+    true,
+    "Source response body failed",
+    undefined,
+    sourceDiagnostics(
+      operation,
+      "response_body",
+      requestFailureClass(error),
+      redirectCount,
+      httpStatus,
+    ),
+  );
+}
+
+async function dumpResponseBody(
+  body: { dump(): Promise<unknown> },
+  operation: SourceFailureOperation,
+  redirectCount: number,
+  httpStatus: number,
+): Promise<void> {
+  try {
+    await body.dump();
+  } catch (error) {
+    throw sourceBodyFailure(error, operation, redirectCount, httpStatus);
+  }
+}
+
 export function isPublicAddress(address: string): boolean {
   try {
     const parsed = ipaddr.parse(address);
@@ -193,7 +227,12 @@ export class SafeHttpClient {
       }
       if ([301, 302, 303, 307, 308].includes(response.statusCode)) {
         const location = response.headers.location;
-        await response.body.dump();
+        await dumpResponseBody(
+          response.body,
+          operation,
+          redirects,
+          response.statusCode,
+        );
         if (!location || redirects === 5)
           throw new AnalysisError(
             "SOURCE_FETCH_FAILED",
@@ -208,14 +247,35 @@ export class SafeHttpClient {
               response.statusCode,
             ),
           );
-        current = new URL(
-          Array.isArray(location) ? location[0]! : location,
-          current,
-        );
+        try {
+          current = new URL(
+            Array.isArray(location) ? location[0]! : location,
+            current,
+          );
+        } catch {
+          throw new AnalysisError(
+            "SOURCE_FETCH_FAILED",
+            false,
+            "Redirect location is invalid",
+            undefined,
+            sourceDiagnostics(
+              operation,
+              "redirect",
+              "redirect_invalid_location",
+              redirects + 1,
+              response.statusCode,
+            ),
+          );
+        }
         continue;
       }
       if (response.statusCode === 429 || response.statusCode >= 500) {
-        await response.body.dump();
+        await dumpResponseBody(
+          response.body,
+          operation,
+          redirects,
+          response.statusCode,
+        );
         throw new AnalysisError(
           "SOURCE_FETCH_FAILED",
           true,
@@ -231,7 +291,12 @@ export class SafeHttpClient {
         );
       }
       if (response.statusCode === 401 || response.statusCode === 403) {
-        await response.body.dump();
+        await dumpResponseBody(
+          response.body,
+          operation,
+          redirects,
+          response.statusCode,
+        );
         throw new AnalysisError(
           "SOURCE_ACCESS_DENIED",
           false,
@@ -247,7 +312,12 @@ export class SafeHttpClient {
         );
       }
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        await response.body.dump();
+        await dumpResponseBody(
+          response.body,
+          operation,
+          redirects,
+          response.statusCode,
+        );
         throw new AnalysisError(
           "SOURCE_FETCH_FAILED",
           false,
@@ -264,7 +334,12 @@ export class SafeHttpClient {
       }
       const contentLength = Number(response.headers["content-length"] ?? 0);
       if (contentLength > maxBytes) {
-        await response.body.dump();
+        await dumpResponseBody(
+          response.body,
+          operation,
+          redirects,
+          response.statusCode,
+        );
         throw new AnalysisError(
           "SOURCE_CONTENT_UNAVAILABLE",
           false,
@@ -281,24 +356,34 @@ export class SafeHttpClient {
       }
       const chunks: Buffer[] = [];
       let total = 0;
-      for await (const chunk of response.body) {
-        const buffer = Buffer.from(chunk);
-        total += buffer.length;
-        if (total > maxBytes)
-          throw new AnalysisError(
-            "SOURCE_CONTENT_UNAVAILABLE",
-            false,
-            "Source response is too large",
-            undefined,
-            sourceDiagnostics(
-              operation,
-              "response_size",
-              "response_too_large",
-              redirects,
-              response.statusCode,
-            ),
-          );
-        chunks.push(buffer);
+      try {
+        for await (const chunk of response.body) {
+          const buffer = Buffer.from(chunk);
+          total += buffer.length;
+          if (total > maxBytes)
+            throw new AnalysisError(
+              "SOURCE_CONTENT_UNAVAILABLE",
+              false,
+              "Source response is too large",
+              undefined,
+              sourceDiagnostics(
+                operation,
+                "response_size",
+                "response_too_large",
+                redirects,
+                response.statusCode,
+              ),
+            );
+          chunks.push(buffer);
+        }
+      } catch (error) {
+        if (error instanceof AnalysisError) throw error;
+        throw sourceBodyFailure(
+          error,
+          operation,
+          redirects,
+          response.statusCode,
+        );
       }
       const rawContentType = response.headers["content-type"];
       return {
