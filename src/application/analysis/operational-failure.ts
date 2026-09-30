@@ -1,4 +1,4 @@
-import type { AnalysisFailureDiagnostics } from "./types.js";
+import type { AiFailureStage, AnalysisFailureDiagnostics } from "./types.js";
 
 export interface AnalysisFailureDescriptionInput {
   errorCode: string;
@@ -139,7 +139,7 @@ function describeObservedFailure(
 }
 
 const STAGE_DETAILS: Partial<
-  Record<AnalysisFailureDiagnostics["aiFailureStage"], FailureDetail>
+  Record<AiFailureStage, FailureDetail>
 > = {
   request_network: {
     summary: "AI提供元への通信に失敗しました。",
