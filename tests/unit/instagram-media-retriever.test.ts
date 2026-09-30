@@ -318,6 +318,14 @@ describe("YtDlpInstagramMediaRetriever", () => {
     ).rejects.toMatchObject({
       code: "INSTAGRAM_MEDIA_DOWNLOAD_FAILED",
       retryable: false,
+      diagnostics: {
+        mediaFailureStage: "asset_download",
+        mediaFailureClass: "unknown",
+        mediaIndex: 2,
+        mediaKind: "image",
+        mediaAttempt: 2,
+        mediaMaxAttempts: 2,
+      },
     });
     expect(assetDownloader).toHaveBeenCalledTimes(4);
     expect(disposePublished).toHaveBeenCalledTimes(2);
@@ -360,6 +368,14 @@ describe("YtDlpInstagramMediaRetriever", () => {
     ).rejects.toMatchObject({
       code: "INSTAGRAM_MEDIA_DOWNLOAD_FAILED",
       retryable: false,
+      diagnostics: {
+        mediaFailureStage: "publish",
+        mediaFailureClass: "unknown",
+        mediaIndex: 2,
+        mediaKind: "image",
+        mediaAttempt: 2,
+        mediaMaxAttempts: 2,
+      },
     });
     expect(mediaStore.publish).toHaveBeenCalledTimes(4);
     expect(disposePublished).toHaveBeenCalledTimes(2);
@@ -383,6 +399,12 @@ describe("YtDlpInstagramMediaRetriever", () => {
     ).rejects.toMatchObject({
       code: "INSTAGRAM_MEDIA_METADATA_FAILED",
       retryable: true,
+      diagnostics: {
+        mediaFailureStage: "metadata_probe",
+        mediaFailureClass: "tool_error",
+        mediaAttempt: 2,
+        mediaMaxAttempts: 2,
+      },
     });
     expect(metadataProbe).toHaveBeenCalledTimes(2);
   });
@@ -459,6 +481,42 @@ describe("Instagram media metadata and HTTP download", () => {
     expect(result.sizeBytes).toBe(3);
     expect(result.contentType).toBe("image/jpeg");
     expect([...(await readFile(result.filePath))]).toEqual([1, 2, 3]);
+  });
+
+  it("records HTTP status and asset position without logging the media URL", async () => {
+    const directory = await mkdtemp(
+      join(tmpdir(), "foodfolio-test-instagram-"),
+    );
+    temporaryDirectories.push(directory);
+    const asset = {
+      index: 2,
+      kind: "image" as const,
+      url: "https://cdn.example/private-photo.jpg?token=secret",
+      httpHeaders: { Authorization: "Bearer secret" },
+    };
+
+    let failure: unknown;
+    try {
+      await downloadInstagramAsset(asset, directory, 1_000, async () =>
+        new Response(null, { status: 503 }),
+      );
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toMatchObject({
+      code: "INSTAGRAM_MEDIA_DOWNLOAD_FAILED",
+      retryable: false,
+      diagnostics: {
+        mediaFailureStage: "asset_download",
+        mediaFailureClass: "http_error",
+        mediaHttpStatus: 503,
+        mediaIndex: 2,
+        mediaKind: "image",
+      },
+    });
+    expect(JSON.stringify(failure)).not.toContain("private-photo");
+    expect(JSON.stringify(failure)).not.toContain("Bearer secret");
   });
 
   it("rejects image formats the AI provider does not accept", async () => {
