@@ -1,0 +1,66 @@
+id: ANALYSIS-FAILURE-LOG-DIAGNOSTICS-002
+type: bug
+status: approved
+objective: >-
+  Preserve privacy-safe failure diagnostics for source HTTP requests and Instagram
+  media preparation so runtime incidents can be investigated without reproducing
+  the original transient failure.
+requirements:
+  - id: AFLD-1
+    condition: A SafeHttpClient request used by source extraction fails.
+    expected: >-
+      The AnalysisError diagnostics identify the source operation, failure stage,
+      normalized failure class, HTTP status when available, and redirect count without
+      logging response bodies, redirect targets, or exception text.
+    verification:
+      - src/infrastructure/url/safe-http-client.ts
+      - tests/unit/safe-http-client.test.ts
+  - id: AFLD-2
+    condition: TikTok source extraction performs short URL resolution or oEmbed retrieval.
+    expected: >-
+      The two HTTP operations are labeled tiktok_short_url and tiktok_oembed so a
+      SOURCE_FETCH_FAILED log identifies which request path failed while preserving the
+      existing error code and retry behavior.
+    verification:
+      - src/infrastructure/url/source-content-extractor.ts
+      - tests/unit/tiktok-source-content-extractor.test.ts
+  - id: AFLD-3
+    condition: Instagram metadata or media preparation fails.
+    expected: >-
+      The AnalysisError diagnostics identify the normalized media stage and failure class,
+      plus HTTP status, post index, media kind, and internal attempt counts when available.
+      Download, validation, temporary storage publish, and cleanup failures remain
+      distinguishable in Cloud Logging.
+    verification:
+      - src/infrastructure/instagram/yt-dlp-instagram-media-retriever.ts
+      - tests/unit/instagram-media-retriever.test.ts
+edge_cases:
+  - A raw third-party exception without a recognized timeout shape is normalized to a fixed failure class rather than copied into logs.
+  - HTTP failures preserve only the numeric status and fixed diagnostic enums.
+  - Existing AnalysisError codes from the temporary media store keep their original code and retryability while receiving media stage context.
+  - Diagnostics may be partially absent when the failure happens before a status, media index, or attempt is available.
+security_invariants:
+  - Do not log redirect target URLs, media asset URLs, signed URLs, request or response bodies, HTTP headers, raw exception messages, or provider free-form text.
+  - The existing sourceUrl sanitization remains unchanged.
+  - Source and media diagnostic fields remain Cloud Logging-only and are not added to Slack label extractors or notification text.
+compatibility:
+  - Preserve existing analysis error codes, retryability, Cloud Tasks retry behavior, recipe state transitions, alert thresholds, and Slack labels.
+  - Do not add a database migration, external dependency, or extra network request.
+non_functional:
+  - Diagnostic values use repository-owned enums and validated numeric metadata.
+  - Existing successful source and media paths remain unchanged.
+out_of_scope:
+  - Reprocessing recipes that already failed before deployment.
+  - Changing AI token limits, source extraction strategy, media fallback routing, or retry counts.
+  - Terraform apply, Worker deployment, and deliberate production failure drills.
+acceptance_criteria:
+  - A TikTok oEmbed HTTP 503 produces SOURCE_FETCH_FAILED with operation, stage, class, HTTP status, and redirect count in diagnostics.
+  - An Instagram asset HTTP failure identifies the asset download stage, numeric HTTP status, item index, and media kind without exposing its URL or headers.
+  - Metadata and publish failures identify their own stages and internal attempt counts.
+  - Focused regression tests and the repository Quality checks pass.
+regression:
+  required: true
+  tests:
+    - tests/unit/safe-http-client.test.ts
+    - tests/unit/tiktok-source-content-extractor.test.ts
+    - tests/unit/instagram-media-retriever.test.ts
