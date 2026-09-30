@@ -161,6 +161,9 @@ guard first.id == "r1", first.title == "Legacy recipe" else {
 guard first.wantToCookAt == nil else {
   fatalError("Legacy recipe must default to an unmarked want-to-cook state")
 }
+guard first.memo == nil else {
+  fatalError("Legacy recipe must default to an empty memo")
+}
 guard first.ingredients.map(\.id) == ["ingredient-1"] else {
   fatalError("Legacy ingredients were not preserved")
 }
