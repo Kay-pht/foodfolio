@@ -47,6 +47,58 @@ import XCTest
     XCTAssertEqual(textCount(seedTitle, in: app), 1)
   }
 
+  func testMemoCanBeAddedAndOpenedFromSummaryShortcut() {
+    let app = launch()
+    openSeedRecipe(in: app)
+    XCTAssertFalse(app.buttons["detail.memoShortcut"].exists)
+
+    openRecipeMenu(in: app)
+    let memoMenu = app.buttons["detail.memoMenu"]
+    XCTAssertTrue(memoMenu.waitForExistence(timeout: 2))
+    memoMenu.tap()
+
+    let editor = app.textViews["memo.editor"]
+    XCTAssertTrue(editor.waitForExistence(timeout: 3))
+    editor.tap()
+    editor.typeText("味が少し濃かった。\n次回は醤油を少なめにする。")
+    app.buttons["memo.save"].tap()
+
+    let shortcut = app.buttons["detail.memoShortcut"]
+    XCTAssertTrue(shortcut.waitForExistence(timeout: 3))
+    shortcut.tap()
+
+    let content = app.staticTexts["memo.content"]
+    XCTAssertTrue(content.waitForExistence(timeout: 3))
+    XCTAssertEqual(content.label, "味が少し濃かった。\n次回は醤油を少なめにする。")
+    XCTAssertTrue(app.buttons["memo.edit"].exists)
+  }
+
+  func testExistingMemoIsImmediatelyDiscoverableAndEditableFromMenu() {
+    let app = launch(arguments: ["-ui-testing-existing-memo"])
+    openSeedRecipe(in: app)
+
+    let shortcut = app.buttons["detail.memoShortcut"]
+    XCTAssertTrue(shortcut.waitForExistence(timeout: 3))
+    shortcut.tap()
+    XCTAssertTrue(app.staticTexts["memo.content"].waitForExistence(timeout: 2))
+    app.buttons["memo.cancel"].tap()
+
+    openRecipeMenu(in: app)
+    XCTAssertTrue(app.buttons["detail.memoMenu"].waitForExistence(timeout: 2))
+  }
+
+  func testMemoMenuMatchesOrdinaryRecipeEditability() {
+    assertMemoMenuAvailability(
+      statusArgument: "-ui-testing-status-pending", title: seedTitle, expected: false)
+    assertMemoMenuAvailability(
+      statusArgument: "-ui-testing-status-processing", title: seedTitle, expected: false)
+    assertMemoMenuAvailability(
+      statusArgument: "-ui-testing-status-not-recipe",
+      title: "レシピとして判定できませんでした", expected: false)
+    assertMemoMenuAvailability(
+      statusArgument: "-ui-testing-status-failed", title: seedTitle, expected: true)
+  }
+
   func testWantToCookRemainsAvailableWhileAnalysisIsPending() {
     assertWantToCookAvailableWhileAnalyzing(statusArgument: "-ui-testing-status-pending")
   }
@@ -73,6 +125,25 @@ import XCTest
 
     returnToHome(in: app)
     XCTAssertFalse(app.staticTexts["home.wantToCookHeading"].exists)
+  }
+
+  private func assertMemoMenuAvailability(
+    statusArgument: String, title: String, expected: Bool
+  ) {
+    let app = launch(arguments: [statusArgument])
+    let recipeTitle = app.staticTexts[title]
+    XCTAssertTrue(recipeTitle.waitForExistence(timeout: 5))
+    recipeTitle.tap()
+    XCTAssertTrue(app.staticTexts["detail.title"].waitForExistence(timeout: 3))
+    openRecipeMenu(in: app)
+
+    let memoMenu = app.buttons["detail.memoMenu"]
+    if expected {
+      XCTAssertTrue(memoMenu.waitForExistence(timeout: 2))
+    } else {
+      XCTAssertFalse(memoMenu.exists)
+    }
+    app.terminate()
   }
 
   private func assertWantToCookAvailableWhileAnalyzing(statusArgument: String) {
