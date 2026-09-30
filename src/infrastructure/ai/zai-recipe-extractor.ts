@@ -2,6 +2,7 @@ import { Ajv2020 } from "ajv/dist/2020.js";
 import recipeSchema from "../../../schemas/extracted-recipe.schema.json" with { type: "json" };
 import {
   AnalysisError,
+  type AiFailureStage,
   type AnalysisFailureDiagnostics,
   type ExtractedRecipe,
   type MediaRecipeExtractor,
@@ -160,7 +161,7 @@ export class ZaiRecipeExtractor
     const maxOutputTokens = 4000;
     const startedAt = Date.now();
     const baseDiagnostics = (
-      aiFailureStage: AnalysisFailureDiagnostics["aiFailureStage"],
+      aiFailureStage: AiFailureStage,
     ): AnalysisFailureDiagnostics => ({
       aiFailureStage,
       model: this.model,
@@ -210,7 +211,7 @@ export class ZaiRecipeExtractor
         : undefined;
     const responseRequestId = diagnosticHeaderRequestId ?? bodyRequestId;
     const responseDiagnostics = (
-      aiFailureStage: AnalysisFailureDiagnostics["aiFailureStage"],
+      aiFailureStage: AiFailureStage,
     ): AnalysisFailureDiagnostics => ({
       ...baseDiagnostics(aiFailureStage),
       providerHttpStatus: response.status,
@@ -278,7 +279,7 @@ export class ZaiRecipeExtractor
     const inputTokens = numericUsage(usage, "prompt_tokens");
     const outputTokens = numericUsage(usage, "completion_tokens");
     const contentDiagnostics = (
-      aiFailureStage: AnalysisFailureDiagnostics["aiFailureStage"],
+      aiFailureStage: AiFailureStage,
     ): AnalysisFailureDiagnostics => ({
       ...responseDiagnostics(aiFailureStage),
       ...(providerRequestId ? { providerRequestId } : {}),
