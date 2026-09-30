@@ -1,7 +1,13 @@
 import { lookup, type LookupAddress } from "node:dns";
 import ipaddr from "ipaddr.js";
 import { Agent, request } from "undici";
-import { AnalysisError } from "../../application/analysis/types.js";
+import {
+  AnalysisError,
+  type AnalysisFailureDiagnostics,
+  type SourceFailureClass,
+  type SourceFailureOperation,
+  type SourceFailureStage,
+} from "../../application/analysis/types.js";
 
 const BLOCKED_HOSTS = new Set([
   "localhost",
@@ -9,6 +15,38 @@ const BLOCKED_HOSTS = new Set([
   "metadata.goog",
 ]);
 const MAX_BYTES = 5 * 1024 * 1024;
+
+function requestFailureClass(error: unknown): SourceFailureClass {
+  if (error && typeof error === "object") {
+    const record = error as Record<string, unknown>;
+    const code = typeof record.code === "string" ? record.code : null;
+    const name = typeof record.name === "string" ? record.name : null;
+    if (
+      code === "UND_ERR_HEADERS_TIMEOUT" ||
+      code === "UND_ERR_BODY_TIMEOUT" ||
+      name === "TimeoutError" ||
+      name === "AbortError"
+    )
+      return "timeout";
+  }
+  return "network";
+}
+
+function sourceDiagnostics(
+  operation: SourceFailureOperation,
+  stage: SourceFailureStage,
+  failureClass: SourceFailureClass,
+  redirectCount: number,
+  httpStatus?: number,
+): AnalysisFailureDiagnostics {
+  return {
+    sourceOperation: operation,
+    sourceFailureStage: stage,
+    sourceFailureClass: failureClass,
+    sourceRedirectCount: redirectCount,
+    ...(httpStatus !== undefined ? { sourceHttpStatus: httpStatus } : {}),
+  };
+}
 
 export function isPublicAddress(address: string): boolean {
   try {
@@ -103,14 +141,18 @@ export interface SafeHttpBinaryResponse {
 export class SafeHttpClient {
   private readonly dispatcher = safeDispatcher();
 
-  async get(input: URL): Promise<SafeHttpResponse> {
-    const response = await this.getBuffer(input);
+  async get(
+    input: URL,
+    operation: SourceFailureOperation = "source_fetch",
+  ): Promise<SafeHttpResponse> {
+    const response = await this.getBuffer(input, MAX_BYTES, operation);
     return { ...response, body: response.body.toString("utf8") };
   }
 
   async getBuffer(
     input: URL,
     maxBytes = MAX_BYTES,
+    operation: SourceFailureOperation = "source_fetch",
   ): Promise<SafeHttpBinaryResponse> {
     let current = new URL(input);
     for (let redirects = 0; redirects <= 5; redirects += 1) {
@@ -140,6 +182,13 @@ export class SafeHttpClient {
           "SOURCE_FETCH_TIMEOUT",
           true,
           "Source request failed",
+          undefined,
+          sourceDiagnostics(
+            operation,
+            "request",
+            requestFailureClass(error),
+            redirects,
+          ),
         );
       }
       if ([301, 302, 303, 307, 308].includes(response.statusCode)) {
@@ -150,6 +199,14 @@ export class SafeHttpClient {
             "SOURCE_FETCH_FAILED",
             false,
             "Too many redirects",
+            undefined,
+            sourceDiagnostics(
+              operation,
+              "redirect",
+              location ? "redirect_limit" : "redirect_missing_location",
+              redirects + 1,
+              response.statusCode,
+            ),
           );
         current = new URL(
           Array.isArray(location) ? location[0]! : location,
@@ -163,6 +220,14 @@ export class SafeHttpClient {
           "SOURCE_FETCH_FAILED",
           true,
           `Source returned ${response.statusCode}`,
+          undefined,
+          sourceDiagnostics(
+            operation,
+            "response_status",
+            "http_error",
+            redirects,
+            response.statusCode,
+          ),
         );
       }
       if (response.statusCode === 401 || response.statusCode === 403) {
@@ -171,6 +236,14 @@ export class SafeHttpClient {
           "SOURCE_ACCESS_DENIED",
           false,
           "Source requires access",
+          undefined,
+          sourceDiagnostics(
+            operation,
+            "response_status",
+            "http_error",
+            redirects,
+            response.statusCode,
+          ),
         );
       }
       if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -179,6 +252,14 @@ export class SafeHttpClient {
           "SOURCE_FETCH_FAILED",
           false,
           `Source returned ${response.statusCode}`,
+          undefined,
+          sourceDiagnostics(
+            operation,
+            "response_status",
+            "http_error",
+            redirects,
+            response.statusCode,
+          ),
         );
       }
       const contentLength = Number(response.headers["content-length"] ?? 0);
@@ -188,6 +269,14 @@ export class SafeHttpClient {
           "SOURCE_CONTENT_UNAVAILABLE",
           false,
           "Source response is too large",
+          undefined,
+          sourceDiagnostics(
+            operation,
+            "response_size",
+            "response_too_large",
+            redirects,
+            response.statusCode,
+          ),
         );
       }
       const chunks: Buffer[] = [];
@@ -200,6 +289,14 @@ export class SafeHttpClient {
             "SOURCE_CONTENT_UNAVAILABLE",
             false,
             "Source response is too large",
+            undefined,
+            sourceDiagnostics(
+              operation,
+              "response_size",
+              "response_too_large",
+              redirects,
+              response.statusCode,
+            ),
           );
         chunks.push(buffer);
       }
@@ -217,6 +314,13 @@ export class SafeHttpClient {
       "SOURCE_FETCH_FAILED",
       false,
       "Redirect handling failed",
+      undefined,
+      sourceDiagnostics(
+        operation,
+        "redirect",
+        "redirect_limit",
+        6,
+      ),
     );
   }
 }
