@@ -1,0 +1,123 @@
+id: RECIPE-MEMO-001
+type: feature
+status: approved
+
+objective: >-
+  Let users keep one private free-text memo per recipe for cooking feedback and next-time notes,
+  make an existing memo immediately visible from recipe detail without scrolling, and persist the
+  memo through the existing recipe sync model without adding AI, memo history, or memo search.
+
+requirements:
+  - id: RM-1
+    condition: An authenticated user saves, changes, or clears the memo for one of their editable recipes.
+    expected: >-
+      The backend stores at most one nullable free-text memo on the owned Recipe, trims surrounding
+      whitespace, treats an empty value as no memo, rejects values longer than 2000 characters,
+      updates Recipe.updatedAt, and returns the resulting memo in recipe DTOs and sync responses.
+    verification:
+      - tests/integration/mvp-critical.test.ts
+  - id: RM-2
+    condition: A locally synced recipe contains a non-empty memo.
+    expected: >-
+      Recipe detail shows a compact tappable "メモ" shortcut in the summary status row, alongside
+      "作りたい" when that state is also present. Tapping the shortcut opens a bottom sheet that
+      displays the memo immediately without scrolling the recipe body and provides an edit action.
+    verification:
+      - ios/FoodfolioUITests/WantToCookUITests.swift
+  - id: RM-3
+    condition: A locally synced recipe does not contain a memo.
+    expected: >-
+      Recipe detail does not show an empty memo shortcut or an empty memo section. The overflow menu
+      exposes "メモを追加" only when ordinary recipe editing is allowed.
+    verification:
+      - ios/FoodfolioUITests/WantToCookUITests.swift
+  - id: RM-4
+    condition: A recipe already contains a memo and ordinary recipe editing is allowed.
+    expected: >-
+      The overflow menu exposes "メモを編集". Opening memo editing presents a multiline free-text
+      editor in a bottom sheet with explicit cancel and save actions. Saving updates the local
+      Recipe from the mutation response and clearing the text removes the memo shortcut.
+    verification:
+      - ios/FoodfolioIntegrationTests/PersistenceIntegrationTests.swift
+      - ios/FoodfolioUITests/WantToCookUITests.swift
+  - id: RM-5
+    condition: A recipe is pending, processing, or classified as not_recipe.
+    expected: >-
+      Memo add and edit actions are unavailable, matching the existing ordinary recipe-editability
+      rules. A failed recipe remains memo-editable because failed recipes are currently ordinary
+      edit targets.
+    verification:
+      - tests/integration/mvp-critical.test.ts
+      - ios/FoodfolioUITests/WantToCookUITests.swift
+  - id: RM-6
+    condition: Recipe data is searched locally on iOS.
+    expected: >-
+      Memo text is not included in text-search matching; existing search continues to use only the
+      recipe title and ingredient names.
+    verification:
+      - ios/FoodfolioIntegrationTests/PersistenceIntegrationTests.swift
+  - id: RM-7
+    condition: An existing installation upgrades from a version that predates recipe memo.
+    expected: >-
+      The legacy SwiftData store opens without data loss, existing recipes default to memo = nil,
+      and the recipe cache schema version forces one cursorless sync after upgrade so memo values
+      written by another device cannot remain hidden behind an older sync cursor.
+    verification:
+      - ios/FoodfolioIntegrationTests/RecipeCacheSyncVersionTests.swift
+      - scripts/test-ios-swiftdata-migration.sh
+
+edge_cases:
+  - A user saves a memo containing multiple lines and Japanese text.
+  - A memo consists only of whitespace.
+  - A memo is exactly 2000 characters.
+  - A memo exceeds 2000 characters.
+  - A recipe has both want-to-cook state and a memo.
+  - A recipe changes from having a memo to having no memo.
+  - A failed recipe receives a memo.
+  - A memo mutation response arrives after the local recipe was deleted.
+
+security_invariants:
+  - Users can only read or change memo data for recipes they own.
+  - Memo contents are not written to application logs.
+  - Existing authentication and recipe ownership checks remain unchanged.
+
+compatibility:
+  - Existing recipes default to memo = null in PostgreSQL and SwiftData.
+  - Existing clients that do not send memo remain compatible with the Recipe PATCH endpoint.
+  - Existing recipe DTO consumers tolerate the added nullable memo field.
+  - Existing clients perform one full sync when the local recipe cache schema version advances.
+  - Existing title, genre, ingredient, tag, and want-to-cook behavior remains unchanged.
+
+non_functional:
+  - Memo uses the existing Recipe entity, DTO, mutation response, SwiftData cache, and differential sync.
+  - Memo does not introduce a separate memo list, history model, network fetch, AI request, or search index.
+  - Recipe detail must not require scrolling to the cooking steps or source section to notice or read an existing memo.
+  - The memo editor uses an explicit save action and prevents duplicate submissions while saving.
+
+out_of_scope:
+  - Multiple memo entries or cooking-history records.
+  - AI-generated summaries or suggestions from memo text.
+  - Searching or filtering by memo text.
+  - Photos, ratings, favorites, reminders, or Markdown in memo.
+  - Showing memo on home recipe cards.
+  - Offline memo mutations or a mutation queue.
+
+acceptance_criteria:
+  - A user can add one free-text memo from the recipe-detail overflow menu.
+  - After saving, recipe detail immediately shows a tappable "メモ" shortcut near the existing status area.
+  - Tapping the shortcut shows the memo in a bottom sheet without scrolling the recipe body.
+  - A user can edit the memo from the sheet or overflow menu and can clear it to remove the memo.
+  - Memo is unavailable while analysis is pending or processing and for not_recipe; failed recipes remain editable.
+  - Memo survives sync and a cache refresh, while memo text remains excluded from recipe search.
+  - Existing SwiftData stores migrate with memo = nil and refresh cached recipe fields once.
+  - Backend, iOS, migration, spec, lint, and build checks pass.
+
+regression:
+  required: false
+  tests:
+    - tests/integration/mvp-critical.test.ts
+    - ios/FoodfolioIntegrationTests/PersistenceIntegrationTests.swift
+    - ios/FoodfolioIntegrationTests/RecipeCacheSyncVersionTests.swift
+    - ios/FoodfolioIntegrationTests/RecipeMutationRaceTests.swift
+    - ios/FoodfolioUITests/WantToCookUITests.swift
+    - scripts/test-ios-swiftdata-migration.sh
