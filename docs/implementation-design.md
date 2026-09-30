@@ -722,6 +722,8 @@ Responseに含める主な項目：
 - cookingTimeMinutes
 - genre
 - analysisStatus
+- wantToCookAt
+- memo
 - ingredients
 - steps
 - tags
