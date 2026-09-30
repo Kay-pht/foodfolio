@@ -55,6 +55,13 @@ final class RecipeRepository {
     return try await applyMutationResponse(dto)
   }
 
+  func updateMemo(id: String, memo: String?) async throws -> LocalRecipe {
+    struct Body: Encodable, Sendable { let memo: String? }
+    let dto: RecipeDTO = try await api.send(
+      "/v1/recipes/\(id)", method: "PATCH", body: Body(memo: memo))
+    return try await applyMutationResponse(dto)
+  }
+
   func delete(id: String) async throws {
     try await api.sendWithoutResponse(
       "/v1/recipes/\(id)", method: "DELETE", body: Optional<String>.none)
@@ -181,6 +188,7 @@ final class RecipeRepository {
     local.genreRaw = dto.genre
     local.analysisStatusRaw = dto.analysisStatus.rawValue
     local.wantToCookAt = dto.wantToCookAt
+    local.memo = dto.memo
     local.createdAt = dto.createdAt
     local.updatedAt = dto.updatedAt
     local.ingredients.forEach(context.delete)
