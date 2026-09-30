@@ -307,9 +307,8 @@ describe("MVP critical API integration", () => {
       headers: ownerHeaders,
     });
     expect(
-      sync
-        .json()
-        .recipes.find((recipe: { id: string }) => recipe.id === id)?.memo,
+      sync.json().recipes.find((recipe: { id: string }) => recipe.id === id)
+        ?.memo,
     ).toBe("味が濃かった。\n次回は醤油を減らす。");
 
     expect(

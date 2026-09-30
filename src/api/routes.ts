@@ -234,7 +234,11 @@ export function registerRoutes(
           "Recipe analysis is still in progress",
         );
       const body = asObject(request.body);
-      const data: { title?: string; genre?: Genre | null; memo?: string | null } = {};
+      const data: {
+        title?: string;
+        genre?: Genre | null;
+        memo?: string | null;
+      } = {};
       if ("title" in body) {
         const title = requireString(body.title, "title").trim();
         if (title.length > 200)
