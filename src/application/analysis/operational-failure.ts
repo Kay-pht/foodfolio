@@ -138,9 +138,7 @@ function describeObservedFailure(
   return undefined;
 }
 
-const STAGE_DETAILS: Partial<
-  Record<AiFailureStage, FailureDetail>
-> = {
+const STAGE_DETAILS: Partial<Record<AiFailureStage, FailureDetail>> = {
   request_network: {
     summary: "AI提供元への通信に失敗しました。",
     nextAction:

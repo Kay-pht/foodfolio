@@ -119,7 +119,10 @@ describe("SafeHttpClient hostname validation", () => {
     const client = new SafeHttpClient();
 
     await expect(
-      client.get(new URL("https://lite.tiktok.com/t/example/"), "tiktok_short_url"),
+      client.get(
+        new URL("https://lite.tiktok.com/t/example/"),
+        "tiktok_short_url",
+      ),
     ).rejects.toMatchObject({
       code: "SOURCE_FETCH_FAILED",
       retryable: false,

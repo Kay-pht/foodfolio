@@ -315,12 +315,7 @@ export class SafeHttpClient {
       false,
       "Redirect handling failed",
       undefined,
-      sourceDiagnostics(
-        operation,
-        "redirect",
-        "redirect_limit",
-        6,
-      ),
+      sourceDiagnostics(operation, "redirect", "redirect_limit", 6),
     );
   }
 }

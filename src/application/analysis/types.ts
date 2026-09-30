@@ -82,14 +82,9 @@ export type AiFailureStage =
   | "schema_invalid";
 
 export type SourceFailureOperation =
-  | "source_fetch"
-  | "tiktok_short_url"
-  | "tiktok_oembed";
+  "source_fetch" | "tiktok_short_url" | "tiktok_oembed";
 export type SourceFailureStage =
-  | "request"
-  | "redirect"
-  | "response_status"
-  | "response_size";
+  "request" | "redirect" | "response_status" | "response_size";
 export type SourceFailureClass =
   | "timeout"
   | "network"

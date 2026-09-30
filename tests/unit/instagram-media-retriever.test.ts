@@ -497,8 +497,11 @@ describe("Instagram media metadata and HTTP download", () => {
 
     let failure: unknown;
     try {
-      await downloadInstagramAsset(asset, directory, 1_000, async () =>
-        new Response(null, { status: 503 }),
+      await downloadInstagramAsset(
+        asset,
+        directory,
+        1_000,
+        async () => new Response(null, { status: 503 }),
       );
     } catch (error) {
       failure = error;
