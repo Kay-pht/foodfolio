@@ -5,6 +5,7 @@ import { extname, join } from "node:path";
 import {
   AnalysisError,
   type LocalMediaItem,
+  type MediaCollection,
   type MediaFailureClass,
   type MediaFailureStage,
   type MediaKind,
@@ -342,7 +343,7 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
           "Instagram single-video fallback requires exactly one media item",
         );
 
-      let stored;
+      let stored: Awaited<ReturnType<TemporaryMediaStore["publish"]>>;
       try {
         stored = await this.mediaStore.publish(item);
       } catch (error) {
