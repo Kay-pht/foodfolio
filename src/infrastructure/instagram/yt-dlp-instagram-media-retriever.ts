@@ -5,6 +5,8 @@ import { extname, join } from "node:path";
 import {
   AnalysisError,
   type LocalMediaItem,
+  type MediaFailureClass,
+  type MediaFailureStage,
   type MediaKind,
   type MediaRetriever,
   type OrderedPublishedMedia,
@@ -59,6 +61,80 @@ export type InstagramAssetDownloader = (
 type Sleeper = (milliseconds: number) => Promise<void>;
 
 type UnknownRecord = Record<string, unknown>;
+
+function isTimeoutFailure(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const record = error as Record<string, unknown>;
+  const name = typeof record.name === "string" ? record.name : null;
+  const code = typeof record.code === "string" ? record.code : null;
+  return (
+    name === "TimeoutError" ||
+    name === "AbortError" ||
+    code === "ETIMEDOUT" ||
+    code === "UND_ERR_HEADERS_TIMEOUT" ||
+    code === "UND_ERR_BODY_TIMEOUT"
+  );
+}
+
+function metadataFailureClass(error: unknown): MediaFailureClass {
+  if (error instanceof SyntaxError) return "invalid_response";
+  if (isTimeoutFailure(error)) return "timeout";
+  return "tool_error";
+}
+
+function mediaFailureContext(
+  error: unknown,
+  stage: MediaFailureStage,
+  asset?: Pick<InstagramMediaAsset, "index" | "kind">,
+  attempt?: number,
+  maxAttempts?: number,
+): AnalysisError {
+  const existing = error instanceof AnalysisError ? error : null;
+  const existingDiagnostics = existing?.diagnostics ?? {};
+  return new AnalysisError(
+    existing?.code ?? "INSTAGRAM_MEDIA_DOWNLOAD_FAILED",
+    existing?.retryable ?? false,
+    existing?.message ?? "Instagram media preparation failed",
+    existing?.provider,
+    {
+      ...existingDiagnostics,
+      mediaFailureStage: existingDiagnostics.mediaFailureStage ?? stage,
+      mediaFailureClass:
+        existingDiagnostics.mediaFailureClass ??
+        (isTimeoutFailure(error) ? "timeout" : "unknown"),
+      ...(asset
+        ? {
+            mediaIndex: existingDiagnostics.mediaIndex ?? asset.index,
+            mediaKind: existingDiagnostics.mediaKind ?? asset.kind,
+          }
+        : {}),
+      ...(attempt !== undefined ? { mediaAttempt: attempt } : {}),
+      ...(maxAttempts !== undefined ? { mediaMaxAttempts: maxAttempts } : {}),
+    },
+  );
+}
+
+function instagramDownloadFailure(
+  asset: InstagramMediaAsset,
+  stage: MediaFailureStage,
+  failureClass: MediaFailureClass,
+  message: string,
+  httpStatus?: number,
+): AnalysisError {
+  return new AnalysisError(
+    "INSTAGRAM_MEDIA_DOWNLOAD_FAILED",
+    false,
+    message,
+    undefined,
+    {
+      mediaFailureStage: stage,
+      mediaFailureClass: failureClass,
+      mediaIndex: asset.index,
+      mediaKind: asset.kind,
+      ...(httpStatus !== undefined ? { mediaHttpStatus: httpStatus } : {}),
+    },
+  );
+}
 
 export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
   private readonly singleVideoRetriever: MediaRetriever;
