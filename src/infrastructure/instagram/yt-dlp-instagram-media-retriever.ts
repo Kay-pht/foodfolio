@@ -60,6 +60,15 @@ export type InstagramAssetDownloader = (
 ) => Promise<DownloadedInstagramAsset>;
 
 type Sleeper = (milliseconds: number) => Promise<void>;
+type LocalRemover = (path: string, recursive: boolean) => Promise<void>;
+
+const defaultLocalRemover: LocalRemover = async (path, recursive) => {
+  if (recursive) {
+    await rm(path, { recursive: true, force: true });
+    return;
+  }
+  await rm(path, { force: true });
+};
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -89,6 +98,7 @@ function mediaFailureContext(
   asset?: Pick<InstagramMediaAsset, "index" | "kind">,
   attempt?: number,
   maxAttempts?: number,
+  failureClass?: MediaFailureClass,
 ): AnalysisError {
   const existing = error instanceof AnalysisError ? error : null;
   const existingDiagnostics = existing?.diagnostics ?? {};
@@ -102,6 +112,7 @@ function mediaFailureContext(
       mediaFailureStage: existingDiagnostics.mediaFailureStage ?? stage,
       mediaFailureClass:
         existingDiagnostics.mediaFailureClass ??
+        failureClass ??
         (isTimeoutFailure(error) ? "timeout" : "unknown"),
       ...(asset
         ? {
@@ -148,6 +159,7 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
     private readonly assetDownloader: InstagramAssetDownloader = downloadInstagramAsset,
     private readonly sleep: Sleeper = (milliseconds) =>
       new Promise((resolve) => setTimeout(resolve, milliseconds)),
+    private readonly removeLocal: LocalRemover = defaultLocalRemover,
   ) {
     this.singleVideoRetriever =
       singleVideoRetriever ??
@@ -206,7 +218,7 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
         );
         if (attempt === this.config.maxAttempts) {
           if (workDirectory)
-            await rm(workDirectory, { recursive: true, force: true });
+            await this.removeWorkDirectory(workDirectory, attempt);
           throw failure;
         }
         await this.waitBeforeRetry(attempt);
@@ -219,12 +231,19 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
         assertCompleteMedia(parsed);
       } catch (error) {
         if (workDirectory)
-          await rm(workDirectory, { recursive: true, force: true });
-        throw error;
+          await this.removeWorkDirectory(workDirectory, attempt);
+        throw mediaFailureContext(
+          error,
+          "metadata_probe",
+          undefined,
+          attempt,
+          this.config.maxAttempts,
+          "invalid_response",
+        );
       }
       if (parsed.assets.length === 1 && parsed.assets[0]?.kind === "video") {
         if (workDirectory)
-          await rm(workDirectory, { recursive: true, force: true });
+          await this.removeWorkDirectory(workDirectory, attempt);
         return this.retrieveAndPublishSingleVideo(url);
       }
 
@@ -232,7 +251,18 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
         workDirectory ??
         (await mkdtemp(join(tmpdir(), "foodfolio-instagram-media-")));
       workDirectory = currentWorkDirectory;
-      await clearWorkDirectory(currentWorkDirectory);
+      try {
+        await clearWorkDirectory(currentWorkDirectory, this.removeLocal);
+      } catch (error) {
+        throw mediaFailureContext(
+          error,
+          "local_cleanup",
+          undefined,
+          attempt,
+          this.config.maxAttempts,
+          "filesystem",
+        );
+      }
       const published: OrderedPublishedMedia[] = [];
       try {
         for (const asset of parsed.assets) {
@@ -261,14 +291,21 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
           }
 
           try {
-            await rm(downloaded.filePath, { force: true });
+            await this.removeLocal(downloaded.filePath, false);
           } catch (error) {
-            throw mediaFailureContext(error, "local_cleanup", asset);
+            throw mediaFailureContext(
+              error,
+              "local_cleanup",
+              asset,
+              undefined,
+              undefined,
+              "filesystem",
+            );
           }
           if (publishFailure) throw publishFailure;
         }
 
-        await rm(currentWorkDirectory, { recursive: true, force: true });
+        await this.removeWorkDirectory(currentWorkDirectory, attempt);
         workDirectory = null;
         return {
           items: published,
@@ -286,17 +323,19 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
         try {
           await disposePublishedMedia(published);
         } catch (cleanupError) {
-          await rm(currentWorkDirectory, { recursive: true, force: true });
-          throw mediaFailureContext(
+          const publishedCleanupFailure = mediaFailureContext(
             cleanupError,
             "published_cleanup",
             undefined,
             attempt,
             this.config.maxAttempts,
+            "storage",
           );
+          await this.removeWorkDirectory(currentWorkDirectory, attempt);
+          throw publishedCleanupFailure;
         }
         if (attempt === this.config.maxAttempts) {
-          await rm(currentWorkDirectory, { recursive: true, force: true });
+          await this.removeWorkDirectory(currentWorkDirectory, attempt);
           throw failure;
         }
         await this.waitBeforeRetry(attempt);
@@ -366,6 +405,7 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
           { index: 1, kind: "video" },
           local.attempts,
           this.config.maxAttempts,
+          "filesystem",
         );
       }
       return {
@@ -374,11 +414,11 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
         dispose: () => disposePublishedMedia(published),
       };
     } catch (error) {
-      const cleanup = await Promise.allSettled([
+      const [localCleanup, publishedCleanup] = await Promise.allSettled([
         local.dispose(),
         disposePublishedMedia(published),
       ]);
-      if (cleanup.some((result) => result.status === "rejected"))
+      if (publishedCleanup.status === "rejected")
         throw new AnalysisError(
           "INSTAGRAM_MEDIA_CLEANUP_FAILED",
           true,
@@ -387,11 +427,46 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
           {
             mediaFailureStage: "published_cleanup",
             mediaFailureClass: "storage",
+            mediaIndex: 1,
+            mediaKind: "video",
+            mediaAttempt: local.attempts,
+            mediaMaxAttempts: this.config.maxAttempts,
+          },
+        );
+      if (localCleanup.status === "rejected")
+        throw new AnalysisError(
+          "INSTAGRAM_MEDIA_CLEANUP_FAILED",
+          true,
+          "Temporary Instagram media cleanup failed",
+          undefined,
+          {
+            mediaFailureStage: "local_cleanup",
+            mediaFailureClass: "filesystem",
+            mediaIndex: 1,
+            mediaKind: "video",
             mediaAttempt: local.attempts,
             mediaMaxAttempts: this.config.maxAttempts,
           },
         );
       throw error;
+    }
+  }
+
+  private async removeWorkDirectory(
+    workDirectory: string,
+    attempt: number,
+  ): Promise<void> {
+    try {
+      await this.removeLocal(workDirectory, true);
+    } catch (error) {
+      throw mediaFailureContext(
+        error,
+        "local_cleanup",
+        undefined,
+        attempt,
+        this.config.maxAttempts,
+        "filesystem",
+      );
     }
   }
 
@@ -820,11 +895,12 @@ function isInstagramUrl(url: URL): boolean {
   );
 }
 
-async function clearWorkDirectory(workDirectory: string): Promise<void> {
+async function clearWorkDirectory(
+  workDirectory: string,
+  removeLocal: LocalRemover = defaultLocalRemover,
+): Promise<void> {
   const entries = await readdir(workDirectory);
   await Promise.all(
-    entries.map((entry) =>
-      rm(join(workDirectory, entry), { recursive: true, force: true }),
-    ),
+    entries.map((entry) => removeLocal(join(workDirectory, entry), true)),
   );
 }
