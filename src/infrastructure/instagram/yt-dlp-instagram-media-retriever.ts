@@ -411,7 +411,17 @@ async function disposePublishedMedia(
   const failure = results.find(
     (result): result is PromiseRejectedResult => result.status === "rejected",
   );
-  if (failure) throw failure.reason;
+  if (failure)
+    throw new AnalysisError(
+      "INSTAGRAM_MEDIA_CLEANUP_FAILED",
+      true,
+      "Temporary Instagram media cleanup failed",
+      undefined,
+      {
+        mediaFailureStage: "published_cleanup",
+        mediaFailureClass: "storage",
+      },
+    );
 }
 
 export function runInstagramMetadataProbe(
@@ -487,60 +497,193 @@ export async function downloadInstagramAsset(
   timeoutMs: number,
   fetchImpl: typeof fetch = fetch,
 ): Promise<DownloadedInstagramAsset> {
-  const sourceUrl = new URL(asset.url);
+  let sourceUrl: URL;
+  try {
+    sourceUrl = new URL(asset.url);
+  } catch {
+    throw instagramDownloadFailure(
+      asset,
+      "asset_validate",
+      "invalid_response",
+      "Instagram media asset URL is invalid",
+    );
+  }
   if (sourceUrl.protocol !== "https:")
-    throw new Error("Instagram media asset must use HTTPS");
-  const response = await fetchImpl(sourceUrl, {
-    headers: {
-      Referer: "https://www.instagram.com/",
-      "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36",
-      ...asset.httpHeaders,
-    },
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-  if (!response.ok || !response.body)
-    throw new Error(
-      `Instagram media download returned HTTP ${response.status}`,
+    throw instagramDownloadFailure(
+      asset,
+      "asset_validate",
+      "invalid_response",
+      "Instagram media asset must use HTTPS",
     );
 
-  const contentType = mediaContentType(
-    asset.kind,
-    response.headers.get("content-type"),
-    sourceUrl,
-  );
+  let response: Response;
+  try {
+    response = await fetchImpl(sourceUrl, {
+      headers: {
+        Referer: "https://www.instagram.com/",
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36",
+        ...asset.httpHeaders,
+      },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (error) {
+    throw instagramDownloadFailure(
+      asset,
+      "asset_download",
+      isTimeoutFailure(error) ? "timeout" : "network",
+      "Instagram media request failed",
+    );
+  }
+
+  if (!response.ok)
+    throw instagramDownloadFailure(
+      asset,
+      "asset_download",
+      "http_error",
+      "Instagram media request returned an unsuccessful status",
+      response.status,
+    );
+  if (!response.body)
+    throw instagramDownloadFailure(
+      asset,
+      "asset_download",
+      "body_missing",
+      "Instagram media response body is missing",
+      response.status,
+    );
+
+  let contentType: string;
+  try {
+    contentType = mediaContentType(
+      asset.kind,
+      response.headers.get("content-type"),
+      sourceUrl,
+    );
+  } catch {
+    throw instagramDownloadFailure(
+      asset,
+      "asset_validate",
+      "unsupported_content_type",
+      "Instagram media content type is unsupported by the AI provider",
+      response.status,
+    );
+  }
+
   const maxBytes = asset.kind === "image" ? MAX_IMAGE_BYTES : MAX_VIDEO_BYTES;
   const declaredSize = Number(response.headers.get("content-length") ?? "0");
   if (Number.isFinite(declaredSize) && declaredSize > maxBytes)
-    throw new Error("Instagram media exceeds the allowed size");
+    throw instagramDownloadFailure(
+      asset,
+      "asset_validate",
+      "too_large",
+      "Instagram media exceeds the allowed size",
+      response.status,
+    );
 
   const outputPath = join(
     workDirectory,
     `${String(asset.index).padStart(2, "0")}-${asset.kind}${extensionForContentType(contentType)}`,
   );
-  const handle = await open(outputPath, "w", 0o600);
+  let handle: Awaited<ReturnType<typeof open>>;
+  try {
+    handle = await open(outputPath, "w", 0o600);
+  } catch {
+    throw instagramDownloadFailure(
+      asset,
+      "asset_validate",
+      "filesystem",
+      "Instagram media temporary file could not be opened",
+      response.status,
+    );
+  }
+
   let sizeBytes = 0;
   try {
     const reader = response.body.getReader();
     while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      sizeBytes += value.byteLength;
+      let chunk: ReadableStreamReadResult<Uint8Array>;
+      try {
+        chunk = await reader.read();
+      } catch {
+        throw instagramDownloadFailure(
+          asset,
+          "asset_download",
+          "body_read",
+          "Instagram media response body could not be read",
+          response.status,
+        );
+      }
+      if (chunk.done) break;
+      sizeBytes += chunk.value.byteLength;
       if (sizeBytes > maxBytes) {
         await reader.cancel();
-        throw new Error("Instagram media exceeds the allowed size");
+        throw instagramDownloadFailure(
+          asset,
+          "asset_validate",
+          "too_large",
+          "Instagram media exceeds the allowed size",
+          response.status,
+        );
       }
-      await handle.write(value);
+      try {
+        await handle.write(chunk.value);
+      } catch {
+        throw instagramDownloadFailure(
+          asset,
+          "asset_validate",
+          "filesystem",
+          "Instagram media temporary file could not be written",
+          response.status,
+        );
+      }
     }
   } catch (error) {
-    await handle.close();
-    await rm(outputPath, { force: true });
+    try {
+      await handle.close();
+      await rm(outputPath, { force: true });
+    } catch {
+      throw instagramDownloadFailure(
+        asset,
+        "local_cleanup",
+        "filesystem",
+        "Instagram media temporary file cleanup failed",
+        response.status,
+      );
+    }
     throw error;
   }
-  await handle.close();
+
+  try {
+    await handle.close();
+  } catch {
+    throw instagramDownloadFailure(
+      asset,
+      "local_cleanup",
+      "filesystem",
+      "Instagram media temporary file could not be closed",
+      response.status,
+    );
+  }
   if (sizeBytes < 1) {
-    await rm(outputPath, { force: true });
-    throw new Error("Instagram media download is empty");
+    try {
+      await rm(outputPath, { force: true });
+    } catch {
+      throw instagramDownloadFailure(
+        asset,
+        "local_cleanup",
+        "filesystem",
+        "Instagram media temporary file cleanup failed",
+        response.status,
+      );
+    }
+    throw instagramDownloadFailure(
+      asset,
+      "asset_validate",
+      "empty_body",
+      "Instagram media download is empty",
+      response.status,
+    );
   }
   return { filePath: outputPath, sizeBytes, contentType };
 }
