@@ -190,15 +190,23 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
           url.toString(),
           this.config.attemptTimeoutMs,
         );
-      } catch {
+      } catch (error) {
+        const failure = new AnalysisError(
+          "INSTAGRAM_MEDIA_METADATA_FAILED",
+          true,
+          "Instagram media metadata retrieval failed",
+          undefined,
+          {
+            mediaFailureStage: "metadata_probe",
+            mediaFailureClass: metadataFailureClass(error),
+            mediaAttempt: attempt,
+            mediaMaxAttempts: this.config.maxAttempts,
+          },
+        );
         if (attempt === this.config.maxAttempts) {
           if (workDirectory)
             await rm(workDirectory, { recursive: true, force: true });
-          throw new AnalysisError(
-            "INSTAGRAM_MEDIA_METADATA_FAILED",
-            true,
-            "Instagram media metadata retrieval failed",
-          );
+          throw failure;
         }
         await this.waitBeforeRetry(attempt);
         continue;
@@ -227,23 +235,38 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
       const published: OrderedPublishedMedia[] = [];
       try {
         for (const asset of parsed.assets) {
-          const downloaded = await this.assetDownloader(
-            asset,
-            currentWorkDirectory,
-            this.config.attemptTimeoutMs,
-          );
+          let downloaded: DownloadedInstagramAsset;
+          try {
+            downloaded = await this.assetDownloader(
+              asset,
+              currentWorkDirectory,
+              this.config.attemptTimeoutMs,
+            );
+          } catch (error) {
+            throw mediaFailureContext(error, "asset_download", asset);
+          }
+
           const localMedia: LocalMediaItem = {
             index: asset.index,
             kind: asset.kind,
             ...downloaded,
           };
+          let publishFailure: AnalysisError | null = null;
           try {
             const stored = await this.mediaStore.publish(localMedia);
             published.push({ ...stored, index: asset.index });
-          } finally {
-            await rm(downloaded.filePath, { force: true });
+          } catch (error) {
+            publishFailure = mediaFailureContext(error, "publish", asset);
           }
+
+          try {
+            await rm(downloaded.filePath, { force: true });
+          } catch (error) {
+            throw mediaFailureContext(error, "local_cleanup", asset);
+          }
+          if (publishFailure) throw publishFailure;
         }
+
         await rm(currentWorkDirectory, { recursive: true, force: true });
         workDirectory = null;
         return {
@@ -252,24 +275,28 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
           dispose: () => disposePublishedMedia(published),
         };
       } catch (error) {
+        const failure = mediaFailureContext(
+          error,
+          "asset_download",
+          undefined,
+          attempt,
+          this.config.maxAttempts,
+        );
         try {
           await disposePublishedMedia(published);
-        } catch {
+        } catch (cleanupError) {
           await rm(currentWorkDirectory, { recursive: true, force: true });
-          throw new AnalysisError(
-            "INSTAGRAM_MEDIA_CLEANUP_FAILED",
-            true,
-            "Temporary Instagram media cleanup failed",
+          throw mediaFailureContext(
+            cleanupError,
+            "published_cleanup",
+            undefined,
+            attempt,
+            this.config.maxAttempts,
           );
         }
         if (attempt === this.config.maxAttempts) {
           await rm(currentWorkDirectory, { recursive: true, force: true });
-          if (error instanceof AnalysisError) throw error;
-          throw new AnalysisError(
-            "INSTAGRAM_MEDIA_DOWNLOAD_FAILED",
-            false,
-            `Instagram media download failed after ${this.config.maxAttempts} attempts`,
-          );
+          throw failure;
         }
         await this.waitBeforeRetry(attempt);
       }
@@ -279,13 +306,32 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
       "INSTAGRAM_MEDIA_DOWNLOAD_FAILED",
       false,
       "Instagram media download failed",
+      undefined,
+      {
+        mediaFailureStage: "asset_download",
+        mediaFailureClass: "unknown",
+        mediaAttempt: this.config.maxAttempts,
+        mediaMaxAttempts: this.config.maxAttempts,
+      },
     );
   }
 
   private async retrieveAndPublishSingleVideo(
     url: URL,
   ): Promise<PublishedMediaCollection> {
-    const local = await this.singleVideoRetriever.retrieve(url);
+    let local: MediaCollection;
+    try {
+      local = await this.singleVideoRetriever.retrieve(url);
+    } catch (error) {
+      throw mediaFailureContext(
+        error,
+        "single_video_download",
+        undefined,
+        this.config.maxAttempts,
+        this.config.maxAttempts,
+      );
+    }
+
     const published: OrderedPublishedMedia[] = [];
     try {
       const item = local.items[0];
@@ -295,9 +341,32 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
           false,
           "Instagram single-video fallback requires exactly one media item",
         );
-      const stored = await this.mediaStore.publish(item);
+
+      let stored;
+      try {
+        stored = await this.mediaStore.publish(item);
+      } catch (error) {
+        throw mediaFailureContext(
+          error,
+          "publish",
+          { index: 1, kind: "video" },
+          local.attempts,
+          this.config.maxAttempts,
+        );
+      }
       published.push({ ...stored, index: 1 });
-      await local.dispose();
+
+      try {
+        await local.dispose();
+      } catch (error) {
+        throw mediaFailureContext(
+          error,
+          "local_cleanup",
+          { index: 1, kind: "video" },
+          local.attempts,
+          this.config.maxAttempts,
+        );
+      }
       return {
         items: published,
         attempts: local.attempts,
@@ -313,6 +382,13 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
           "INSTAGRAM_MEDIA_CLEANUP_FAILED",
           true,
           "Temporary Instagram media cleanup failed",
+          undefined,
+          {
+            mediaFailureStage: "published_cleanup",
+            mediaFailureClass: "storage",
+            mediaAttempt: local.attempts,
+            mediaMaxAttempts: this.config.maxAttempts,
+          },
         );
       throw error;
     }
