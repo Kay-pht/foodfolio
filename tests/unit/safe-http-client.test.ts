@@ -137,6 +137,109 @@ describe("SafeHttpClient hostname validation", () => {
     expect(dump).toHaveBeenCalledOnce();
   });
 
+  it("normalizes failures while discarding a response body", async () => {
+    const bodyError = Object.assign(new Error("do not log this"), {
+      code: "UND_ERR_BODY_TIMEOUT",
+    });
+    const dump = vi.fn(async () => {
+      throw bodyError;
+    });
+    requestMock.mockResolvedValueOnce({
+      statusCode: 503,
+      headers: {},
+      body: { dump },
+    });
+    const client = new SafeHttpClient();
+
+    let failure: unknown;
+    try {
+      await client.get(
+        new URL("https://www.tiktok.com/oembed?url=example"),
+        "tiktok_oembed",
+      );
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toMatchObject({
+      code: "SOURCE_FETCH_FAILED",
+      retryable: true,
+      diagnostics: {
+        sourceOperation: "tiktok_oembed",
+        sourceFailureStage: "response_body",
+        sourceFailureClass: "timeout",
+        sourceHttpStatus: 503,
+        sourceRedirectCount: 0,
+      },
+    });
+    expect(JSON.stringify(failure)).not.toContain("do not log this");
+  });
+
+  it("normalizes failures while streaming a successful response body", async () => {
+    const bodyError = Object.assign(new Error("private network detail"), {
+      code: "ECONNRESET",
+    });
+    requestMock.mockResolvedValueOnce({
+      statusCode: 200,
+      headers: { "content-type": "text/html" },
+      body: {
+        async *[Symbol.asyncIterator]() {
+          yield Buffer.from("partial");
+          throw bodyError;
+        },
+      },
+    });
+    const client = new SafeHttpClient();
+
+    let failure: unknown;
+    try {
+      await client.get(new URL("https://example.com/recipe"));
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toMatchObject({
+      code: "SOURCE_FETCH_FAILED",
+      retryable: true,
+      diagnostics: {
+        sourceOperation: "source_fetch",
+        sourceFailureStage: "response_body",
+        sourceFailureClass: "network",
+        sourceHttpStatus: 200,
+        sourceRedirectCount: 0,
+      },
+    });
+    expect(JSON.stringify(failure)).not.toContain("private network detail");
+  });
+
+  it("normalizes a malformed redirect Location", async () => {
+    const dump = vi.fn(async () => undefined);
+    requestMock.mockResolvedValueOnce({
+      statusCode: 302,
+      headers: { location: "http://[" },
+      body: { dump },
+    });
+    const client = new SafeHttpClient();
+
+    await expect(
+      client.get(
+        new URL("https://lite.tiktok.com/t/example/"),
+        "tiktok_short_url",
+      ),
+    ).rejects.toMatchObject({
+      code: "SOURCE_FETCH_FAILED",
+      retryable: false,
+      diagnostics: {
+        sourceOperation: "tiktok_short_url",
+        sourceFailureStage: "redirect",
+        sourceFailureClass: "redirect_invalid_location",
+        sourceHttpStatus: 302,
+        sourceRedirectCount: 1,
+      },
+    });
+    expect(dump).toHaveBeenCalledOnce();
+  });
+
   it("returns bounded binary content for media retrieval", async () => {
     const body = Buffer.from([0, 1, 2, 255]);
     requestMock.mockResolvedValueOnce({
