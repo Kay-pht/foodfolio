@@ -81,6 +81,59 @@ describe("SafeHttpClient hostname validation", () => {
     expect(dump).toHaveBeenCalledTimes(1);
   });
 
+  it("records privacy-safe HTTP diagnostics for source failures", async () => {
+    const dump = vi.fn(async () => undefined);
+    requestMock.mockResolvedValueOnce({
+      statusCode: 503,
+      headers: {},
+      body: { dump },
+    });
+    const client = new SafeHttpClient();
+
+    await expect(
+      client.get(
+        new URL("https://www.tiktok.com/oembed?url=example"),
+        "tiktok_oembed",
+      ),
+    ).rejects.toMatchObject({
+      code: "SOURCE_FETCH_FAILED",
+      retryable: true,
+      diagnostics: {
+        sourceOperation: "tiktok_oembed",
+        sourceFailureStage: "response_status",
+        sourceFailureClass: "http_error",
+        sourceHttpStatus: 503,
+        sourceRedirectCount: 0,
+      },
+    });
+    expect(dump).toHaveBeenCalledOnce();
+  });
+
+  it("records the redirect stage without logging redirect URLs", async () => {
+    const dump = vi.fn(async () => undefined);
+    requestMock.mockResolvedValueOnce({
+      statusCode: 302,
+      headers: {},
+      body: { dump },
+    });
+    const client = new SafeHttpClient();
+
+    await expect(
+      client.get(new URL("https://lite.tiktok.com/t/example/"), "tiktok_short_url"),
+    ).rejects.toMatchObject({
+      code: "SOURCE_FETCH_FAILED",
+      retryable: false,
+      diagnostics: {
+        sourceOperation: "tiktok_short_url",
+        sourceFailureStage: "redirect",
+        sourceFailureClass: "redirect_missing_location",
+        sourceHttpStatus: 302,
+        sourceRedirectCount: 1,
+      },
+    });
+    expect(dump).toHaveBeenCalledOnce();
+  });
+
   it("returns bounded binary content for media retrieval", async () => {
     const body = Buffer.from([0, 1, 2, 255]);
     requestMock.mockResolvedValueOnce({
