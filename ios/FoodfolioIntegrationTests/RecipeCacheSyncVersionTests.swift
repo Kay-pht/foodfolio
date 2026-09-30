@@ -40,12 +40,12 @@ import XCTest
     }
     XCTAssertEqual(requestedPaths, ["/v1/sync"])
     XCTAssertEqual(defaults.string(forKey: "recipeSyncCursor"), "stale-cursor")
-    XCTAssertEqual(defaults.integer(forKey: "recipeCacheSchemaVersion"), 2)
+    XCTAssertEqual(defaults.integer(forKey: "recipeCacheSchemaVersion"), 1)
 
     try await service.sync()
     XCTAssertEqual(requestedPaths, ["/v1/sync", "/v1/sync"])
     XCTAssertEqual(defaults.string(forKey: "recipeSyncCursor"), "fresh-cursor")
-    XCTAssertEqual(defaults.integer(forKey: "recipeCacheSchemaVersion"), 1)
+    XCTAssertEqual(defaults.integer(forKey: "recipeCacheSchemaVersion"), 2)
 
     try await service.sync()
     XCTAssertEqual(
