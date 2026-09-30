@@ -18,6 +18,7 @@ import XCTest
     defaults.set("stale-cursor", forKey: "recipeSyncCursor")
     defaults.set(Date(), forKey: "lastFullReconciliationAt")
     defaults.set(1, forKey: "tagRelationshipRepairVersion")
+    defaults.set(1, forKey: "recipeCacheSchemaVersion")
     var requestedPaths: [String] = []
     var attempt = 0
     let service = RecipeSyncService(
@@ -39,7 +40,7 @@ import XCTest
     }
     XCTAssertEqual(requestedPaths, ["/v1/sync"])
     XCTAssertEqual(defaults.string(forKey: "recipeSyncCursor"), "stale-cursor")
-    XCTAssertEqual(defaults.integer(forKey: "recipeCacheSchemaVersion"), 0)
+    XCTAssertEqual(defaults.integer(forKey: "recipeCacheSchemaVersion"), 2)
 
     try await service.sync()
     XCTAssertEqual(requestedPaths, ["/v1/sync", "/v1/sync"])
