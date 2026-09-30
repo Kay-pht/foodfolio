@@ -51,7 +51,7 @@
 - アプリケーションDBでは独自のUUIDを主キーとして使用する。
 - Neon PostgreSQLをユーザーデータの正本（Source of Truth）とする。
 - SwiftDataは一覧・詳細・検索・オフライン閲覧用のローカルコピーとする。
-- URL追加・編集・タグ変更・削除はオンライン必須とし、オフラインmutation queueは作らない。
+- URL追加・編集・タグ変更・メモ変更・削除はオンライン必須とし、オフラインmutation queueは作らない。
 - API mutation成功後はレスポンスをSwiftDataへ即時反映する。
 - 通常同期はBackend発行cursorによる差分同期とし、Client端末時刻を同期基準にしない。
 - hard delete検出のため、定期的にServerとLocalのRecipe IDを全件照合する。
@@ -356,6 +356,8 @@ Recipe
 - genre: enum NULL
 - analysisStatus: enum NOT NULL DEFAULT pending
 - analysisProvider: enum(zai, gemini) NULL
+- wantToCookAt: datetime NULL
+- memo: text NULL
 - createdAt: datetime NOT NULL
 - updatedAt: datetime NOT NULL
 ```
@@ -375,7 +377,7 @@ INDEX(userId, analysisStatus)
 INDEX(userId, updatedAt)
 ```
 
-`updatedAt` は差分同期の変更検知に使用する。Recipe本体だけでなく、Ingredient変更、RecipeTag付与・解除、AI解析結果反映時にも親Recipeの `updatedAt` を必ず更新する。
+`updatedAt` は差分同期の変更検知に使用する。Recipe本体だけでなく、Ingredient変更、RecipeTag付与・解除、メモ変更、AI解析結果反映時にも親Recipeの `updatedAt` を必ず更新する。
 
 ### 7.4 SourceType
 
@@ -738,6 +740,7 @@ Request例：
 {
   "title": "自分用の親子丼",
   "genre": "主菜",
+  "memo": "味が少し濃かった。次回は醤油を減らす。",
   "ingredients": [
     { "name": "鶏もも肉", "amount": "250g" },
     { "name": "卵", "amount": "2個" }
@@ -745,7 +748,7 @@ Request例：
 }
 ```
 
-すべてoptionalとし、送信された項目だけ変更する。
+すべてoptionalとし、送信された項目だけ変更する。メモはnullable textとして扱い、前後空白を除いた結果が空なら `null`、最大2,000文字とする。
 
 `analysisStatus` が `pending` または `processing` のRecipeは編集不可とし、Backendでも `RECIPE_ANALYSIS_IN_PROGRESS` として拒否する。`not_recipe` も通常のレシピ編集対象ではないため、PATCHを `RECIPE_NOT_EDITABLE` として拒否する。
 
@@ -1603,6 +1606,8 @@ Cloud Loggingには `recipeId / sourceUrl / requestId / providerRequestId / erro
 - Genre
 - Tag 1件
 
+`LocalRecipe.memo` はテキスト検索対象に含めない。
+
 ### 19.2 条件
 
 テキスト検索は、空白区切りの複数tokenを **AND** とする。
@@ -2081,6 +2086,8 @@ LocalRecipe
 - cookingTimeMinutes
 - genre
 - analysisStatus
+- wantToCookAt
+- memo
 - createdAt
 - updatedAt
 - ingredients
