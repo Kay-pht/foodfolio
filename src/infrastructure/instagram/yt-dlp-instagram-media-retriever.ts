@@ -338,11 +338,7 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
           items: published,
           attempts: attempt,
           dispose: () =>
-            disposePublishedMedia(
-              published,
-              attempt,
-              this.config.maxAttempts,
-            ),
+            disposePublishedMedia(published, attempt, this.config.maxAttempts),
         };
       } catch (error) {
         const failure = mediaFailureContext(
@@ -570,7 +566,9 @@ async function disposePublishedMedia(
   maxAttempts?: number,
 ): Promise<void> {
   const results = await Promise.allSettled(media.map((item) => item.dispose()));
-  const failureIndex = results.findIndex((result) => result.status === "rejected");
+  const failureIndex = results.findIndex(
+    (result) => result.status === "rejected",
+  );
   if (failureIndex < 0) return;
 
   const failedItem = media[failureIndex];
