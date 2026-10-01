@@ -107,6 +107,149 @@ describe("YtDlpMediaRetriever", () => {
     await result.dispose();
   });
 
+  it("classifies opted-in work-directory creation failures as local prepare without inventing an attempt", async () => {
+    const runAttempt = vi.fn();
+    const retriever = new YtDlpMediaRetriever(
+      {
+        ...baseConfig,
+        localPrepareError: {
+          code: "INTERNAL_ANALYSIS_ERROR",
+          retryable: true,
+          message: "local preparation failed",
+        },
+      },
+      runAttempt,
+      async () => undefined,
+      {
+        createWorkDirectory: async () => {
+          throw new Error("private prepare detail");
+        },
+        clearWorkDirectory: vi.fn(),
+        removeWorkDirectory: vi.fn(),
+      },
+    );
+
+    let failure: unknown;
+    try {
+      await retriever.retrieve(new URL("https://example.com/post/1"));
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toMatchObject({
+      code: "INTERNAL_ANALYSIS_ERROR",
+      retryable: true,
+      diagnostics: {
+        mediaFailureStage: "local_prepare",
+        mediaFailureClass: "filesystem",
+      },
+    });
+    expect(
+      (failure as { diagnostics?: Record<string, unknown> }).diagnostics,
+    ).not.toHaveProperty("mediaAttempt");
+    expect(
+      (failure as { diagnostics?: Record<string, unknown> }).diagnostics,
+    ).not.toHaveProperty("mediaMaxAttempts");
+    expect(JSON.stringify(failure)).not.toContain("private prepare detail");
+    expect(runAttempt).not.toHaveBeenCalled();
+  });
+
+  it("classifies retry cleanup failures with the actual internal attempt", async () => {
+    const runAttempt = vi.fn(async () => {
+      throw new Error("download failed");
+    });
+    let clearCount = 0;
+    const retriever = new YtDlpMediaRetriever(
+      {
+        ...baseConfig,
+        localCleanupError: {
+          code: "INTERNAL_ANALYSIS_ERROR",
+          retryable: true,
+          message: "local cleanup failed",
+        },
+      },
+      runAttempt,
+      async () => undefined,
+      {
+        createWorkDirectory: async () => "/tmp/fake-media-work",
+        clearWorkDirectory: async () => {
+          clearCount += 1;
+          if (clearCount === 2) throw new Error("private retry cleanup detail");
+        },
+        removeWorkDirectory: vi.fn(),
+      },
+    );
+
+    let failure: unknown;
+    try {
+      await retriever.retrieve(new URL("https://example.com/post/1"));
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(runAttempt).toHaveBeenCalledOnce();
+    expect(failure).toMatchObject({
+      code: "INTERNAL_ANALYSIS_ERROR",
+      retryable: true,
+      diagnostics: {
+        mediaFailureStage: "local_cleanup",
+        mediaFailureClass: "filesystem",
+        mediaAttempt: 2,
+        mediaMaxAttempts: 3,
+      },
+    });
+    expect(JSON.stringify(failure)).not.toContain(
+      "private retry cleanup detail",
+    );
+  });
+
+  it("classifies final work-directory cleanup failures as local cleanup", async () => {
+    const runAttempt = vi.fn(async () => {
+      throw new Error("download failed");
+    });
+    const retriever = new YtDlpMediaRetriever(
+      {
+        ...baseConfig,
+        localCleanupError: {
+          code: "INTERNAL_ANALYSIS_ERROR",
+          retryable: true,
+          message: "local cleanup failed",
+        },
+      },
+      runAttempt,
+      async () => undefined,
+      {
+        createWorkDirectory: async () => "/tmp/fake-media-work",
+        clearWorkDirectory: async () => undefined,
+        removeWorkDirectory: async () => {
+          throw new Error("private final cleanup detail");
+        },
+      },
+    );
+
+    let failure: unknown;
+    try {
+      await retriever.retrieve(new URL("https://example.com/post/1"));
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(runAttempt).toHaveBeenCalledTimes(3);
+    expect(failure).toMatchObject({
+      code: "INTERNAL_ANALYSIS_ERROR",
+      retryable: true,
+      diagnostics: {
+        mediaFailureStage: "local_cleanup",
+        mediaFailureClass: "filesystem",
+        mediaAttempt: 3,
+        mediaMaxAttempts: 3,
+      },
+    });
+    expect(JSON.stringify(failure)).not.toContain(
+      "private final cleanup detail",
+    );
+  });
+
   it("retries whole attempts and returns the configured failure after the cap", async () => {
     const delays: number[] = [];
     const runAttempt = vi.fn(async () => {
