@@ -177,6 +177,10 @@ resource "google_monitoring_alert_policy" "recipe_analysis_final_failure" {
 
       $${log.extracted_label.impact}
 
+      ## 診断情報
+
+      $${log.extracted_label.diagnostic_detail}
+
       ## 次に行うこと
 
       $${log.extracted_label.next_action}
@@ -196,8 +200,9 @@ resource "google_monitoring_alert_policy" "recipe_analysis_final_failure" {
     condition_matched_log {
       filter = "resource.type = \"cloud_run_revision\" AND resource.labels.service_name = \"${google_cloud_run_v2_service.worker.name}\" AND jsonPayload.analysisStatus = \"failed\""
       label_extractors = {
-        analysis_attempt = "EXTRACT(jsonPayload.analysisAttemptLabel)"
-        error_code       = "EXTRACT(jsonPayload.errorCode)"
+        analysis_attempt  = "EXTRACT(jsonPayload.analysisAttemptLabel)"
+        diagnostic_detail = "EXTRACT(jsonPayload.diagnosticDetail)"
+        error_code         = "EXTRACT(jsonPayload.errorCode)"
         impact           = "EXTRACT(jsonPayload.impact)"
         next_action      = "EXTRACT(jsonPayload.nextAction)"
         provider         = "EXTRACT(jsonPayload.provider)"
