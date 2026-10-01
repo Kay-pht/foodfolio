@@ -176,6 +176,8 @@ export class YtDlpMediaRetriever implements MediaRetriever {
       {
         mediaFailureStage: stage,
         mediaFailureClass: "filesystem",
+        mediaIndex: 1,
+        mediaKind: this.config.kind,
         ...(attempt !== undefined
           ? {
               mediaAttempt: attempt,
