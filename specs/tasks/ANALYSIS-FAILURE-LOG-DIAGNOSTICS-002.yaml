@@ -35,7 +35,6 @@ requirements:
       - src/infrastructure/instagram/yt-dlp-instagram-media-retriever.ts
       - src/infrastructure/media/yt-dlp-media-retriever.ts
       - tests/unit/instagram-media-retriever.test.ts
-    - tests/unit/media-retriever.test.ts
       - tests/unit/media-retriever.test.ts
   - id: AFLD-4
     condition: A Recipe Analysis final failure contains source or media diagnostics.
