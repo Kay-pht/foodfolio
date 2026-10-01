@@ -104,6 +104,7 @@ export type MediaFailureStage =
   | "asset_download"
   | "asset_validate"
   | "publish"
+  | "local_prepare"
   | "local_cleanup"
   | "published_cleanup";
 export type MediaFailureClass =
