@@ -381,6 +381,7 @@ describe("API/Worker application E2E", () => {
           truncated ? "出力上限4000トークン" : "時間",
         ),
         retryPolicy: "final_failure",
+        diagnosticDetail: "追加診断情報なし",
         message: "recipe analysis failed",
       });
       expect(notifications.failed).toEqual([]);
