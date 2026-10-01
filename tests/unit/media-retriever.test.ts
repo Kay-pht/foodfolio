@@ -142,6 +142,8 @@ describe("YtDlpMediaRetriever", () => {
       diagnostics: {
         mediaFailureStage: "local_prepare",
         mediaFailureClass: "filesystem",
+        mediaIndex: 1,
+        mediaKind: "image",
       },
     });
     expect(
@@ -194,6 +196,8 @@ describe("YtDlpMediaRetriever", () => {
       diagnostics: {
         mediaFailureStage: "local_cleanup",
         mediaFailureClass: "filesystem",
+        mediaIndex: 1,
+        mediaKind: "image",
         mediaAttempt: 2,
         mediaMaxAttempts: 3,
       },
@@ -241,6 +245,8 @@ describe("YtDlpMediaRetriever", () => {
       diagnostics: {
         mediaFailureStage: "local_cleanup",
         mediaFailureClass: "filesystem",
+        mediaIndex: 1,
+        mediaKind: "image",
         mediaAttempt: 3,
         mediaMaxAttempts: 3,
       },
