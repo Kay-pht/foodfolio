@@ -978,14 +978,9 @@ describe("Instagram media metadata and HTTP download", () => {
 
     let failure: unknown;
     try {
-      await downloadInstagramAsset(
-        asset,
-        directory,
-        1_000,
-        async () => {
-          throw fetchFailure;
-        },
-      );
+      await downloadInstagramAsset(asset, directory, 1_000, async () => {
+        throw fetchFailure;
+      });
     } catch (error) {
       failure = error;
     }
