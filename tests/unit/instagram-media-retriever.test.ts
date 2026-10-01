@@ -105,6 +105,55 @@ describe("YtDlpInstagramMediaRetriever", () => {
     expect(disposePublished).toHaveBeenCalledOnce();
   });
 
+  it("preserves retryability for single-video local preparation failures", async () => {
+    const singleVideoRetriever: MediaRetriever = {
+      retrieve: vi.fn(async () => {
+        throw new Error("private filesystem detail");
+      }),
+    };
+    const retriever = new YtDlpInstagramMediaRetriever(
+      config,
+      createMediaStore(),
+      async () => ({
+        formats: [
+          {
+            url: "https://cdn.example/video.mp4",
+            width: 1080,
+            height: 1920,
+          },
+        ],
+      }),
+      singleVideoRetriever,
+      vi.fn(),
+      async () => {},
+    );
+
+    let failure: unknown;
+    try {
+      await retriever.retrieve(
+        new URL("https://www.instagram.com/reel/no-temp-dir/"),
+      );
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toMatchObject({
+      code: "INTERNAL_ANALYSIS_ERROR",
+      retryable: true,
+      diagnostics: {
+        mediaFailureStage: "local_prepare",
+        mediaFailureClass: "filesystem",
+      },
+    });
+    expect(
+      (failure as { diagnostics?: Record<string, unknown> }).diagnostics,
+    ).not.toHaveProperty("mediaAttempt");
+    expect(
+      (failure as { diagnostics?: Record<string, unknown> }).diagnostics,
+    ).not.toHaveProperty("mediaMaxAttempts");
+    expect(JSON.stringify(failure)).not.toContain("private filesystem detail");
+  });
+
   it("classifies single-video local cleanup independently from published cleanup", async () => {
     const disposeLocal = vi.fn(async () => {
       throw new Error("local cleanup failed");
@@ -220,6 +269,62 @@ describe("YtDlpInstagramMediaRetriever", () => {
       ),
     );
     await collection.dispose();
+  });
+
+  it("preserves item and attempt context when disposing a returned carousel", async () => {
+    const metadata = {
+      entries: [1, 2].map((index) => ({
+        formats: [],
+        thumbnails: [{ url: `https://cdn.example/${index}.jpg` }],
+      })),
+    };
+    const mediaStore: TemporaryMediaStore = {
+      publish: vi.fn(async (item) => ({
+        url: `https://storage.example/${item.index}`,
+        kind: item.kind,
+        contentType: item.contentType,
+        dispose: async () => {
+          if (item.index === 2) throw new Error("private storage detail");
+        },
+      })),
+    };
+    const retriever = new YtDlpInstagramMediaRetriever(
+      config,
+      mediaStore,
+      async () => metadata,
+      { retrieve: vi.fn() },
+      async (asset) => ({
+        filePath: `/tmp/${asset.index}.jpg`,
+        sizeBytes: 100,
+        contentType: "image/jpeg",
+      }),
+      async () => {},
+    );
+
+    const collection = await retriever.retrieve(
+      new URL("https://www.instagram.com/p/cleanup-context/"),
+    );
+
+    let failure: unknown;
+    try {
+      await collection.dispose();
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toMatchObject({
+      code: "INSTAGRAM_MEDIA_CLEANUP_FAILED",
+      retryable: true,
+      diagnostics: {
+        mediaFailureStage: "published_cleanup",
+        mediaFailureClass: "storage",
+        mediaIndex: 2,
+        mediaKind: "image",
+        mediaAttempt: 1,
+        mediaMaxAttempts: 2,
+      },
+    });
+    expect(JSON.stringify(failure)).not.toContain("private storage detail");
   });
 
   it("retrieves image, video, and mixed carousel entries in original order", async () => {
