@@ -22,8 +22,10 @@ function requestFailureClass(error: unknown): SourceFailureClass {
     const code = typeof record.code === "string" ? record.code : null;
     const name = typeof record.name === "string" ? record.name : null;
     if (
+      code === "UND_ERR_CONNECT_TIMEOUT" ||
       code === "UND_ERR_HEADERS_TIMEOUT" ||
       code === "UND_ERR_BODY_TIMEOUT" ||
+      name === "ConnectTimeoutError" ||
       name === "TimeoutError" ||
       name === "AbortError"
     )
