@@ -29,12 +29,27 @@ requirements:
     expected: >-
       The AnalysisError diagnostics identify the normalized media stage and failure class,
       plus HTTP status, post index, media kind, and internal attempt counts when available.
-      Download, validation, temporary storage publish, and cleanup failures remain
-      distinguishable in Cloud Logging.
+      Download, validation, temporary storage publish, local work-directory
+      preparation, and cleanup failures remain distinguishable in Cloud Logging.
     verification:
       - src/infrastructure/instagram/yt-dlp-instagram-media-retriever.ts
       - tests/unit/instagram-media-retriever.test.ts
+  - id: AFLD-4
+    condition: A Recipe Analysis final failure contains source or media diagnostics.
+    expected: >-
+      Every available repository-owned diagnostic enum and validated numeric field is
+      translated into a controlled Japanese diagnosticDetail and extracted into the
+      Slack notification without exposing URLs, headers, bodies, or exception text.
+    verification:
+      - src/application/analysis/operational-failure.ts
+      - infra/terraform/monitoring.tf
+      - tests/unit/analysis-operational-failure.test.ts
+      - tests/unit/runtime-monitoring-health-path.test.mjs
 edge_cases:
+  - Node child-process timeout termination with killed=true and SIGKILL is normalized to timeout.
+  - Undici UND_ERR_CONNECT_TIMEOUT is normalized to timeout rather than network.
+  - Temporary work-directory creation failure is normalized to local_prepare/filesystem while preserving retryability.
+  - Reused work-directory cleanup failure remains retryable as it was before the diagnostics change.
   - A raw third-party exception without a recognized timeout shape is normalized to a fixed failure class rather than copied into logs.
   - HTTP failures preserve only the numeric status and fixed diagnostic enums.
   - Existing AnalysisError codes from the temporary media store keep their original code and retryability while receiving media stage context.
@@ -42,9 +57,9 @@ edge_cases:
 security_invariants:
   - Do not log redirect target URLs, media asset URLs, signed URLs, request or response bodies, HTTP headers, raw exception messages, or provider free-form text.
   - The existing sourceUrl sanitization remains unchanged.
-  - Source and media diagnostic fields remain Cloud Logging-only and are not added to Slack label extractors or notification text.
+  - Slack receives only the controlled diagnosticDetail derived from repository-owned enums and validated numbers; raw diagnostic payloads, URLs, headers, bodies, and exception text are not expanded into the notification.
 compatibility:
-  - Preserve existing analysis error codes, retryability, Cloud Tasks retry behavior, recipe state transitions, alert thresholds, and Slack labels.
+  - Preserve existing analysis error codes, retryability, Cloud Tasks retry behavior, recipe state transitions, alert thresholds, and notification rate limits. One diagnostic_detail Slack label is added for controlled diagnosis text.
   - Do not add a database migration, external dependency, or extra network request.
 non_functional:
   - Diagnostic values use repository-owned enums and validated numeric metadata.
@@ -57,6 +72,9 @@ acceptance_criteria:
   - A TikTok oEmbed HTTP 503 produces SOURCE_FETCH_FAILED with operation, stage, class, HTTP status, and redirect count in diagnostics.
   - An Instagram asset HTTP failure identifies the asset download stage, numeric HTTP status, item index, and media kind without exposing its URL or headers.
   - Metadata and publish failures identify their own stages and internal attempt counts.
+  - Child-process and HTTP connection timeouts are classified as timeout.
+  - Local work-directory creation and pre-retry cleanup failures keep the pre-change retry behavior while receiving filesystem diagnostics.
+  - Slack final-failure notifications display a controlled Japanese diagnostic summary for every available source/media diagnostic field.
   - Focused regression tests and the repository Quality checks pass.
 regression:
   required: true
