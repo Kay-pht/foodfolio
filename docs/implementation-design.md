@@ -2467,7 +2467,7 @@ jevInputSha256
 
 Jevログだけではthreshold未満ケースのtext route成功可否を断定できないため、候補probability帯をログから抽出し、元URLを再取得して `inputSha256` 一致を確認したうえで再評価する。詳細は [jev-production-routing.md](jev-production-routing.md) を参照する。
 
-URL取得失敗では、取得処理・失敗段階・失敗分類・HTTP status・redirect回数を、アプリケーション管理の固定値と検証済み数値だけで記録する。TikTokは短縮URL解決とoEmbed取得を区別する。Instagramメディア処理では、metadata probe、download/validate、temporary storage publish、cleanupを固定値で区別し、HTTP status、投稿内index、media kind、内部attemptを必要な範囲で記録する。redirect先URL、media URL、HTTP header、署名URL、raw exception messageは診断fieldへ含めない。
+URL取得失敗では、取得処理・失敗段階・失敗分類・HTTP status・redirect回数を、アプリケーション管理の固定値と検証済み数値だけで記録する。TikTokは短縮URL解決とoEmbed取得を区別する。Instagramメディア処理では、metadata probe、download/validate、temporary storage publish、local work directory prepare、cleanupを固定値で区別し、HTTP status、投稿内index、media kind、内部attemptを必要な範囲で記録する。redirect先URL、media URL、HTTP header、署名URL、raw exception messageは診断fieldへ含めない。最終失敗時は、これらの固定値と検証済み数値だけから日本語の `diagnosticDetail` を生成し、Cloud Monitoring経由のSlack通知にも表示する。
 
 禁止：
 
