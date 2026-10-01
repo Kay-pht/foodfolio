@@ -2,11 +2,12 @@ import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type {
-  LocalMediaItem,
-  MediaCollection,
-  MediaRetriever,
-  TemporaryMediaStore,
+import {
+  AnalysisError,
+  type LocalMediaItem,
+  type MediaCollection,
+  type MediaRetriever,
+  type TemporaryMediaStore,
 } from "../../src/application/analysis/types.js";
 import {
   downloadInstagramAsset,
@@ -105,10 +106,19 @@ describe("YtDlpInstagramMediaRetriever", () => {
     expect(disposePublished).toHaveBeenCalledOnce();
   });
 
-  it("preserves retryability for single-video local preparation failures", async () => {
+  it("preserves inner single-video local preparation diagnostics", async () => {
     const singleVideoRetriever: MediaRetriever = {
       retrieve: vi.fn(async () => {
-        throw new Error("private filesystem detail");
+        throw new AnalysisError(
+          "INTERNAL_ANALYSIS_ERROR",
+          true,
+          "Instagram single-video local preparation failed",
+          undefined,
+          {
+            mediaFailureStage: "local_prepare",
+            mediaFailureClass: "filesystem",
+          },
+        );
       }),
     };
     const retriever = new YtDlpInstagramMediaRetriever(
@@ -151,7 +161,56 @@ describe("YtDlpInstagramMediaRetriever", () => {
     expect(
       (failure as { diagnostics?: Record<string, unknown> }).diagnostics,
     ).not.toHaveProperty("mediaMaxAttempts");
-    expect(JSON.stringify(failure)).not.toContain("private filesystem detail");
+  });
+
+  it("preserves inner single-video retry cleanup diagnostics and attempt count", async () => {
+    const singleVideoRetriever: MediaRetriever = {
+      retrieve: vi.fn(async () => {
+        throw new AnalysisError(
+          "INTERNAL_ANALYSIS_ERROR",
+          true,
+          "Instagram single-video local cleanup failed",
+          undefined,
+          {
+            mediaFailureStage: "local_cleanup",
+            mediaFailureClass: "filesystem",
+            mediaAttempt: 2,
+            mediaMaxAttempts: 2,
+          },
+        );
+      }),
+    };
+    const retriever = new YtDlpInstagramMediaRetriever(
+      config,
+      createMediaStore(),
+      async () => ({
+        formats: [
+          {
+            url: "https://cdn.example/video.mp4",
+            width: 1080,
+            height: 1920,
+          },
+        ],
+      }),
+      singleVideoRetriever,
+      vi.fn(),
+      async () => {},
+    );
+
+    await expect(
+      retriever.retrieve(
+        new URL("https://www.instagram.com/reel/retry-cleanup/"),
+      ),
+    ).rejects.toMatchObject({
+      code: "INTERNAL_ANALYSIS_ERROR",
+      retryable: true,
+      diagnostics: {
+        mediaFailureStage: "local_cleanup",
+        mediaFailureClass: "filesystem",
+        mediaAttempt: 2,
+        mediaMaxAttempts: 2,
+      },
+    });
   });
 
   it("classifies single-video local cleanup independently from published cleanup", async () => {
