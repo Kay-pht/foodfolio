@@ -26,6 +26,8 @@ export interface YtDlpMediaRetrieverConfig {
   validateUrl(url: URL): boolean;
   invalidUrlError: MediaOperationErrorSpec;
   downloadFailedError: MediaOperationErrorSpec;
+  localPrepareError?: MediaOperationErrorSpec;
+  localCleanupError?: MediaOperationErrorSpec;
 }
 
 export interface YtDlpAttemptOptions {
@@ -43,12 +45,26 @@ export type YtDlpAttemptRunner = (
 
 type Sleeper = (milliseconds: number) => Promise<void>;
 
+export interface YtDlpMediaFilesystem {
+  createWorkDirectory(prefix: string): Promise<string>;
+  clearWorkDirectory(workDirectory: string): Promise<void>;
+  removeWorkDirectory(workDirectory: string): Promise<void>;
+}
+
+const defaultFilesystem: YtDlpMediaFilesystem = {
+  createWorkDirectory: (prefix) => mkdtemp(join(tmpdir(), prefix)),
+  clearWorkDirectory,
+  removeWorkDirectory: (workDirectory) =>
+    rm(workDirectory, { recursive: true, force: true }),
+};
+
 export class YtDlpMediaRetriever implements MediaRetriever {
   constructor(
     private readonly config: YtDlpMediaRetrieverConfig,
     private readonly runAttempt: YtDlpAttemptRunner = runYtDlpAttempt,
     private readonly sleep: Sleeper = (milliseconds) =>
       new Promise((resolve) => setTimeout(resolve, milliseconds)),
+    private readonly filesystem: YtDlpMediaFilesystem = defaultFilesystem,
   ) {}
 
   async retrieve(url: URL): Promise<MediaCollection> {
@@ -56,13 +72,31 @@ export class YtDlpMediaRetriever implements MediaRetriever {
       throw toAnalysisError(this.config.invalidUrlError);
     }
 
-    const workDirectory = await mkdtemp(
-      join(tmpdir(), this.config.workDirectoryPrefix),
-    );
+    let workDirectory: string;
+    try {
+      workDirectory = await this.filesystem.createWorkDirectory(
+        this.config.workDirectoryPrefix,
+      );
+    } catch (error) {
+      throw this.localFilesystemFailure(
+        error,
+        "local_prepare",
+        this.config.localPrepareError,
+      );
+    }
     const outputPath = join(workDirectory, this.config.outputFileName);
 
     for (let attempt = 1; attempt <= this.config.maxAttempts; attempt += 1) {
-      await clearWorkDirectory(workDirectory);
+      try {
+        await this.filesystem.clearWorkDirectory(workDirectory);
+      } catch (error) {
+        throw this.localFilesystemFailure(
+          error,
+          "local_cleanup",
+          this.config.localCleanupError,
+          attempt,
+        );
+      }
       try {
         await this.runAttempt(
           this.config.binaryPath,
@@ -89,11 +123,31 @@ export class YtDlpMediaRetriever implements MediaRetriever {
             },
           ],
           attempts: attempt,
-          dispose: () => rm(workDirectory, { recursive: true, force: true }),
+          dispose: async () => {
+            try {
+              await this.filesystem.removeWorkDirectory(workDirectory);
+            } catch (error) {
+              throw this.localFilesystemFailure(
+                error,
+                "local_cleanup",
+                this.config.localCleanupError,
+                attempt,
+              );
+            }
+          },
         };
       } catch {
         if (attempt === this.config.maxAttempts) {
-          await rm(workDirectory, { recursive: true, force: true });
+          try {
+            await this.filesystem.removeWorkDirectory(workDirectory);
+          } catch (error) {
+            throw this.localFilesystemFailure(
+              error,
+              "local_cleanup",
+              this.config.localCleanupError,
+              attempt,
+            );
+          }
           throw toAnalysisError(this.config.downloadFailedError);
         }
         const retrySeconds = Math.min(
@@ -105,6 +159,25 @@ export class YtDlpMediaRetriever implements MediaRetriever {
     }
 
     throw toAnalysisError(this.config.downloadFailedError);
+  }
+
+  private localFilesystemFailure(
+    error: unknown,
+    stage: "local_prepare" | "local_cleanup",
+    spec?: MediaOperationErrorSpec,
+    attempt?: number,
+  ): unknown {
+    if (!spec) return error;
+    return new AnalysisError(spec.code, spec.retryable, spec.message, undefined, {
+      mediaFailureStage: stage,
+      mediaFailureClass: "filesystem",
+      ...(attempt !== undefined
+        ? {
+            mediaAttempt: attempt,
+            mediaMaxAttempts: this.config.maxAttempts,
+          }
+        : {}),
+    });
   }
 }
 
