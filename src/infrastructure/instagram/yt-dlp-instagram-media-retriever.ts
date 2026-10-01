@@ -61,6 +61,7 @@ export type InstagramAssetDownloader = (
 
 type Sleeper = (milliseconds: number) => Promise<void>;
 type LocalRemover = (path: string, recursive: boolean) => Promise<void>;
+type WorkDirectoryFactory = () => Promise<string>;
 
 const defaultLocalRemover: LocalRemover = async (path, recursive) => {
   if (recursive) {
@@ -81,8 +82,10 @@ function isTimeoutFailure(error: unknown): boolean {
     name === "TimeoutError" ||
     name === "AbortError" ||
     code === "ETIMEDOUT" ||
+    code === "UND_ERR_CONNECT_TIMEOUT" ||
     code === "UND_ERR_HEADERS_TIMEOUT" ||
-    code === "UND_ERR_BODY_TIMEOUT"
+    code === "UND_ERR_BODY_TIMEOUT" ||
+    (record.killed === true && record.signal === "SIGKILL")
   );
 }
 
@@ -160,6 +163,8 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
     private readonly sleep: Sleeper = (milliseconds) =>
       new Promise((resolve) => setTimeout(resolve, milliseconds)),
     private readonly removeLocal: LocalRemover = defaultLocalRemover,
+    private readonly createWorkDirectory: WorkDirectoryFactory = () =>
+      mkdtemp(join(tmpdir(), "foodfolio-instagram-media-")),
   ) {
     this.singleVideoRetriever =
       singleVideoRetriever ??
@@ -247,20 +252,42 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
         return this.retrieveAndPublishSingleVideo(url);
       }
 
-      const currentWorkDirectory: string =
-        workDirectory ??
-        (await mkdtemp(join(tmpdir(), "foodfolio-instagram-media-")));
+      let currentWorkDirectory: string;
+      if (workDirectory) {
+        currentWorkDirectory = workDirectory;
+      } else {
+        try {
+          currentWorkDirectory = await this.createWorkDirectory();
+        } catch {
+          throw new AnalysisError(
+            "INTERNAL_ANALYSIS_ERROR",
+            true,
+            "Instagram local work directory creation failed",
+            undefined,
+            {
+              mediaFailureStage: "local_prepare",
+              mediaFailureClass: "filesystem",
+              mediaAttempt: attempt,
+              mediaMaxAttempts: this.config.maxAttempts,
+            },
+          );
+        }
+      }
       workDirectory = currentWorkDirectory;
       try {
         await clearWorkDirectory(currentWorkDirectory, this.removeLocal);
-      } catch (error) {
-        throw mediaFailureContext(
-          error,
-          "local_cleanup",
+      } catch {
+        throw new AnalysisError(
+          "INTERNAL_ANALYSIS_ERROR",
+          true,
+          "Instagram local work directory cleanup failed",
           undefined,
-          attempt,
-          this.config.maxAttempts,
-          "filesystem",
+          {
+            mediaFailureStage: "local_cleanup",
+            mediaFailureClass: "filesystem",
+            mediaAttempt: attempt,
+            mediaMaxAttempts: this.config.maxAttempts,
+          },
         );
       }
       const published: OrderedPublishedMedia[] = [];
