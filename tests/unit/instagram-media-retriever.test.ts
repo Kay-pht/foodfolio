@@ -106,6 +106,56 @@ describe("YtDlpInstagramMediaRetriever", () => {
     expect(disposePublished).toHaveBeenCalledOnce();
   });
 
+  if (process.platform !== "win32") {
+    it("preserves default-runner timeout diagnostics across single-video retries", async () => {
+      const directory = await mkdtemp(
+        join(tmpdir(), "foodfolio-test-instagram-timeout-"),
+      );
+      temporaryDirectories.push(directory);
+      const binaryPath = join(directory, "fake-yt-dlp");
+      await writeFile(binaryPath, "#!/bin/sh\nexec sleep 5\n", {
+        mode: 0o700,
+      });
+      const retriever = new YtDlpInstagramMediaRetriever(
+        {
+          ...config,
+          binaryPath,
+          maxAttempts: 2,
+          attemptTimeoutMs: 100,
+          retryBaseSeconds: 0,
+          maxRetrySeconds: 0,
+        },
+        createMediaStore(),
+        async () => ({
+          formats: [
+            {
+              url: "https://cdn.example/video.mp4",
+              width: 1080,
+              height: 1920,
+            },
+          ],
+        }),
+      );
+
+      await expect(
+        retriever.retrieve(
+          new URL("https://www.instagram.com/reel/process-timeout/"),
+        ),
+      ).rejects.toMatchObject({
+        code: "INSTAGRAM_MEDIA_DOWNLOAD_FAILED",
+        retryable: false,
+        diagnostics: {
+          mediaFailureStage: "single_video_download",
+          mediaFailureClass: "timeout",
+          mediaIndex: 1,
+          mediaKind: "video",
+          mediaAttempt: 2,
+          mediaMaxAttempts: 2,
+        },
+      });
+    });
+  }
+
   it("preserves inner single-video local preparation diagnostics", async () => {
     const singleVideoRetriever: MediaRetriever = {
       retrieve: vi.fn(async () => {
@@ -906,6 +956,51 @@ describe("Instagram media metadata and HTTP download", () => {
     expect(result.sizeBytes).toBe(3);
     expect(result.contentType).toBe("image/jpeg");
     expect([...(await readFile(result.filePath))]).toEqual([1, 2, 3]);
+  });
+
+  it("classifies an Undici connection timeout stored in fetch cause as timeout", async () => {
+    const directory = await mkdtemp(
+      join(tmpdir(), "foodfolio-test-instagram-"),
+    );
+    temporaryDirectories.push(directory);
+    const asset = {
+      index: 1,
+      kind: "image" as const,
+      url: "https://cdn.example/photo.jpg",
+      httpHeaders: {},
+    };
+    const cause = Object.assign(new Error("private connection detail"), {
+      code: "UND_ERR_CONNECT_TIMEOUT",
+    });
+    const fetchFailure = Object.assign(new TypeError("fetch failed"), {
+      cause,
+    });
+
+    let failure: unknown;
+    try {
+      await downloadInstagramAsset(
+        asset,
+        directory,
+        1_000,
+        async () => {
+          throw fetchFailure;
+        },
+      );
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toMatchObject({
+      code: "INSTAGRAM_MEDIA_DOWNLOAD_FAILED",
+      retryable: false,
+      diagnostics: {
+        mediaFailureStage: "asset_download",
+        mediaFailureClass: "timeout",
+        mediaIndex: 1,
+        mediaKind: "image",
+      },
+    });
+    expect(JSON.stringify(failure)).not.toContain("private connection detail");
   });
 
   it("records HTTP status and asset position without logging the media URL", async () => {
