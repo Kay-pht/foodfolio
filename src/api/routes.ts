@@ -234,7 +234,11 @@ export function registerRoutes(
           "Recipe analysis is still in progress",
         );
       const body = asObject(request.body);
-      const data: { title?: string; genre?: Genre | null } = {};
+      const data: {
+        title?: string;
+        genre?: Genre | null;
+        memo?: string | null;
+      } = {};
       if ("title" in body) {
         const title = requireString(body.title, "title").trim();
         if (title.length > 200)
@@ -248,6 +252,14 @@ export function registerRoutes(
         if (body.genre !== null && genre === null)
           throw new AppError(422, "VALIDATION_ERROR", "genre is invalid");
         data.genre = genre;
+      }
+      if ("memo" in body) {
+        if (body.memo !== null && typeof body.memo !== "string")
+          throw new AppError(422, "VALIDATION_ERROR", "memo is invalid");
+        const memo = typeof body.memo === "string" ? body.memo.trim() : "";
+        if ([...memo].length > 2000)
+          throw new AppError(422, "VALIDATION_ERROR", "memo is too long");
+        data.memo = memo || null;
       }
       const ingredients = "ingredients" in body ? body.ingredients : undefined;
       if (ingredients !== undefined && !Array.isArray(ingredients))

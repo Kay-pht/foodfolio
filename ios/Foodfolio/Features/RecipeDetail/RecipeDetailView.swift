@@ -8,6 +8,7 @@ struct RecipeDetailView: View {
   @State private var showTags = false
   @State private var showDelete = false
   @State private var showEdit = false
+  @State private var memoSheetMode: RecipeMemoSheetMode?
   @State private var errorMessage: String?
   @State private var showsCompactTitle = false
   @State private var isUpdatingWantToCook = false
@@ -108,6 +109,13 @@ struct RecipeDetailView: View {
 
           if RecipeDetailPresentation.canEdit(status: recipe.analysisStatus) {
             Button {
+              memoSheetMode = .edit
+            } label: {
+              Label(hasMemo ? "メモを編集" : "メモを追加", systemImage: "note.text")
+            }
+            .accessibilityIdentifier("detail.memoMenu")
+
+            Button {
               showEdit = true
             } label: {
               Label("レシピを編集", systemImage: "pencil")
@@ -125,6 +133,9 @@ struct RecipeDetailView: View {
       RecipeEditView(recipe: recipe)
     }
     .sheet(isPresented: $showTags) { TagPickerSheet(recipe: recipe) }
+    .sheet(item: $memoSheetMode) { mode in
+      RecipeMemoSheet(recipe: recipe, startsEditing: mode == .edit)
+    }
     .alert(
       "エラー",
       isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })
@@ -155,11 +166,27 @@ struct RecipeDetailView: View {
         .fixedSize(horizontal: false, vertical: true)
         .accessibilityIdentifier("detail.title")
 
-      if recipe.wantToCookAt != nil {
-        Label("作りたい", systemImage: "checkmark.circle.fill")
-          .font(.caption.weight(.semibold))
-          .foregroundStyle(FoodfolioTheme.terracotta)
-          .accessibilityIdentifier("detail.wantToCookStatus")
+      if recipe.wantToCookAt != nil || hasMemo {
+        HStack(spacing: 16) {
+          if recipe.wantToCookAt != nil {
+            Label("作りたい", systemImage: "checkmark.circle.fill")
+              .font(.caption.weight(.semibold))
+              .foregroundStyle(FoodfolioTheme.terracotta)
+              .accessibilityIdentifier("detail.wantToCookStatus")
+          }
+
+          if hasMemo {
+            Button {
+              memoSheetMode = .view
+            } label: {
+              Label("メモ", systemImage: "note.text")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(FoodfolioTheme.terracotta)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("detail.memoShortcut")
+          }
+        }
       }
 
       HStack(spacing: 10) {
@@ -346,6 +373,14 @@ struct RecipeDetailView: View {
     }
   }
 
+  private var memoText: String? {
+    guard let memo = recipe.memo?.trimmingCharacters(in: .whitespacesAndNewlines), !memo.isEmpty
+    else { return nil }
+    return memo
+  }
+
+  private var hasMemo: Bool { memoText != nil }
+
   private func tagBackground(index: Int) -> Color {
     switch index % 3 {
     case 0: FoodfolioTheme.sage.opacity(0.18)
@@ -380,6 +415,167 @@ struct RecipeDetailView: View {
   private func scaledAmount(_ amount: String?) -> String? {
     RecipeDetailPresentation.scaledAmount(
       amount, base: recipe.servingsValue, displayed: displayServings)
+  }
+}
+
+private enum RecipeMemoSheetMode: String, Identifiable {
+  case view
+  case edit
+
+  var id: String { rawValue }
+}
+
+private struct RecipeMemoSheet: View {
+  @Environment(AppSession.self) private var session
+  @Environment(\.dismiss) private var dismiss
+  @Bindable var recipe: LocalRecipe
+  @State private var draft: String
+  @State private var isEditing: Bool
+  @State private var isSaving = false
+  @State private var error: String?
+
+  init(recipe: LocalRecipe, startsEditing: Bool) {
+    self.recipe = recipe
+    _draft = State(initialValue: recipe.memo ?? "")
+    _isEditing = State(initialValue: startsEditing)
+  }
+
+  private var trimmedMemo: String {
+    draft.trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+
+  private var canEdit: Bool {
+    RecipeDetailPresentation.canEdit(status: recipe.analysisStatus)
+  }
+
+  var body: some View {
+    NavigationStack {
+      ZStack {
+        FoodfolioBackground()
+
+        if isEditing {
+          VStack(alignment: .leading, spacing: 12) {
+            ZStack(alignment: .topLeading) {
+              TextEditor(text: $draft)
+                .scrollContentBackground(.hidden)
+                .padding(12)
+                .frame(minHeight: 220)
+                .background(
+                  FoodfolioTheme.surface,
+                  in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+                )
+                .accessibilityIdentifier("memo.editor")
+
+              if draft.isEmpty {
+                Text("作ってみた感想や、次回気をつけたいことを記録")
+                  .font(.body)
+                  .foregroundStyle(FoodfolioTheme.secondaryInk)
+                  .padding(.horizontal, 18)
+                  .padding(.vertical, 20)
+                  .allowsHitTesting(false)
+              }
+            }
+
+            Text("\(draft.count)/2000")
+              .font(.caption)
+              .foregroundStyle(
+                draft.count > 2000 ? Color.red : FoodfolioTheme.secondaryInk
+              )
+              .frame(maxWidth: .infinity, alignment: .trailing)
+              .accessibilityIdentifier("memo.characterCount")
+
+            if let error {
+              Label(error, systemImage: "exclamationmark.circle")
+                .font(.subheadline)
+                .foregroundStyle(.red)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer()
+          }
+          .padding(20)
+          .disabled(isSaving)
+        } else {
+          ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+              Text(recipe.memo ?? "")
+                .font(.body)
+                .foregroundStyle(FoodfolioTheme.ink)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(18)
+                .background(
+                  FoodfolioTheme.surface,
+                  in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+                )
+                .accessibilityIdentifier("memo.content")
+
+              if canEdit {
+                Button {
+                  draft = recipe.memo ?? ""
+                  isEditing = true
+                  error = nil
+                } label: {
+                  Label("編集", systemImage: "pencil")
+                    .font(.body.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 50)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(FoodfolioTheme.terracotta)
+                .accessibilityIdentifier("memo.edit")
+              }
+            }
+            .padding(20)
+          }
+          .scrollIndicators(.hidden)
+        }
+      }
+      .navigationTitle("メモ")
+      .navigationBarTitleDisplayMode(.inline)
+      .tint(FoodfolioTheme.terracotta)
+      .toolbar {
+        ToolbarItem(placement: .cancellationAction) {
+          Button(isEditing ? "キャンセル" : "閉じる") {
+            dismiss()
+          }
+          .disabled(isSaving)
+          .accessibilityIdentifier("memo.cancel")
+        }
+
+        if isEditing {
+          ToolbarItem(placement: .confirmationAction) {
+            Button {
+              save()
+            } label: {
+              if isSaving {
+                ProgressView()
+              } else {
+                Text("保存")
+              }
+            }
+            .disabled(isSaving || draft.count > 2000)
+            .accessibilityIdentifier("memo.save")
+          }
+        }
+      }
+    }
+  }
+
+  private func save() {
+    guard !isSaving, draft.count <= 2000 else { return }
+    isSaving = true
+    error = nil
+    let value = trimmedMemo.isEmpty ? nil : draft
+
+    Task {
+      do {
+        _ = try await session.repository.updateMemo(id: recipe.id, memo: value)
+        dismiss()
+      } catch {
+        self.error = error.localizedDescription
+        self.isSaving = false
+      }
+    }
   }
 }
 

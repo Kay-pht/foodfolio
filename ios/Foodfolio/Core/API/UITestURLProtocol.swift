@@ -19,15 +19,21 @@
       switch (method, path) {
       case ("POST", "/v1/recipes"):
         finish(status: 201, json: recipe(title: "追加したレシピ"))
-      case ("PATCH", "/v1/recipes/ui-added-recipe"):
+      case ("PATCH", "/v1/recipes/ui-recipe"), ("PATCH", "/v1/recipes/ui-added-recipe"):
         let body = requestBody()
+        let isSeedRecipe = path.contains("/ui-recipe")
+        let isMemoUpdate = body.keys.contains("memo")
         finish(
           status: 200,
           json: recipe(
-            title: "追加したレシピ 更新",
-            genre: body["genre"] as? String,
+            id: isSeedRecipe ? "ui-recipe" : "ui-added-recipe",
+            title: isSeedRecipe ? "親子丼" : (isMemoUpdate ? "追加したレシピ" : "追加したレシピ 更新"),
+            genre: body["genre"] as? String ?? "主菜",
             ingredients: body["ingredients"] as? [[String: Any]] ?? [],
-            tags: []))
+            tags: isSeedRecipe ? [existingTag()] : [],
+            analysisStatus: isSeedRecipe ? uiRecipeAnalysisStatus() : "completed",
+            memo: body["memo"] as? String,
+            updatedAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(60))))
       case ("PATCH", "/v1/recipes/ui-recipe/want-to-cook"),
         ("PATCH", "/v1/recipes/ui-added-recipe/want-to-cook"):
         if ProcessInfo.processInfo.arguments.contains("-ui-testing-want-to-cook-failure") {
@@ -106,7 +112,7 @@
     private func recipe(
       id: String = "ui-added-recipe", title: String, genre: String? = "主菜",
       ingredients: [[String: Any]] = [], tags: [[String: Any]] = [],
-      analysisStatus: String = "completed", wantToCookAt: String? = nil,
+      analysisStatus: String = "completed", wantToCookAt: String? = nil, memo: String? = nil,
       updatedAt: String = "2026-08-28T00:00:01Z"
     ) -> [String: Any] {
       [
@@ -121,6 +127,7 @@
         "genre": genre ?? NSNull(),
         "analysisStatus": analysisStatus,
         "wantToCookAt": wantToCookAt ?? NSNull(),
+        "memo": memo ?? NSNull(),
         "ingredients": ingredients.enumerated().map { index, item in
           [
             "id": "ui-added-ingredient-\(index)",

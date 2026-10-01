@@ -24,6 +24,7 @@ export function recipeDto(recipe: FullRecipe) {
     genre: recipe.genre ? GENRE_LABELS[recipe.genre] : null,
     analysisStatus: recipe.analysisStatus,
     wantToCookAt: recipe.wantToCookAt?.toISOString() ?? null,
+    memo: recipe.memo,
     ingredients: recipe.ingredients.map(({ id, name, amount, sortOrder }) => ({
       id,
       name,

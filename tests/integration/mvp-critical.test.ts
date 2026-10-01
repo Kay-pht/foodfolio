@@ -241,6 +241,7 @@ describe("MVP critical API integration", () => {
       ["processing", 409],
       ["completed", 200],
       ["failed", 200],
+      ["not_recipe", 409],
     ] as const) {
       const created = await app.inject({
         method: "POST",
@@ -264,6 +265,92 @@ describe("MVP critical API integration", () => {
         ).statusCode,
       ).toBe(expected);
     }
+    await app.close();
+  });
+
+  it("stores, syncs, validates and clears one memo on an editable owned recipe", async () => {
+    const app = buildApi({
+      prisma: context.prisma,
+      authVerifier: auth,
+      firebaseUsers: noOpFirebase,
+      taskQueue: noOpQueue,
+    });
+    const ownerHeaders = headers("memo-owner");
+    const created = await app.inject({
+      method: "POST",
+      url: "/v1/recipes",
+      headers: ownerHeaders,
+      payload: { url: "https://example.com/memo" },
+    });
+    const id = created.json().id as string;
+    expect(created.json().memo).toBeNull();
+    await context.prisma.recipe.update({
+      where: { id },
+      data: { analysisStatus: "completed" },
+    });
+
+    const saved = await app.inject({
+      method: "PATCH",
+      url: `/v1/recipes/${id}`,
+      headers: ownerHeaders,
+      payload: { memo: "  味が濃かった。\n次回は醤油を減らす。  " },
+    });
+    expect(saved.statusCode).toBe(200);
+    expect(saved.json().memo).toBe("味が濃かった。\n次回は醤油を減らす。");
+    expect(
+      (await context.prisma.recipe.findUnique({ where: { id } }))?.memo,
+    ).toBe("味が濃かった。\n次回は醤油を減らす。");
+
+    const sync = await app.inject({
+      method: "GET",
+      url: "/v1/sync",
+      headers: ownerHeaders,
+    });
+    expect(
+      sync.json().recipes.find((recipe: { id: string }) => recipe.id === id)
+        ?.memo,
+    ).toBe("味が濃かった。\n次回は醤油を減らす。");
+
+    expect(
+      (
+        await app.inject({
+          method: "PATCH",
+          url: `/v1/recipes/${id}`,
+          headers: ownerHeaders,
+          payload: { memo: "a".repeat(2000) },
+        })
+      ).statusCode,
+    ).toBe(200);
+    expect(
+      (
+        await app.inject({
+          method: "PATCH",
+          url: `/v1/recipes/${id}`,
+          headers: ownerHeaders,
+          payload: { memo: "a".repeat(2001) },
+        })
+      ).statusCode,
+    ).toBe(422);
+    expect(
+      (
+        await app.inject({
+          method: "PATCH",
+          url: `/v1/recipes/${id}`,
+          headers: headers("memo-other"),
+          payload: { memo: "見えてはいけない" },
+        })
+      ).statusCode,
+    ).toBe(404);
+
+    const cleared = await app.inject({
+      method: "PATCH",
+      url: `/v1/recipes/${id}`,
+      headers: ownerHeaders,
+      payload: { memo: "   \n  " },
+    });
+    expect(cleared.statusCode).toBe(200);
+    expect(cleared.json().memo).toBeNull();
+
     await app.close();
   });
 

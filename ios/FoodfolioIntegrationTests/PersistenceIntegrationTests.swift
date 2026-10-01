@@ -100,6 +100,28 @@ import XCTest
         .isEmpty)
   }
 
+  func testMemoIsUpsertedAndExcludedFromSearch() async throws {
+    let container = try ModelContainerFactory.make(inMemory: true)
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    let repository = RecipeRepository(
+      context: container.mainContext,
+      api: APIClient(
+        baseURL: URL(string: "https://example.invalid")!, tokenProvider: TestTokenProvider()),
+      images: try RecipeImageStore(root: root))
+    let date = Date()
+
+    try await repository.upsert(
+      makeRecipe(id: "memo-recipe", date: date, memo: "味が濃かった。次回は醤油を減らす。"))
+
+    XCTAssertEqual(
+      try repository.recipe(id: "memo-recipe")?.memo,
+      "味が濃かった。次回は醤油を減らす。")
+    XCTAssertTrue(try repository.search(query: "濃かった", genre: nil, tagID: nil).isEmpty)
+    XCTAssertEqual(
+      try repository.search(query: "memo-recipe", genre: nil, tagID: nil).map(\.id),
+      ["memo-recipe"])
+  }
+
   func testImageStoreWritesReadsAndCleansUp() async throws {
     let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
     let store = try RecipeImageStore(root: root)
@@ -271,13 +293,13 @@ private let validPNGData = Data(
 
 private func makeRecipe(
   id: String, date: Date, imageUrl: String? = nil, wantToCookAt: Date? = nil,
-  tags: [TagDTO] = []
+  memo: String? = nil, tags: [TagDTO] = []
 ) -> RecipeDTO {
   RecipeDTO(
     id: id, originalUrl: "https://example.com/\(id)", sourceType: "web", title: id,
     imageUrl: imageUrl, servingsValue: nil, servingsRaw: nil, cookingTimeMinutes: nil, genre: nil,
-    analysisStatus: .completed, wantToCookAt: wantToCookAt, ingredients: [], steps: [], tags: tags,
-    createdAt: date, updatedAt: date)
+    analysisStatus: .completed, wantToCookAt: wantToCookAt, memo: memo, ingredients: [], steps: [],
+    tags: tags, createdAt: date, updatedAt: date)
 }
 
 private struct TestTokenProvider: IDTokenProvider {
