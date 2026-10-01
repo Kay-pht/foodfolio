@@ -168,16 +168,22 @@ export class YtDlpMediaRetriever implements MediaRetriever {
     attempt?: number,
   ): unknown {
     if (!spec) return error;
-    return new AnalysisError(spec.code, spec.retryable, spec.message, undefined, {
-      mediaFailureStage: stage,
-      mediaFailureClass: "filesystem",
-      ...(attempt !== undefined
-        ? {
-            mediaAttempt: attempt,
-            mediaMaxAttempts: this.config.maxAttempts,
-          }
-        : {}),
-    });
+    return new AnalysisError(
+      spec.code,
+      spec.retryable,
+      spec.message,
+      undefined,
+      {
+        mediaFailureStage: stage,
+        mediaFailureClass: "filesystem",
+        ...(attempt !== undefined
+          ? {
+              mediaAttempt: attempt,
+              mediaMaxAttempts: this.config.maxAttempts,
+            }
+          : {}),
+      },
+    );
   }
 }
 
