@@ -85,3 +85,4 @@ regression:
     - tests/unit/safe-http-client.test.ts
     - tests/unit/tiktok-source-content-extractor.test.ts
     - tests/unit/instagram-media-retriever.test.ts
+    - tests/unit/media-retriever.test.ts
