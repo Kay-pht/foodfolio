@@ -188,6 +188,16 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
           retryable: false,
           message: `Instagram media download failed after ${config.maxAttempts} attempts`,
         },
+        localPrepareError: {
+          code: "INTERNAL_ANALYSIS_ERROR",
+          retryable: true,
+          message: "Instagram single-video local preparation failed",
+        },
+        localCleanupError: {
+          code: "INTERNAL_ANALYSIS_ERROR",
+          retryable: true,
+          message: "Instagram single-video local cleanup failed",
+        },
       });
   }
 
@@ -395,23 +405,25 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
     try {
       local = await this.singleVideoRetriever.retrieve(url);
     } catch (error) {
-      if (!(error instanceof AnalysisError))
-        throw new AnalysisError(
-          "INTERNAL_ANALYSIS_ERROR",
-          true,
-          "Instagram single-video local preparation failed",
+      if (error instanceof AnalysisError) {
+        if (error.diagnostics?.mediaFailureStage) throw error;
+        throw mediaFailureContext(
+          error,
+          "single_video_download",
           undefined,
-          {
-            mediaFailureStage: "local_prepare",
-            mediaFailureClass: "filesystem",
-          },
+          this.config.maxAttempts,
+          this.config.maxAttempts,
         );
-      throw mediaFailureContext(
-        error,
-        "single_video_download",
+      }
+      throw new AnalysisError(
+        "INTERNAL_ANALYSIS_ERROR",
+        true,
+        "Instagram single-video download failed unexpectedly",
         undefined,
-        this.config.maxAttempts,
-        this.config.maxAttempts,
+        {
+          mediaFailureStage: "single_video_download",
+          mediaFailureClass: "unknown",
+        },
       );
     }
 
