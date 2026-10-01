@@ -74,19 +74,28 @@ const defaultLocalRemover: LocalRemover = async (path, recursive) => {
 type UnknownRecord = Record<string, unknown>;
 
 function isTimeoutFailure(error: unknown): boolean {
-  if (!error || typeof error !== "object") return false;
-  const record = error as Record<string, unknown>;
-  const name = typeof record.name === "string" ? record.name : null;
-  const code = typeof record.code === "string" ? record.code : null;
-  return (
-    name === "TimeoutError" ||
-    name === "AbortError" ||
-    code === "ETIMEDOUT" ||
-    code === "UND_ERR_CONNECT_TIMEOUT" ||
-    code === "UND_ERR_HEADERS_TIMEOUT" ||
-    code === "UND_ERR_BODY_TIMEOUT" ||
-    (record.killed === true && record.signal === "SIGKILL")
-  );
+  let current = error;
+  const seen = new Set<object>();
+  for (let depth = 0; depth < 4; depth += 1) {
+    if (!current || typeof current !== "object") return false;
+    if (seen.has(current)) return false;
+    seen.add(current);
+    const record = current as Record<string, unknown>;
+    const name = typeof record.name === "string" ? record.name : null;
+    const code = typeof record.code === "string" ? record.code : null;
+    if (
+      name === "TimeoutError" ||
+      name === "AbortError" ||
+      code === "ETIMEDOUT" ||
+      code === "UND_ERR_CONNECT_TIMEOUT" ||
+      code === "UND_ERR_HEADERS_TIMEOUT" ||
+      code === "UND_ERR_BODY_TIMEOUT" ||
+      (record.killed === true && record.signal === "SIGKILL")
+    )
+      return true;
+    current = record.cause;
+  }
+  return false;
 }
 
 function metadataFailureClass(error: unknown): MediaFailureClass {
@@ -188,6 +197,7 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
           retryable: false,
           message: `Instagram media download failed after ${config.maxAttempts} attempts`,
         },
+        downloadFailureStage: "single_video_download",
         localPrepareError: {
           code: "INTERNAL_ANALYSIS_ERROR",
           retryable: true,
