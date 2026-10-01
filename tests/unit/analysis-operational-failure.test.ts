@@ -18,6 +18,7 @@ describe("describeAnalysisFailure", () => {
       impact:
         "対象のレシピは解析完了にならず、アプリでは解析失敗として表示されます。",
       retryPolicy: "final_failure",
+      diagnosticDetail: "追加診断情報なし",
       nextAction:
         "取得元URLへの到達可否とWorkerログのHTTP応答・リダイレクトを確認してください。",
     });
@@ -37,6 +38,7 @@ describe("describeAnalysisFailure", () => {
       impact:
         "対象のレシピは解析完了にならず、アプリでは解析失敗として表示されます。",
       retryPolicy: "final_failure",
+      diagnosticDetail: "追加診断情報なし",
       nextAction:
         "WorkerログのFUTURE_ERRORと同時刻のログを確認し、再発状況と影響範囲を調査してください。",
     });
