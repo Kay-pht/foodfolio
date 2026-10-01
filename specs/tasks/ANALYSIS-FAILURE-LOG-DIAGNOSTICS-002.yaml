@@ -33,7 +33,10 @@ requirements:
       preparation, and cleanup failures remain distinguishable in Cloud Logging.
     verification:
       - src/infrastructure/instagram/yt-dlp-instagram-media-retriever.ts
+      - src/infrastructure/media/yt-dlp-media-retriever.ts
       - tests/unit/instagram-media-retriever.test.ts
+    - tests/unit/media-retriever.test.ts
+      - tests/unit/media-retriever.test.ts
   - id: AFLD-4
     condition: A Recipe Analysis final failure contains source or media diagnostics.
     expected: >-
@@ -50,6 +53,7 @@ edge_cases:
   - Undici UND_ERR_CONNECT_TIMEOUT is normalized to timeout rather than network.
   - Temporary work-directory creation failure is normalized to local_prepare/filesystem while preserving retryability.
   - Reused work-directory cleanup failure remains retryable as it was before the diagnostics change.
+  - Single-video local filesystem failures distinguish local_prepare from local_cleanup, and cleanup failures retain the available internal attempt count.
   - A raw third-party exception without a recognized timeout shape is normalized to a fixed failure class rather than copied into logs.
   - HTTP failures preserve only the numeric status and fixed diagnostic enums.
   - Existing AnalysisError codes from the temporary media store keep their original code and retryability while receiving media stage context.
