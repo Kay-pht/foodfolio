@@ -52,7 +52,7 @@ edge_cases:
   - Undici UND_ERR_CONNECT_TIMEOUT is normalized to timeout rather than network.
   - Temporary work-directory creation failure is normalized to local_prepare/filesystem while preserving retryability.
   - Reused work-directory cleanup failure remains retryable as it was before the diagnostics change.
-  - Single-video local filesystem failures distinguish local_prepare from local_cleanup, and cleanup failures retain the available internal attempt count.
+  - Single-video local filesystem failures distinguish local_prepare from local_cleanup, retain mediaIndex=1 and mediaKind=video, and cleanup failures retain the available internal attempt count.
   - A raw third-party exception without a recognized timeout shape is normalized to a fixed failure class rather than copied into logs.
   - HTTP failures preserve only the numeric status and fixed diagnostic enums.
   - Existing AnalysisError codes from the temporary media store keep their original code and retryability while receiving media stage context.
@@ -76,7 +76,7 @@ acceptance_criteria:
   - An Instagram asset HTTP failure identifies the asset download stage, numeric HTTP status, item index, and media kind without exposing its URL or headers.
   - Metadata and publish failures identify their own stages and internal attempt counts.
   - Child-process and HTTP connection timeouts are classified as timeout.
-  - Local work-directory creation and pre-retry cleanup failures keep the pre-change retry behavior while receiving filesystem diagnostics.
+  - Local work-directory creation and pre-retry cleanup failures keep the pre-change retry behavior while receiving filesystem diagnostics, including the known single-video media index and kind.
   - Slack final-failure notifications display a controlled Japanese diagnostic summary for every available source/media diagnostic field.
   - Focused regression tests and the repository Quality checks pass.
 regression:
