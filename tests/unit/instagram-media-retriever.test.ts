@@ -347,6 +347,111 @@ describe("YtDlpInstagramMediaRetriever", () => {
     expect(assetDownloader).not.toHaveBeenCalled();
   });
 
+  it("normalizes work-directory creation failures without changing retryability", async () => {
+    const retriever = new YtDlpInstagramMediaRetriever(
+      config,
+      createMediaStore(),
+      async () => ({
+        entries: [
+          {
+            formats: [],
+            thumbnails: [{ url: "https://cdn.example/1.jpg" }],
+          },
+        ],
+      }),
+      { retrieve: vi.fn() },
+      vi.fn(),
+      async () => {},
+      undefined,
+      async () => {
+        throw new Error("private filesystem detail");
+      },
+    );
+
+    let failure: unknown;
+    try {
+      await retriever.retrieve(
+        new URL("https://www.instagram.com/p/no-temp-dir/"),
+      );
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toMatchObject({
+      code: "INTERNAL_ANALYSIS_ERROR",
+      retryable: true,
+      diagnostics: {
+        mediaFailureStage: "local_prepare",
+        mediaFailureClass: "filesystem",
+        mediaAttempt: 1,
+        mediaMaxAttempts: 2,
+      },
+    });
+    expect(JSON.stringify(failure)).not.toContain("private filesystem detail");
+  });
+
+  it("preserves retryability when clearing a reused work directory fails", async () => {
+    let downloadAttempt = 0;
+    const rootPrefix = join(tmpdir(), "foodfolio-instagram-media-");
+    const removeLocal = vi.fn(async (path: string, recursive: boolean) => {
+      const suffix = path.startsWith(rootPrefix)
+        ? path.slice(rootPrefix.length)
+        : "";
+      const isChildOfWorkDirectory =
+        recursive && path.startsWith(rootPrefix) && suffix.includes("/");
+      if (isChildOfWorkDirectory)
+        throw new Error("private cleanup detail");
+      if (recursive) {
+        await rm(path, { recursive: true, force: true });
+        return;
+      }
+      await rm(path, { force: true });
+    });
+    const retriever = new YtDlpInstagramMediaRetriever(
+      config,
+      createMediaStore(),
+      async () => ({
+        entries: [
+          {
+            formats: [],
+            thumbnails: [{ url: "https://cdn.example/1.jpg" }],
+          },
+        ],
+      }),
+      { retrieve: vi.fn() },
+      async (_asset, workDirectory) => {
+        downloadAttempt += 1;
+        const filePath = join(workDirectory, "partial.jpg");
+        await writeFile(filePath, new Uint8Array([1]));
+        throw new Error("download failed");
+      },
+      async () => {},
+      removeLocal,
+    );
+
+    let failure: unknown;
+    try {
+      await retriever.retrieve(
+        new URL("https://www.instagram.com/p/retry-cleanup/"),
+      );
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(downloadAttempt).toBe(1);
+    expect(failure).toMatchObject({
+      code: "INTERNAL_ANALYSIS_ERROR",
+      retryable: true,
+      diagnostics: {
+        mediaFailureStage: "local_cleanup",
+        mediaFailureClass: "filesystem",
+        mediaAttempt: 2,
+        mediaMaxAttempts: 2,
+      },
+    });
+    expect(JSON.stringify(failure)).not.toContain("private cleanup detail");
+  });
+
   it("classifies work-directory removal failures as local cleanup", async () => {
     const metadata = {
       entries: [
@@ -491,6 +596,45 @@ describe("YtDlpInstagramMediaRetriever", () => {
     });
     expect(mediaStore.publish).toHaveBeenCalledTimes(4);
     expect(disposePublished).toHaveBeenCalledTimes(2);
+  });
+
+  it("classifies execFile-style metadata timeouts as timeouts", async () => {
+    const metadataProbe = vi.fn(async () => {
+      throw Object.assign(new Error("private process detail"), {
+        code: null,
+        killed: true,
+        signal: "SIGKILL",
+      });
+    });
+    const retriever = new YtDlpInstagramMediaRetriever(
+      config,
+      createMediaStore(),
+      metadataProbe,
+      { retrieve: vi.fn() },
+      vi.fn(),
+      async () => {},
+    );
+
+    let failure: unknown;
+    try {
+      await retriever.retrieve(
+        new URL("https://www.instagram.com/p/timeout/"),
+      );
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toMatchObject({
+      code: "INSTAGRAM_MEDIA_METADATA_FAILED",
+      retryable: true,
+      diagnostics: {
+        mediaFailureStage: "metadata_probe",
+        mediaFailureClass: "timeout",
+        mediaAttempt: 2,
+        mediaMaxAttempts: 2,
+      },
+    });
+    expect(JSON.stringify(failure)).not.toContain("private process detail");
   });
 
   it("maps repeated metadata probe failures to a retryable analysis error", async () => {
