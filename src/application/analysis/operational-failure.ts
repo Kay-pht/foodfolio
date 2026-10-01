@@ -182,15 +182,12 @@ function describeDiagnosticDetail(
   const mediaIndex = validInteger(diagnostics.mediaIndex, 1);
   if (mediaIndex !== undefined) parts.push(`投稿内項目: ${mediaIndex}`);
   if (diagnostics.mediaKind)
-    parts.push(
-      `種別: ${diagnostics.mediaKind === "image" ? "画像" : "動画"}`,
-    );
+    parts.push(`種別: ${diagnostics.mediaKind === "image" ? "画像" : "動画"}`);
   const mediaAttempt = validInteger(diagnostics.mediaAttempt, 1);
   const mediaMaxAttempts = validInteger(diagnostics.mediaMaxAttempts, 1);
   if (mediaAttempt !== undefined && mediaMaxAttempts !== undefined)
     parts.push(`内部試行: ${mediaAttempt}/${mediaMaxAttempts}`);
-  else if (mediaAttempt !== undefined)
-    parts.push(`内部試行: ${mediaAttempt}`);
+  else if (mediaAttempt !== undefined) parts.push(`内部試行: ${mediaAttempt}`);
 
   return parts.length ? parts.join(" / ") : "追加診断情報なし";
 }

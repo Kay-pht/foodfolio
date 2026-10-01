@@ -202,13 +202,13 @@ resource "google_monitoring_alert_policy" "recipe_analysis_final_failure" {
       label_extractors = {
         analysis_attempt  = "EXTRACT(jsonPayload.analysisAttemptLabel)"
         diagnostic_detail = "EXTRACT(jsonPayload.diagnosticDetail)"
-        error_code         = "EXTRACT(jsonPayload.errorCode)"
-        impact           = "EXTRACT(jsonPayload.impact)"
-        next_action      = "EXTRACT(jsonPayload.nextAction)"
-        provider         = "EXTRACT(jsonPayload.provider)"
-        retry_policy     = "EXTRACT(jsonPayload.retryPolicy)"
-        summary          = "EXTRACT(jsonPayload.summary)"
-        target           = "EXTRACT(jsonPayload.target)"
+        error_code        = "EXTRACT(jsonPayload.errorCode)"
+        impact            = "EXTRACT(jsonPayload.impact)"
+        next_action       = "EXTRACT(jsonPayload.nextAction)"
+        provider          = "EXTRACT(jsonPayload.provider)"
+        retry_policy      = "EXTRACT(jsonPayload.retryPolicy)"
+        summary           = "EXTRACT(jsonPayload.summary)"
+        target            = "EXTRACT(jsonPayload.target)"
       }
     }
   }

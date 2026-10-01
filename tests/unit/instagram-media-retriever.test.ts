@@ -399,8 +399,7 @@ describe("YtDlpInstagramMediaRetriever", () => {
         : "";
       const isChildOfWorkDirectory =
         recursive && path.startsWith(rootPrefix) && suffix.includes("/");
-      if (isChildOfWorkDirectory)
-        throw new Error("private cleanup detail");
+      if (isChildOfWorkDirectory) throw new Error("private cleanup detail");
       if (recursive) {
         await rm(path, { recursive: true, force: true });
         return;
@@ -617,9 +616,7 @@ describe("YtDlpInstagramMediaRetriever", () => {
 
     let failure: unknown;
     try {
-      await retriever.retrieve(
-        new URL("https://www.instagram.com/p/timeout/"),
-      );
+      await retriever.retrieve(new URL("https://www.instagram.com/p/timeout/"));
     } catch (error) {
       failure = error;
     }
