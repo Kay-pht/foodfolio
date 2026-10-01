@@ -223,7 +223,7 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
         );
         if (attempt === this.config.maxAttempts) {
           if (workDirectory)
-            await this.removeWorkDirectory(workDirectory, attempt);
+            await this.removeWorkDirectory(workDirectory, attempt, true);
           throw failure;
         }
         await this.waitBeforeRetry(attempt);
@@ -236,7 +236,7 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
         assertCompleteMedia(parsed);
       } catch (error) {
         if (workDirectory)
-          await this.removeWorkDirectory(workDirectory, attempt);
+          await this.removeWorkDirectory(workDirectory, attempt, true);
         throw mediaFailureContext(
           error,
           "metadata_probe",
@@ -248,7 +248,7 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
       }
       if (parsed.assets.length === 1 && parsed.assets[0]?.kind === "video") {
         if (workDirectory)
-          await this.removeWorkDirectory(workDirectory, attempt);
+          await this.removeWorkDirectory(workDirectory, attempt, true);
         return this.retrieveAndPublishSingleVideo(url);
       }
 
@@ -358,11 +358,11 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
             this.config.maxAttempts,
             "storage",
           );
-          await this.removeWorkDirectory(currentWorkDirectory, attempt);
+          await this.removeWorkDirectory(currentWorkDirectory, attempt, true);
           throw publishedCleanupFailure;
         }
         if (attempt === this.config.maxAttempts) {
-          await this.removeWorkDirectory(currentWorkDirectory, attempt);
+          await this.removeWorkDirectory(currentWorkDirectory, attempt, true);
           throw failure;
         }
         await this.waitBeforeRetry(attempt);
@@ -426,13 +426,23 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
       try {
         await local.dispose();
       } catch (error) {
-        throw mediaFailureContext(
-          error,
-          "local_cleanup",
-          { index: 1, kind: "video" },
-          local.attempts,
-          this.config.maxAttempts,
-          "filesystem",
+        const existing = error instanceof AnalysisError ? error : null;
+        throw new AnalysisError(
+          existing?.code ?? "INTERNAL_ANALYSIS_ERROR",
+          existing?.retryable ?? true,
+          existing?.message ?? "Instagram local media cleanup failed",
+          existing?.provider,
+          {
+            ...(existing?.diagnostics ?? {}),
+            mediaFailureStage:
+              existing?.diagnostics?.mediaFailureStage ?? "local_cleanup",
+            mediaFailureClass:
+              existing?.diagnostics?.mediaFailureClass ?? "filesystem",
+            mediaIndex: existing?.diagnostics?.mediaIndex ?? 1,
+            mediaKind: existing?.diagnostics?.mediaKind ?? "video",
+            mediaAttempt: local.attempts,
+            mediaMaxAttempts: this.config.maxAttempts,
+          },
         );
       }
       return {
@@ -482,10 +492,29 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
   private async removeWorkDirectory(
     workDirectory: string,
     attempt: number,
+    unexpectedFailureRemainsRetryable = false,
   ): Promise<void> {
     try {
       await this.removeLocal(workDirectory, true);
     } catch (error) {
+      if (unexpectedFailureRemainsRetryable) {
+        const existing = error instanceof AnalysisError ? error : null;
+        throw new AnalysisError(
+          existing?.code ?? "INTERNAL_ANALYSIS_ERROR",
+          existing?.retryable ?? true,
+          existing?.message ?? "Instagram local work directory cleanup failed",
+          existing?.provider,
+          {
+            ...(existing?.diagnostics ?? {}),
+            mediaFailureStage:
+              existing?.diagnostics?.mediaFailureStage ?? "local_cleanup",
+            mediaFailureClass:
+              existing?.diagnostics?.mediaFailureClass ?? "filesystem",
+            mediaAttempt: attempt,
+            mediaMaxAttempts: this.config.maxAttempts,
+          },
+        );
+      }
       throw mediaFailureContext(
         error,
         "local_cleanup",
