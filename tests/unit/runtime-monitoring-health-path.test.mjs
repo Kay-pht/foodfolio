@@ -75,6 +75,7 @@ describe("actionable runtime alert notifications", () => {
 
     for (const field of [
       "analysisAttemptLabel",
+      "diagnosticDetail",
       "errorCode",
       "impact",
       "nextAction",
@@ -87,6 +88,8 @@ describe("actionable runtime alert notifications", () => {
     }
     expect(policy).toContain("## 何が起きたか");
     expect(policy).toContain("## 影響");
+    expect(policy).toContain("## 診断情報");
+    expect(policy).toContain("$${log.extracted_label.diagnostic_detail}");
     expect(policy).toContain("## 次に行うこと");
     expect(policy).toContain(
       "レシピID、URL、リクエスト本文、例外メッセージはSlackへ表示しません",
