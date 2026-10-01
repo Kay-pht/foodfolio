@@ -81,6 +81,35 @@ describe("SafeHttpClient hostname validation", () => {
     expect(dump).toHaveBeenCalledTimes(1);
   });
 
+  it("classifies Undici connection timeouts as timeouts", async () => {
+    requestMock.mockRejectedValueOnce(
+      Object.assign(new Error("private connect detail"), {
+        name: "ConnectTimeoutError",
+        code: "UND_ERR_CONNECT_TIMEOUT",
+      }),
+    );
+    const client = new SafeHttpClient();
+
+    let failure: unknown;
+    try {
+      await client.get(new URL("https://example.com/recipe"));
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toMatchObject({
+      code: "SOURCE_FETCH_TIMEOUT",
+      retryable: true,
+      diagnostics: {
+        sourceOperation: "source_fetch",
+        sourceFailureStage: "request",
+        sourceFailureClass: "timeout",
+        sourceRedirectCount: 0,
+      },
+    });
+    expect(JSON.stringify(failure)).not.toContain("private connect detail");
+  });
+
   it("records privacy-safe HTTP diagnostics for source failures", async () => {
     const dump = vi.fn(async () => undefined);
     requestMock.mockResolvedValueOnce({
