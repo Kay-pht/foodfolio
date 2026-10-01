@@ -117,6 +117,8 @@ describe("YtDlpInstagramMediaRetriever", () => {
           {
             mediaFailureStage: "local_prepare",
             mediaFailureClass: "filesystem",
+            mediaIndex: 1,
+            mediaKind: "video",
           },
         );
       }),
@@ -153,6 +155,8 @@ describe("YtDlpInstagramMediaRetriever", () => {
       diagnostics: {
         mediaFailureStage: "local_prepare",
         mediaFailureClass: "filesystem",
+        mediaIndex: 1,
+        mediaKind: "video",
       },
     });
     expect(
@@ -174,6 +178,8 @@ describe("YtDlpInstagramMediaRetriever", () => {
           {
             mediaFailureStage: "local_cleanup",
             mediaFailureClass: "filesystem",
+            mediaIndex: 1,
+            mediaKind: "video",
             mediaAttempt: 2,
             mediaMaxAttempts: 2,
           },
@@ -207,6 +213,8 @@ describe("YtDlpInstagramMediaRetriever", () => {
       diagnostics: {
         mediaFailureStage: "local_cleanup",
         mediaFailureClass: "filesystem",
+        mediaIndex: 1,
+        mediaKind: "video",
         mediaAttempt: 2,
         mediaMaxAttempts: 2,
       },
