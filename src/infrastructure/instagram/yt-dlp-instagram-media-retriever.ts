@@ -352,7 +352,7 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
           if (publishFailure) throw publishFailure;
         }
 
-        await this.removeWorkDirectory(currentWorkDirectory, attempt);
+        await this.removeWorkDirectory(currentWorkDirectory, attempt, true);
         workDirectory = null;
         return {
           items: published,
@@ -781,7 +781,7 @@ export async function downloadInstagramAsset(
   } catch {
     throw instagramDownloadFailure(
       asset,
-      "asset_validate",
+      "asset_download",
       "filesystem",
       "Instagram media temporary file could not be opened",
       response.status,
@@ -821,7 +821,7 @@ export async function downloadInstagramAsset(
       } catch {
         throw instagramDownloadFailure(
           asset,
-          "asset_validate",
+          "asset_download",
           "filesystem",
           "Instagram media temporary file could not be written",
           response.status,
