@@ -191,7 +191,7 @@ describe("SafeHttpClient hostname validation", () => {
     }
 
     expect(failure).toMatchObject({
-      code: "SOURCE_FETCH_FAILED",
+      code: "INTERNAL_ANALYSIS_ERROR",
       retryable: true,
       diagnostics: {
         sourceOperation: "tiktok_oembed",
@@ -228,7 +228,7 @@ describe("SafeHttpClient hostname validation", () => {
     }
 
     expect(failure).toMatchObject({
-      code: "SOURCE_FETCH_FAILED",
+      code: "INTERNAL_ANALYSIS_ERROR",
       retryable: true,
       diagnostics: {
         sourceOperation: "source_fetch",
