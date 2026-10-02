@@ -57,7 +57,7 @@ function sourceBodyFailure(
   httpStatus: number,
 ): AnalysisError {
   return new AnalysisError(
-    "SOURCE_FETCH_FAILED",
+    "INTERNAL_ANALYSIS_ERROR",
     true,
     "Source response body failed",
     undefined,
