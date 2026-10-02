@@ -18,6 +18,7 @@ describe("describeAnalysisFailure", () => {
       impact:
         "対象のレシピは解析完了にならず、アプリでは解析失敗として表示されます。",
       retryPolicy: "final_failure",
+      diagnosticDetail: "追加診断情報なし",
       nextAction:
         "取得元URLへの到達可否とWorkerログのHTTP応答・リダイレクトを確認してください。",
     });
@@ -37,6 +38,7 @@ describe("describeAnalysisFailure", () => {
       impact:
         "対象のレシピは解析完了にならず、アプリでは解析失敗として表示されます。",
       retryPolicy: "final_failure",
+      diagnosticDetail: "追加診断情報なし",
       nextAction:
         "WorkerログのFUTURE_ERRORと同時刻のログを確認し、再発状況と影響範囲を調査してください。",
     });
@@ -128,6 +130,64 @@ describe("actionable failure diagnostics", () => {
         .summary,
     ).toContain(phrase);
   });
+});
+
+it("renders every available source diagnostic as controlled Slack detail", () => {
+  const result = describeAnalysisFailure({
+    errorCode: "SOURCE_FETCH_FAILED",
+    provider: undefined,
+    attempt: 3,
+    diagnostics: {
+      sourceOperation: "tiktok_oembed",
+      sourceFailureStage: "response_body",
+      sourceFailureClass: "timeout",
+      sourceHttpStatus: 503,
+      sourceRedirectCount: 2,
+    },
+  });
+
+  expect(result.diagnosticDetail).toBe(
+    "取得処理: TikTok oEmbed取得 / 取得段階: レスポンス本文 / 取得原因: タイムアウト / HTTP: 503 / redirect: 2回",
+  );
+});
+
+it("renders every available media diagnostic as controlled Slack detail", () => {
+  const result = describeAnalysisFailure({
+    errorCode: "INSTAGRAM_MEDIA_DOWNLOAD_FAILED",
+    provider: undefined,
+    attempt: 3,
+    diagnostics: {
+      mediaFailureStage: "local_prepare",
+      mediaFailureClass: "filesystem",
+      mediaHttpStatus: 503,
+      mediaIndex: 2,
+      mediaKind: "image",
+      mediaAttempt: 1,
+      mediaMaxAttempts: 2,
+    },
+  });
+
+  expect(result.diagnosticDetail).toBe(
+    "メディア段階: ローカル作業領域準備 / メディア原因: ファイルシステム / メディアHTTP: 503 / 投稿内項目: 2 / 種別: 画像 / 内部試行: 1/2",
+  );
+});
+
+it("keeps Slack diagnostic detail free of arbitrary provider text", () => {
+  const result = describeAnalysisFailure({
+    errorCode: "AI_INVALID_JSON",
+    provider: "zai",
+    attempt: 3,
+    diagnostics: {
+      aiFailureStage: "content_invalid_json",
+      providerRequestId: "secret-request",
+      providerFinishReason: "secret-finish",
+      model: "secret-model",
+      schemaErrorPaths: ["secret-path"],
+    },
+  });
+
+  expect(result.diagnosticDetail).toBe("追加診断情報なし");
+  expect(JSON.stringify(result)).not.toContain("secret-");
 });
 
 // Legacy Gemini and AI codes can combine network and timeout failures.

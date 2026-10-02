@@ -1,0 +1,97 @@
+id: ANALYSIS-FAILURE-LOG-DIAGNOSTICS-002
+type: bug
+status: approved
+objective: >-
+  Preserve privacy-safe failure diagnostics for source HTTP requests and Instagram
+  media preparation so runtime incidents can be investigated without reproducing
+  the original transient failure.
+requirements:
+  - id: AFLD-1
+    condition: A SafeHttpClient request used by source extraction fails.
+    expected: >-
+      The AnalysisError diagnostics identify the source operation, failure stage,
+      normalized failure class, HTTP status when available, and redirect count without
+      logging response bodies, redirect targets, or exception text.
+    verification:
+      - src/infrastructure/url/safe-http-client.ts
+      - tests/unit/safe-http-client.test.ts
+  - id: AFLD-2
+    condition: TikTok source extraction performs short URL resolution or oEmbed retrieval.
+    expected: >-
+      The two HTTP operations are labeled tiktok_short_url and tiktok_oembed so a
+      SOURCE_FETCH_FAILED log identifies which request path failed while preserving the
+      existing error code and retry behavior.
+    verification:
+      - src/infrastructure/url/source-content-extractor.ts
+      - tests/unit/tiktok-source-content-extractor.test.ts
+  - id: AFLD-3
+    condition: Instagram metadata or media preparation fails.
+    expected: >-
+      The AnalysisError diagnostics identify the normalized media stage and failure class,
+      plus HTTP status, post index, media kind, and internal attempt counts when available.
+      Download, validation, temporary storage publish, local work-directory
+      preparation, and cleanup failures remain distinguishable in Cloud Logging.
+    verification:
+      - src/infrastructure/instagram/yt-dlp-instagram-media-retriever.ts
+      - src/infrastructure/media/yt-dlp-media-retriever.ts
+      - tests/unit/instagram-media-retriever.test.ts
+      - tests/unit/media-retriever.test.ts
+  - id: AFLD-4
+    condition: A Recipe Analysis final failure contains source or media diagnostics.
+    expected: >-
+      Every available repository-owned diagnostic enum and validated numeric field is
+      translated into a controlled Japanese diagnosticDetail and extracted into the
+      Slack notification without exposing URLs, headers, bodies, or exception text.
+    verification:
+      - src/application/analysis/operational-failure.ts
+      - infra/terraform/monitoring.tf
+      - tests/unit/analysis-operational-failure.test.ts
+      - tests/unit/runtime-monitoring-health-path.test.mjs
+edge_cases:
+  - Source response-body consumption failures keep the pre-change INTERNAL_ANALYSIS_ERROR/retryable behavior while receiving response_body diagnostics.
+  - A malformed redirect Location keeps the pre-change INTERNAL_ANALYSIS_ERROR/retryable behavior while receiving redirect/redirect_invalid_location diagnostics, HTTP status, and redirect count.
+  - Instagram work-directory removal failures inside a successful download/publish attempt use the existing internal retries and, when those retries are exhausted and final cleanup succeeds, remain INSTAGRAM_MEDIA_DOWNLOAD_FAILED/non-retryable with local_cleanup/filesystem diagnostics.
+  - Instagram final work-directory cleanup failures that escape the internal attempt handler remain INTERNAL_ANALYSIS_ERROR/retryable with local_cleanup/filesystem diagnostics.
+  - Published-media disposal after a successful retrieval keeps the pre-change INTERNAL_ANALYSIS_ERROR/retryable behavior while receiving published_cleanup/storage, media identity, and attempt diagnostics.
+  - Published-media cleanup while rolling back an already-failed retrieval keeps the pre-change INSTAGRAM_MEDIA_CLEANUP_FAILED/retryable behavior.
+  - Instagram temporary-file open/write failures are classified as asset_download/filesystem rather than asset_validate.
+  - Node child-process timeout termination with killed=true and SIGKILL is normalized to timeout.
+  - Undici UND_ERR_CONNECT_TIMEOUT is normalized to timeout rather than network.
+  - Temporary work-directory creation failure is normalized to local_prepare/filesystem while preserving retryability.
+  - Reused work-directory cleanup failure remains retryable as it was before the diagnostics change.
+  - Single-video local filesystem failures distinguish local_prepare from local_cleanup, retain mediaIndex=1 and mediaKind=video, and cleanup failures retain the available internal attempt count.
+  - A raw third-party exception without a recognized timeout shape is normalized to a fixed failure class rather than copied into logs.
+  - HTTP failures preserve only the numeric status and fixed diagnostic enums.
+  - Existing AnalysisError codes from the temporary media store keep their original code and retryability while receiving media stage context.
+  - Diagnostics may be partially absent when the failure happens before a status, media index, or attempt is available.
+security_invariants:
+  - Do not log redirect target URLs, media asset URLs, signed URLs, request or response bodies, HTTP headers, raw exception messages, or provider free-form text.
+  - The existing sourceUrl sanitization remains unchanged.
+  - Slack receives only the controlled diagnosticDetail derived from repository-owned enums and validated numbers; raw diagnostic payloads, URLs, headers, bodies, and exception text are not expanded into the notification.
+compatibility:
+  - Preserve existing analysis error codes, retryability, Cloud Tasks retry behavior, recipe state transitions, alert thresholds, and notification rate limits. One diagnostic_detail Slack label is added for controlled diagnosis text.
+  - Do not add a database migration, external dependency, or extra network request.
+non_functional:
+  - Diagnostic values use repository-owned enums and validated numeric metadata.
+  - Existing successful source and media paths remain unchanged.
+out_of_scope:
+  - Reprocessing recipes that already failed before deployment.
+  - Changing AI token limits, source extraction strategy, media fallback routing, or retry counts.
+  - Terraform apply, Worker deployment, and deliberate production failure drills.
+acceptance_criteria:
+  - A TikTok oEmbed HTTP 503 produces SOURCE_FETCH_FAILED with operation, stage, class, HTTP status, and redirect count in diagnostics.
+  - An Instagram asset HTTP failure identifies the asset download stage, numeric HTTP status, item index, and media kind without exposing its URL or headers.
+  - Metadata and publish failures identify their own stages and internal attempt counts.
+  - Child-process and HTTP connection timeouts are classified as timeout.
+  - Local work-directory creation and pre-retry cleanup failures keep the pre-change retry behavior while receiving filesystem diagnostics, including the known single-video media index and kind.
+  - After internal retries are exhausted and final cleanup succeeds, a successful-download cleanup failure yields Worker HTTP 204 and recipe failed; a malformed redirect yields Worker HTTP 503 and recipe pending until the delivery limit is reached.
+  - Slack final-failure notifications display a controlled Japanese diagnostic summary for every available source/media diagnostic field.
+  - Focused regression tests and the repository Quality checks pass.
+regression:
+  required: true
+  tests:
+    - tests/unit/safe-http-client.test.ts
+    - tests/unit/tiktok-source-content-extractor.test.ts
+    - tests/unit/instagram-media-retriever.test.ts
+    - tests/unit/media-retriever.test.ts
+    - tests/e2e/worker-error-compatibility.test.ts

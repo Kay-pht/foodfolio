@@ -81,10 +81,51 @@ export type AiFailureStage =
   | "content_invalid_json"
   | "schema_invalid";
 
+export type SourceFailureOperation =
+  "source_fetch" | "tiktok_short_url" | "tiktok_oembed";
+export type SourceFailureStage =
+  | "request"
+  | "redirect"
+  | "response_status"
+  | "response_body"
+  | "response_size";
+export type SourceFailureClass =
+  | "timeout"
+  | "network"
+  | "redirect_missing_location"
+  | "redirect_invalid_location"
+  | "redirect_limit"
+  | "http_error"
+  | "response_too_large";
+
+export type MediaFailureStage =
+  | "metadata_probe"
+  | "single_video_download"
+  | "asset_download"
+  | "asset_validate"
+  | "publish"
+  | "local_prepare"
+  | "local_cleanup"
+  | "published_cleanup";
+export type MediaFailureClass =
+  | "timeout"
+  | "network"
+  | "tool_error"
+  | "invalid_response"
+  | "http_error"
+  | "body_missing"
+  | "body_read"
+  | "unsupported_content_type"
+  | "too_large"
+  | "empty_body"
+  | "filesystem"
+  | "storage"
+  | "unknown";
+
 export interface AnalysisFailureDiagnostics {
-  aiFailureStage: AiFailureStage;
-  model: string;
-  latencyMs: number;
+  aiFailureStage?: AiFailureStage;
+  model?: string;
+  latencyMs?: number;
   providerRequestId?: string;
   providerHttpStatus?: number;
   providerFinishReason?: string;
@@ -95,6 +136,20 @@ export interface AnalysisFailureDiagnostics {
   schemaErrorCount?: number;
   schemaErrorKeywords?: string[];
   schemaErrorPaths?: string[];
+
+  sourceOperation?: SourceFailureOperation;
+  sourceFailureStage?: SourceFailureStage;
+  sourceFailureClass?: SourceFailureClass;
+  sourceHttpStatus?: number;
+  sourceRedirectCount?: number;
+
+  mediaFailureStage?: MediaFailureStage;
+  mediaFailureClass?: MediaFailureClass;
+  mediaHttpStatus?: number;
+  mediaIndex?: number;
+  mediaKind?: "image" | "video";
+  mediaAttempt?: number;
+  mediaMaxAttempts?: number;
 }
 export interface RecipeExtractor {
   extract(input: SourceContent): Promise<RecipeExtractionResult>;

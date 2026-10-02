@@ -1,4 +1,4 @@
-import type { AnalysisFailureDiagnostics } from "./types.js";
+import type { AiFailureStage, AnalysisFailureDiagnostics } from "./types.js";
 
 export interface AnalysisFailureDescriptionInput {
   errorCode: string;
@@ -14,6 +14,7 @@ export interface AnalysisFailureDescription {
   impact: string;
   retryPolicy: "final_failure";
   nextAction: string;
+  diagnosticDetail: string;
 }
 
 export function describeAnalysisFailure(
@@ -21,13 +22,14 @@ export function describeAnalysisFailure(
 ): AnalysisFailureDescription {
   const common: Pick<
     AnalysisFailureDescription,
-    "target" | "provider" | "impact" | "retryPolicy"
+    "target" | "provider" | "impact" | "retryPolicy" | "diagnosticDetail"
   > = {
     target: "レシピ解析",
     provider: input.provider ?? "not_applicable",
     impact:
       "対象のレシピは解析完了にならず、アプリでは解析失敗として表示されます。",
     retryPolicy: "final_failure" as const,
+    diagnosticDetail: describeDiagnosticDetail(input.diagnostics),
   };
 
   const detail = describeObservedFailure(input);
@@ -84,6 +86,112 @@ function tokenCount(value: number | undefined): number | undefined {
     : undefined;
 }
 
+function validInteger(
+  value: number | undefined,
+  minimum: number,
+  maximum = Number.MAX_SAFE_INTEGER,
+): number | undefined {
+  return value !== undefined &&
+    Number.isSafeInteger(value) &&
+    value >= minimum &&
+    value <= maximum
+    ? value
+    : undefined;
+}
+
+const SOURCE_OPERATION_LABELS: Record<string, string> = {
+  source_fetch: "取得元HTTP",
+  tiktok_short_url: "TikTok短縮URL解決",
+  tiktok_oembed: "TikTok oEmbed取得",
+};
+const SOURCE_STAGE_LABELS: Record<string, string> = {
+  request: "接続・リクエスト",
+  redirect: "リダイレクト",
+  response_status: "HTTP応答",
+  response_body: "レスポンス本文",
+  response_size: "レスポンスサイズ",
+};
+const SOURCE_CLASS_LABELS: Record<string, string> = {
+  timeout: "タイムアウト",
+  network: "ネットワーク障害",
+  redirect_missing_location: "redirect先欠落",
+  redirect_invalid_location: "redirect先不正",
+  redirect_limit: "redirect上限",
+  http_error: "HTTPエラー",
+  response_too_large: "レスポンスサイズ超過",
+};
+const MEDIA_STAGE_LABELS: Record<string, string> = {
+  metadata_probe: "Instagramメタデータ取得",
+  single_video_download: "単一動画ダウンロード",
+  asset_download: "メディアダウンロード",
+  asset_validate: "メディア検証",
+  publish: "一時ストレージ公開",
+  local_prepare: "ローカル作業領域準備",
+  local_cleanup: "ローカル後片付け",
+  published_cleanup: "公開済みメディア後片付け",
+};
+const MEDIA_CLASS_LABELS: Record<string, string> = {
+  timeout: "タイムアウト",
+  network: "ネットワーク障害",
+  tool_error: "取得ツールエラー",
+  invalid_response: "応答内容不正",
+  http_error: "HTTPエラー",
+  body_missing: "本文欠落",
+  body_read: "本文読み込み失敗",
+  unsupported_content_type: "未対応形式",
+  too_large: "サイズ超過",
+  empty_body: "空データ",
+  filesystem: "ファイルシステム",
+  storage: "ストレージ",
+  unknown: "原因未分類",
+};
+
+function describeDiagnosticDetail(
+  diagnostics: AnalysisFailureDiagnostics | undefined,
+): string {
+  if (!diagnostics) return "追加診断情報なし";
+
+  const parts: string[] = [];
+  const sourceOperation = diagnostics.sourceOperation
+    ? SOURCE_OPERATION_LABELS[diagnostics.sourceOperation]
+    : undefined;
+  const sourceStage = diagnostics.sourceFailureStage
+    ? SOURCE_STAGE_LABELS[diagnostics.sourceFailureStage]
+    : undefined;
+  const sourceClass = diagnostics.sourceFailureClass
+    ? SOURCE_CLASS_LABELS[diagnostics.sourceFailureClass]
+    : undefined;
+  if (sourceOperation) parts.push(`取得処理: ${sourceOperation}`);
+  if (sourceStage) parts.push(`取得段階: ${sourceStage}`);
+  if (sourceClass) parts.push(`取得原因: ${sourceClass}`);
+  const sourceStatus = validInteger(diagnostics.sourceHttpStatus, 100, 599);
+  if (sourceStatus !== undefined) parts.push(`HTTP: ${sourceStatus}`);
+  const redirects = validInteger(diagnostics.sourceRedirectCount, 0);
+  if (redirects !== undefined) parts.push(`redirect: ${redirects}回`);
+
+  const mediaStage = diagnostics.mediaFailureStage
+    ? MEDIA_STAGE_LABELS[diagnostics.mediaFailureStage]
+    : undefined;
+  const mediaClass = diagnostics.mediaFailureClass
+    ? MEDIA_CLASS_LABELS[diagnostics.mediaFailureClass]
+    : undefined;
+  if (mediaStage) parts.push(`メディア段階: ${mediaStage}`);
+  if (mediaClass) parts.push(`メディア原因: ${mediaClass}`);
+  const mediaStatus = validInteger(diagnostics.mediaHttpStatus, 100, 599);
+  if (mediaStatus !== undefined) parts.push(`メディアHTTP: ${mediaStatus}`);
+  const mediaIndex = validInteger(diagnostics.mediaIndex, 1);
+  if (mediaIndex !== undefined) parts.push(`投稿内項目: ${mediaIndex}`);
+  if (diagnostics.mediaKind)
+    parts.push(`種別: ${diagnostics.mediaKind === "image" ? "画像" : "動画"}`);
+  const mediaAttempt = validInteger(diagnostics.mediaAttempt, 1);
+  const mediaMaxAttempts = validInteger(diagnostics.mediaMaxAttempts, 1);
+  if (mediaAttempt !== undefined && mediaMaxAttempts !== undefined)
+    parts.push(`内部試行: ${mediaAttempt}/${mediaMaxAttempts}`);
+  else if (mediaAttempt !== undefined) parts.push(`内部試行: ${mediaAttempt}`);
+
+  return parts.length ? parts.join(" / ") : "追加診断情報なし";
+}
+
 function describeObservedFailure(
   input: AnalysisFailureDescriptionInput,
 ): FailureDetail | undefined {
@@ -138,9 +246,7 @@ function describeObservedFailure(
   return undefined;
 }
 
-const STAGE_DETAILS: Partial<
-  Record<AnalysisFailureDiagnostics["aiFailureStage"], FailureDetail>
-> = {
+const STAGE_DETAILS: Partial<Record<AiFailureStage, FailureDetail>> = {
   request_network: {
     summary: "AI提供元への通信に失敗しました。",
     nextAction:

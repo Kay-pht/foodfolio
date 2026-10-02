@@ -2,11 +2,12 @@ import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type {
-  LocalMediaItem,
-  MediaCollection,
-  MediaRetriever,
-  TemporaryMediaStore,
+import {
+  AnalysisError,
+  type LocalMediaItem,
+  type MediaCollection,
+  type MediaRetriever,
+  type TemporaryMediaStore,
 } from "../../src/application/analysis/types.js";
 import {
   downloadInstagramAsset,
@@ -105,6 +106,224 @@ describe("YtDlpInstagramMediaRetriever", () => {
     expect(disposePublished).toHaveBeenCalledOnce();
   });
 
+  if (process.platform !== "win32") {
+    it("preserves default-runner timeout diagnostics across single-video retries", async () => {
+      const directory = await mkdtemp(
+        join(tmpdir(), "foodfolio-test-instagram-timeout-"),
+      );
+      temporaryDirectories.push(directory);
+      const binaryPath = join(directory, "fake-yt-dlp");
+      await writeFile(binaryPath, "#!/bin/sh\nexec sleep 5\n", {
+        mode: 0o700,
+      });
+      const retriever = new YtDlpInstagramMediaRetriever(
+        {
+          ...config,
+          binaryPath,
+          maxAttempts: 2,
+          attemptTimeoutMs: 100,
+          retryBaseSeconds: 0,
+          maxRetrySeconds: 0,
+        },
+        createMediaStore(),
+        async () => ({
+          formats: [
+            {
+              url: "https://cdn.example/video.mp4",
+              width: 1080,
+              height: 1920,
+            },
+          ],
+        }),
+      );
+
+      await expect(
+        retriever.retrieve(
+          new URL("https://www.instagram.com/reel/process-timeout/"),
+        ),
+      ).rejects.toMatchObject({
+        code: "INSTAGRAM_MEDIA_DOWNLOAD_FAILED",
+        retryable: false,
+        diagnostics: {
+          mediaFailureStage: "single_video_download",
+          mediaFailureClass: "timeout",
+          mediaIndex: 1,
+          mediaKind: "video",
+          mediaAttempt: 2,
+          mediaMaxAttempts: 2,
+        },
+      });
+    });
+  }
+
+  it("preserves inner single-video local preparation diagnostics", async () => {
+    const singleVideoRetriever: MediaRetriever = {
+      retrieve: vi.fn(async () => {
+        throw new AnalysisError(
+          "INTERNAL_ANALYSIS_ERROR",
+          true,
+          "Instagram single-video local preparation failed",
+          undefined,
+          {
+            mediaFailureStage: "local_prepare",
+            mediaFailureClass: "filesystem",
+            mediaIndex: 1,
+            mediaKind: "video",
+          },
+        );
+      }),
+    };
+    const retriever = new YtDlpInstagramMediaRetriever(
+      config,
+      createMediaStore(),
+      async () => ({
+        formats: [
+          {
+            url: "https://cdn.example/video.mp4",
+            width: 1080,
+            height: 1920,
+          },
+        ],
+      }),
+      singleVideoRetriever,
+      vi.fn(),
+      async () => {},
+    );
+
+    let failure: unknown;
+    try {
+      await retriever.retrieve(
+        new URL("https://www.instagram.com/reel/no-temp-dir/"),
+      );
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toMatchObject({
+      code: "INTERNAL_ANALYSIS_ERROR",
+      retryable: true,
+      diagnostics: {
+        mediaFailureStage: "local_prepare",
+        mediaFailureClass: "filesystem",
+        mediaIndex: 1,
+        mediaKind: "video",
+      },
+    });
+    expect(
+      (failure as { diagnostics?: Record<string, unknown> }).diagnostics,
+    ).not.toHaveProperty("mediaAttempt");
+    expect(
+      (failure as { diagnostics?: Record<string, unknown> }).diagnostics,
+    ).not.toHaveProperty("mediaMaxAttempts");
+  });
+
+  it("preserves inner single-video retry cleanup diagnostics and attempt count", async () => {
+    const singleVideoRetriever: MediaRetriever = {
+      retrieve: vi.fn(async () => {
+        throw new AnalysisError(
+          "INTERNAL_ANALYSIS_ERROR",
+          true,
+          "Instagram single-video local cleanup failed",
+          undefined,
+          {
+            mediaFailureStage: "local_cleanup",
+            mediaFailureClass: "filesystem",
+            mediaIndex: 1,
+            mediaKind: "video",
+            mediaAttempt: 2,
+            mediaMaxAttempts: 2,
+          },
+        );
+      }),
+    };
+    const retriever = new YtDlpInstagramMediaRetriever(
+      config,
+      createMediaStore(),
+      async () => ({
+        formats: [
+          {
+            url: "https://cdn.example/video.mp4",
+            width: 1080,
+            height: 1920,
+          },
+        ],
+      }),
+      singleVideoRetriever,
+      vi.fn(),
+      async () => {},
+    );
+
+    await expect(
+      retriever.retrieve(
+        new URL("https://www.instagram.com/reel/retry-cleanup/"),
+      ),
+    ).rejects.toMatchObject({
+      code: "INTERNAL_ANALYSIS_ERROR",
+      retryable: true,
+      diagnostics: {
+        mediaFailureStage: "local_cleanup",
+        mediaFailureClass: "filesystem",
+        mediaIndex: 1,
+        mediaKind: "video",
+        mediaAttempt: 2,
+        mediaMaxAttempts: 2,
+      },
+    });
+  });
+
+  it("classifies single-video local cleanup independently from published cleanup", async () => {
+    const disposeLocal = vi.fn(async () => {
+      throw new Error("local cleanup failed");
+    });
+    const disposePublished = vi.fn(async () => {});
+    const singleVideoCollection: MediaCollection = {
+      items: [
+        {
+          index: 1,
+          kind: "video",
+          filePath: "/tmp/video.mp4",
+          sizeBytes: 123,
+          contentType: "video/mp4",
+        },
+      ],
+      attempts: 1,
+      dispose: disposeLocal,
+    };
+    const retriever = new YtDlpInstagramMediaRetriever(
+      config,
+      createMediaStore(disposePublished),
+      async () => ({
+        formats: [
+          {
+            url: "https://cdn.example/video.mp4",
+            width: 1080,
+            height: 1920,
+          },
+        ],
+      }),
+      { retrieve: vi.fn(async () => singleVideoCollection) },
+      vi.fn(),
+      async () => {},
+    );
+
+    await expect(
+      retriever.retrieve(new URL("https://www.instagram.com/reel/cleanup/")),
+    ).rejects.toMatchObject({
+      code: "INSTAGRAM_MEDIA_CLEANUP_FAILED",
+      retryable: true,
+      diagnostics: {
+        mediaFailureStage: "local_cleanup",
+        mediaFailureClass: "filesystem",
+        mediaIndex: 1,
+        mediaKind: "video",
+        mediaAttempt: 1,
+        mediaMaxAttempts: 2,
+      },
+    });
+    expect(disposeLocal).toHaveBeenCalledTimes(2);
+    expect(disposePublished).toHaveBeenCalledOnce();
+  });
+
   it("downloads, publishes, and deletes each carousel item before starting the next", async () => {
     const metadata = {
       entries: [1, 2, 3].map((index) => ({
@@ -167,6 +386,121 @@ describe("YtDlpInstagramMediaRetriever", () => {
       ),
     );
     await collection.dispose();
+  });
+
+  it("preserves item and attempt context when disposing a returned carousel", async () => {
+    const metadata = {
+      entries: [1, 2].map((index) => ({
+        formats: [],
+        thumbnails: [{ url: `https://cdn.example/${index}.jpg` }],
+      })),
+    };
+    const mediaStore: TemporaryMediaStore = {
+      publish: vi.fn(async (item) => ({
+        url: `https://storage.example/${item.index}`,
+        kind: item.kind,
+        contentType: item.contentType,
+        dispose: async () => {
+          if (item.index === 2) throw new Error("private storage detail");
+        },
+      })),
+    };
+    const retriever = new YtDlpInstagramMediaRetriever(
+      config,
+      mediaStore,
+      async () => metadata,
+      { retrieve: vi.fn() },
+      async (asset) => ({
+        filePath: `/tmp/${asset.index}.jpg`,
+        sizeBytes: 100,
+        contentType: "image/jpeg",
+      }),
+      async () => {},
+    );
+
+    const collection = await retriever.retrieve(
+      new URL("https://www.instagram.com/p/cleanup-context/"),
+    );
+
+    let failure: unknown;
+    try {
+      await collection.dispose();
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toMatchObject({
+      code: "INTERNAL_ANALYSIS_ERROR",
+      retryable: true,
+      diagnostics: {
+        mediaFailureStage: "published_cleanup",
+        mediaFailureClass: "storage",
+        mediaIndex: 2,
+        mediaKind: "image",
+        mediaAttempt: 1,
+        mediaMaxAttempts: 2,
+      },
+    });
+    expect(JSON.stringify(failure)).not.toContain("private storage detail");
+  });
+
+  it("keeps the cleanup error code used while rolling back a failed carousel attempt", async () => {
+    const metadata = {
+      entries: [1, 2].map((index) => ({
+        formats: [],
+        thumbnails: [{ url: `https://cdn.example/${index}.jpg` }],
+      })),
+    };
+    const mediaStore: TemporaryMediaStore = {
+      publish: vi.fn(async (item) => ({
+        url: `https://storage.example/${item.index}`,
+        kind: item.kind,
+        contentType: item.contentType,
+        dispose: async () => {
+          throw new Error("private rollback storage detail");
+        },
+      })),
+    };
+    const retriever = new YtDlpInstagramMediaRetriever(
+      config,
+      mediaStore,
+      async () => metadata,
+      { retrieve: vi.fn() },
+      async (asset) => {
+        if (asset.index === 2) throw new Error("download failed");
+        return {
+          filePath: "/tmp/1.jpg",
+          sizeBytes: 100,
+          contentType: "image/jpeg",
+        };
+      },
+      async () => {},
+    );
+
+    let failure: unknown;
+    try {
+      await retriever.retrieve(
+        new URL("https://www.instagram.com/p/rollback-cleanup/"),
+      );
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toMatchObject({
+      code: "INSTAGRAM_MEDIA_CLEANUP_FAILED",
+      retryable: true,
+      diagnostics: {
+        mediaFailureStage: "published_cleanup",
+        mediaFailureClass: "storage",
+        mediaIndex: 1,
+        mediaKind: "image",
+        mediaAttempt: 1,
+        mediaMaxAttempts: 2,
+      },
+    });
+    expect(JSON.stringify(failure)).not.toContain(
+      "private rollback storage detail",
+    );
   });
 
   it("retrieves image, video, and mixed carousel entries in original order", async () => {
@@ -284,9 +618,185 @@ describe("YtDlpInstagramMediaRetriever", () => {
     ).rejects.toMatchObject({
       code: "INSTAGRAM_MEDIA_UNSUPPORTED_MEDIA",
       retryable: false,
+      diagnostics: {
+        mediaFailureStage: "metadata_probe",
+        mediaFailureClass: "invalid_response",
+        mediaAttempt: 1,
+        mediaMaxAttempts: 2,
+      },
     });
     expect(assetDownloader).not.toHaveBeenCalled();
   });
+
+  it("normalizes work-directory creation failures without changing retryability", async () => {
+    const retriever = new YtDlpInstagramMediaRetriever(
+      config,
+      createMediaStore(),
+      async () => ({
+        entries: [
+          {
+            formats: [],
+            thumbnails: [{ url: "https://cdn.example/1.jpg" }],
+          },
+        ],
+      }),
+      { retrieve: vi.fn() },
+      vi.fn(),
+      async () => {},
+      undefined,
+      async () => {
+        throw new Error("private filesystem detail");
+      },
+    );
+
+    let failure: unknown;
+    try {
+      await retriever.retrieve(
+        new URL("https://www.instagram.com/p/no-temp-dir/"),
+      );
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toMatchObject({
+      code: "INTERNAL_ANALYSIS_ERROR",
+      retryable: true,
+      diagnostics: {
+        mediaFailureStage: "local_prepare",
+        mediaFailureClass: "filesystem",
+        mediaAttempt: 1,
+        mediaMaxAttempts: 2,
+      },
+    });
+    expect(JSON.stringify(failure)).not.toContain("private filesystem detail");
+  });
+
+  it("preserves retryability when clearing a reused work directory fails", async () => {
+    let downloadAttempt = 0;
+    const rootPrefix = join(tmpdir(), "foodfolio-instagram-media-");
+    const removeLocal = vi.fn(async (path: string, recursive: boolean) => {
+      const suffix = path.startsWith(rootPrefix)
+        ? path.slice(rootPrefix.length)
+        : "";
+      const isChildOfWorkDirectory =
+        recursive && path.startsWith(rootPrefix) && suffix.includes("/");
+      if (isChildOfWorkDirectory) throw new Error("private cleanup detail");
+      if (recursive) {
+        await rm(path, { recursive: true, force: true });
+        return;
+      }
+      await rm(path, { force: true });
+    });
+    const retriever = new YtDlpInstagramMediaRetriever(
+      config,
+      createMediaStore(),
+      async () => ({
+        entries: [
+          {
+            formats: [],
+            thumbnails: [{ url: "https://cdn.example/1.jpg" }],
+          },
+        ],
+      }),
+      { retrieve: vi.fn() },
+      async (_asset, workDirectory) => {
+        downloadAttempt += 1;
+        const filePath = join(workDirectory, "partial.jpg");
+        await writeFile(filePath, new Uint8Array([1]));
+        throw new Error("download failed");
+      },
+      async () => {},
+      removeLocal,
+    );
+
+    let failure: unknown;
+    try {
+      await retriever.retrieve(
+        new URL("https://www.instagram.com/p/retry-cleanup/"),
+      );
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(downloadAttempt).toBe(1);
+    expect(failure).toMatchObject({
+      code: "INTERNAL_ANALYSIS_ERROR",
+      retryable: true,
+      diagnostics: {
+        mediaFailureStage: "local_cleanup",
+        mediaFailureClass: "filesystem",
+        mediaAttempt: 2,
+        mediaMaxAttempts: 2,
+      },
+    });
+    expect(JSON.stringify(failure)).not.toContain("private cleanup detail");
+  });
+
+  it.each([
+    {
+      failures: 2,
+      code: "INSTAGRAM_MEDIA_DOWNLOAD_FAILED",
+      retryable: false,
+    },
+    { failures: 3, code: "INTERNAL_ANALYSIS_ERROR", retryable: true },
+  ])(
+    "preserves cleanup compatibility after $failures root removal failures",
+    async ({ failures, code, retryable }) => {
+      const metadata = {
+        entries: [
+          { formats: [], thumbnails: [{ url: "https://cdn.example/1.jpg" }] },
+        ],
+      };
+      let rootRemovalFailures = 0;
+      const disposePublished = vi.fn(async () => {});
+      const rootPrefix = join(tmpdir(), "foodfolio-instagram-media-");
+      const removeLocal = vi.fn(async (path: string, recursive: boolean) => {
+        const suffix = path.startsWith(rootPrefix)
+          ? path.slice(rootPrefix.length)
+          : "";
+        const isWorkDirectoryRoot =
+          recursive && path.startsWith(rootPrefix) && !suffix.includes("/");
+        if (isWorkDirectoryRoot && rootRemovalFailures < failures) {
+          if (rootRemovalFailures === 0) temporaryDirectories.push(path);
+          rootRemovalFailures += 1;
+          throw new Error("filesystem cleanup failed");
+        }
+        if (recursive) {
+          await rm(path, { recursive: true, force: true });
+          return;
+        }
+        await rm(path, { force: true });
+      });
+      const retriever = new YtDlpInstagramMediaRetriever(
+        config,
+        createMediaStore(disposePublished),
+        async () => metadata,
+        { retrieve: vi.fn() },
+        async (asset, workDirectory) => {
+          const filePath = join(workDirectory, `${asset.index}.jpg`);
+          await writeFile(filePath, new Uint8Array([1]));
+          return { filePath, sizeBytes: 1, contentType: "image/jpeg" };
+        },
+        async () => {},
+        removeLocal,
+      );
+
+      await expect(
+        retriever.retrieve(new URL("https://www.instagram.com/p/cleanup/")),
+      ).rejects.toMatchObject({
+        code,
+        retryable,
+        diagnostics: {
+          mediaFailureStage: "local_cleanup",
+          mediaFailureClass: "filesystem",
+          mediaAttempt: 2,
+          mediaMaxAttempts: 2,
+        },
+      });
+      expect(rootRemovalFailures).toBe(failures);
+      expect(disposePublished).toHaveBeenCalledTimes(2);
+    },
+  );
 
   it("retries the whole carousel and fails atomically when one entry download fails", async () => {
     const metadata = {
@@ -318,6 +828,14 @@ describe("YtDlpInstagramMediaRetriever", () => {
     ).rejects.toMatchObject({
       code: "INSTAGRAM_MEDIA_DOWNLOAD_FAILED",
       retryable: false,
+      diagnostics: {
+        mediaFailureStage: "asset_download",
+        mediaFailureClass: "unknown",
+        mediaIndex: 2,
+        mediaKind: "image",
+        mediaAttempt: 2,
+        mediaMaxAttempts: 2,
+      },
     });
     expect(assetDownloader).toHaveBeenCalledTimes(4);
     expect(disposePublished).toHaveBeenCalledTimes(2);
@@ -360,9 +878,54 @@ describe("YtDlpInstagramMediaRetriever", () => {
     ).rejects.toMatchObject({
       code: "INSTAGRAM_MEDIA_DOWNLOAD_FAILED",
       retryable: false,
+      diagnostics: {
+        mediaFailureStage: "publish",
+        mediaFailureClass: "unknown",
+        mediaIndex: 2,
+        mediaKind: "image",
+        mediaAttempt: 2,
+        mediaMaxAttempts: 2,
+      },
     });
     expect(mediaStore.publish).toHaveBeenCalledTimes(4);
     expect(disposePublished).toHaveBeenCalledTimes(2);
+  });
+
+  it("classifies execFile-style metadata timeouts as timeouts", async () => {
+    const metadataProbe = vi.fn(async () => {
+      throw Object.assign(new Error("private process detail"), {
+        code: null,
+        killed: true,
+        signal: "SIGKILL",
+      });
+    });
+    const retriever = new YtDlpInstagramMediaRetriever(
+      config,
+      createMediaStore(),
+      metadataProbe,
+      { retrieve: vi.fn() },
+      vi.fn(),
+      async () => {},
+    );
+
+    let failure: unknown;
+    try {
+      await retriever.retrieve(new URL("https://www.instagram.com/p/timeout/"));
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toMatchObject({
+      code: "INSTAGRAM_MEDIA_METADATA_FAILED",
+      retryable: true,
+      diagnostics: {
+        mediaFailureStage: "metadata_probe",
+        mediaFailureClass: "timeout",
+        mediaAttempt: 2,
+        mediaMaxAttempts: 2,
+      },
+    });
+    expect(JSON.stringify(failure)).not.toContain("private process detail");
   });
 
   it("maps repeated metadata probe failures to a retryable analysis error", async () => {
@@ -383,6 +946,12 @@ describe("YtDlpInstagramMediaRetriever", () => {
     ).rejects.toMatchObject({
       code: "INSTAGRAM_MEDIA_METADATA_FAILED",
       retryable: true,
+      diagnostics: {
+        mediaFailureStage: "metadata_probe",
+        mediaFailureClass: "tool_error",
+        mediaAttempt: 2,
+        mediaMaxAttempts: 2,
+      },
     });
     expect(metadataProbe).toHaveBeenCalledTimes(2);
   });
@@ -459,6 +1028,126 @@ describe("Instagram media metadata and HTTP download", () => {
     expect(result.sizeBytes).toBe(3);
     expect(result.contentType).toBe("image/jpeg");
     expect([...(await readFile(result.filePath))]).toEqual([1, 2, 3]);
+  });
+
+  it("classifies temporary file open failures as asset-download filesystem failures", async () => {
+    const parentDirectory = await mkdtemp(
+      join(tmpdir(), "foodfolio-test-instagram-missing-"),
+    );
+    temporaryDirectories.push(parentDirectory);
+    const missingDirectory = join(parentDirectory, "missing");
+
+    let failure: unknown;
+    try {
+      await downloadInstagramAsset(
+        {
+          index: 1,
+          kind: "image",
+          url: "https://cdn.example/photo.jpg",
+          httpHeaders: {},
+        },
+        missingDirectory,
+        1_000,
+        async () =>
+          new Response(new Uint8Array([1, 2, 3]), {
+            status: 200,
+            headers: { "content-type": "image/jpeg", "content-length": "3" },
+          }),
+      );
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toMatchObject({
+      code: "INSTAGRAM_MEDIA_DOWNLOAD_FAILED",
+      retryable: false,
+      diagnostics: {
+        mediaFailureStage: "asset_download",
+        mediaFailureClass: "filesystem",
+        mediaHttpStatus: 200,
+        mediaIndex: 1,
+        mediaKind: "image",
+      },
+    });
+  });
+
+  it("classifies an Undici connection timeout stored in fetch cause as timeout", async () => {
+    const directory = await mkdtemp(
+      join(tmpdir(), "foodfolio-test-instagram-"),
+    );
+    temporaryDirectories.push(directory);
+    const asset = {
+      index: 1,
+      kind: "image" as const,
+      url: "https://cdn.example/photo.jpg",
+      httpHeaders: {},
+    };
+    const cause = Object.assign(new Error("private connection detail"), {
+      code: "UND_ERR_CONNECT_TIMEOUT",
+    });
+    const fetchFailure = Object.assign(new TypeError("fetch failed"), {
+      cause,
+    });
+
+    let failure: unknown;
+    try {
+      await downloadInstagramAsset(asset, directory, 1_000, async () => {
+        throw fetchFailure;
+      });
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toMatchObject({
+      code: "INSTAGRAM_MEDIA_DOWNLOAD_FAILED",
+      retryable: false,
+      diagnostics: {
+        mediaFailureStage: "asset_download",
+        mediaFailureClass: "timeout",
+        mediaIndex: 1,
+        mediaKind: "image",
+      },
+    });
+    expect(JSON.stringify(failure)).not.toContain("private connection detail");
+  });
+
+  it("records HTTP status and asset position without logging the media URL", async () => {
+    const directory = await mkdtemp(
+      join(tmpdir(), "foodfolio-test-instagram-"),
+    );
+    temporaryDirectories.push(directory);
+    const asset = {
+      index: 2,
+      kind: "image" as const,
+      url: "https://cdn.example/private-photo.jpg?token=secret",
+      httpHeaders: { Authorization: "Bearer secret" },
+    };
+
+    let failure: unknown;
+    try {
+      await downloadInstagramAsset(
+        asset,
+        directory,
+        1_000,
+        async () => new Response(null, { status: 503 }),
+      );
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toMatchObject({
+      code: "INSTAGRAM_MEDIA_DOWNLOAD_FAILED",
+      retryable: false,
+      diagnostics: {
+        mediaFailureStage: "asset_download",
+        mediaFailureClass: "http_error",
+        mediaHttpStatus: 503,
+        mediaIndex: 2,
+        mediaKind: "image",
+      },
+    });
+    expect(JSON.stringify(failure)).not.toContain("private-photo");
+    expect(JSON.stringify(failure)).not.toContain("Bearer secret");
   });
 
   it("rejects image formats the AI provider does not accept", async () => {

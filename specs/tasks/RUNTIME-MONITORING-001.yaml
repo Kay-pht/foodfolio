@@ -57,7 +57,7 @@ requirements:
       - docs/runtime-monitoring.md
   - id: RTM-8
     condition: Recipe Analysis reaches its final failed state.
-    expected: The final failure log has ERROR severity and contains guaranteed non-sensitive operational fields for the error classification, provider, attempt, summary, impact, retry policy, and next action; the LogMatch policy extracts them into the Slack notification.
+    expected: The final failure log has ERROR severity and contains guaranteed non-sensitive operational fields for the error classification, provider, attempt, summary, impact, retry policy, next action, and controlled diagnostic detail; the LogMatch policy extracts them into the Slack notification.
     verification:
       - src/application/analysis/analysis-service.ts
       - src/application/analysis/operational-failure.ts
@@ -77,7 +77,7 @@ edge_cases:
 security_invariants:
   - Slack OAuth tokens, bot tokens, and webhook URLs are never stored in repository files or Terraform state by this change.
   - Runtime alert documentation and notifications do not expand recipe IDs, source URLs, request bodies, authentication data, or other user content into custom Slack messages.
-  - Operational summaries and next actions are derived only from controlled error classifications and never include exception messages or arbitrary external content.
+  - Operational summaries, next actions, and diagnostic details are derived only from controlled error classifications, repository-owned enums, and validated numeric values and never include exception messages or arbitrary external content.
   - The Slack notification channel is referenced by its non-secret Google Cloud resource name only.
   - No application component receives permission or credentials to send Slack messages directly.
 
@@ -116,7 +116,7 @@ acceptance_criteria:
   - Metric-based runtime policies notify on incident open and close through the configured Slack channel.
   - No application Slack client, webhook, runtime Email channel, GitHub notification, Firebase/APNs change, or deploy-dev Terraform application path is added.
   - Runtime monitoring setup, thresholds, manual Slack setup, and validation boundaries are documented.
-  - All five alert policies provide actionable Japanese documentation; the Recipe Analysis notification includes extracted operational fields and the other policies provide signal-specific first-response steps and filtered investigation links.
+  - All five alert policies provide actionable Japanese documentation; the Recipe Analysis notification includes extracted operational fields plus a controlled Japanese diagnostic-detail section, and the other policies provide signal-specific first-response steps and filtered investigation links.
 
 regression:
   required: true

@@ -142,7 +142,7 @@ export class ProductionSourceContentExtractor
     if (post?.kind === "photo") return this.extractTikTokPhoto(post);
     const endpoint = new URL("https://www.tiktok.com/oembed");
     endpoint.searchParams.set("url", resolvedUrl.toString());
-    const response = await this.http.get(endpoint);
+    const response = await this.http.get(endpoint, "tiktok_oembed");
     let value: unknown;
     try {
       value = JSON.parse(response.body);
@@ -183,7 +183,7 @@ export class ProductionSourceContentExtractor
       host === "lite.tiktok.com" && segments[0] === "t" && Boolean(segments[1]);
     if (!isLiteShortUrl) return url;
 
-    const response = await this.http.get(url);
+    const response = await this.http.get(url, "tiktok_short_url");
     let redirectedUrl: URL;
     try {
       redirectedUrl = new URL(response.finalUrl);

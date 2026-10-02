@@ -45,6 +45,8 @@ describe("ProductionSourceContentExtractor TikTok metadata", () => {
       tiktokMediaKind: "video",
     });
     expect(get).toHaveBeenCalledTimes(2);
+    expect(get.mock.calls[0]?.[1]).toBe("tiktok_short_url");
+    expect(get.mock.calls[1]?.[1]).toBe("tiktok_oembed");
   });
 
   it("keeps canonical TikTok video URLs on the direct oEmbed path", async () => {
@@ -76,6 +78,7 @@ describe("ProductionSourceContentExtractor TikTok metadata", () => {
       tiktokMediaKind: "video",
     });
     expect(get).toHaveBeenCalledOnce();
+    expect(get.mock.calls[0]?.[1]).toBe("tiktok_oembed");
   });
 
   it("rejects a TikTok Lite short URL that does not resolve to a TikTok post", async () => {

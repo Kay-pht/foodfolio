@@ -4,7 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   AnalysisError,
+  type AnalysisFailureDiagnostics,
   type MediaCollection,
+  type MediaFailureStage,
   type MediaKind,
   type MediaOperationErrorSpec,
   type MediaRetriever,
@@ -26,6 +28,9 @@ export interface YtDlpMediaRetrieverConfig {
   validateUrl(url: URL): boolean;
   invalidUrlError: MediaOperationErrorSpec;
   downloadFailedError: MediaOperationErrorSpec;
+  downloadFailureStage?: MediaFailureStage;
+  localPrepareError?: MediaOperationErrorSpec;
+  localCleanupError?: MediaOperationErrorSpec;
 }
 
 export interface YtDlpAttemptOptions {
@@ -43,12 +48,26 @@ export type YtDlpAttemptRunner = (
 
 type Sleeper = (milliseconds: number) => Promise<void>;
 
+export interface YtDlpMediaFilesystem {
+  createWorkDirectory(prefix: string): Promise<string>;
+  clearWorkDirectory(workDirectory: string): Promise<void>;
+  removeWorkDirectory(workDirectory: string): Promise<void>;
+}
+
+const defaultFilesystem: YtDlpMediaFilesystem = {
+  createWorkDirectory: (prefix) => mkdtemp(join(tmpdir(), prefix)),
+  clearWorkDirectory,
+  removeWorkDirectory: (workDirectory) =>
+    rm(workDirectory, { recursive: true, force: true }),
+};
+
 export class YtDlpMediaRetriever implements MediaRetriever {
   constructor(
     private readonly config: YtDlpMediaRetrieverConfig,
     private readonly runAttempt: YtDlpAttemptRunner = runYtDlpAttempt,
     private readonly sleep: Sleeper = (milliseconds) =>
       new Promise((resolve) => setTimeout(resolve, milliseconds)),
+    private readonly filesystem: YtDlpMediaFilesystem = defaultFilesystem,
   ) {}
 
   async retrieve(url: URL): Promise<MediaCollection> {
@@ -56,13 +75,31 @@ export class YtDlpMediaRetriever implements MediaRetriever {
       throw toAnalysisError(this.config.invalidUrlError);
     }
 
-    const workDirectory = await mkdtemp(
-      join(tmpdir(), this.config.workDirectoryPrefix),
-    );
+    let workDirectory: string;
+    try {
+      workDirectory = await this.filesystem.createWorkDirectory(
+        this.config.workDirectoryPrefix,
+      );
+    } catch (error) {
+      throw this.localFilesystemFailure(
+        error,
+        "local_prepare",
+        this.config.localPrepareError,
+      );
+    }
     const outputPath = join(workDirectory, this.config.outputFileName);
 
     for (let attempt = 1; attempt <= this.config.maxAttempts; attempt += 1) {
-      await clearWorkDirectory(workDirectory);
+      try {
+        await this.filesystem.clearWorkDirectory(workDirectory);
+      } catch (error) {
+        throw this.localFilesystemFailure(
+          error,
+          "local_cleanup",
+          this.config.localCleanupError,
+          attempt,
+        );
+      }
       try {
         await this.runAttempt(
           this.config.binaryPath,
@@ -89,12 +126,46 @@ export class YtDlpMediaRetriever implements MediaRetriever {
             },
           ],
           attempts: attempt,
-          dispose: () => rm(workDirectory, { recursive: true, force: true }),
+          dispose: async () => {
+            try {
+              await this.filesystem.removeWorkDirectory(workDirectory);
+            } catch (error) {
+              throw this.localFilesystemFailure(
+                error,
+                "local_cleanup",
+                this.config.localCleanupError,
+                attempt,
+              );
+            }
+          },
         };
-      } catch {
+      } catch (error) {
         if (attempt === this.config.maxAttempts) {
-          await rm(workDirectory, { recursive: true, force: true });
-          throw toAnalysisError(this.config.downloadFailedError);
+          try {
+            await this.filesystem.removeWorkDirectory(workDirectory);
+          } catch (cleanupError) {
+            throw this.localFilesystemFailure(
+              cleanupError,
+              "local_cleanup",
+              this.config.localCleanupError,
+              attempt,
+            );
+          }
+          throw toAnalysisError(
+            this.config.downloadFailedError,
+            this.config.downloadFailureStage
+              ? {
+                  mediaFailureStage: this.config.downloadFailureStage,
+                  mediaFailureClass: isTimeoutFailure(error)
+                    ? "timeout"
+                    : "unknown",
+                  mediaIndex: 1,
+                  mediaKind: this.config.kind,
+                  mediaAttempt: attempt,
+                  mediaMaxAttempts: this.config.maxAttempts,
+                }
+              : undefined,
+          );
         }
         const retrySeconds = Math.min(
           this.config.retryBaseSeconds * attempt,
@@ -105,6 +176,33 @@ export class YtDlpMediaRetriever implements MediaRetriever {
     }
 
     throw toAnalysisError(this.config.downloadFailedError);
+  }
+
+  private localFilesystemFailure(
+    error: unknown,
+    stage: "local_prepare" | "local_cleanup",
+    spec?: MediaOperationErrorSpec,
+    attempt?: number,
+  ): unknown {
+    if (!spec) return error;
+    return new AnalysisError(
+      spec.code,
+      spec.retryable,
+      spec.message,
+      undefined,
+      {
+        mediaFailureStage: stage,
+        mediaFailureClass: "filesystem",
+        mediaIndex: 1,
+        mediaKind: this.config.kind,
+        ...(attempt !== undefined
+          ? {
+              mediaAttempt: attempt,
+              mediaMaxAttempts: this.config.maxAttempts,
+            }
+          : {}),
+      },
+    );
   }
 }
 
@@ -117,8 +215,42 @@ async function clearWorkDirectory(workDirectory: string): Promise<void> {
   );
 }
 
-function toAnalysisError(spec: MediaOperationErrorSpec): AnalysisError {
-  return new AnalysisError(spec.code, spec.retryable, spec.message);
+function toAnalysisError(
+  spec: MediaOperationErrorSpec,
+  diagnostics?: AnalysisFailureDiagnostics,
+): AnalysisError {
+  return new AnalysisError(
+    spec.code,
+    spec.retryable,
+    spec.message,
+    undefined,
+    diagnostics,
+  );
+}
+
+function isTimeoutFailure(error: unknown): boolean {
+  let current = error;
+  const seen = new Set<object>();
+  for (let depth = 0; depth < 4; depth += 1) {
+    if (!current || typeof current !== "object") return false;
+    if (seen.has(current)) return false;
+    seen.add(current);
+    const record = current as Record<string, unknown>;
+    const name = typeof record.name === "string" ? record.name : null;
+    const code = typeof record.code === "string" ? record.code : null;
+    if (
+      name === "TimeoutError" ||
+      name === "AbortError" ||
+      code === "ETIMEDOUT" ||
+      code === "UND_ERR_CONNECT_TIMEOUT" ||
+      code === "UND_ERR_HEADERS_TIMEOUT" ||
+      code === "UND_ERR_BODY_TIMEOUT" ||
+      (record.killed === true && record.signal === "SIGKILL")
+    )
+      return true;
+    current = record.cause;
+  }
+  return false;
 }
 
 export async function runYtDlpAttempt(
@@ -154,15 +286,32 @@ export async function runYtDlpAttempt(
       ],
       { stdio: "ignore" },
     );
-    const timeout = setTimeout(() => child.kill("SIGKILL"), timeoutMs);
+    let timedOut = false;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      child.kill("SIGKILL");
+    }, timeoutMs);
     child.once("error", (error) => {
       clearTimeout(timeout);
       reject(error);
     });
-    child.once("close", (code) => {
+    child.once("close", (code, signal) => {
       clearTimeout(timeout);
-      if (code === 0) resolve();
-      else reject(new Error("yt-dlp process failed"));
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      if (timedOut) {
+        const error = Object.assign(new Error("yt-dlp process timed out"), {
+          name: "TimeoutError",
+          code: "ETIMEDOUT",
+          killed: true,
+          signal: signal ?? "SIGKILL",
+        });
+        reject(error);
+        return;
+      }
+      reject(new Error("yt-dlp process failed"));
     });
   });
 }
