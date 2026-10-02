@@ -714,8 +714,8 @@ describe("YtDlpInstagramMediaRetriever", () => {
     await expect(
       retriever.retrieve(new URL("https://www.instagram.com/p/cleanup/")),
     ).rejects.toMatchObject({
-      code: "INSTAGRAM_MEDIA_DOWNLOAD_FAILED",
-      retryable: false,
+      code: "INTERNAL_ANALYSIS_ERROR",
+      retryable: true,
       diagnostics: {
         mediaFailureStage: "local_cleanup",
         mediaFailureClass: "filesystem",
@@ -956,6 +956,47 @@ describe("Instagram media metadata and HTTP download", () => {
     expect(result.sizeBytes).toBe(3);
     expect(result.contentType).toBe("image/jpeg");
     expect([...(await readFile(result.filePath))]).toEqual([1, 2, 3]);
+  });
+
+  it("classifies temporary file open failures as asset-download filesystem failures", async () => {
+    const parentDirectory = await mkdtemp(
+      join(tmpdir(), "foodfolio-test-instagram-missing-"),
+    );
+    temporaryDirectories.push(parentDirectory);
+    const missingDirectory = join(parentDirectory, "missing");
+
+    let failure: unknown;
+    try {
+      await downloadInstagramAsset(
+        {
+          index: 1,
+          kind: "image",
+          url: "https://cdn.example/photo.jpg",
+          httpHeaders: {},
+        },
+        missingDirectory,
+        1_000,
+        async () =>
+          new Response(new Uint8Array([1, 2, 3]), {
+            status: 200,
+            headers: { "content-type": "image/jpeg", "content-length": "3" },
+          }),
+      );
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toMatchObject({
+      code: "INSTAGRAM_MEDIA_DOWNLOAD_FAILED",
+      retryable: false,
+      diagnostics: {
+        mediaFailureStage: "asset_download",
+        mediaFailureClass: "filesystem",
+        mediaHttpStatus: 200,
+        mediaIndex: 1,
+        mediaKind: "image",
+      },
+    });
   });
 
   it("classifies an Undici connection timeout stored in fetch cause as timeout", async () => {
