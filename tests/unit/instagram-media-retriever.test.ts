@@ -430,7 +430,7 @@ describe("YtDlpInstagramMediaRetriever", () => {
     }
 
     expect(failure).toMatchObject({
-      code: "INSTAGRAM_MEDIA_CLEANUP_FAILED",
+      code: "INTERNAL_ANALYSIS_ERROR",
       retryable: true,
       diagnostics: {
         mediaFailureStage: "published_cleanup",
@@ -442,6 +442,65 @@ describe("YtDlpInstagramMediaRetriever", () => {
       },
     });
     expect(JSON.stringify(failure)).not.toContain("private storage detail");
+  });
+
+  it("keeps the cleanup error code used while rolling back a failed carousel attempt", async () => {
+    const metadata = {
+      entries: [1, 2].map((index) => ({
+        formats: [],
+        thumbnails: [{ url: `https://cdn.example/${index}.jpg` }],
+      })),
+    };
+    const mediaStore: TemporaryMediaStore = {
+      publish: vi.fn(async (item) => ({
+        url: `https://storage.example/${item.index}`,
+        kind: item.kind,
+        contentType: item.contentType,
+        dispose: async () => {
+          throw new Error("private rollback storage detail");
+        },
+      })),
+    };
+    const retriever = new YtDlpInstagramMediaRetriever(
+      config,
+      mediaStore,
+      async () => metadata,
+      { retrieve: vi.fn() },
+      async (asset) => {
+        if (asset.index === 2) throw new Error("download failed");
+        return {
+          filePath: "/tmp/1.jpg",
+          sizeBytes: 100,
+          contentType: "image/jpeg",
+        };
+      },
+      async () => {},
+    );
+
+    let failure: unknown;
+    try {
+      await retriever.retrieve(
+        new URL("https://www.instagram.com/p/rollback-cleanup/"),
+      );
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toMatchObject({
+      code: "INSTAGRAM_MEDIA_CLEANUP_FAILED",
+      retryable: true,
+      diagnostics: {
+        mediaFailureStage: "published_cleanup",
+        mediaFailureClass: "storage",
+        mediaIndex: 1,
+        mediaKind: "image",
+        mediaAttempt: 1,
+        mediaMaxAttempts: 2,
+      },
+    });
+    expect(JSON.stringify(failure)).not.toContain(
+      "private rollback storage detail",
+    );
   });
 
   it("retrieves image, video, and mixed carousel entries in original order", async () => {
