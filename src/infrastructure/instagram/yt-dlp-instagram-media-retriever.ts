@@ -375,7 +375,8 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
             this.config.maxAttempts,
           );
         } catch (cleanupError) {
-          const existing = cleanupError instanceof AnalysisError ? cleanupError : null;
+          const existing =
+            cleanupError instanceof AnalysisError ? cleanupError : null;
           const existingDiagnostics = existing?.diagnostics ?? {};
           const publishedCleanupFailure = new AnalysisError(
             "INSTAGRAM_MEDIA_CLEANUP_FAILED",
