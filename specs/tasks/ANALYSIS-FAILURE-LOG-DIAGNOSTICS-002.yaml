@@ -50,6 +50,8 @@ requirements:
 edge_cases:
   - Source response-body consumption failures keep the pre-change INTERNAL_ANALYSIS_ERROR/retryable behavior while receiving response_body diagnostics.
   - Instagram work-directory removal failures keep the pre-change INTERNAL_ANALYSIS_ERROR/retryable behavior while receiving local_cleanup/filesystem diagnostics.
+  - Published-media disposal after a successful retrieval keeps the pre-change INTERNAL_ANALYSIS_ERROR/retryable behavior while receiving published_cleanup/storage, media identity, and attempt diagnostics.
+  - Published-media cleanup while rolling back an already-failed retrieval keeps the pre-change INSTAGRAM_MEDIA_CLEANUP_FAILED/retryable behavior.
   - Instagram temporary-file open/write failures are classified as asset_download/filesystem rather than asset_validate.
   - Node child-process timeout termination with killed=true and SIGKILL is normalized to timeout.
   - Undici UND_ERR_CONNECT_TIMEOUT is normalized to timeout rather than network.
