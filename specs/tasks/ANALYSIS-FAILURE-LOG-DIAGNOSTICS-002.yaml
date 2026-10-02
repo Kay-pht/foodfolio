@@ -49,7 +49,9 @@ requirements:
       - tests/unit/runtime-monitoring-health-path.test.mjs
 edge_cases:
   - Source response-body consumption failures keep the pre-change INTERNAL_ANALYSIS_ERROR/retryable behavior while receiving response_body diagnostics.
-  - Instagram work-directory removal failures keep the pre-change INTERNAL_ANALYSIS_ERROR/retryable behavior while receiving local_cleanup/filesystem diagnostics.
+  - A malformed redirect Location keeps the pre-change INTERNAL_ANALYSIS_ERROR/retryable behavior while receiving redirect/redirect_invalid_location diagnostics, HTTP status, and redirect count.
+  - Instagram work-directory removal failures inside a successful download/publish attempt use the existing internal retries and, when those retries are exhausted and final cleanup succeeds, remain INSTAGRAM_MEDIA_DOWNLOAD_FAILED/non-retryable with local_cleanup/filesystem diagnostics.
+  - Instagram final work-directory cleanup failures that escape the internal attempt handler remain INTERNAL_ANALYSIS_ERROR/retryable with local_cleanup/filesystem diagnostics.
   - Published-media disposal after a successful retrieval keeps the pre-change INTERNAL_ANALYSIS_ERROR/retryable behavior while receiving published_cleanup/storage, media identity, and attempt diagnostics.
   - Published-media cleanup while rolling back an already-failed retrieval keeps the pre-change INSTAGRAM_MEDIA_CLEANUP_FAILED/retryable behavior.
   - Instagram temporary-file open/write failures are classified as asset_download/filesystem rather than asset_validate.
@@ -82,6 +84,7 @@ acceptance_criteria:
   - Metadata and publish failures identify their own stages and internal attempt counts.
   - Child-process and HTTP connection timeouts are classified as timeout.
   - Local work-directory creation and pre-retry cleanup failures keep the pre-change retry behavior while receiving filesystem diagnostics, including the known single-video media index and kind.
+  - After internal retries are exhausted and final cleanup succeeds, a successful-download cleanup failure yields Worker HTTP 204 and recipe failed; a malformed redirect yields Worker HTTP 503 and recipe pending until the delivery limit is reached.
   - Slack final-failure notifications display a controlled Japanese diagnostic summary for every available source/media diagnostic field.
   - Focused regression tests and the repository Quality checks pass.
 regression:
@@ -91,3 +94,4 @@ regression:
     - tests/unit/tiktok-source-content-extractor.test.ts
     - tests/unit/instagram-media-retriever.test.ts
     - tests/unit/media-retriever.test.ts
+    - tests/e2e/worker-error-compatibility.test.ts

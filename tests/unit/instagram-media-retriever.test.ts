@@ -732,58 +732,71 @@ describe("YtDlpInstagramMediaRetriever", () => {
     expect(JSON.stringify(failure)).not.toContain("private cleanup detail");
   });
 
-  it("classifies work-directory removal failures as local cleanup", async () => {
-    const metadata = {
-      entries: [
-        { formats: [], thumbnails: [{ url: "https://cdn.example/1.jpg" }] },
-      ],
-    };
-    let rootRemovalFailures = 0;
-    const rootPrefix = join(tmpdir(), "foodfolio-instagram-media-");
-    const removeLocal = vi.fn(async (path: string, recursive: boolean) => {
-      const suffix = path.startsWith(rootPrefix)
-        ? path.slice(rootPrefix.length)
-        : "";
-      const isWorkDirectoryRoot =
-        recursive && path.startsWith(rootPrefix) && !suffix.includes("/");
-      if (isWorkDirectoryRoot && rootRemovalFailures < 2) {
-        rootRemovalFailures += 1;
-        throw new Error("filesystem cleanup failed");
-      }
-      if (recursive) {
-        await rm(path, { recursive: true, force: true });
-        return;
-      }
-      await rm(path, { force: true });
-    });
-    const retriever = new YtDlpInstagramMediaRetriever(
-      config,
-      createMediaStore(),
-      async () => metadata,
-      { retrieve: vi.fn() },
-      async (asset, workDirectory) => {
-        const filePath = join(workDirectory, `${asset.index}.jpg`);
-        await writeFile(filePath, new Uint8Array([1]));
-        return { filePath, sizeBytes: 1, contentType: "image/jpeg" };
-      },
-      async () => {},
-      removeLocal,
-    );
+  it.each([
+    {
+      failures: 2,
+      code: "INSTAGRAM_MEDIA_DOWNLOAD_FAILED",
+      retryable: false,
+    },
+    { failures: 3, code: "INTERNAL_ANALYSIS_ERROR", retryable: true },
+  ])(
+    "preserves cleanup compatibility after $failures root removal failures",
+    async ({ failures, code, retryable }) => {
+      const metadata = {
+        entries: [
+          { formats: [], thumbnails: [{ url: "https://cdn.example/1.jpg" }] },
+        ],
+      };
+      let rootRemovalFailures = 0;
+      const disposePublished = vi.fn(async () => {});
+      const rootPrefix = join(tmpdir(), "foodfolio-instagram-media-");
+      const removeLocal = vi.fn(async (path: string, recursive: boolean) => {
+        const suffix = path.startsWith(rootPrefix)
+          ? path.slice(rootPrefix.length)
+          : "";
+        const isWorkDirectoryRoot =
+          recursive && path.startsWith(rootPrefix) && !suffix.includes("/");
+        if (isWorkDirectoryRoot && rootRemovalFailures < failures) {
+          if (rootRemovalFailures === 0) temporaryDirectories.push(path);
+          rootRemovalFailures += 1;
+          throw new Error("filesystem cleanup failed");
+        }
+        if (recursive) {
+          await rm(path, { recursive: true, force: true });
+          return;
+        }
+        await rm(path, { force: true });
+      });
+      const retriever = new YtDlpInstagramMediaRetriever(
+        config,
+        createMediaStore(disposePublished),
+        async () => metadata,
+        { retrieve: vi.fn() },
+        async (asset, workDirectory) => {
+          const filePath = join(workDirectory, `${asset.index}.jpg`);
+          await writeFile(filePath, new Uint8Array([1]));
+          return { filePath, sizeBytes: 1, contentType: "image/jpeg" };
+        },
+        async () => {},
+        removeLocal,
+      );
 
-    await expect(
-      retriever.retrieve(new URL("https://www.instagram.com/p/cleanup/")),
-    ).rejects.toMatchObject({
-      code: "INTERNAL_ANALYSIS_ERROR",
-      retryable: true,
-      diagnostics: {
-        mediaFailureStage: "local_cleanup",
-        mediaFailureClass: "filesystem",
-        mediaAttempt: 2,
-        mediaMaxAttempts: 2,
-      },
-    });
-    expect(rootRemovalFailures).toBe(2);
-  });
+      await expect(
+        retriever.retrieve(new URL("https://www.instagram.com/p/cleanup/")),
+      ).rejects.toMatchObject({
+        code,
+        retryable,
+        diagnostics: {
+          mediaFailureStage: "local_cleanup",
+          mediaFailureClass: "filesystem",
+          mediaAttempt: 2,
+          mediaMaxAttempts: 2,
+        },
+      });
+      expect(rootRemovalFailures).toBe(failures);
+      expect(disposePublished).toHaveBeenCalledTimes(2);
+    },
+  );
 
   it("retries the whole carousel and fails atomically when one entry download fails", async () => {
     const metadata = {

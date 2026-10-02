@@ -241,11 +241,11 @@ describe("SafeHttpClient hostname validation", () => {
     expect(JSON.stringify(failure)).not.toContain("private network detail");
   });
 
-  it("normalizes a malformed redirect Location", async () => {
+  it("preserves the existing error and retryability for a malformed redirect Location", async () => {
     const dump = vi.fn(async () => undefined);
     requestMock.mockResolvedValueOnce({
       statusCode: 302,
-      headers: { location: "http://[" },
+      headers: { location: "https://[" },
       body: { dump },
     });
     const client = new SafeHttpClient();
@@ -256,8 +256,8 @@ describe("SafeHttpClient hostname validation", () => {
         "tiktok_short_url",
       ),
     ).rejects.toMatchObject({
-      code: "SOURCE_FETCH_FAILED",
-      retryable: false,
+      code: "INTERNAL_ANALYSIS_ERROR",
+      retryable: true,
       diagnostics: {
         sourceOperation: "tiktok_short_url",
         sourceFailureStage: "redirect",

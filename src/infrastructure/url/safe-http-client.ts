@@ -256,8 +256,8 @@ export class SafeHttpClient {
           );
         } catch {
           throw new AnalysisError(
-            "SOURCE_FETCH_FAILED",
-            false,
+            "INTERNAL_ANALYSIS_ERROR",
+            true,
             "Redirect location is invalid",
             undefined,
             sourceDiagnostics(

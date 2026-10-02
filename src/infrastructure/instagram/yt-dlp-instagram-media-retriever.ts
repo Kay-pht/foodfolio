@@ -352,7 +352,8 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
           if (publishFailure) throw publishFailure;
         }
 
-        await this.removeWorkDirectory(currentWorkDirectory, attempt, true);
+        // This failure is handled by the internal attempt catch below.
+        await this.removeWorkDirectory(currentWorkDirectory, attempt);
         workDirectory = null;
         return {
           items: published,

@@ -2469,6 +2469,8 @@ Jevログだけではthreshold未満ケースのtext route成功可否を断定�
 
 URL取得失敗では、取得処理・失敗段階・失敗分類・HTTP status・redirect回数を、アプリケーション管理の固定値と検証済み数値だけで記録する。TikTokは短縮URL解決とoEmbed取得を区別する。Instagramメディア処理では、metadata probe、download/validate、temporary storage publish、local work directory prepare、cleanupを固定値で区別し、HTTP status、投稿内index、media kind、内部attemptを必要な範囲で記録する。redirect先URL、media URL、HTTP header、署名URL、raw exception messageは診断fieldへ含めない。最終失敗時は、これらの固定値と検証済み数値だけから日本語の `diagnosticDetail` を生成し、Cloud Monitoring経由のSlack通知にも表示する。
 
+診断情報の追加で既存のエラーコード・再試行・状態遷移を変えない。不正なredirect Locationは `INTERNAL_ANALYSIS_ERROR / retryable=true` とし、配送試行が残っていればWorkerはHTTP 503を返してRecipeを `pending` に保つ。Instagramの取得・公開後の作業領域削除失敗は内部試行の対象とし、試行上限後のrollbackと最後の削除が成功した場合は `INSTAGRAM_MEDIA_DOWNLOAD_FAILED / retryable=false`、HTTP 204、`failed` とする。最後の作業領域削除そのものが失敗した場合は、既存どおり `INTERNAL_ANALYSIS_ERROR / retryable=true` とする。
+
 禁止：
 
 - Firebase ID Token
