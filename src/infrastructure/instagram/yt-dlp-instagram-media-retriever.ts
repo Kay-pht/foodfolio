@@ -375,13 +375,22 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
             this.config.maxAttempts,
           );
         } catch (cleanupError) {
-          const publishedCleanupFailure = mediaFailureContext(
-            cleanupError,
-            "published_cleanup",
+          const existing = cleanupError instanceof AnalysisError ? cleanupError : null;
+          const existingDiagnostics = existing?.diagnostics ?? {};
+          const publishedCleanupFailure = new AnalysisError(
+            "INSTAGRAM_MEDIA_CLEANUP_FAILED",
+            true,
+            "Temporary Instagram media cleanup failed",
             undefined,
-            attempt,
-            this.config.maxAttempts,
-            "storage",
+            {
+              ...existingDiagnostics,
+              mediaFailureStage:
+                existingDiagnostics.mediaFailureStage ?? "published_cleanup",
+              mediaFailureClass:
+                existingDiagnostics.mediaFailureClass ?? "storage",
+              mediaAttempt: attempt,
+              mediaMaxAttempts: this.config.maxAttempts,
+            },
           );
           await this.removeWorkDirectory(currentWorkDirectory, attempt, true);
           throw publishedCleanupFailure;
@@ -594,22 +603,36 @@ async function disposePublishedMedia(
   if (failureIndex < 0) return;
 
   const failedItem = media[failureIndex];
+  const failure = results[failureIndex];
+  const reason = failure?.status === "rejected" ? failure.reason : undefined;
+  const existing = reason instanceof AnalysisError ? reason : null;
+  const existingDiagnostics = existing?.diagnostics ?? {};
   throw new AnalysisError(
-    "INSTAGRAM_MEDIA_CLEANUP_FAILED",
-    true,
-    "Temporary Instagram media cleanup failed",
-    undefined,
+    existing?.code ?? "INTERNAL_ANALYSIS_ERROR",
+    existing?.retryable ?? true,
+    existing?.message ?? "Instagram published media cleanup failed",
+    existing?.provider,
     {
-      mediaFailureStage: "published_cleanup",
-      mediaFailureClass: "storage",
+      ...existingDiagnostics,
+      mediaFailureStage:
+        existingDiagnostics.mediaFailureStage ?? "published_cleanup",
+      mediaFailureClass: existingDiagnostics.mediaFailureClass ?? "storage",
       ...(failedItem
         ? {
-            mediaIndex: failedItem.index,
-            mediaKind: failedItem.kind,
+            mediaIndex: existingDiagnostics.mediaIndex ?? failedItem.index,
+            mediaKind: existingDiagnostics.mediaKind ?? failedItem.kind,
           }
         : {}),
-      ...(attempt !== undefined ? { mediaAttempt: attempt } : {}),
-      ...(maxAttempts !== undefined ? { mediaMaxAttempts: maxAttempts } : {}),
+      ...(existingDiagnostics.mediaAttempt !== undefined
+        ? { mediaAttempt: existingDiagnostics.mediaAttempt }
+        : attempt !== undefined
+          ? { mediaAttempt: attempt }
+          : {}),
+      ...(existingDiagnostics.mediaMaxAttempts !== undefined
+        ? { mediaMaxAttempts: existingDiagnostics.mediaMaxAttempts }
+        : maxAttempts !== undefined
+          ? { mediaMaxAttempts: maxAttempts }
+          : {}),
     },
   );
 }
