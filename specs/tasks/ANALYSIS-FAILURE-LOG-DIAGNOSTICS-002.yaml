@@ -48,6 +48,9 @@ requirements:
       - tests/unit/analysis-operational-failure.test.ts
       - tests/unit/runtime-monitoring-health-path.test.mjs
 edge_cases:
+  - Source response-body consumption failures keep the pre-change INTERNAL_ANALYSIS_ERROR/retryable behavior while receiving response_body diagnostics.
+  - Instagram work-directory removal failures keep the pre-change INTERNAL_ANALYSIS_ERROR/retryable behavior while receiving local_cleanup/filesystem diagnostics.
+  - Instagram temporary-file open/write failures are classified as asset_download/filesystem rather than asset_validate.
   - Node child-process timeout termination with killed=true and SIGKILL is normalized to timeout.
   - Undici UND_ERR_CONNECT_TIMEOUT is normalized to timeout rather than network.
   - Temporary work-directory creation failure is normalized to local_prepare/filesystem while preserving retryability.
