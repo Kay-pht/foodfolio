@@ -6,6 +6,16 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
 
 ## 未反映
 
+- [ ] `REL-20261003-01` レシピ編集で作り方を編集可能にする
+  - 内容: 手順番号付き複数行入力欄で本文修正・追加・削除・上下移動を可能にする。空欄の手順を保存時に消去し、0件でも保存できる。更新API・ローカル保存・同期で手順と順序を保持する
+  - PR: [#134](https://github.com/Kay-pht/foodfolio/pull/134)
+  - main反映: 未反映
+  - 必要な反映先:
+    - [ ] TestFlight内部テスト — 対象version/build: 未定
+    - [ ] App Store本番 — 対象version/build: 未定
+    - [ ] Cloud Run（dev API） — 対象version/revision: 未定
+  - 備考: DB schema変更なし。APIを先に反映してからiOSを配布する
+
 - [ ] `REL-20260924-01` Foodfolio 1.0.2で日本語表示情報とApp Store掲載内容を更新する
   - 内容: iOS本体とShare Extensionが日本語対応アプリであることをAppleへ正しく申告し、インストール後のアプリ名は`Foodfolio`のまま維持する。App Store上の表示名を「レシピ保存/管理アプリ - Foodfolio」へ変更し、利用許可を確認済みの新しい日本語マーケティング画像6枚へ差し替える。あわせて、PR #121/#122でmainへ追加した5つのCloud Monitoring alert policyを既存Slack通知先へ反映する
   - PR: 日本語申告 [#124](https://github.com/Kay-pht/foodfolio/pull/124)、App Store画像 [#125](https://github.com/Kay-pht/foodfolio/pull/125)、Runtime Monitoring [#121](https://github.com/Kay-pht/foodfolio/pull/121) / [#122](https://github.com/Kay-pht/foodfolio/pull/122)、配布準備 [#126](https://github.com/Kay-pht/foodfolio/pull/126)、配布記録 [#128](https://github.com/Kay-pht/foodfolio/pull/128)

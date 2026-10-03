@@ -30,7 +30,10 @@ final class RecipeRepository {
     return try await upsert(dto)
   }
 
-  func update(id: String, title: String, genre: RecipeGenre?, ingredients: [(String, String?)])
+  func update(
+    id: String, title: String, genre: RecipeGenre?, ingredients: [(String, String?)],
+    steps: [String]? = nil
+  )
     async throws -> LocalRecipe
   {
     struct Item: Encodable, Sendable {
@@ -41,10 +44,14 @@ final class RecipeRepository {
       let title: String
       let genre: String?
       let ingredients: [Item]
+      let steps: [Step]?
     }
+    struct Step: Encodable, Sendable { let text: String }
     let dto: RecipeDTO = try await api.send(
       "/v1/recipes/\(id)", method: "PATCH",
-      body: Body(title: title, genre: genre?.rawValue, ingredients: ingredients.map(Item.init)))
+      body: Body(
+        title: title, genre: genre?.rawValue, ingredients: ingredients.map(Item.init),
+        steps: steps?.map { Step(text: $0) }))
     return try await applyMutationResponse(dto)
   }
 

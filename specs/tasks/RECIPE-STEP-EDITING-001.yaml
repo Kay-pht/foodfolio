@@ -1,0 +1,127 @@
+id: RECIPE-STEP-EDITING-001
+type: feature
+status: approved
+
+objective: >-
+  Let users edit cooking instructions as numbered multiline steps in the existing recipe
+  editor, including adding, deleting and reordering steps, and save them through the existing
+  recipe mutation and sync paths. User-approved blank steps are removed on save and zero steps
+  are valid.
+
+requirements:
+  - id: RSE-1
+    condition: A user opens the editor for an editable recipe with cooking steps.
+    expected: >-
+      Steps appear after ingredients in ascending sortOrder, numbered from one, with one
+      multiline text field per step. Internal line breaks remain within that step.
+    verification:
+      - ios/FoodfolioUITests/MajorFlowUITests.swift
+  - id: RSE-2
+    condition: A user adds, deletes or reorders steps in the editor.
+    expected: >-
+      The editor allows adding even when no steps exist, explicitly deleting any step, and
+      moving steps up or down. Numbers reflect the current order and boundary move actions
+      are disabled. Changes stay in the edit draft until save.
+    verification:
+      - ios/FoodfolioUITests/MajorFlowUITests.swift
+  - id: RSE-3
+    condition: A user saves cooking steps including blank or whitespace-only text, or no steps.
+    expected: >-
+      Leading and trailing whitespace is trimmed, blank steps are omitted, internal newlines
+      are retained, and remaining steps receive contiguous zero-based sortOrder. Saving
+      zero steps clears cooking instructions and hides the detail cooking section.
+    verification:
+      - tests/integration/mvp-critical.test.ts
+      - ios/FoodfolioUITests/MajorFlowUITests.swift
+  - id: RSE-4
+    condition: An authenticated owner PATCHes an editable recipe with optional steps.
+    expected: >-
+      The steps field is an array of objects with string text. A supplied array replaces all
+      steps in the same transaction as title, genre and ingredients, updates updatedAt and
+      returns the resulting DTO. Invalid arrays or non-string text return 422 without any
+      recipe changes. Omitting steps preserves existing steps for older clients and memo edits.
+      Recipe updates serialize before replacing child rows to prevent mixed concurrent step lists.
+    verification:
+      - tests/integration/mvp-critical.test.ts
+  - id: RSE-5
+    condition: A step edit succeeds or fails over the existing iOS repository API.
+    expected: >-
+      The server response immediately replaces local steps through applyMutationResponse.
+      Failed saves retain the draft, show the existing error and keep prior persisted values.
+      A late response must not recreate a deleted recipe. Duplicate save actions are disabled.
+    verification:
+      - ios/FoodfolioIntegrationTests/PersistenceIntegrationTests.swift
+      - ios/FoodfolioIntegrationTests/RecipeMutationRaceTests.swift
+      - ios/FoodfolioUITests/MajorFlowUITests.swift
+  - id: RSE-6
+    condition: Edited cooking steps are read or synchronized after analysis.
+    expected: >-
+      Detail, GET and sync responses use the saved text and order. Other users cannot change
+      them. Pending, processing and not_recipe recipes remain non-editable; completed and
+      failed recipes permit cooking-step edits.
+    verification:
+      - tests/integration/mvp-critical.test.ts
+      - tests/e2e/backend-worker.test.ts
+      - ios/FoodfolioUITests/MajorFlowUITests.swift
+  - id: RSE-7
+    condition: The feature is prepared for review.
+    expected: >-
+      Requirement, basic, implementation and UI design documents describe cooking steps as
+      editable. Backend verify and iOS verify cover the feature and all expected iOS tests
+      pass without skips.
+    verification:
+      - docs/requirements-specification.md
+      - docs/basic-design.md
+      - docs/implementation-design.md
+      - docs/ui-ux-design.md
+      - package.json
+
+edge_cases:
+  - No existing instructions, one step, or multiple steps stored out of array order.
+  - Multiline Japanese text and whitespace-only steps between valid steps.
+  - All steps are deleted explicitly or cleared to whitespace.
+  - Move up on the first step and move down on the last step.
+  - A malformed step follows a valid step while other recipe fields are also changed.
+  - An offline or server-failed save and retry.
+  - Concurrent step replacements must produce one complete list, not a mixture.
+  - A mutation response arrives after local deletion.
+
+security_invariants:
+  - Existing authentication, ownership and analysis-state checks apply to step edits.
+  - Cooking instruction text is not added to application logs or AI requests.
+  - Invalid step input cannot partially update title, ingredients or existing steps.
+
+compatibility:
+  - The existing RecipeStep table, SwiftData model and response DTO remain unchanged.
+  - Older clients and memo mutations that omit steps retain existing instructions.
+  - An empty array explicitly clears instructions; it is distinct from an omitted field.
+  - Existing recipe editability, tags, memo and want-to-cook rules remain unchanged.
+
+non_functional:
+  - Use the existing online PATCH, mutation response and differential sync paths.
+  - Use up and down buttons as a routine UI choice so order changes do not require dragging.
+  - Delete whitespace-only steps on save rather than while the user is typing.
+  - Keep draft state separate from persisted recipe steps until a successful save.
+  - Rely on the existing API request body limit rather than introducing arbitrary text limits.
+
+out_of_scope:
+  - Editing images, servings, cooking time, source URLs or analysis status.
+  - Offline mutation queues, instruction history, original-text comparison or AI rewriting.
+  - Changing search matching or unrelated tag-editing behavior.
+  - Deployment, Apple upload, public release or final merge.
+
+acceptance_criteria:
+  - Cooking steps can be edited, added, deleted and reordered with consecutive visible numbers.
+  - Blank steps disappear on save; saving an empty list succeeds.
+  - Saved instructions appear immediately in detail and are returned by sync in the same order.
+  - Invalid input and failed requests leave existing persisted recipe data intact.
+  - Older requests without steps do not clear instructions.
+  - Backend and iOS tests, integration, E2E, lint, formatting and builds pass.
+
+regression:
+  required: false
+  tests:
+    - tests/integration/mvp-critical.test.ts
+    - tests/e2e/backend-worker.test.ts
+    - ios/FoodfolioIntegrationTests/PersistenceIntegrationTests.swift
+    - ios/FoodfolioUITests/MajorFlowUITests.swift

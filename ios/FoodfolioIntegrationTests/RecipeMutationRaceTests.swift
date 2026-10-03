@@ -45,6 +45,7 @@ import XCTest
     XCTAssertEqual(result.updatedAt, newerUpdatedAt)
     XCTAssertEqual(result.analysisStatus, .completed)
     XCTAssertEqual(result.title, "解析完了")
+    XCTAssertEqual(result.steps.map(\.text), ["解析完了"])
     XCTAssertEqual(result.ingredients.map(\.name), ["新しい材料"])
     XCTAssertEqual(result.wantToCookAt, markDate)
     XCTAssertEqual(result.memo, "新しいメモ")
@@ -74,7 +75,8 @@ import XCTest
       wantToCookAt: wantToCookAt, memo: memo,
       ingredients: [
         IngredientDTO(id: "race-ingredient", name: ingredientName, amount: "200g", sortOrder: 0)
-      ], steps: [], tags: [], createdAt: createdAt, updatedAt: updatedAt)
+      ], steps: [RecipeStepDTO(id: "race-step", text: title, sortOrder: 0)],
+      tags: [], createdAt: createdAt, updatedAt: updatedAt)
   }
 }
 

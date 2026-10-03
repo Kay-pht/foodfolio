@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { buildWorker } from "../../src/api/build-worker.js";
+import { buildApi } from "../../src/api/build-api.js";
 import {
   completeNotRecipeAnalysis,
   RecipeAnalysisService,
@@ -126,6 +127,72 @@ describe("API/Worker application E2E", () => {
     expect(updated.analysisProvider).toBe("zai");
     expect(updated.ingredients[0]?.name).toBe("鶏肉");
     expect(notifications.completed).toEqual([recipe.id]);
+    const api = buildApi({
+      prisma: context.prisma,
+      authVerifier: {
+        verifyIdToken: async () => ({ firebaseUid: "worker-user" }),
+      },
+      firebaseUsers: { deleteUser: async () => {} },
+      taskQueue: { enqueueRecipeAnalysis: async () => {} },
+    });
+    const headers = { authorization: "Bearer worker-user" };
+    const syncBeforeEdit = await api.inject({
+      method: "GET",
+      url: "/v1/sync",
+      headers,
+    });
+    await waitForClockTick();
+    const edited = await api.inject({
+      method: "PATCH",
+      url: `/v1/recipes/${recipe.id}`,
+      headers,
+      payload: {
+        steps: [
+          { text: "  切る\n小さめに  " },
+          { text: " " },
+          { text: "焼く" },
+        ],
+      },
+    });
+    expect(edited.statusCode).toBe(200);
+    const expectedTexts = ["切る\n小さめに", "焼く"];
+    expect(
+      edited.json().steps.map((step: { text: string }) => step.text),
+    ).toEqual(expectedTexts);
+    expect(
+      (
+        await api.inject({
+          method: "GET",
+          url: `/v1/recipes/${recipe.id}`,
+          headers,
+        })
+      ).json().steps,
+    ).toEqual(edited.json().steps);
+    const incremental = await api.inject({
+      method: "GET",
+      url: `/v1/sync?cursor=${encodeURIComponent(syncBeforeEdit.json().nextCursor)}`,
+      headers,
+    });
+    expect(incremental.statusCode).toBe(200);
+    expect(
+      incremental.json().recipes.find((r: { id: string }) => r.id === recipe.id)
+        .steps,
+    ).toEqual(edited.json().steps);
+    const repeatedTask = await worker.inject({
+      method: "POST",
+      url: "/internal/tasks/recipe-analysis",
+      payload: { recipeId: recipe.id },
+    });
+    expect(repeatedTask.statusCode).toBe(204);
+    expect(
+      (
+        await context.prisma.recipeStep.findMany({
+          where: { recipeId: recipe.id },
+          orderBy: { sortOrder: "asc" },
+        })
+      ).map((step) => step.text),
+    ).toEqual(expectedTexts);
+    await api.close();
     await worker.close();
   });
 

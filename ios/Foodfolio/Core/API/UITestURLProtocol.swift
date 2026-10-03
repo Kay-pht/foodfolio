@@ -21,6 +21,12 @@
         finish(status: 201, json: recipe(title: "追加したレシピ"))
       case ("PATCH", "/v1/recipes/ui-recipe"), ("PATCH", "/v1/recipes/ui-added-recipe"):
         let body = requestBody()
+        if body.keys.contains("steps"),
+          ProcessInfo.processInfo.arguments.contains("-ui-testing-step-save-failure")
+        {
+          finish(status: 500, json: error("INTERNAL_ERROR"))
+          return
+        }
         let isSeedRecipe = path.contains("/ui-recipe")
         let isMemoUpdate = body.keys.contains("memo")
         finish(
@@ -30,6 +36,7 @@
             title: isSeedRecipe ? "親子丼" : (isMemoUpdate ? "追加したレシピ" : "追加したレシピ 更新"),
             genre: body["genre"] as? String ?? "主菜",
             ingredients: body["ingredients"] as? [[String: Any]] ?? [],
+            steps: body["steps"] as? [[String: Any]] ?? [],
             tags: isSeedRecipe ? [existingTag()] : [],
             analysisStatus: isSeedRecipe ? uiRecipeAnalysisStatus() : "completed",
             memo: body["memo"] as? String,
@@ -111,7 +118,7 @@
 
     private func recipe(
       id: String = "ui-added-recipe", title: String, genre: String? = "主菜",
-      ingredients: [[String: Any]] = [], tags: [[String: Any]] = [],
+      ingredients: [[String: Any]] = [], steps: [[String: Any]] = [], tags: [[String: Any]] = [],
       analysisStatus: String = "completed", wantToCookAt: String? = nil, memo: String? = nil,
       updatedAt: String = "2026-08-28T00:00:01Z"
     ) -> [String: Any] {
@@ -136,7 +143,12 @@
             "sortOrder": index,
           ]
         },
-        "steps": [],
+        "steps": steps.enumerated().map { index, item in
+          [
+            "id": "ui-added-step-\(index)", "text": item["text"] as? String ?? "",
+            "sortOrder": index,
+          ]
+        },
         "tags": tags,
         "createdAt": "2026-08-28T00:00:00Z",
         "updatedAt": updatedAt,
