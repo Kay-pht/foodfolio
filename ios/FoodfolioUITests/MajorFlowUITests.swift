@@ -101,23 +101,34 @@ import XCTest
   }
 
   private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
-    for _ in 0..<5 where !element.isHittable { app.swipeUp() }
+    for _ in 0..<8 where !element.isHittable {
+      if element.exists, element.frame.maxY < app.frame.midY {
+        app.swipeDown()
+      } else {
+        app.swipeUp()
+      }
+    }
     XCTAssertTrue(element.waitForExistence(timeout: 3))
     XCTAssertTrue(element.isHittable)
   }
 
   private func tap(_ element: XCUIElement, in app: XCUIApplication) {
-    if !element.isHittable { app.swipeDown() }
-    reveal(element, in: app)
+    XCTAssertTrue(element.waitForExistence(timeout: 3))
     element.tap()
   }
 
   private func replace(_ element: XCUIElement, with text: String, in app: XCUIApplication) {
-    reveal(element, in: app)
+    XCTAssertTrue(element.waitForExistence(timeout: 3))
     element.tap()
+    XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 3))
     let existing = element.value as? String ?? ""
-    element.typeText(
-      String(repeating: XCUIKeyboardKey.delete.rawValue, count: existing.count) + text)
+    if !existing.isEmpty, existing != "作り方を入力" {
+      for _ in 0..<existing.count {
+        element.typeKey(XCUIKeyboardKey.rightArrow.rawValue, modifierFlags: [])
+      }
+      element.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: existing.count))
+    }
+    element.typeText(text)
     app.swipeUp()
   }
 }
