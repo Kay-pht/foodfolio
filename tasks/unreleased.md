@@ -6,6 +6,15 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
 
 ## 未反映
 
+- [ ] `REL-20261003-01` レシピ詳細でメモ本文を見やすく表示する
+  - 内容: 保存済みメモがある場合、レシピ詳細のタグと材料の間に「自分のメモ」カードを表示し、本文冒頭を最大3行までその場で読めるようにする。「全文を見る」から既存のメモシートを開けるようにし、従来の小さな「メモ」ショートカット表示は廃止する
+  - PR: [#135](https://github.com/Kay-pht/foodfolio/pull/135)
+  - main反映: 未反映
+  - 必要な反映先:
+    - [ ] TestFlight内部テスト — 対象version/build: 未定
+    - [ ] App Store本番 — 対象version/build: 未定
+  - 備考: メモ未登録のレシピではカードを表示しない。メモ追加・編集・削除、同期、検索対象外など既存のメモ仕様は変更しない
+
 - [ ] `REL-20260924-01` Foodfolio 1.0.2で日本語表示情報とApp Store掲載内容を更新する
   - 内容: iOS本体とShare Extensionが日本語対応アプリであることをAppleへ正しく申告し、インストール後のアプリ名は`Foodfolio`のまま維持する。App Store上の表示名を「レシピ保存/管理アプリ - Foodfolio」へ変更し、利用許可を確認済みの新しい日本語マーケティング画像6枚へ差し替える。あわせて、PR #121/#122でmainへ追加した5つのCloud Monitoring alert policyを既存Slack通知先へ反映する
   - PR: 日本語申告 [#124](https://github.com/Kay-pht/foodfolio/pull/124)、App Store画像 [#125](https://github.com/Kay-pht/foodfolio/pull/125)、Runtime Monitoring [#121](https://github.com/Kay-pht/foodfolio/pull/121) / [#122](https://github.com/Kay-pht/foodfolio/pull/122)、配布準備 [#126](https://github.com/Kay-pht/foodfolio/pull/126)、配布記録 [#128](https://github.com/Kay-pht/foodfolio/pull/128)
