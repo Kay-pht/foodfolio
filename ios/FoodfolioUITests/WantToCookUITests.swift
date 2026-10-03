@@ -47,9 +47,11 @@ import XCTest
     XCTAssertEqual(textCount(seedTitle, in: app), 1)
   }
 
-  func testMemoCanBeAddedAndOpenedFromSummaryShortcut() {
+  func testMemoCanBeAddedAndOpenedFromDetailPreview() {
     let app = launch()
     openSeedRecipe(in: app)
+    XCTAssertFalse(app.staticTexts["detail.memoPreviewText"].exists)
+    XCTAssertFalse(app.buttons["detail.memoPreviewOpen"].exists)
     XCTAssertFalse(app.buttons["detail.memoShortcut"].exists)
 
     openRecipeMenu(in: app)
@@ -63,9 +65,15 @@ import XCTest
     editor.typeText("味が少し濃かった。\n次回は醤油を少なめにする。")
     app.buttons["memo.save"].tap()
 
-    let shortcut = app.buttons["detail.memoShortcut"]
-    XCTAssertTrue(shortcut.waitForExistence(timeout: 3))
-    shortcut.tap()
+    let preview = app.staticTexts["detail.memoPreviewText"]
+    XCTAssertTrue(preview.waitForExistence(timeout: 3))
+    XCTAssertEqual(preview.label, "味が少し濃かった。\n次回は醤油を少なめにする。")
+    XCTAssertTrue(app.staticTexts["detail.memoPreviewHeading"].exists)
+    XCTAssertFalse(app.buttons["detail.memoShortcut"].exists)
+
+    let openMemo = app.buttons["detail.memoPreviewOpen"]
+    XCTAssertTrue(openMemo.waitForExistence(timeout: 2))
+    openMemo.tap()
 
     let content = app.staticTexts["memo.content"]
     XCTAssertTrue(content.waitForExistence(timeout: 3))
@@ -73,13 +81,17 @@ import XCTest
     XCTAssertTrue(app.buttons["memo.edit"].exists)
   }
 
-  func testExistingMemoIsImmediatelyDiscoverableAndEditableFromMenu() {
+  func testExistingMemoIsImmediatelyVisibleAndEditableFromMenu() {
     let app = launch(arguments: ["-ui-testing-existing-memo"])
     openSeedRecipe(in: app)
 
-    let shortcut = app.buttons["detail.memoShortcut"]
-    XCTAssertTrue(shortcut.waitForExistence(timeout: 3))
-    shortcut.tap()
+    XCTAssertTrue(app.staticTexts["detail.memoPreviewHeading"].waitForExistence(timeout: 3))
+    XCTAssertTrue(app.staticTexts["detail.memoPreviewText"].exists)
+    XCTAssertFalse(app.buttons["detail.memoShortcut"].exists)
+
+    let openMemo = app.buttons["detail.memoPreviewOpen"]
+    XCTAssertTrue(openMemo.waitForExistence(timeout: 2))
+    openMemo.tap()
     XCTAssertTrue(app.staticTexts["memo.content"].waitForExistence(timeout: 2))
     app.buttons["memo.cancel"].tap()
 
