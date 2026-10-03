@@ -27,6 +27,10 @@ struct RecipeDetailView: View {
           VStack(alignment: .leading, spacing: 24) {
             summarySection
 
+            if hasMemo {
+              memoPreviewSection
+            }
+
             if RecipeDetailPresentation.showsAnalysisFailure(for: recipe.analysisStatus) {
               Label("レシピの解析に問題がありました。", systemImage: "exclamationmark.triangle")
                 .font(.subheadline.weight(.medium))
@@ -166,27 +170,11 @@ struct RecipeDetailView: View {
         .fixedSize(horizontal: false, vertical: true)
         .accessibilityIdentifier("detail.title")
 
-      if recipe.wantToCookAt != nil || hasMemo {
-        HStack(spacing: 16) {
-          if recipe.wantToCookAt != nil {
-            Label("作りたい", systemImage: "checkmark.circle.fill")
-              .font(.caption.weight(.semibold))
-              .foregroundStyle(FoodfolioTheme.terracotta)
-              .accessibilityIdentifier("detail.wantToCookStatus")
-          }
-
-          if hasMemo {
-            Button {
-              memoSheetMode = .view
-            } label: {
-              Label("メモ", systemImage: "note.text")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(FoodfolioTheme.terracotta)
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("detail.memoShortcut")
-          }
-        }
+      if recipe.wantToCookAt != nil {
+        Label("作りたい", systemImage: "checkmark.circle.fill")
+          .font(.caption.weight(.semibold))
+          .foregroundStyle(FoodfolioTheme.terracotta)
+          .accessibilityIdentifier("detail.wantToCookStatus")
       }
 
       HStack(spacing: 10) {
@@ -287,6 +275,45 @@ struct RecipeDetailView: View {
         .glassEffect(.regular, in: Capsule())
       }
     }
+  }
+
+  private var memoPreviewSection: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      Label("自分のメモ", systemImage: "note.text")
+        .font(.subheadline.weight(.semibold))
+        .foregroundStyle(FoodfolioTheme.terracotta)
+        .accessibilityIdentifier("detail.memoPreviewHeading")
+
+      if let memoText {
+        Text(memoText)
+          .font(.body)
+          .foregroundStyle(FoodfolioTheme.ink)
+          .lineLimit(3)
+          .truncationMode(.tail)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .accessibilityIdentifier("detail.memoPreviewText")
+      }
+
+      Button {
+        memoSheetMode = .view
+      } label: {
+        HStack(spacing: 5) {
+          Text("全文を見る")
+          Image(systemName: "chevron.right")
+            .font(.caption.bold())
+        }
+        .font(.subheadline.weight(.medium))
+        .foregroundStyle(FoodfolioTheme.terracotta)
+        .frame(maxWidth: .infinity, alignment: .trailing)
+      }
+      .buttonStyle(.plain)
+      .accessibilityIdentifier("detail.memoPreviewOpen")
+    }
+    .padding(16)
+    .background(
+      FoodfolioTheme.terracotta.opacity(0.08),
+      in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+    )
   }
 
   private var materialsSection: some View {
