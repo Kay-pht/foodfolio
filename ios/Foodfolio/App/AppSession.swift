@@ -212,11 +212,16 @@ final class RecipeSynchronizationCoordinator {
     let steps =
       status == .notRecipe
       ? []
-      : arguments.contains("-ui-testing-long-title")
-        ? (0..<8).map {
-          LocalRecipeStep(id: "ui-step-\($0)", text: "調理手順\($0 + 1)", sortOrder: $0)
-        }
-        : [LocalRecipeStep(id: "ui-step", text: "材料を煮る", sortOrder: 0)]
+      : arguments.contains("-ui-testing-step-edit")
+        ? [
+          LocalRecipeStep(id: "ui-step-second", text: "材料を煮る", sortOrder: 1),
+          LocalRecipeStep(id: "ui-step-first", text: "材料を切る", sortOrder: 0),
+        ]
+        : arguments.contains("-ui-testing-long-title")
+          ? (0..<8).map {
+            LocalRecipeStep(id: "ui-step-\($0)", text: "調理手順\($0 + 1)", sortOrder: $0)
+          }
+          : [LocalRecipeStep(id: "ui-step", text: "材料を煮る", sortOrder: 0)]
     let recipe = LocalRecipe(
       id: "ui-recipe", originalUrl: "https://example.com/oyakodon", sourceType: "web", title: title,
       servingsValue: servings.0, servingsRaw: servings.1, cookingTimeMinutes: 20, genreRaw: "主菜",

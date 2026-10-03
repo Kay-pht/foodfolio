@@ -5,6 +5,65 @@ import XCTest
 @testable import Foodfolio
 
 @MainActor final class PersistenceIntegrationTests: XCTestCase {
+  func testStepUpdateRoundTripsOrderAndClearThroughMutationResponseAndPersistence() async throws {
+    let container = try ModelContainerFactory.make(inMemory: true)
+    let repository = try makeStepRepository(container: container)
+    let date = Date(timeIntervalSince1970: 1_800_000_000)
+    try await repository.upsert(makeRecipe(id: "step-recipe", date: date))
+
+    let saved = try await repository.update(
+      id: "step-recipe", title: "編集済み", genre: .main, ingredients: [],
+      steps: ["盛り付ける", "煮る\n弱火で5分"])
+    XCTAssertEqual(
+      saved.steps.sorted { $0.sortOrder < $1.sortOrder }.map(\.text),
+      ["盛り付ける", "煮る\n弱火で5分"])
+    XCTAssertEqual(saved.steps.map(\.sortOrder).sorted(), [0, 1])
+    let persisted = try XCTUnwrap(
+      ModelContext(container).fetch(FetchDescriptor<LocalRecipe>()).first)
+    XCTAssertEqual(
+      persisted.steps.sorted { $0.sortOrder < $1.sortOrder }.map(\.text),
+      ["盛り付ける", "煮る\n弱火で5分"])
+
+    let cleared = try await repository.update(
+      id: "step-recipe", title: "編集済み", genre: .main, ingredients: [], steps: [])
+    XCTAssertTrue(cleared.steps.isEmpty)
+    let legacy = try await repository.update(
+      id: "step-recipe", title: "編集済み", genre: .main, ingredients: [])
+    XCTAssertEqual(legacy.steps.map(\.text), ["既存の手順"])
+  }
+
+  func testFailedStepUpdateLeavesPersistedInstructionsUntouched() async throws {
+    let container = try ModelContainerFactory.make(inMemory: true)
+    let repository = try makeStepRepository(container: container, fail: true)
+    let date = Date(timeIntervalSince1970: 1_800_000_000)
+    let local = try await repository.upsert(makeRecipe(id: "step-recipe", date: date))
+    local.steps = [LocalRecipeStep(id: "old-step", text: "元の手順", sortOrder: 0)]
+    try container.mainContext.save()
+    do {
+      _ = try await repository.update(
+        id: "step-recipe", title: "変更済み", genre: .main, ingredients: [], steps: [])
+      XCTFail("Step mutation must fail")
+    } catch {
+      XCTAssertEqual(error as? APIError, .offline)
+    }
+    XCTAssertEqual(try repository.recipe(id: "step-recipe")?.title, "step-recipe")
+    XCTAssertEqual(try repository.recipe(id: "step-recipe")?.steps.map(\.text), ["元の手順"])
+  }
+
+  private func makeStepRepository(container: ModelContainer, fail: Bool = false) throws
+    -> RecipeRepository
+  {
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [StepMutationURLProtocol.self]
+    return RecipeRepository(
+      context: container.mainContext,
+      api: APIClient(
+        baseURL: URL(string: fail ? "https://offline.invalid" : "https://step-edit.invalid")!,
+        tokenProvider: TestTokenProvider(), session: URLSession(configuration: configuration)),
+      images: try RecipeImageStore(
+        root: FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)))
+  }
+
   func testUpsertSearchAndHardDeleteReconciliation() async throws {
     let container = try ModelContainerFactory.make(inMemory: true)
     let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
@@ -304,6 +363,53 @@ private func makeRecipe(
 
 private struct TestTokenProvider: IDTokenProvider {
   func idToken() async throws -> String { "token" }
+}
+
+private final class StepMutationURLProtocol: URLProtocol, @unchecked Sendable {
+  override class func canInit(with request: URLRequest) -> Bool { true }
+  override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+  override func startLoading() {
+    if request.url?.host == "offline.invalid" {
+      client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
+      return
+    }
+    var data = request.httpBody ?? Data()
+    if let stream = request.httpBodyStream {
+      stream.open()
+      defer { stream.close() }
+      var buffer = [UInt8](repeating: 0, count: 4096)
+      while stream.hasBytesAvailable {
+        let count = stream.read(&buffer, maxLength: buffer.count)
+        guard count > 0 else { break }
+        data.append(contentsOf: buffer[..<count])
+      }
+    }
+    guard request.httpMethod == "PATCH",
+      let body = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    else {
+      client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
+      return
+    }
+    let steps = body["steps"] as? [[String: Any]] ?? [["text": "既存の手順"]]
+    let json: [String: Any] = [
+      "id": "step-recipe", "originalUrl": "https://example.com/step-recipe", "sourceType": "web",
+      "title": body["title"] as? String ?? "", "analysisStatus": "completed",
+      "ingredients": [], "tags": [],
+      "steps": steps.enumerated().map { index, step in
+        ["id": "step-\(index)", "text": step["text"] ?? "", "sortOrder": index]
+      },
+      "createdAt": "2027-01-15T08:00:00Z", "updatedAt": "2030-01-01T00:01:00Z",
+    ]
+    let response = HTTPURLResponse(
+      url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1",
+      headerFields: ["Content-Type": "application/json"])!
+    client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+    client?.urlProtocol(self, didLoad: try! JSONSerialization.data(withJSONObject: json))
+    client?.urlProtocolDidFinishLoading(self)
+  }
+
+  override func stopLoading() {}
 }
 
 private actor RemoteImageFetchRecorder {

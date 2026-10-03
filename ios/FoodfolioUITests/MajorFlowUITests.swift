@@ -10,6 +10,118 @@ import XCTest
   }
 }
 
+@MainActor final class RecipeStepEditingUITests: FoodfolioUITestCase {
+  func testEditAddDeleteReorderAndRemoveBlankStepsOnSave() {
+    let app = launch(arguments: ["-ui-testing-step-edit"])
+    openEditor(app)
+    let first = stepField(app, 0)
+    let second = stepField(app, 1)
+    reveal(first, in: app)
+    XCTAssertEqual(first.value as? String, "材料を切る")
+    XCTAssertEqual(second.value as? String, "材料を煮る")
+    XCTAssertFalse(app.buttons["edit.step.0.up"].isEnabled)
+    XCTAssertFalse(app.buttons["edit.step.1.down"].isEnabled)
+    replace(first, with: "刻む\n細かく", in: app)
+
+    tap(app.buttons["edit.addStep"], in: app)
+    replace(stepField(app, 2), with: "盛り付ける", in: app)
+    tap(app.buttons["edit.step.2.up"], in: app)
+    XCTAssertEqual(stepField(app, 1).value as? String, "盛り付ける")
+    tap(app.buttons["edit.step.2.delete"], in: app)
+    tap(app.buttons["edit.addStep"], in: app)
+    replace(stepField(app, 2), with: " \n ", in: app)
+    tap(app.buttons["edit.step.0.down"], in: app)
+    app.buttons["edit.save"].tap()
+    XCTAssertTrue(app.staticTexts["detail.title"].waitForExistence(timeout: 3))
+
+    openEditor(app, fromHome: false)
+    reveal(stepField(app, 0), in: app)
+    XCTAssertEqual(stepField(app, 0).value as? String, "盛り付ける")
+    XCTAssertEqual(stepField(app, 1).value as? String, "刻む\n細かく")
+    XCTAssertFalse(stepField(app, 2).exists)
+    XCTAssertTrue(app.staticTexts["手順1"].exists)
+    XCTAssertTrue(app.staticTexts["手順2"].exists)
+    let screenshot = XCTAttachment(screenshot: app.screenshot())
+    screenshot.name = "Recipe numbered multiline step editor"
+    screenshot.lifetime = .keepAlways
+    add(screenshot)
+  }
+
+  func testClearAllStepsAndAddInstructionsToAnEmptyRecipe() {
+    let app = launch(arguments: ["-ui-testing-step-edit"])
+    openEditor(app)
+    tap(app.buttons["edit.step.1.delete"], in: app)
+    replace(stepField(app, 0), with: " \n ", in: app)
+    app.buttons["edit.save"].tap()
+    XCTAssertTrue(app.staticTexts["detail.title"].waitForExistence(timeout: 3))
+    XCTAssertFalse(app.staticTexts["作り方"].exists)
+
+    openEditor(app, fromHome: false)
+    XCTAssertFalse(stepField(app, 0).exists)
+    tap(app.buttons["edit.addStep"], in: app)
+    replace(stepField(app, 0), with: "新しい作り方", in: app)
+    app.buttons["edit.save"].tap()
+    XCTAssertTrue(app.staticTexts["detail.title"].waitForExistence(timeout: 3))
+    reveal(app.staticTexts["新しい作り方"], in: app)
+    XCTAssertTrue(app.staticTexts["新しい作り方"].isHittable)
+  }
+
+  func testFailedSaveKeepsDraftAndLeavingEditorKeepsOriginalSteps() {
+    let app = launch(arguments: ["-ui-testing-step-edit", "-ui-testing-step-save-failure"])
+    openEditor(app)
+    replace(stepField(app, 0), with: "保存前の下書き", in: app)
+    app.buttons["edit.save"].tap()
+    let error = app.staticTexts["通信に失敗しました。もう一度お試しください。"]
+    reveal(error, in: app)
+    XCTAssertTrue(error.waitForExistence(timeout: 3))
+    XCTAssertTrue(app.buttons["edit.save"].isEnabled)
+    app.swipeDown()
+    reveal(stepField(app, 0), in: app)
+    XCTAssertEqual(stepField(app, 0).value as? String, "保存前の下書き")
+    app.navigationBars.buttons.firstMatch.tap()
+    XCTAssertTrue(app.staticTexts["detail.title"].waitForExistence(timeout: 3))
+    openEditor(app, fromHome: false)
+    reveal(stepField(app, 0), in: app)
+    XCTAssertEqual(stepField(app, 0).value as? String, "材料を切る")
+    XCTAssertEqual(stepField(app, 1).value as? String, "材料を煮る")
+  }
+
+  private func openEditor(_ app: XCUIApplication, fromHome: Bool = true) {
+    if fromHome {
+      XCTAssertTrue(app.staticTexts["親子丼"].waitForExistence(timeout: 5))
+      app.staticTexts["親子丼"].tap()
+    }
+    app.buttons["detail.moreMenu"].tap()
+    app.buttons["detail.edit"].tap()
+    XCTAssertTrue(app.buttons["edit.save"].waitForExistence(timeout: 3))
+  }
+
+  private func stepField(_ app: XCUIApplication, _ index: Int) -> XCUIElement {
+    app.descendants(matching: .any).matching(identifier: "edit.step.\(index).text").firstMatch
+  }
+
+  private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
+    for _ in 0..<5 where !element.isHittable { app.swipeUp() }
+    XCTAssertTrue(element.waitForExistence(timeout: 3))
+    XCTAssertTrue(element.isHittable)
+  }
+
+  private func tap(_ element: XCUIElement, in app: XCUIApplication) {
+    if !element.isHittable { app.swipeDown() }
+    reveal(element, in: app)
+    element.tap()
+  }
+
+  private func replace(_ element: XCUIElement, with text: String, in app: XCUIApplication) {
+    reveal(element, in: app)
+    element.tap()
+    let existing = element.value as? String ?? ""
+    element.typeText(
+      String(repeating: XCUIKeyboardKey.delete.rawValue, count: existing.count) + text)
+    app.swipeUp()
+  }
+}
+
 @MainActor final class RecipeDiscoveryUITests: FoodfolioUITestCase {
   func testBrowseSearchAndOpenRecipeDetail() {
     let app = launch()
