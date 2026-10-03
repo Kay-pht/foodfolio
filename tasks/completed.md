@@ -116,3 +116,7 @@
     - 2026-09-14: build 12はBeta App Review `APPROVED`、外部 `IN_BETA_TESTING`、自動通知有効。既存テスター2件は `INSTALLED` 1件、`INVITED` 1件
     - 2026-09-15: build 13はBeta App Review `APPROVED`、外部 `IN_BETA_TESTING`、自動通知有効。既存テスター2件は `INSTALLED` 1件、`INVITED` 1件
   - [x] 外部テスターの実機でbuild 13への更新、ChatGPT / Gemini共有会話の取り込み、生成サムネイル、主要フローを確認する
+- [x] レシピ編集で作り方の修正・追加・削除・並べ替えを可能にする
+  - 手順番号付き複数行入力欄を表示し、空欄の手順は保存時に消去、0件も保存可能とする
+  - 作り方を更新API・ローカル保存・同期へ反映し、従来クライアントの手順を保持する
+  - BackendとiOSの全体test・結合・E2E・lint・format・buildを確認する
