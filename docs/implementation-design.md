@@ -751,7 +751,7 @@ Request例：
 }
 ```
 
-すべてoptionalとし、送信された項目だけ変更する。メモはnullable textとして扱い、前後空白を除いた結果が空なら `null`、最大2,000文字とする。
+すべてoptionalとし、送信された項目だけ変更する。メモはnullable textとして扱い、前後空白を除いた結果が空なら `null`、最大200文字とする。文字数は前後空白除去後のUnicode scalar数で数え、iOSも同じ条件で保存可否とカウンターを判定する。
 
 `analysisStatus` が `pending` または `processing` のRecipeは編集不可とし、Backendでも `RECIPE_ANALYSIS_IN_PROGRESS` として拒否する。`not_recipe` も通常のレシピ編集対象ではないため、PATCHを `RECIPE_NOT_EDITABLE` として拒否する。
 

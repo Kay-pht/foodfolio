@@ -257,7 +257,7 @@ export function registerRoutes(
         if (body.memo !== null && typeof body.memo !== "string")
           throw new AppError(422, "VALIDATION_ERROR", "memo is invalid");
         const memo = typeof body.memo === "string" ? body.memo.trim() : "";
-        if ([...memo].length > 2000)
+        if ([...memo].length > 200)
           throw new AppError(422, "VALIDATION_ERROR", "memo is too long");
         data.memo = memo || null;
       }

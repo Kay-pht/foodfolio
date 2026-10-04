@@ -13,7 +13,7 @@ requirements:
     condition: An authenticated user saves, changes, or clears the memo for one of their editable recipes.
     expected: >-
       The backend stores at most one nullable free-text memo on the owned Recipe, trims surrounding
-      whitespace, treats an empty value as no memo, rejects values longer than 2000 characters,
+      whitespace, treats an empty value as no memo, rejects values longer than 200 characters,
       updates Recipe.updatedAt, and returns the resulting memo in recipe DTOs and sync responses.
     verification:
       - tests/integration/mvp-critical.test.ts
@@ -72,8 +72,8 @@ requirements:
 edge_cases:
   - A user saves a memo containing multiple lines and Japanese text.
   - A memo consists only of whitespace.
-  - A memo is exactly 2000 characters.
-  - A memo exceeds 2000 characters.
+  - A memo is exactly 200 characters.
+  - A memo exceeds 200 characters.
   - A recipe has both want-to-cook state and a memo.
   - A recipe changes from having a memo to having no memo.
   - A memo is longer than the three-line preview.

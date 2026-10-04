@@ -582,20 +582,46 @@ describe("MVP critical API integration", () => {
           method: "PATCH",
           url: `/v1/recipes/${id}`,
           headers: ownerHeaders,
-          payload: { memo: "a".repeat(2000) },
+          payload: { memo: "a".repeat(200) },
         })
       ).statusCode,
     ).toBe(200);
+    const beforeRejectedMemo = await context.prisma.recipe.findUniqueOrThrow({
+      where: { id },
+    });
     expect(
       (
         await app.inject({
           method: "PATCH",
           url: `/v1/recipes/${id}`,
           headers: ownerHeaders,
-          payload: { memo: "a".repeat(2001) },
+          payload: { memo: "a".repeat(201) },
         })
       ).statusCode,
     ).toBe(422);
+    const afterRejectedMemo = await context.prisma.recipe.findUniqueOrThrow({
+      where: { id },
+    });
+    expect(afterRejectedMemo.memo).toBe(beforeRejectedMemo.memo);
+    expect(afterRejectedMemo.updatedAt).toEqual(beforeRejectedMemo.updatedAt);
+    for (const character of ["あ", "🍳"]) {
+      const boundaryMemo = `  ${character.repeat(200)}\n `;
+      const boundarySaved = await app.inject({
+        method: "PATCH",
+        url: `/v1/recipes/${id}`,
+        headers: ownerHeaders,
+        payload: { memo: boundaryMemo },
+      });
+      expect(boundarySaved.statusCode).toBe(200);
+      expect(boundarySaved.json().memo).toBe(character.repeat(200));
+      const rejected = await app.inject({
+        method: "PATCH",
+        url: `/v1/recipes/${id}`,
+        headers: ownerHeaders,
+        payload: { memo: character.repeat(201) },
+      });
+      expect(rejected.statusCode).toBe(422);
+    }
     expect(
       (
         await app.inject({
