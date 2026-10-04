@@ -45,6 +45,12 @@ MVP 作成段階に限り、次の値を使用する。
 - 秘密情報のローテーション
 - 一般公開リリース
 
+## インフラ費用削減
+
+Cloud Runの課金方式、デプロイ後の配信中revision検証、Artifact Registryのdry-run保持条件と削除有効化の前提は [../infrastructure-cost-reduction.md](../infrastructure-cost-reduction.md) を正本とする。
+
+API / Workerはリクエストベース課金を明示し、既存のresource・scale・deadline・認証・監視を維持する。Artifact Registryの整理はdry runで導入し、削除有効化は稼働中・rollback digestの保護と候補照合を済ませた別変更とする。
+
 ## Runtime monitoring
 
 ランタイム監視の正本は [../runtime-monitoring.md](../runtime-monitoring.md) とする。

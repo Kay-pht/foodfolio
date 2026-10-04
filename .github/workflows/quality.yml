@@ -168,6 +168,17 @@ jobs:
           steps.changes.outputs.terraform == 'true'
         run: terraform fmt -check -recursive infra/terraform
 
+      - name: Validate and test Terraform without cloud access
+        id: terraform_test
+        if: >-
+          steps.proof.outputs.reusable != 'true' &&
+          steps.changes.outputs.terraform == 'true'
+        shell: bash
+        run: |
+          terraform -chdir=infra/terraform init -backend=false -input=false -lockfile=readonly
+          terraform -chdir=infra/terraform validate
+          terraform -chdir=infra/terraform test
+
       - uses: actions/setup-node@v7
         if: >-
           steps.proof.outputs.reusable != 'true' &&
@@ -369,6 +380,7 @@ jobs:
             echo "| Direct main push policy | ${{ steps.main_push_policy.outcome }} |"
             echo "| Whitespace | ${{ steps.whitespace.outcome }} |"
             echo "| Actionlint | ${{ steps.actionlint.outcome }} |"
+            echo "| Terraform tests | ${{ steps.terraform_test.outcome }} |"
             echo "| Tasks | ${{ steps.tasks.outcome }} |"
             echo "| Specification change gate | ${{ steps.spec_change.outcome }} |"
             echo "| Specification contracts | ${{ steps.specs.outcome }} |"

@@ -38,11 +38,37 @@ resource "google_project_service" "required" {
 }
 
 resource "google_artifact_registry_repository" "app" {
-  location      = var.region
-  repository_id = "foodfolio"
-  description   = "Foodfolio application containers"
-  format        = "DOCKER"
-  depends_on    = [google_project_service.required]
+  location               = var.region
+  repository_id          = "foodfolio"
+  description            = "Foodfolio application containers"
+  format                 = "DOCKER"
+  cleanup_policy_dry_run = true
+
+  cleanup_policies {
+    id     = "delete-older-than-30-days"
+    action = "DELETE"
+    condition {
+      tag_state  = "ANY"
+      older_than = "2592000s"
+    }
+  }
+  cleanup_policies {
+    id     = "keep-latest-10-per-package"
+    action = "KEEP"
+    most_recent_versions {
+      keep_count = 10
+    }
+  }
+  # Tag serving and chosen rollback digests with keep-* before enabling deletion.
+  cleanup_policies {
+    id     = "keep-protected-images"
+    action = "KEEP"
+    condition {
+      tag_state    = "TAGGED"
+      tag_prefixes = ["keep-"]
+    }
+  }
+  depends_on = [google_project_service.required]
 }
 
 resource "google_secret_manager_secret" "app" {
@@ -232,7 +258,10 @@ resource "google_cloud_run_v2_service" "worker" {
       command = ["node"]
       args    = ["dist/src/entrypoints/worker.js"]
       ports { container_port = 8080 }
-      resources { limits = { cpu = "1", memory = "512Mi" } }
+      resources {
+        limits   = { cpu = "1", memory = "512Mi" }
+        cpu_idle = true
+      }
       env {
         name  = "APP_ENV"
         value = var.environment
@@ -408,7 +437,10 @@ resource "google_cloud_run_v2_service" "api" {
       command = ["node"]
       args    = ["dist/src/entrypoints/api.js"]
       ports { container_port = 8080 }
-      resources { limits = { cpu = "1", memory = "512Mi" } }
+      resources {
+        limits   = { cpu = "1", memory = "512Mi" }
+        cpu_idle = true
+      }
       env {
         name  = "APP_ENV"
         value = var.environment
