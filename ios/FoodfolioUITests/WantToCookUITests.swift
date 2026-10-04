@@ -174,6 +174,92 @@ import XCTest
     XCTAssertTrue(app.buttons["detail.memoPreviewOpen"].waitForExistence(timeout: 3))
   }
 
+  func testMemoSaveButtonKeepsSizeAndDraftAfterFailure() {
+    let app = launch(arguments: ["-ui-testing-memo-save-failure"])
+    openSeedRecipe(in: app)
+    openRecipeMenu(in: app)
+    app.buttons["detail.memoMenu"].tap()
+    let editor = app.textViews["memo.editor"]
+    XCTAssertTrue(editor.waitForExistence(timeout: 3))
+    editor.tap()
+    editor.typeText("次回は醤油を減らす。")
+    let save = app.buttons["memo.save"]
+    let idleFrame = save.frame
+    save.tap()
+    expectation(for: NSPredicate(format: "enabled == false"), evaluatedWith: save)
+    waitForExpectations(timeout: 3)
+    XCTAssertEqual(save.frame.width, idleFrame.width, accuracy: 1)
+    XCTAssertEqual(save.frame.height, idleFrame.height, accuracy: 1)
+    XCTAssertFalse(app.buttons["memo.cancel"].isEnabled)
+    let savingScreenshot = XCTAttachment(screenshot: app.screenshot())
+    savingScreenshot.name = "memo-saving"
+    savingScreenshot.lifetime = .keepAlways
+    add(savingScreenshot)
+    expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: save)
+    waitForExpectations(timeout: 12)
+    XCTAssertEqual(editor.value as? String, "次回は醤油を減らす。")
+    XCTAssertTrue(app.buttons["memo.cancel"].isEnabled)
+    XCTAssertEqual(save.frame.width, idleFrame.width, accuracy: 1)
+    XCTAssertEqual(save.frame.height, idleFrame.height, accuracy: 1)
+    app.buttons["memo.cancel"].tap()
+    XCTAssertTrue(editor.waitForNonExistence(timeout: 3))
+    XCTAssertFalse(app.staticTexts["detail.memoPreviewText"].exists)
+  }
+
+  func testMemoEditorStartsCompactAndEnforces200CharacterLimit() {
+    let app = launch()
+    openSeedRecipe(in: app)
+    openRecipeMenu(in: app)
+    app.buttons["detail.memoMenu"].tap()
+    let editor = app.textViews["memo.editor"]
+    XCTAssertTrue(editor.waitForExistence(timeout: 3))
+    XCTAssertGreaterThan(editor.frame.minY, app.frame.height * 0.4)
+    XCTAssertLessThan(editor.frame.height, 210)
+    let compactScreenshot = XCTAttachment(screenshot: app.screenshot())
+    compactScreenshot.name = "memo-compact"
+    compactScreenshot.lifetime = .keepAlways
+    add(compactScreenshot)
+    let grabber = app.buttons["シートグラバー"]
+    XCTAssertTrue(grabber.exists)
+    grabber.swipeUp()
+    XCTAssertLessThan(editor.frame.minY, app.frame.height * 0.4)
+    XCUIDevice.shared.orientation = .landscapeLeft
+    XCTAssertTrue(editor.isHittable)
+    XCTAssertTrue(app.buttons["memo.save"].isHittable)
+    XCTAssertTrue(app.buttons["memo.cancel"].isHittable)
+    XCUIDevice.shared.orientation = .portrait
+    editor.tap()
+    editor.typeText(String(repeating: "a", count: 201))
+    let save = app.buttons["memo.save"]
+    XCTAssertEqual(app.staticTexts["memo.characterCount"].label, "201/200")
+    XCTAssertFalse(save.isEnabled)
+    editor.typeText(XCUIKeyboardKey.delete.rawValue)
+    XCTAssertEqual(app.staticTexts["memo.characterCount"].label, "200/200")
+    XCTAssertTrue(save.isEnabled)
+    save.tap()
+    XCTAssertTrue(editor.waitForNonExistence(timeout: 3))
+    XCTAssertEqual(
+      app.staticTexts["detail.memoPreviewText"].label, String(repeating: "a", count: 200))
+  }
+
+  func testMemoZeroWidthPrefixCountsAs201AndPreventsSaving() {
+    let app = launch(arguments: ["-ui-testing-zero-width-memo"])
+    openSeedRecipe(in: app)
+    openRecipeMenu(in: app)
+    app.buttons["detail.memoMenu"].tap()
+    let editor = app.textViews["memo.editor"]
+    XCTAssertTrue(editor.waitForExistence(timeout: 3))
+    XCTAssertEqual(editor.value as? String, "\u{200B}" + String(repeating: "a", count: 200))
+    XCTAssertEqual(app.staticTexts["memo.characterCount"].label, "201/200")
+    XCTAssertFalse(app.buttons["memo.save"].isEnabled)
+    XCTAssertTrue(app.staticTexts["メモは200字以内で入力してください"].exists)
+    app.buttons["memo.cancel"].tap()
+    XCTAssertTrue(editor.waitForNonExistence(timeout: 3))
+    XCTAssertEqual(
+      app.staticTexts["detail.memoPreviewText"].label,
+      "\u{200B}" + String(repeating: "a", count: 200))
+  }
+
   private func saveMemo(_ text: String, in app: XCUIApplication) {
     openRecipeMenu(in: app)
     app.buttons["detail.memoMenu"].tap()

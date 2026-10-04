@@ -21,6 +21,13 @@
         finish(status: 201, json: recipe(title: "追加したレシピ"))
       case ("PATCH", "/v1/recipes/ui-recipe"), ("PATCH", "/v1/recipes/ui-added-recipe"):
         let body = requestBody()
+        if body.keys.contains("memo"),
+          ProcessInfo.processInfo.arguments.contains("-ui-testing-memo-save-failure")
+        {
+          Thread.sleep(forTimeInterval: 8)
+          finish(status: 500, json: error("INTERNAL_ERROR"))
+          return
+        }
         if body.keys.contains("steps"),
           ProcessInfo.processInfo.arguments.contains("-ui-testing-step-save-failure")
         {

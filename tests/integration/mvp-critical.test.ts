@@ -582,20 +582,46 @@ describe("MVP critical API integration", () => {
           method: "PATCH",
           url: `/v1/recipes/${id}`,
           headers: ownerHeaders,
-          payload: { memo: "a".repeat(2000) },
+          payload: { memo: "a".repeat(200) },
         })
       ).statusCode,
     ).toBe(200);
+    const beforeRejectedMemo = await context.prisma.recipe.findUniqueOrThrow({
+      where: { id },
+    });
     expect(
       (
         await app.inject({
           method: "PATCH",
           url: `/v1/recipes/${id}`,
           headers: ownerHeaders,
-          payload: { memo: "a".repeat(2001) },
+          payload: { memo: "a".repeat(201) },
         })
       ).statusCode,
     ).toBe(422);
+    const afterRejectedMemo = await context.prisma.recipe.findUniqueOrThrow({
+      where: { id },
+    });
+    expect(afterRejectedMemo.memo).toBe(beforeRejectedMemo.memo);
+    expect(afterRejectedMemo.updatedAt).toEqual(beforeRejectedMemo.updatedAt);
+    for (const character of ["あ", "🍳"]) {
+      const boundaryMemo = `  ${character.repeat(200)}\n `;
+      const boundarySaved = await app.inject({
+        method: "PATCH",
+        url: `/v1/recipes/${id}`,
+        headers: ownerHeaders,
+        payload: { memo: boundaryMemo },
+      });
+      expect(boundarySaved.statusCode).toBe(200);
+      expect(boundarySaved.json().memo).toBe(character.repeat(200));
+      const rejected = await app.inject({
+        method: "PATCH",
+        url: `/v1/recipes/${id}`,
+        headers: ownerHeaders,
+        payload: { memo: character.repeat(201) },
+      });
+      expect(rejected.statusCode).toBe(422);
+    }
     expect(
       (
         await app.inject({
@@ -615,6 +641,56 @@ describe("MVP critical API integration", () => {
     });
     expect(cleared.statusCode).toBe(200);
     expect(cleared.json().memo).toBeNull();
+
+    const address = await app.listen({ host: "127.0.0.1", port: 0 });
+    const trimScalars = [
+      0x0009, 0x000a, 0x000b, 0x000c, 0x000d, 0x0020, 0x00a0, 0x1680, 0x2000,
+      0x2001, 0x2002, 0x2003, 0x2004, 0x2005, 0x2006, 0x2007, 0x2008, 0x2009,
+      0x200a, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000, 0xfeff,
+    ];
+    for (const scalar of trimScalars) {
+      const whitespace = String.fromCodePoint(scalar);
+      const response = await fetch(`${address}/v1/recipes/${id}`, {
+        method: "PATCH",
+        headers: { ...ownerHeaders, "content-type": "application/json" },
+        body: JSON.stringify({
+          memo: whitespace + "a".repeat(200) + whitespace,
+        }),
+      });
+      expect(response.status, `U+${scalar.toString(16)}`).toBe(200);
+      expect((await response.json()).memo).toBe("a".repeat(200));
+    }
+    for (const scalar of [0x0085, 0x180e, 0x200b, 0x200c, 0x200d, 0x2060]) {
+      const invisible = String.fromCodePoint(scalar);
+      const acceptedMemo = invisible + "a".repeat(199);
+      const accepted = await fetch(`${address}/v1/recipes/${id}`, {
+        method: "PATCH",
+        headers: { ...ownerHeaders, "content-type": "application/json" },
+        body: JSON.stringify({ memo: acceptedMemo }),
+      });
+      expect(accepted.status, `U+${scalar.toString(16)}`).toBe(200);
+      expect((await accepted.json()).memo).toBe(acceptedMemo);
+      for (const memo of [
+        invisible + "a".repeat(200),
+        "a".repeat(200) + invisible,
+      ]) {
+        const before = await context.prisma.recipe.findUniqueOrThrow({
+          where: { id },
+        });
+        const response = await fetch(`${address}/v1/recipes/${id}`, {
+          method: "PATCH",
+          headers: { ...ownerHeaders, "content-type": "application/json" },
+          body: JSON.stringify({ memo }),
+        });
+        expect(response.status, `U+${scalar.toString(16)}`).toBe(422);
+        await response.json();
+        const after = await context.prisma.recipe.findUniqueOrThrow({
+          where: { id },
+        });
+        expect(after.memo).toBe(before.memo);
+        expect(after.updatedAt).toEqual(before.updatedAt);
+      }
+    }
 
     await app.close();
   });

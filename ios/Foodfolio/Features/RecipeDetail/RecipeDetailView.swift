@@ -382,7 +382,7 @@ struct RecipeDetailView: View {
   }
 
   private var memoText: String? {
-    guard let memo = recipe.memo?.trimmingCharacters(in: .whitespacesAndNewlines), !memo.isEmpty
+    guard let memo = recipe.memo.map(RecipeMemoInput.trim), !memo.isEmpty
     else { return nil }
     return memo
   }
@@ -491,6 +491,10 @@ private struct RecipeMemoSheet: View {
   @State private var isEditing: Bool
   @State private var isSaving = false
   @State private var error: String?
+  @State private var selectedDetent: PresentationDetent = .medium
+  @FocusState private var isMemoFocused: Bool
+  @ScaledMetric(relativeTo: .body) private var editorHeight = 160
+  private let maximumMemoLength = 200
 
   init(recipe: LocalRecipe, startsEditing: Bool) {
     self.recipe = recipe
@@ -499,8 +503,10 @@ private struct RecipeMemoSheet: View {
   }
 
   private var trimmedMemo: String {
-    draft.trimmingCharacters(in: .whitespacesAndNewlines)
+    RecipeMemoInput.trim(draft)
   }
+
+  private var memoCharacterCount: Int { trimmedMemo.unicodeScalars.count }
 
   private var canEdit: Bool {
     RecipeDetailPresentation.canEdit(status: recipe.analysisStatus)
@@ -512,47 +518,56 @@ private struct RecipeMemoSheet: View {
         FoodfolioBackground()
 
         if isEditing {
-          VStack(alignment: .leading, spacing: 12) {
-            ZStack(alignment: .topLeading) {
-              TextEditor(text: $draft)
-                .scrollContentBackground(.hidden)
-                .padding(12)
-                .frame(minHeight: 220)
-                .background(
-                  FoodfolioTheme.surface,
-                  in: RoundedRectangle(cornerRadius: 18, style: .continuous)
-                )
-                .accessibilityIdentifier("memo.editor")
+          ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+              ZStack(alignment: .topLeading) {
+                TextEditor(text: $draft)
+                  .focused($isMemoFocused)
+                  .scrollContentBackground(.hidden)
+                  .padding(12)
+                  .frame(height: editorHeight)
+                  .background(
+                    FoodfolioTheme.surface,
+                    in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+                  )
+                  .accessibilityIdentifier("memo.editor")
 
-              if draft.isEmpty {
-                Text("作ってみた感想や、次回気をつけたいことを記録")
-                  .font(.body)
-                  .foregroundStyle(FoodfolioTheme.secondaryInk)
-                  .padding(.horizontal, 18)
-                  .padding(.vertical, 20)
-                  .allowsHitTesting(false)
+                if draft.isEmpty {
+                  Text("作ってみた感想や、次回気をつけたいことを記録")
+                    .font(.body)
+                    .foregroundStyle(FoodfolioTheme.secondaryInk)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 20)
+                    .allowsHitTesting(false)
+                }
               }
+
+              Text("\(memoCharacterCount)/\(maximumMemoLength)")
+                .font(.caption)
+                .foregroundStyle(
+                  memoCharacterCount > maximumMemoLength ? Color.red : FoodfolioTheme.secondaryInk
+                )
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .accessibilityIdentifier("memo.characterCount")
+
+              if memoCharacterCount > maximumMemoLength {
+                Text("メモは200字以内で入力してください")
+                  .font(.caption)
+                  .foregroundStyle(.red)
+              }
+
+              if let error {
+                Label(error, systemImage: "exclamationmark.circle")
+                  .font(.subheadline)
+                  .foregroundStyle(.red)
+                  .fixedSize(horizontal: false, vertical: true)
+              }
+
             }
-
-            Text("\(draft.count)/2000")
-              .font(.caption)
-              .foregroundStyle(
-                draft.count > 2000 ? Color.red : FoodfolioTheme.secondaryInk
-              )
-              .frame(maxWidth: .infinity, alignment: .trailing)
-              .accessibilityIdentifier("memo.characterCount")
-
-            if let error {
-              Label(error, systemImage: "exclamationmark.circle")
-                .font(.subheadline)
-                .foregroundStyle(.red)
-                .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Spacer()
+            .padding(20)
+            .disabled(isSaving)
           }
-          .padding(20)
-          .disabled(isSaving)
+          .scrollDismissesKeyboard(.interactively)
         } else {
           ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -605,25 +620,31 @@ private struct RecipeMemoSheet: View {
             Button {
               save()
             } label: {
-              if isSaving {
-                ProgressView()
-              } else {
-                Text("保存")
-              }
+              Text("保存")
+                .opacity(isSaving ? 0 : 1)
+                .overlay {
+                  if isSaving { ProgressView() }
+                }
             }
-            .disabled(isSaving || draft.count > 2000)
+            .disabled(isSaving || memoCharacterCount > maximumMemoLength)
+            .accessibilityLabel(isSaving ? "保存中" : "保存")
             .accessibilityIdentifier("memo.save")
           }
         }
       }
     }
+    .presentationDetents([.medium, .large], selection: $selectedDetent)
+    .presentationDragIndicator(.visible)
+    .onChange(of: isMemoFocused) { _, focused in
+      if focused { selectedDetent = .large }
+    }
   }
 
   private func save() {
-    guard !isSaving, draft.count <= 2000 else { return }
+    guard !isSaving, memoCharacterCount <= maximumMemoLength else { return }
     isSaving = true
     error = nil
-    let value = trimmedMemo.isEmpty ? nil : draft
+    let value = trimmedMemo.isEmpty ? nil : trimmedMemo
 
     Task {
       do {

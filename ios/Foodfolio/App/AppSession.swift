@@ -226,7 +226,9 @@ final class RecipeSynchronizationCoordinator {
       id: "ui-recipe", originalUrl: "https://example.com/oyakodon", sourceType: "web", title: title,
       servingsValue: servings.0, servingsRaw: servings.1, cookingTimeMinutes: 20, genreRaw: "主菜",
       analysisStatus: status,
-      memo: arguments.contains("-ui-testing-existing-memo") ? "味が少し濃かった。\n次回は醤油を少なめにする。" : nil,
+      memo: arguments.contains("-ui-testing-zero-width-memo")
+        ? "\u{200B}" + String(repeating: "a", count: 200)
+        : arguments.contains("-ui-testing-existing-memo") ? "味が少し濃かった。\n次回は醤油を少なめにする。" : nil,
       createdAt: Date(), updatedAt: Date(),
       ingredients:
         status == .notRecipe

@@ -3,6 +3,35 @@ import XCTest
 @testable import Foodfolio
 
 final class CoreLogicTests: XCTestCase {
+  func testMemoTrimMatchesEveryECMAScriptWhitespaceScalar() {
+    let trimmedScalars = [
+      0x0009, 0x000A, 0x000B, 0x000C, 0x000D, 0x0020, 0x00A0, 0x1680,
+      0x2000, 0x2001, 0x2002, 0x2003, 0x2004, 0x2005, 0x2006, 0x2007,
+      0x2008, 0x2009, 0x200A, 0x2028, 0x2029, 0x202F, 0x205F, 0x3000, 0xFEFF,
+    ]
+    for value in trimmedScalars {
+      let whitespace = String(Unicode.Scalar(value)!)
+      XCTAssertEqual(
+        RecipeMemoInput.trim(whitespace + "a" + whitespace), "a", "U+\(String(value, radix: 16))")
+      XCTAssertEqual(RecipeMemoInput.trim(whitespace), "")
+      XCTAssertEqual(RecipeMemoInput.trim("a" + whitespace + "b"), "a" + whitespace + "b")
+    }
+  }
+
+  func testMemoTrimRetainsInvisibleCharactersCountedByAPI() {
+    for value in [0x0085, 0x180E, 0x200B, 0x200C, 0x200D, 0x2060] {
+      let invisible = String(Unicode.Scalar(value)!)
+      for memo in [
+        invisible + String(repeating: "a", count: 200),
+        String(repeating: "a", count: 200) + invisible,
+      ] {
+        XCTAssertEqual(RecipeMemoInput.trim(memo), memo, "U+\(String(value, radix: 16))")
+        XCTAssertEqual(RecipeMemoInput.trim(memo).unicodeScalars.count, 201)
+      }
+      XCTAssertEqual(RecipeMemoInput.trim(" " + invisible + "\n"), invisible)
+    }
+  }
+
   func testEveryRecipeGenreHasItsOwnBadgeColor() {
     let colors = RecipeGenre.allCases.map(\.badgeColor)
     XCTAssertEqual(colors.count, GenreBadgeColor.allCases.count)

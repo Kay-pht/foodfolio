@@ -751,7 +751,7 @@ Request例：
 }
 ```
 
-すべてoptionalとし、送信された項目だけ変更する。メモはnullable textとして扱い、前後空白を除いた結果が空なら `null`、最大2,000文字とする。
+すべてoptionalとし、送信された項目だけ変更する。メモはnullable textとして扱い、前後空白を除いた結果が空なら `null`、最大200文字とする。文字数は前後空白除去後のUnicode scalar数で数え、iOSも同じ条件で保存可否とカウンターを判定する。前後空白の集合はECMAScript `String.prototype.trim` に揃え、U+0009〜000D、U+0020、U+00A0、U+1680、U+2000〜200A、U+2028〜2029、U+202F、U+205F、U+3000、U+FEFFだけを除去する。U+0085、U+180E、U+200Bなどは保持して数え、文字列内部の空白・改行も保持する。iOS標準の汎用空白集合は使用しない。
 
 `analysisStatus` が `pending` または `processing` のRecipeは編集不可とし、Backendでも `RECIPE_ANALYSIS_IN_PROGRESS` として拒否する。`not_recipe` も通常のレシピ編集対象ではないため、PATCHを `RECIPE_NOT_EDITABLE` として拒否する。
 

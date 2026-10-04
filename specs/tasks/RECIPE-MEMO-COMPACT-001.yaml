@@ -1,0 +1,75 @@
+id: RECIPE-MEMO-COMPACT-001
+type: bug
+status: approved
+
+objective: >-
+  Keep the recipe memo save button dimensions stable while a save request is pending,
+  use a compact expandable sheet and limit new memo saves to 200 characters.
+
+requirements:
+  - id: RMC-1
+    condition: A memo save request is pending or fails.
+    expected: >-
+      The save button retains its idle width and height while displaying progress.
+      Saving disables repeat submissions and cancellation; failure retains the draft,
+      shows the existing error and re-enables saving with the original button dimensions.
+    verification:
+      - ios/FoodfolioUITests/WantToCookUITests.swift
+  - id: RMC-2
+    condition: A user opens memo viewing or editing.
+    expected: >-
+      The sheet initially uses the medium detent and can expand to large. The editor
+      is a few lines tall instead of filling the sheet. Focusing the editor selects
+      the large detent so keyboard visibility changes do not repeatedly move the sheet
+      or its save button. The content scrolls for
+      keyboards, landscape or larger text. Cancel and save remain reachable.
+    verification:
+      - ios/FoodfolioUITests/WantToCookUITests.swift
+  - id: RMC-3
+    condition: A user saves a memo.
+    expected: >-
+      iOS and API accept at most 200 Unicode scalar values after trimming surrounding
+      whitespace using exactly the ECMAScript String.prototype.trim set: U+0009-000D,
+      U+0020, U+00A0, U+1680, U+2000-200A, U+2028-2029, U+202F, U+205F, U+3000,
+      and U+FEFF. U+0085, U+180E and U+200B are retained and counted, including at
+      either end. Keep the server behavior unchanged and use this same rule for iOS
+      character counts, save availability, empty detection and preview normalization.
+      Show the same count
+      out of 200 in the editor, explain excess length and disable saving above 200.
+      API rejects longer values with 422 without modifying the stored memo.
+      Clearing and multiline input remain supported. No existing-data migration is
+      required because the user confirmed this feature is unreleased and no memo
+      longer than 200 characters exists.
+    verification:
+      - tests/integration/mvp-critical.test.ts
+      - ios/FoodfolioUITests/WantToCookUITests.swift
+      - ios/FoodfolioTests/CoreLogicTests.swift
+
+edge_cases:
+  - A delayed save fails, then the user retries or cancels.
+  - Exactly 200 and 201 characters, Japanese, emoji, newlines and surrounding whitespace.
+  - Keyboard visible, landscape orientation and larger text.
+  - Hardware arrow keys hide the keyboard and typing shows it again before saving.
+  - U+200B followed by 200 letters is 201 characters and cannot be saved on iOS or API.
+  - BOM and Unicode whitespace are trimmed at the ends but preserved internally.
+  - U+0085, U+180E and U+200B at either end, whitespace-only and invisible-only memos.
+security_invariants:
+  - Authentication, ownership and recipe editability remain enforced.
+  - Memo contents are not logged.
+compatibility:
+  - Existing memo persistence and synchronization remain unchanged.
+  - Clients submitting more than 200 characters receive the existing validation error.
+non_functional:
+  - Verify the rendered save button dimensions with a delayed network response.
+out_of_scope:
+  - Database migrations, AI, deployment, Apple distribution and final merge.
+acceptance_criteria:
+  - The regression fails before the fix and passes afterward.
+  - The sheet opens compactly, expands when needed and permits saving exactly 200 characters.
+  - Focused tests, full tests, integration, E2E, lint, format and builds pass.
+regression:
+  required: true
+  tests:
+    - ios/FoodfolioUITests/WantToCookUITests.swift
+    - tests/integration/mvp-critical.test.ts
+    - ios/FoodfolioTests/CoreLogicTests.swift
