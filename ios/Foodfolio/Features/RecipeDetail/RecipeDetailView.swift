@@ -285,29 +285,10 @@ struct RecipeDetailView: View {
         .accessibilityIdentifier("detail.memoPreviewHeading")
 
       if let memoText {
-        Text(memoText)
-          .font(.body)
-          .foregroundStyle(FoodfolioTheme.ink)
-          .lineLimit(3)
-          .truncationMode(.tail)
-          .frame(maxWidth: .infinity, alignment: .leading)
-          .accessibilityIdentifier("detail.memoPreviewText")
-      }
-
-      Button {
-        memoSheetMode = .view
-      } label: {
-        HStack(spacing: 5) {
-          Text("全文を見る")
-          Image(systemName: "chevron.right")
-            .font(.caption.bold())
+        RecipeMemoPreviewText(text: memoText) {
+          memoSheetMode = .view
         }
-        .font(.subheadline.weight(.medium))
-        .foregroundStyle(FoodfolioTheme.terracotta)
-        .frame(maxWidth: .infinity, alignment: .trailing)
       }
-      .buttonStyle(.plain)
-      .accessibilityIdentifier("detail.memoPreviewOpen")
     }
     .padding(16)
     .background(
@@ -442,6 +423,56 @@ struct RecipeDetailView: View {
   private func scaledAmount(_ amount: String?) -> String? {
     RecipeDetailPresentation.scaledAmount(
       amount, base: recipe.servingsValue, displayed: displayServings)
+  }
+}
+
+private struct RecipeMemoPreviewText: View {
+  let text: String
+  let openMemo: () -> Void
+  @State private var previewHeight: CGFloat = 0
+  @State private var fullHeight: CGFloat = 0
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      memoText
+        .lineLimit(3)
+        .truncationMode(.tail)
+        .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) {
+          previewHeight = $0
+        }
+        .background(alignment: .topLeading) {
+          memoText
+            .fixedSize(horizontal: false, vertical: true)
+            .hidden()
+            .accessibilityHidden(true)
+            .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) {
+              fullHeight = $0
+            }
+        }
+        .accessibilityIdentifier("detail.memoPreviewText")
+
+      if fullHeight > previewHeight + 0.5 {
+        Button(action: openMemo) {
+          HStack(spacing: 5) {
+            Text("全文を見る")
+            Image(systemName: "chevron.right")
+              .font(.caption.bold())
+          }
+          .font(.subheadline.weight(.medium))
+          .foregroundStyle(FoodfolioTheme.terracotta)
+          .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("detail.memoPreviewOpen")
+      }
+    }
+  }
+
+  private var memoText: some View {
+    Text(text)
+      .font(.body)
+      .foregroundStyle(FoodfolioTheme.ink)
+      .frame(maxWidth: .infinity, alignment: .leading)
   }
 }
 

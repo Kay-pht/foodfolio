@@ -19,18 +19,18 @@ import XCTest
     reveal(first, in: app)
     XCTAssertEqual(first.value as? String, "材料を切る")
     XCTAssertEqual(second.value as? String, "材料を煮る")
-    XCTAssertFalse(app.buttons["edit.step.0.up"].isEnabled)
-    XCTAssertFalse(app.buttons["edit.step.1.down"].isEnabled)
+    XCTAssertFalse(app.buttons["edit.step.0.up"].exists)
+    XCTAssertFalse(app.buttons["edit.step.1.down"].exists)
     replace(first, with: "刻む\n細かく", in: app)
 
     tap(app.buttons["edit.addStep"], in: app)
     replace(stepField(app, 2), with: "盛り付ける", in: app)
-    tap(app.buttons["edit.step.2.up"], in: app)
+    reorderStep(2, before: 1, in: app)
     XCTAssertEqual(stepField(app, 1).value as? String, "盛り付ける")
     tap(app.buttons["edit.step.2.delete"], in: app)
     tap(app.buttons["edit.addStep"], in: app)
     replace(stepField(app, 2), with: " \n ", in: app)
-    tap(app.buttons["edit.step.0.down"], in: app)
+    reorderStep(1, before: 0, in: app)
     app.buttons["edit.save"].tap()
     XCTAssertTrue(app.staticTexts["detail.title"].waitForExistence(timeout: 3))
 
@@ -86,6 +86,25 @@ import XCTest
     XCTAssertEqual(stepField(app, 1).value as? String, "材料を煮る")
   }
 
+  func testDragAcrossMultiplePositionsAndLeavingEditorKeepsOriginalOrder() {
+    let app = launch(arguments: ["-ui-testing-step-edit"])
+    openEditor(app)
+    tap(app.buttons["edit.addStep"], in: app)
+    replace(stepField(app, 2), with: "盛り付ける", in: app)
+    reorderStep(2, before: 0, in: app)
+    XCTAssertEqual(stepField(app, 0).value as? String, "盛り付ける")
+    XCTAssertEqual(stepField(app, 1).value as? String, "材料を切る")
+    XCTAssertEqual(stepField(app, 2).value as? String, "材料を煮る")
+    XCTAssertTrue(app.buttons["edit.step.0.delete"].exists)
+    app.navigationBars.buttons.firstMatch.tap()
+    XCTAssertTrue(app.staticTexts["detail.title"].waitForExistence(timeout: 3))
+    openEditor(app, fromHome: false)
+    reveal(stepField(app, 0), in: app)
+    XCTAssertEqual(stepField(app, 0).value as? String, "材料を切る")
+    XCTAssertEqual(stepField(app, 1).value as? String, "材料を煮る")
+    XCTAssertFalse(stepField(app, 2).exists)
+  }
+
   private func openEditor(_ app: XCUIApplication, fromHome: Bool = true) {
     if fromHome {
       XCTAssertTrue(app.staticTexts["親子丼"].waitForExistence(timeout: 5))
@@ -98,6 +117,21 @@ import XCTest
 
   private func stepField(_ app: XCUIApplication, _ index: Int) -> XCUIElement {
     app.descendants(matching: .any).matching(identifier: "edit.step.\(index).text").firstMatch
+  }
+
+  private func reorderStep(_ source: Int, before destination: Int, in app: XCUIApplication) {
+    if app.keyboards.firstMatch.exists {
+      app.swipeDown()
+    }
+    let handle = app.descendants(matching: .any)["edit.step.\(source).reorder"]
+    let target = app.descendants(matching: .any)["edit.step.\(destination).reorder"]
+    reveal(handle, in: app)
+    reveal(target, in: app)
+    XCTAssertTrue(handle.isHittable)
+    handle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+      .press(
+        forDuration: 1,
+        thenDragTo: target.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
   }
 
   private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
@@ -113,7 +147,7 @@ import XCTest
   }
 
   private func tap(_ element: XCUIElement, in app: XCUIApplication) {
-    XCTAssertTrue(element.waitForExistence(timeout: 3))
+    reveal(element, in: app)
     element.tap()
   }
 

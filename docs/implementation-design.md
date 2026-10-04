@@ -2229,6 +2229,7 @@ originalUrlからも取得不可
 - edit navigation
 - delete
 - analysis error共通表示
+- memoプレビュー（最大3行。同じ幅・body fontで測定した全文の高さが表示高さを超える場合だけ「全文を見る」を表示し、本文・表示幅・文字サイズの変更時に再判定する。測定用Textは非表示かつaccessibility対象外）
 
 Tag追加・削除、Recipe削除等のmutationはオンライン必須とする。
 
@@ -2237,7 +2238,7 @@ Tag追加・削除、Recipe削除等のmutationはオンライン必須とする
 - title
 - ingredients
 - genre
-- steps（番号付き複数行入力、追加・削除・上下移動、保存時に空欄除外、0件保存可能）
+- steps（番号付き複数行入力、追加・削除・常時表示のつまみによるドラッグ並べ替え、保存時に空欄除外、0件保存可能）
 - tags
 - save時PATCH
 
