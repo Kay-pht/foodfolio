@@ -1,0 +1,99 @@
+id: APP-STORE-UPDATE-1-0-3
+type: maintenance
+status: approved
+
+objective: >-
+  Prepare current main for the Foodfolio patch update from the live App Store
+  version 1.0.2 (15) to 1.0.3 (16). Create a preparation PR for the human to
+  merge, then upload the merged source and submit the update to Apple App Review.
+  Stop before public release, which the user performs manually.
+
+requirements:
+  - id: ASUP103-1
+    condition: The iOS update project is generated.
+    expected: >-
+      ios/project.yml sets MARKETING_VERSION 1.0.3 and CURRENT_PROJECT_VERSION 16;
+      Foodfolio and FoodfolioShareExtension use both values in the generated project.
+    verification:
+      - ios/project.yml
+      - ios/Foodfolio.xcodeproj/project.pbxproj
+  - id: ASUP103-2
+    condition: The preparation PR is ready for review.
+    expected: >-
+      Backend and iOS verification passes, including unit, integration, E2E,
+      lint, format, build, and SwiftData migration checks. The latest PR HEAD
+      passes Quality. The implementer does not issue final LGTM or merge.
+    verification:
+      - package.json
+      - scripts/verify-ios.sh
+      - scripts/test-ios-swiftdata-migration.sh
+      - docs/app-store-release.md
+  - id: ASUP103-3
+    condition: The human has merged the preparation PR.
+    expected: >-
+      Archive and upload use the verified merged source. App and extension
+      signing, identifiers, production entitlements and Japanese resources are
+      checked. Apple processing is VALID and the build is unexpired and eligible.
+      Internal TestFlight assignment is read back without changing testers.
+    verification:
+      - docs/testflight-preparation.md
+      - tasks/unreleased.md
+  - id: ASUP103-4
+    condition: The update is submitted to Apple.
+    expected: >-
+      App Store Connect version 1.0.3 selects build 16 with accurate Japanese
+      update notes and existing listing settings. MANUAL release is read back
+      before submission. Submission ID and Apple review state are recorded;
+      public release is never performed by the agent.
+    verification:
+      - docs/app-store-release.md
+      - tasks/unreleased.md
+  - id: ASUP103-5
+    condition: The backend used by the candidate is checked before distribution.
+    expected: >-
+      The deployed API supports memo storage, the 200-character memo limit and
+      ordered recipe step updates. The memo migration is applied. API and Worker
+      Ready state, serving revision, traffic and source revision are read back.
+    verification:
+      - prisma/migrations/20260930152000_add_recipe_memo/migration.sql
+      - docs/testflight-preparation.md
+      - tasks/unreleased.md
+
+edge_cases:
+  - Version 1.0.3 or build 16 is reserved before the merged source is uploaded.
+  - Apple processing fails, a contract requires human acceptance or permissions are insufficient.
+  - Backend deployment or the memo migration is incomplete.
+  - Main or the preparation PR changes after verification.
+  - Apple requires updated metadata or rejects the submission.
+
+security_invariants:
+  - Signing material, API tokens, review credentials and tester addresses are not committed or printed.
+  - Existing tester membership, public-link settings and unrelated cloud resources are preserved.
+  - No public-release request is sent, including after Apple approval.
+
+compatibility:
+  - Bundle identifiers, minimum iOS version and current backend environment remain unchanged.
+  - Existing local recipes and SwiftData migration behavior remain supported.
+  - Pricing, storefront regions, listing name and Japanese screenshots remain unchanged.
+
+non_functional:
+  - Local verification, CI, merge, deployment, upload, processing and submission are separate evidence.
+  - Archive and IPA artifacts remain outside the repository.
+  - Apple and deployment writes require current-state read-back.
+
+out_of_scope:
+  - PR merge, final LGTM by the implementer and public release.
+  - Apple upload or App Review submission before human merge of the preparation PR.
+  - New product features, new screenshots, external tester invitations and new public links.
+  - Secret rotation or destructive data operations.
+
+acceptance_criteria:
+  - Foodfolio and FoodfolioShareExtension are version 1.0.3 build 16.
+  - npm run check:specs, npm run verify and npm run verify:ios pass.
+  - The preparation PR records the source baseline and remaining Apple and backend checks.
+  - After human merge, eligible build 16 and Apple App Review submission are read back.
+  - App Store production checkboxes remain unchecked until the user publishes the update.
+
+regression:
+  required: false
+  tests: []

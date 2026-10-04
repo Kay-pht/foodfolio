@@ -1,6 +1,16 @@
 # TestFlight準備の確認記録
 
-最終更新日: 2026-09-22。自動テスト、署名済みArchive、Apple側の処理状態、実機確認は別の証跡として扱う。
+最終更新日: 2026-10-05（JST）。自動テスト、署名済みArchive、Apple側の処理状態、実機確認は別の証跡として扱う。
+
+## 1.0.3 (16) の準備
+
+2026-10-05（JST）にApp Store Connectから取得した最新buildは公開中の`1.0.2 (15)`（Build ID `5407229d-ef1b-47cf-8c98-60f8f1c8848e`）。次の候補はmain `493ed7ea`を元にした`1.0.3 (16)`で、準備PRのマージ後にmerge済みソースからArchiveする。現時点でbuild 16はupload・配布していない。
+
+今回のiOSはメモと作り方の編集を含むため、配布前にバックエンドのメモmigration `20260930152000_add_recipe_memo`、メモ200字上限、順序付き手順更新の反映を確認する。API / Workerの配信中revision、source SHA、Ready、trafficも別に記録する。
+
+2026-10-05の準備時点では、main `493ed7ea9d12e378510d1c2c0a2b2583a61830df`の[Deploy dev Run](https://github.com/Kay-pht/foodfolio/actions/runs/37217030911)が成功している。migration stepは9 migrationsを検出し、`No pending migrations to apply`を返した。API `foodfolio-dev-api-00052-2tz`とWorker `foodfolio-dev-worker-00056-jnj`はともにReady、traffic 100%。serviceのimage tagは上記SHAで、Artifact Registryから取得したdigest `sha256:3130990d723701b8797ddcce9942c6724d48571d788ccc9c18728e3a9870fdbf`と、両serving revisionのdigestが一致した。この確認は配信中ソースとmigrationの反映証跡であり、実機でのメモ・手順編集操作の証跡とは分ける。マージ後の配布前にも現在の状態を再確認する。
+
+既存の`Foodfolio Internal`への割り当てを確認し、テスター構成と公開リンクは変更しない。What to Testにはメモの追加・編集・削除、200字の境界、作り方の追加・削除・ドラッグ並べ替え、端末間同期を記載する。App Reviewへのアップデート申請までを今回のゴールとし、一般公開はユーザーが行う。
 
 ## 公開ページ
 
