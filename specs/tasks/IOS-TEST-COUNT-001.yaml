@@ -12,7 +12,7 @@ requirements:
     expected: >-
       A backend unit regression test fails when verify:ios does not match the
       declared zero-argument test methods in FoodfolioTests, FoodfolioIntegrationTests,
-      and FoodfolioUITests. The configured count is 133 after integrating cooking-step drag reordering, memo truncation and compact memo editor tests,
+      and FoodfolioUITests. The configured count is 136 after integrating cooking-step drag reordering, memo truncation and compact memo editor and whitespace-parity tests,
       matching the combined test targets.
     verification:
       - tests/unit/ios-test-count-config.test.mjs
@@ -20,7 +20,7 @@ requirements:
   - id: ITC-2
     condition: The standard iOS verification gate completes.
     expected: >-
-      Lint, SwiftData migration, build, localization resources, and all 133 tests
+      Lint, SwiftData migration, build, localization resources, and all 136 tests
       pass with no failures or skips. The existing exact-count runtime check remains enabled.
     verification:
       - scripts/verify-ios.sh
@@ -46,7 +46,7 @@ out_of_scope:
   - Changing application behavior, test selection, or skip and failure policies.
 
 acceptance_criteria:
-  - The regression test fails with a stale count and passes with the current 133 count.
+  - The regression test fails with a stale count and passes with the current 136 count.
   - npm run verify and npm run verify:ios succeed.
 
 regression:

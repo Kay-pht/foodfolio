@@ -382,7 +382,7 @@ struct RecipeDetailView: View {
   }
 
   private var memoText: String? {
-    guard let memo = recipe.memo?.trimmingCharacters(in: .whitespacesAndNewlines), !memo.isEmpty
+    guard let memo = recipe.memo.map(RecipeMemoInput.trim), !memo.isEmpty
     else { return nil }
     return memo
   }
@@ -503,7 +503,7 @@ private struct RecipeMemoSheet: View {
   }
 
   private var trimmedMemo: String {
-    draft.trimmingCharacters(in: .whitespacesAndNewlines)
+    RecipeMemoInput.trim(draft)
   }
 
   private var memoCharacterCount: Int { trimmedMemo.unicodeScalars.count }
@@ -644,7 +644,7 @@ private struct RecipeMemoSheet: View {
     guard !isSaving, memoCharacterCount <= maximumMemoLength else { return }
     isSaving = true
     error = nil
-    let value = trimmedMemo.isEmpty ? nil : draft
+    let value = trimmedMemo.isEmpty ? nil : trimmedMemo
 
     Task {
       do {

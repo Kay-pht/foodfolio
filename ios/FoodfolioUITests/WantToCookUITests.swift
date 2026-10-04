@@ -242,6 +242,24 @@ import XCTest
       app.staticTexts["detail.memoPreviewText"].label, String(repeating: "a", count: 200))
   }
 
+  func testMemoZeroWidthPrefixCountsAs201AndPreventsSaving() {
+    let app = launch(arguments: ["-ui-testing-zero-width-memo"])
+    openSeedRecipe(in: app)
+    openRecipeMenu(in: app)
+    app.buttons["detail.memoMenu"].tap()
+    let editor = app.textViews["memo.editor"]
+    XCTAssertTrue(editor.waitForExistence(timeout: 3))
+    XCTAssertEqual(editor.value as? String, "\u{200B}" + String(repeating: "a", count: 200))
+    XCTAssertEqual(app.staticTexts["memo.characterCount"].label, "201/200")
+    XCTAssertFalse(app.buttons["memo.save"].isEnabled)
+    XCTAssertTrue(app.staticTexts["メモは200字以内で入力してください"].exists)
+    app.buttons["memo.cancel"].tap()
+    XCTAssertTrue(editor.waitForNonExistence(timeout: 3))
+    XCTAssertEqual(
+      app.staticTexts["detail.memoPreviewText"].label,
+      "\u{200B}" + String(repeating: "a", count: 200))
+  }
+
   private func saveMemo(_ text: String, in app: XCUIApplication) {
     openRecipeMenu(in: app)
     app.buttons["detail.memoMenu"].tap()

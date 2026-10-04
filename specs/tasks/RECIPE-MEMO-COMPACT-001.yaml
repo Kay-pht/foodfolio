@@ -29,7 +29,12 @@ requirements:
     condition: A user saves a memo.
     expected: >-
       iOS and API accept at most 200 Unicode scalar values after trimming surrounding
-      whitespace, using the existing API counting convention. Show the same count
+      whitespace using exactly the ECMAScript String.prototype.trim set: U+0009-000D,
+      U+0020, U+00A0, U+1680, U+2000-200A, U+2028-2029, U+202F, U+205F, U+3000,
+      and U+FEFF. U+0085, U+180E and U+200B are retained and counted, including at
+      either end. Keep the server behavior unchanged and use this same rule for iOS
+      character counts, save availability, empty detection and preview normalization.
+      Show the same count
       out of 200 in the editor, explain excess length and disable saving above 200.
       API rejects longer values with 422 without modifying the stored memo.
       Clearing and multiline input remain supported. No existing-data migration is
@@ -38,12 +43,16 @@ requirements:
     verification:
       - tests/integration/mvp-critical.test.ts
       - ios/FoodfolioUITests/WantToCookUITests.swift
+      - ios/FoodfolioTests/CoreLogicTests.swift
 
 edge_cases:
   - A delayed save fails, then the user retries or cancels.
   - Exactly 200 and 201 characters, Japanese, emoji, newlines and surrounding whitespace.
   - Keyboard visible, landscape orientation and larger text.
   - Hardware arrow keys hide the keyboard and typing shows it again before saving.
+  - U+200B followed by 200 letters is 201 characters and cannot be saved on iOS or API.
+  - BOM and Unicode whitespace are trimmed at the ends but preserved internally.
+  - U+0085, U+180E and U+200B at either end, whitespace-only and invisible-only memos.
 security_invariants:
   - Authentication, ownership and recipe editability remain enforced.
   - Memo contents are not logged.
@@ -63,3 +72,4 @@ regression:
   tests:
     - ios/FoodfolioUITests/WantToCookUITests.swift
     - tests/integration/mvp-critical.test.ts
+    - ios/FoodfolioTests/CoreLogicTests.swift
