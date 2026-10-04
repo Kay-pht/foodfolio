@@ -8,7 +8,7 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
 
 - [ ] `REL-20261005-01` Foodfolio 1.0.3をAppleへアップデート申請する
   - 内容: 公開中の1.0.2 (15)からパッチ番号を上げ、mainのメモ追加・表示改善・200字上限と作り方編集・ドラッグ並べ替えを1.0.3 (16)へ含める
-  - PR: 準備PRは未作成。対象機能は [#133](https://github.com/Kay-pht/foodfolio/pull/133) / [#134](https://github.com/Kay-pht/foodfolio/pull/134) / [#135](https://github.com/Kay-pht/foodfolio/pull/135) / [#137](https://github.com/Kay-pht/foodfolio/pull/137) / [#138](https://github.com/Kay-pht/foodfolio/pull/138)
+  - PR: 準備 [#139](https://github.com/Kay-pht/foodfolio/pull/139)。対象機能は [#133](https://github.com/Kay-pht/foodfolio/pull/133) / [#134](https://github.com/Kay-pht/foodfolio/pull/134) / [#135](https://github.com/Kay-pht/foodfolio/pull/135) / [#137](https://github.com/Kay-pht/foodfolio/pull/137) / [#138](https://github.com/Kay-pht/foodfolio/pull/138)
   - main反映: 準備PRは未反映。準備元mainは`493ed7ea`（PR #138）
   - 必要な反映先:
     - [ ] TestFlight内部テスト — 対象version/build: `1.0.3 (16)`
