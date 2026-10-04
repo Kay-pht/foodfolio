@@ -4,8 +4,9 @@ status: approved
 
 objective: >-
   Let users keep one private free-text memo per recipe for cooking feedback and next-time notes,
-  make an existing memo immediately visible from recipe detail without scrolling, and persist the
-  memo through the existing recipe sync model without adding AI, memo history, or memo search.
+  surface the memo text directly in recipe detail near tags and materials so it is noticed without
+  an extra tap, and persist the memo through the existing recipe sync model without adding AI,
+  memo history, or memo search.
 
 requirements:
   - id: RM-1
@@ -19,15 +20,16 @@ requirements:
   - id: RM-2
     condition: A locally synced recipe contains a non-empty memo.
     expected: >-
-      Recipe detail shows a compact tappable "メモ" shortcut in the summary status row, alongside
-      "作りたい" when that state is also present. Tapping the shortcut opens a bottom sheet that
-      displays the memo immediately without scrolling the recipe body and provides an edit action.
+      Recipe detail shows a memo preview card after the tag row and before the materials section.
+      The card labels the content as "自分のメモ", shows up to three lines of the memo text without
+      requiring a tap, and exposes "全文を見る" to open the existing bottom sheet for the complete
+      memo and edit action. The previous compact "メモ" summary shortcut is not shown.
     verification:
       - ios/FoodfolioUITests/WantToCookUITests.swift
   - id: RM-3
     condition: A locally synced recipe does not contain a memo.
     expected: >-
-      Recipe detail does not show an empty memo shortcut or an empty memo section. The overflow menu
+      Recipe detail does not show an empty memo preview or an empty memo section. The overflow menu
       exposes "メモを追加" only when ordinary recipe editing is allowed.
     verification:
       - ios/FoodfolioUITests/WantToCookUITests.swift
@@ -36,7 +38,7 @@ requirements:
     expected: >-
       The overflow menu exposes "メモを編集". Opening memo editing presents a multiline free-text
       editor in a bottom sheet with explicit cancel and save actions. Saving updates the local
-      Recipe from the mutation response and clearing the text removes the memo shortcut.
+      Recipe from the mutation response and clearing the text removes the memo preview.
     verification:
       - ios/FoodfolioIntegrationTests/PersistenceIntegrationTests.swift
       - ios/FoodfolioUITests/WantToCookUITests.swift
@@ -73,6 +75,7 @@ edge_cases:
   - A memo exceeds 2000 characters.
   - A recipe has both want-to-cook state and a memo.
   - A recipe changes from having a memo to having no memo.
+  - A memo is longer than the three-line preview.
   - A failed recipe receives a memo.
   - A memo mutation response arrives after the local recipe was deleted.
 
@@ -91,7 +94,8 @@ compatibility:
 non_functional:
   - Memo uses the existing Recipe entity, DTO, mutation response, SwiftData cache, and differential sync.
   - Memo does not introduce a separate memo list, history model, network fetch, AI request, or search index.
-  - Recipe detail must not require scrolling to the cooking steps or source section to notice or read an existing memo.
+  - Recipe detail must show the beginning of an existing memo without requiring an extra tap.
+  - The memo preview must stay between the tag row and materials section and must not render when no memo exists.
   - The memo editor uses an explicit save action and prevents duplicate submissions while saving.
 
 out_of_scope:
@@ -104,9 +108,10 @@ out_of_scope:
 
 acceptance_criteria:
   - A user can add one free-text memo from the recipe-detail overflow menu.
-  - After saving, recipe detail immediately shows a tappable "メモ" shortcut near the existing status area.
-  - Tapping the shortcut shows the memo in a bottom sheet without scrolling the recipe body.
-  - A user can edit the memo from the sheet or overflow menu and can clear it to remove the memo.
+  - After saving, recipe detail immediately shows "自分のメモ" and the memo preview after tags and before materials.
+  - The preview shows up to three lines and "全文を見る" opens the existing memo bottom sheet.
+  - Recipe detail no longer relies on the compact "メモ" summary shortcut to surface an existing memo.
+  - A user can edit the memo from the sheet or overflow menu and can clear it to remove the preview.
   - Memo is unavailable while analysis is pending or processing and for not_recipe; failed recipes remain editable.
   - Memo survives sync and a cache refresh, while memo text remains excluded from recipe search.
   - Existing SwiftData stores migrate with memo = nil and refresh cached recipe fields once.
