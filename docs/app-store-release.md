@@ -19,6 +19,18 @@
 
 App Store掲載名、インストール後の表示名、既存の日本語スクリーンショット、無料・日本限定の配信設定は維持する。審査申請前にApple側の保存済み設定を再取得し、公開方式が`MANUAL`であることを確認する。
 
+### 準備PRのローカル検証
+
+2026-10-05（JST）に今回の番号更新を含むソースで実行した。
+
+- `npm run check:specs`: 46仕様すべて成功。PR差分のspec変更gateも成功
+- `npm run verify`: 成功。単体454件、結合58件、E2E52件。P0 guardrail、format、lint、architecture、docs、Prisma generate / validate、buildを含む
+- `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer IOS_PARALLEL_WORKERS=1 npm run verify:ios`: 全136件成功、失敗0、skip0（単体75件、結合27件、UI34件）。SwiftData legacy-store migration、iOS lint / format、build、日本語resource確認を含む
+- ビルド済み本体とShare Extensionの両方で`1.0.3 (16)`、表示名`Foodfolio`、日本語`InfoPlist.strings`を確認
+- task check、変更Markdownのformat check、`git diff --check`: 成功
+
+最終PR HEADのQuality結果はPR上で確認する。ローカル検証の成功を、マージ、署名済みArchive、Apple提出や実機確認の証跡として扱わない。
+
 ### マージ後に実施する確認
 
 - [ ] 準備PRの人間によるマージと、対象merge SHAのQuality成功を確認する
