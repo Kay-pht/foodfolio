@@ -1,0 +1,55 @@
+id: IOS-TEST-COUNT-001
+type: bug
+status: approved
+
+objective: >-
+  Correct the stale iOS verification test count so the standard gate succeeds
+  when all currently declared XCTest cases pass, and detect future count drift early.
+
+requirements:
+  - id: ITC-1
+    condition: The configured iOS expected count differs from the XCTest method count.
+    expected: >-
+      A backend unit regression test fails when verify:ios does not match the
+      declared zero-argument test methods in FoodfolioTests, FoodfolioIntegrationTests,
+      and FoodfolioUITests. The original stale count was corrected from 121 to 122; after integrating recipe-step editing,
+      the configured count remains 127 to match the combined test targets.
+    verification:
+      - tests/unit/ios-test-count-config.test.mjs
+      - package.json
+  - id: ITC-2
+    condition: The standard iOS verification gate completes.
+    expected: >-
+      Lint, SwiftData migration, build, localization resources, and all 127 tests
+      pass with no failures or skips. The existing exact-count runtime check remains enabled.
+    verification:
+      - scripts/verify-ios.sh
+      - scripts/test-ios.sh
+
+edge_cases:
+  - A test is added or removed without updating the configured expected count.
+  - A Swift file contains no XCTest methods.
+  - A test fails or is skipped despite the correct total count.
+
+security_invariants:
+  - The change does not access production data or weaken authentication or ownership checks.
+
+compatibility:
+  - Existing iOS test cases and application behavior remain unchanged.
+  - The standard npm run verify:ios command continues to require every expected test to pass.
+
+non_functional:
+  - Count drift is detected by the existing backend unit suite without launching a Simulator.
+
+out_of_scope:
+  - Replacing XCTest discovery or supporting parameterized Swift Testing cases.
+  - Changing application behavior, test selection, or skip and failure policies.
+
+acceptance_criteria:
+  - The regression test fails with a stale count and passes with the current 127 count.
+  - npm run verify and npm run verify:ios succeed.
+
+regression:
+  required: true
+  tests:
+    - tests/unit/ios-test-count-config.test.mjs
