@@ -1,0 +1,87 @@
+id: INFRA-COST-REDUCTION-001
+type: maintenance
+status: approved
+
+objective: >-
+  Reduce idle Cloud Run billing for the API and HTTP-driven analysis Worker,
+  verify the serving revision after deployment, and introduce non-destructive
+  Artifact Registry cleanup policies in dry-run mode.
+
+requirements:
+  - id: ICR-1
+    condition: Terraform or the dev deployment workflow configures API and Worker services.
+    expected: Both services explicitly use request-based billing while preserving minimum zero instances, resource limits, request deadlines, ingress, and authentication.
+    verification:
+      - infra/terraform/main.tf
+      - .github/workflows/deploy-dev.yml
+      - infra/terraform/tests/cost-reduction.tftest.hcl
+      - tests/unit/cloud-run-deployment.test.mjs
+  - id: ICR-2
+    condition: Deployment completes or a serving revision has stale billing settings.
+    expected: A read-only verification rejects unready revisions, unexpected traffic or images, and instance-based billing on the serving revision without printing environment variables or secrets. The template tag matches the deployment image and the serving revision matches the immutable digest resolved from Artifact Registry after push.
+    verification:
+      - .github/workflows/deploy-dev.yml
+      - tests/unit/quality-proof.test.mjs
+      - scripts/verify-cloud-run-deployment.mjs
+      - tests/unit/cloud-run-deployment.test.mjs
+      - tests/e2e/cloud-run-deployment-cli.test.mjs
+  - id: ICR-3
+    condition: Only the deployment workflow or its verification script changes between deployed and target revisions.
+    expected: The deployment classifier requests deployment so billing and verification changes are not skipped.
+    verification:
+      - scripts/classify-deployment-range.mjs
+      - tests/e2e/cloud-run-deployment-cli.test.mjs
+  - id: ICR-4
+    condition: Terraform configures Artifact Registry cleanup.
+    expected: Cleanup remains hard-coded to dry-run; versions older than 30 days are candidates, the most recent 10 versions per package and keep-tagged images are retained, and no artifact is deleted by this change.
+    verification:
+      - infra/terraform/main.tf
+      - infra/terraform/tests/cost-reduction.tftest.hcl
+      - docs/infrastructure-cost-reduction.md
+  - id: ICR-5
+    condition: The HTTP Worker processes a task or returns a retryable failure.
+    expected: Analysis and admission finalization finish before a successful HTTP acknowledgement, while retryable failures continue to return 503 for Cloud Tasks retry.
+    verification:
+      - src/api/build-worker.ts
+      - tests/unit/build-worker-admission.test.ts
+      - tests/e2e/backend-worker.test.ts
+
+edge_cases:
+  - Missing cpu-throttling annotation means request-based billing; explicit false must fail verification.
+  - A template with request-based billing must not hide an older instance-billed serving revision.
+  - Split traffic, a pinned old revision, a mismatched image, missing Ready status, or malformed CLI output must fail deployment verification.
+  - Images can remain in use beyond 30 days and outside the most recent 10; explicit keep tags must protect serving and chosen rollback digests before deletion is ever enabled.
+  - No current keep tags exist; this PR does not assume existing images are already protected and must keep dry-run enabled.
+
+security_invariants:
+  - Verification uses only service and revision describe operations scoped to the explicit project and region.
+  - Verification output does not expose environment variables, secret values, or raw CLI responses.
+  - Worker internal ingress, OIDC authentication, API authentication, and uptime monitoring are preserved.
+  - Cleanup deletion activation, artifact deletion, deployment, and Terraform apply are outside this implementation request.
+
+compatibility:
+  - API contracts, Cloud Tasks deadlines and retry policy, analysis state transitions, and notifications are unchanged.
+  - Local HTTP dispatch remains a development-only option; deployed API continues to use Cloud Tasks.
+  - Existing Terraform provider version constraints and lockfile are preserved.
+
+non_functional:
+  - Idle time outside requests is not billed except for platform startup, shutdown, and applicable health probes.
+  - Savings are verified after deployment and are not guaranteed by local tests.
+  - Terraform tests use a mock provider and must not access or mutate live resources.
+
+out_of_scope:
+  - CPU, memory, concurrency, minimum or maximum instance count tuning.
+  - Removing uptime monitoring or changing its interval.
+  - Cloud Run Jobs migration, application performance work, secret cleanup, or database changes.
+  - Live deployment, Terraform apply, destructive cleanup activation, merge, or final LGTM.
+
+acceptance_criteria:
+  - Specification validation passes before implementation.
+  - Focused deployment and Worker acknowledgement tests pass.
+  - Full backend verification, Terraform format/validate/mock tests, actionlint, and changed-Markdown formatting pass.
+  - Documentation explains rollout, rollback, protection tags, dry-run audit requirements, and outstanding live verification.
+  - The PR is created as Draft and moved to Ready for final Quality only after local verification passes; no cloud settings or artifacts are changed during this task.
+
+regression:
+  required: false
+  tests: []

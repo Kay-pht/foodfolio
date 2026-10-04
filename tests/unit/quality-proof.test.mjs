@@ -422,6 +422,8 @@ describe("PR Quality proof", () => {
       "prisma",
       "schemas",
       "src",
+      ".github/workflows/deploy-dev.yml",
+      "scripts/verify-cloud-run-deployment.mjs",
     ]);
   });
 

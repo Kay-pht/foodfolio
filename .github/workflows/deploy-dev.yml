@@ -150,17 +150,20 @@ jobs:
           IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/app:${DEPLOY_SHA}"
           docker build --tag "${IMAGE}" .
           docker push "${IMAGE}"
+          IMAGE_DIGEST="$(gcloud artifacts docker images describe "${IMAGE}" \
+            --project="${PROJECT_ID}" --format='value(image_summary.fully_qualified_digest)')"
+          test -n "${IMAGE_DIGEST}"
           echo "IMAGE=${IMAGE}" >> "${GITHUB_ENV}"
-      - name: Deploy Worker
-        run: >-
-          gcloud run deploy "${WORKER_SERVICE}" --image="${IMAGE}"
-          --region="${REGION}" --project="${PROJECT_ID}" --quiet
+          echo "IMAGE_DIGEST=${IMAGE_DIGEST}" >> "${GITHUB_ENV}"
       - name: Deploy API
         run: >-
-          gcloud run deploy "${API_SERVICE}" --image="${IMAGE}"
+          gcloud run deploy "${API_SERVICE}" --image="${IMAGE}" --cpu-throttling
           --region="${REGION}" --project="${PROJECT_ID}" --quiet
-      - name: Verify revisions are ready
-        shell: bash
-        run: |
-          test "$(gcloud run services describe "${WORKER_SERVICE}" --region="${REGION}" --project="${PROJECT_ID}" --format='value(status.conditions[0].status)')" = "True"
-          test "$(gcloud run services describe "${API_SERVICE}" --region="${REGION}" --project="${PROJECT_ID}" --format='value(status.conditions[0].status)')" = "True"
+      - name: Verify API serving revision and billing
+        run: node scripts/verify-cloud-run-deployment.mjs "${API_SERVICE}"
+      - name: Deploy Worker
+        run: >-
+          gcloud run deploy "${WORKER_SERVICE}" --image="${IMAGE}" --cpu-throttling
+          --region="${REGION}" --project="${PROJECT_ID}" --quiet
+      - name: Verify Worker serving revision and billing
+        run: node scripts/verify-cloud-run-deployment.mjs "${WORKER_SERVICE}"

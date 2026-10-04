@@ -10,6 +10,8 @@ const DEPLOY_PATHS = [
   "prisma",
   "schemas",
   "src",
+  ".github/workflows/deploy-dev.yml",
+  "scripts/verify-cloud-run-deployment.mjs",
 ];
 const GIT_SHA_PATTERN = /^[0-9a-f]{40,64}$/;
 const ZERO_SHA_PATTERN = /^0+$/;
