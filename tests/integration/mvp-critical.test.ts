@@ -260,11 +260,276 @@ describe("MVP critical API integration", () => {
             method: "PATCH",
             url: `/v1/recipes/${id}`,
             headers: userHeaders,
-            payload: { title: `${status}-edited` },
+            payload: {
+              title: `${status}-edited`,
+              steps: [{ text: `${status}の作り方` }],
+            },
           })
         ).statusCode,
       ).toBe(expected);
+      const savedSteps = await context.prisma.recipeStep.findMany({
+        where: { recipeId: id },
+      });
+      expect(savedSteps.map((step) => step.text)).toEqual(
+        expected === 200 ? [`${status}の作り方`] : [],
+      );
     }
+    await app.close();
+  });
+
+  it("replaces cooking steps in order, removes blanks and preserves omitted steps", async () => {
+    const app = buildApi({
+      prisma: context.prisma,
+      authVerifier: auth,
+      firebaseUsers: noOpFirebase,
+      taskQueue: noOpQueue,
+    });
+    const ownerHeaders = headers("step-owner");
+    const created = await app.inject({
+      method: "POST",
+      url: "/v1/recipes",
+      headers: ownerHeaders,
+      payload: { url: "https://example.com/step-edit" },
+    });
+    const id = created.json().id as string;
+    const original = await context.prisma.recipe.update({
+      where: { id },
+      data: {
+        analysisStatus: "completed",
+        updatedAt: new Date(0),
+        steps: { create: { text: "元の手順", sortOrder: 0 } },
+      },
+    });
+    const saved = await app.inject({
+      method: "PATCH",
+      url: `/v1/recipes/${id}`,
+      headers: ownerHeaders,
+      payload: {
+        title: "自分のレシピ",
+        genre: "主菜",
+        ingredients: [{ name: "玉ねぎ", amount: "1個" }],
+        steps: [
+          { text: "  煮る\n弱火で5分  " },
+          { text: " \n\t " },
+          { text: "切る" },
+          { text: "" },
+        ],
+      },
+    });
+    expect(saved.statusCode).toBe(200);
+    const expectedSteps = [
+      { text: "煮る\n弱火で5分", sortOrder: 0 },
+      { text: "切る", sortOrder: 1 },
+    ];
+    const instructions = (steps: { text: string; sortOrder: number }[]) =>
+      steps.map(({ text, sortOrder }) => ({ text, sortOrder }));
+    expect(instructions(saved.json().steps)).toEqual(expectedSteps);
+    expect(saved.json().title).toBe("自分のレシピ");
+    expect(saved.json().ingredients[0].name).toBe("玉ねぎ");
+    expect(new Date(saved.json().updatedAt).getTime()).toBeGreaterThan(
+      original.updatedAt.getTime(),
+    );
+    expect(
+      instructions(
+        await context.prisma.recipeStep.findMany({
+          where: { recipeId: id },
+          orderBy: { sortOrder: "asc" },
+        }),
+      ),
+    ).toEqual(expectedSteps);
+
+    const oldClient = await app.inject({
+      method: "PATCH",
+      url: `/v1/recipes/${id}`,
+      headers: ownerHeaders,
+      payload: { title: "古いアプリから更新" },
+    });
+    expect(instructions(oldClient.json().steps)).toEqual(expectedSteps);
+    const memoOnly = await app.inject({
+      method: "PATCH",
+      url: `/v1/recipes/${id}`,
+      headers: ownerHeaders,
+      payload: { memo: "作り方を残す" },
+    });
+    expect(instructions(memoOnly.json().steps)).toEqual(expectedSteps);
+    const sync = await app.inject({
+      method: "GET",
+      url: "/v1/sync",
+      headers: ownerHeaders,
+    });
+    expect(
+      instructions(
+        sync.json().recipes.find((r: { id: string }) => r.id === id).steps,
+      ),
+    ).toEqual(expectedSteps);
+
+    for (const steps of [[], [{ text: " \n " }, { text: "" }]]) {
+      const cleared = await app.inject({
+        method: "PATCH",
+        url: `/v1/recipes/${id}`,
+        headers: ownerHeaders,
+        payload: { steps },
+      });
+      expect(cleared.statusCode).toBe(200);
+      expect(cleared.json().steps).toEqual([]);
+    }
+    expect(
+      await context.prisma.recipeStep.count({ where: { recipeId: id } }),
+    ).toBe(0);
+    await app.close();
+  });
+
+  it("rejects malformed or unauthorized step edits without partial changes", async () => {
+    const app = buildApi({
+      prisma: context.prisma,
+      authVerifier: auth,
+      firebaseUsers: noOpFirebase,
+      taskQueue: noOpQueue,
+    });
+    const ownerHeaders = headers("invalid-step-owner");
+    const created = await app.inject({
+      method: "POST",
+      url: "/v1/recipes",
+      headers: ownerHeaders,
+      payload: { url: "https://example.com/invalid-step-edit" },
+    });
+    const id = created.json().id as string;
+    await context.prisma.recipe.update({
+      where: { id },
+      data: {
+        title: "元の料理名",
+        analysisStatus: "completed",
+        ingredients: { create: { name: "元の材料", sortOrder: 0 } },
+        steps: { create: { text: "元の手順", sortOrder: 0 } },
+      },
+    });
+    const before = (
+      await app.inject({
+        method: "GET",
+        url: `/v1/recipes/${id}`,
+        headers: ownerHeaders,
+      })
+    ).json();
+    for (const steps of [
+      null,
+      "煮る",
+      {},
+      ["煮る"],
+      [null],
+      [{}],
+      [{ text: 1 }],
+      [{ text: "正しい手順" }, { text: false }],
+    ]) {
+      const response = await app.inject({
+        method: "PATCH",
+        url: `/v1/recipes/${id}`,
+        headers: ownerHeaders,
+        payload: {
+          title: "変更されてはいけない",
+          ingredients: [{ name: "新しい材料" }],
+          steps,
+        },
+      });
+      expect(response.statusCode).toBe(422);
+      expect(response.json().error.code).toBe("VALIDATION_ERROR");
+      expect(
+        (
+          await app.inject({
+            method: "GET",
+            url: `/v1/recipes/${id}`,
+            headers: ownerHeaders,
+          })
+        ).json(),
+      ).toEqual(before);
+    }
+    const invalidIngredients = await app.inject({
+      method: "PATCH",
+      url: `/v1/recipes/${id}`,
+      headers: ownerHeaders,
+      payload: {
+        title: "巻き戻す料理名",
+        ingredients: [{ name: "" }],
+        steps: [{ text: "保存されてはいけない手順" }],
+      },
+    });
+    expect(invalidIngredients.statusCode).toBe(400);
+    expect(
+      (
+        await app.inject({
+          method: "GET",
+          url: `/v1/recipes/${id}`,
+          headers: ownerHeaders,
+        })
+      ).json(),
+    ).toEqual(before);
+    for (const [requestHeaders, expected] of [
+      [{}, 401],
+      [headers("step-intruder"), 404],
+    ] as const) {
+      const response = await app.inject({
+        method: "PATCH",
+        url: `/v1/recipes/${id}`,
+        headers: requestHeaders,
+        payload: { steps: [] },
+      });
+      expect(response.statusCode).toBe(expected);
+    }
+    expect(
+      (
+        await app.inject({
+          method: "GET",
+          url: `/v1/recipes/${id}`,
+          headers: ownerHeaders,
+        })
+      ).json(),
+    ).toEqual(before);
+    await app.close();
+  });
+
+  it("serializes concurrent step replacements into one complete instruction list", async () => {
+    const app = buildApi({
+      prisma: context.prisma,
+      authVerifier: auth,
+      firebaseUsers: noOpFirebase,
+      taskQueue: noOpQueue,
+    });
+    const ownerHeaders = headers("concurrent-step-owner");
+    const created = await app.inject({
+      method: "POST",
+      url: "/v1/recipes",
+      headers: ownerHeaders,
+      payload: { url: "https://example.com/concurrent-step-edit" },
+    });
+    const id = created.json().id as string;
+    await context.prisma.recipe.update({
+      where: { id },
+      data: { analysisStatus: "completed" },
+    });
+    const lists = [
+      ["Aで切る", "Aで煮る"],
+      ["Bで切る", "Bで焼く", "Bで盛る"],
+    ];
+    const responses = await Promise.all(
+      lists.map((texts) =>
+        app.inject({
+          method: "PATCH",
+          url: `/v1/recipes/${id}`,
+          headers: ownerHeaders,
+          payload: { steps: texts.map((text) => ({ text })) },
+        }),
+      ),
+    );
+    expect(responses.map((response) => response.statusCode)).toEqual([
+      200, 200,
+    ]);
+    const saved = await context.prisma.recipeStep.findMany({
+      where: { recipeId: id },
+      orderBy: { sortOrder: "asc" },
+    });
+    expect(lists).toContainEqual(saved.map((step) => step.text));
+    expect(saved.map((step) => step.sortOrder)).toEqual(
+      saved.map((_, index) => index),
+    );
     await app.close();
   });
 

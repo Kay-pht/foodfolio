@@ -746,7 +746,8 @@ Request例：
   "ingredients": [
     { "name": "鶏もも肉", "amount": "250g" },
     { "name": "卵", "amount": "2個" }
-  ]
+  ],
+  "steps": [{ "text": "鶏もも肉を切る" }, { "text": "鶏肉を煮る\n卵でとじる" }]
 }
 ```
 
@@ -754,7 +755,11 @@ Request例：
 
 `analysisStatus` が `pending` または `processing` のRecipeは編集不可とし、Backendでも `RECIPE_ANALYSIS_IN_PROGRESS` として拒否する。`not_recipe` も通常のレシピ編集対象ではないため、PATCHを `RECIPE_NOT_EDITABLE` として拒否する。
 
-画像、人数、調理時間、手順、URL、解析状態はこのAPIから変更不可とする。
+`steps` は `text: string` を持つobjectの配列とし、送信された配列で手順全体を置換する。配列の省略は既存手順を保持し、空配列は全削除とする。前後空白を除き、空欄の手順を除外して0始まりの連続する `sortOrder` を付与する。手順内の改行は保持する。配列以外や文字列でない `text` は `422 VALIDATION_ERROR` とし、変更を保存しない。
+
+Recipe行を `SELECT ... FOR UPDATE` で先にロックし、同じRecipeの更新を直列化する。材料・手順を置換した後にRecipeの各項目と `updatedAt` を更新し、すべて同じtransactionで確定する。これにより同時保存でも手順が混在せず、不正な材料を含む更新もすべてrollbackする。子行のロック待ちや一括保存より前に更新時刻を設定しないことで、その間に差分同期が取得したカーソルより古い時刻で編集を確定することを防ぐ。
+
+画像、人数、調理時間、URL、解析状態はこのAPIから変更不可とする。
 
 更新成功時はRecipeの `updatedAt` を更新し、更新後のRecipe DTOを返す。iOSはレスポンスをSwiftDataへ即時反映する。
 
@@ -2232,6 +2237,7 @@ Tag追加・削除、Recipe削除等のmutationはオンライン必須とする
 - title
 - ingredients
 - genre
+- steps（番号付き複数行入力、追加・削除・上下移動、保存時に空欄除外、0件保存可能）
 - tags
 - save時PATCH
 

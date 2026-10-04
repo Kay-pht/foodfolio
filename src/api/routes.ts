@@ -268,7 +268,32 @@ export function registerRoutes(
           "VALIDATION_ERROR",
           "ingredients must be an array",
         );
+      let steps:
+        { recipeId: string; text: string; sortOrder: number }[] | undefined;
+      if ("steps" in body) {
+        if (!Array.isArray(body.steps))
+          throw new AppError(422, "VALIDATION_ERROR", "steps must be an array");
+        steps = body.steps
+          .map((raw) => {
+            const item = asObject(raw);
+            if (typeof item.text !== "string")
+              throw new AppError(
+                422,
+                "VALIDATION_ERROR",
+                "step.text is invalid",
+              );
+            return item.text.trim();
+          })
+          .filter((text) => text.length > 0)
+          .map((text, sortOrder) => ({ recipeId, text, sortOrder }));
+      }
       await deps.prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`
+          SELECT "id" FROM "Recipe"
+          WHERE "id" = CAST(${recipeId} AS uuid)
+            AND "userId" = CAST(${request.appUser.id} AS uuid)
+          FOR UPDATE
+        `;
         if (Array.isArray(ingredients)) {
           const values = ingredients.map((raw, sortOrder) => {
             const item = asObject(raw);
@@ -286,6 +311,10 @@ export function registerRoutes(
           await tx.ingredient.deleteMany({ where: { recipeId } });
           if (values.length > 0)
             await tx.ingredient.createMany({ data: values });
+        }
+        if (steps !== undefined) {
+          await tx.recipeStep.deleteMany({ where: { recipeId } });
+          if (steps.length > 0) await tx.recipeStep.createMany({ data: steps });
         }
         await tx.recipe.update({
           where: { id: recipeId },
