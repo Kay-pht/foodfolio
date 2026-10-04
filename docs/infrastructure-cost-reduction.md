@@ -53,6 +53,8 @@ KEEPはDELETEより優先する。最新10件はpackageごとのversion数であ
 
 ローカルとQuality CIは、backendを無効にしたinit、validate、mock providerによるplan testを実行する。mock testはライブGCPやTerraform stateにアクセスしない。
 
+providerの選択versionは維持し、lockfileにHashiCorp署名を確認したLinux / macOSのチェックサムを保持する。CIのreadonly initでplatformのチェックサム不足が発生した場合は、同じversionに対して`terraform providers lock -platform=linux_amd64 -platform=darwin_arm64`で補う。検証を通すためにreadonlyを外したり、providerをupgradeしたりしない。
+
 ```bash
 terraform -chdir=infra/terraform init -backend=false -input=false -lockfile=readonly
 terraform fmt -check -recursive infra/terraform

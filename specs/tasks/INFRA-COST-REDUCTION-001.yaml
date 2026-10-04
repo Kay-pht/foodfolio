@@ -62,7 +62,7 @@ security_invariants:
 compatibility:
   - API contracts, Cloud Tasks deadlines and retry policy, analysis state transitions, and notifications are unchanged.
   - Local HTTP dispatch remains a development-only option; deployed API continues to use Cloud Tasks.
-  - Existing Terraform provider version constraints and lockfile are preserved.
+  - Existing Terraform provider version constraints and selected versions are preserved; signed linux_amd64 checksums are recorded for readonly CI initialization.
 
 non_functional:
   - Idle time outside requests is not billed except for platform startup, shutdown, and applicable health probes.

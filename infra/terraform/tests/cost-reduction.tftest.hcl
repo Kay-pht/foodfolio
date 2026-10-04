@@ -51,11 +51,10 @@ run "request_billing_and_dry_run_cleanup" {
       length(google_artifact_registry_repository.app.cleanup_policies) == 3 &&
       alltrue([
         for policy in google_artifact_registry_repository.app.cleanup_policies :
-        policy.id != "delete-older-than-30-days" || (
-          policy.action == "DELETE" &&
-          policy.condition[0].tag_state == "ANY" &&
-          policy.condition[0].older_than == "2592000s"
-        )
+        policy.action == "DELETE" &&
+        policy.condition[0].tag_state == "ANY" &&
+        policy.condition[0].older_than == "2592000s"
+        if policy.id == "delete-older-than-30-days"
       ]) &&
       contains([for policy in google_artifact_registry_repository.app.cleanup_policies : policy.id], "delete-older-than-30-days")
     )
@@ -66,11 +65,10 @@ run "request_billing_and_dry_run_cleanup" {
     condition = (
       alltrue([
         for policy in google_artifact_registry_repository.app.cleanup_policies :
-        policy.id != "keep-latest-10-per-package" || (
-          policy.action == "KEEP" &&
-          policy.most_recent_versions[0].keep_count == 10 &&
-          length(coalesce(policy.most_recent_versions[0].package_name_prefixes, [])) == 0
-        )
+        policy.action == "KEEP" &&
+        policy.most_recent_versions[0].keep_count == 10 &&
+        length(coalesce(policy.most_recent_versions[0].package_name_prefixes, [])) == 0
+        if policy.id == "keep-latest-10-per-package"
       ]) &&
       contains([for policy in google_artifact_registry_repository.app.cleanup_policies : policy.id], "keep-latest-10-per-package")
     )
@@ -81,13 +79,12 @@ run "request_billing_and_dry_run_cleanup" {
     condition = (
       alltrue([
         for policy in google_artifact_registry_repository.app.cleanup_policies :
-        policy.id != "keep-protected-images" || (
-          policy.action == "KEEP" &&
-          policy.condition[0].tag_state == "TAGGED" &&
-          contains(policy.condition[0].tag_prefixes, "keep-") &&
-          policy.condition[0].older_than == null &&
-          policy.condition[0].newer_than == null
-        )
+        policy.action == "KEEP" &&
+        policy.condition[0].tag_state == "TAGGED" &&
+        contains(policy.condition[0].tag_prefixes, "keep-") &&
+        policy.condition[0].older_than == null &&
+        policy.condition[0].newer_than == null
+        if policy.id == "keep-protected-images"
       ]) &&
       contains([for policy in google_artifact_registry_repository.app.cleanup_policies : policy.id], "keep-protected-images")
     )
