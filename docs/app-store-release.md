@@ -1,5 +1,49 @@
 # App Store リリース管理
 
+## 更新 1.0.3 (16) の申請準備
+
+2026-10-05（JST）にAppleの日本向け公開lookupとApp Store Connectを再取得し、公開版が`1.0.2 (15)`、App Store stateが`READY_FOR_SALE`、Build IDが`5407229d-ef1b-47cf-8c98-60f8f1c8848e`であることを確認した。日本語対応と新画像を含む1.0.2は公開済みであり、下記の過去の審査待ち記録は現在の状態を示さない。確認時点ではApp Store version `1.0.3`はなく、最新upload済みbuildは`15`だった。
+
+次の更新はパッチ番号だけを上げた`1.0.3 (16)`とする。準備元はmain `493ed7ea`（PR #138まで取り込み済み）。PRを人間が確認・マージした後、そのmerge済みソースをArchiveし、Appleへのアップデート審査申請まで進める。一般公開はユーザーが行い、エージェントは公開操作を実行しない。
+
+### 今回含める変更
+
+- レシピへ自分用のメモを追加・編集でき、詳細画面で本文を確認できる（PR #133 / #135）
+- 作り方の修正・追加・削除と、つまみのドラッグによる並べ替えができる（PR #134 / #137）
+- メモ画面の大きさ・全文表示の条件・保存ボタンを改善し、保存上限を200字に揃える（PR #137 / #138）
+- mainに取り込まれたTikTok Lite短縮URL対応、解析失敗の診断改善、インフラ費用削減はバックエンド側の変更として扱う。iOSのArchiveだけでは稼働環境への反映を証明しない（PR #129〜#132 / #136）
+
+日本語の更新内容案:
+
+「レシピに自分用のメモを保存できるようになりました。作り方の編集・追加・削除や並べ替えにも対応しました。メモの表示と編集画面を使いやすく改善しました。」
+
+App Store掲載名、インストール後の表示名、既存の日本語スクリーンショット、無料・日本限定の配信設定は維持する。審査申請前にApple側の保存済み設定を再取得し、公開方式が`MANUAL`であることを確認する。
+
+### 準備PRのローカル検証
+
+2026-10-05（JST）に今回の番号更新を含むソースで実行した。
+
+- `npm run check:specs`: 46仕様すべて成功。PR差分のspec変更gateも成功
+- `npm run verify`: 成功。単体454件、結合58件、E2E52件。P0 guardrail、format、lint、architecture、docs、Prisma generate / validate、buildを含む
+- `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer IOS_PARALLEL_WORKERS=1 npm run verify:ios`: 全136件成功、失敗0、skip0（単体75件、結合27件、UI34件）。SwiftData legacy-store migration、iOS lint / format、build、日本語resource確認を含む
+- ビルド済み本体とShare Extensionの両方で`1.0.3 (16)`、表示名`Foodfolio`、日本語`InfoPlist.strings`を確認
+- task check、変更Markdownのformat check、`git diff --check`: 成功
+
+最終PR HEADのQuality結果はPR上で確認する。ローカル検証の成功を、マージ、署名済みArchive、Apple提出や実機確認の証跡として扱わない。
+
+### マージ後に実施する確認
+
+- [ ] 準備PRの人間によるマージと、対象merge SHAのQuality成功を確認する
+- [ ] APIのメモ保存・200字上限・順序付き手順更新、および`20260930152000_add_recipe_memo`の適用状況を確認する
+- [ ] 対象API / Workerの配信中revision、source SHA、Ready、trafficを再取得する
+- [ ] merge済みソースの署名済みRelease Archiveで本体・Share Extensionの`1.0.3 (16)`、日本語resource、Bundle ID、App Group、本体のproduction APNs・Sign in with Appleを確認する
+- [ ] Apple validation / upload後にBuild ID、processing `VALID`、未期限、App Store eligibilityを再取得する
+- [ ] 既存内部TestFlightグループへの割り当てとWhat to Testを再取得する
+- [ ] App Store version `1.0.3`へbuild `16`を選択し、更新内容、既存metadata、審査用ログイン、画像、価格、地域、`MANUAL`を確認する
+- [ ] App Reviewへ提出し、Submission IDと審査状態を再取得する
+
+このPRは番号更新と申請準備だけを行う。Archive、Apple upload、TestFlight配布、App Review提出、一般公開はまだ実施していない。実機確認も自動テスト・Apple提出とは分けて扱う。App Store本番の配布チェックはユーザーによる公開を確認するまで完了にしない。
+
 ## 更新 1.0.2 (15) の提出状況
 
 2026-09-24時点で、日本向けApp Store公開版とApp Store Connectのversion `1.0.1`はいずれも公開中（`READY_FOR_SALE`）。公開ページには旧スクリーンショット3枚が掲載され、binary由来の対応言語は英語と表示されている。main `fe508d6d093d31fe33faa3d72d6081dd1f31daa9`には、日本語をdevelopment languageとして宣言し、本体とShare Extensionへ`ja.lproj/InfoPlist.strings`を含めるPR #124と、新しいApp Store画像生成元を追加するPR #125が含まれるが、どちらも次のbinaryとApp Store versionへは未反映である。
