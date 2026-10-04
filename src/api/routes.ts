@@ -288,10 +288,12 @@ export function registerRoutes(
           .map((text, sortOrder) => ({ recipeId, text, sortOrder }));
       }
       await deps.prisma.$transaction(async (tx) => {
-        await tx.recipe.update({
-          where: { id: recipeId },
-          data: { ...data, updatedAt: new Date() },
-        });
+        await tx.$queryRaw`
+          SELECT "id" FROM "Recipe"
+          WHERE "id" = CAST(${recipeId} AS uuid)
+            AND "userId" = CAST(${request.appUser.id} AS uuid)
+          FOR UPDATE
+        `;
         if (Array.isArray(ingredients)) {
           const values = ingredients.map((raw, sortOrder) => {
             const item = asObject(raw);
@@ -314,6 +316,10 @@ export function registerRoutes(
           await tx.recipeStep.deleteMany({ where: { recipeId } });
           if (steps.length > 0) await tx.recipeStep.createMany({ data: steps });
         }
+        await tx.recipe.update({
+          where: { id: recipeId },
+          data: { ...data, updatedAt: new Date() },
+        });
       });
       return recipeDto(await ownedRecipe(deps, request.appUser.id, recipeId));
     },

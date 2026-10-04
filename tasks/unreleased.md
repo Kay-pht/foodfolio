@@ -14,7 +14,7 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
     - [ ] TestFlight内部テスト — 対象version/build: 未定
     - [ ] App Store本番 — 対象version/build: 未定
     - [ ] Cloud Run（dev API） — 対象version/revision: 未定
-  - 備考: DB schema変更なし。APIを先に反映してからiOSを配布する
+  - 備考: DB schema変更なし。APIを先に反映してからiOSを配布する。編集transactionでは親行を先にロックし、材料・手順の置換後に更新時刻を設定することで、保存中の差分同期による取りこぼしを抑止する
 
 - [ ] `REL-20260924-01` Foodfolio 1.0.2で日本語表示情報とApp Store掲載内容を更新する
   - 内容: iOS本体とShare Extensionが日本語対応アプリであることをAppleへ正しく申告し、インストール後のアプリ名は`Foodfolio`のまま維持する。App Store上の表示名を「レシピ保存/管理アプリ - Foodfolio」へ変更し、利用許可を確認済みの新しい日本語マーケティング画像6枚へ差し替える。あわせて、PR #121/#122でmainへ追加した5つのCloud Monitoring alert policyを既存Slack通知先へ反映する

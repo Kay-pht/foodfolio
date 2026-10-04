@@ -1,0 +1,72 @@
+id: RECIPE-EDIT-SYNC-TIMING-001
+type: bug
+status: approved
+
+objective: >-
+  Fix the reviewed recipe-edit differential-sync omission with a small transaction-order
+  change. Lock the parent recipe before replacing children, but assign updatedAt after
+  ingredient and step replacement rather than before database lock waits or bulk writes.
+
+requirements:
+  - id: REST-1
+    condition: A recipe PATCH waits for a locked ingredient or step while differential sync runs.
+    expected: >-
+      Sync may return the prior committed recipe during the wait. Once PATCH succeeds,
+      the next differential sync from that cursor returns the saved title, ingredients
+      and cooking instructions. The mutation response and GET agree with persisted data.
+    verification:
+      - tests/integration/recipe-edit-sync.test.ts
+  - id: REST-2
+    condition: Concurrent recipe PATCH requests replace ingredients and cooking instructions.
+    expected: >-
+      The parent row is locked before child replacement, and recipe fields and updatedAt
+      are updated after child replacement in the same transaction. Instruction lists
+      never mix, and invalid input still rolls back the complete edit.
+    verification:
+      - tests/integration/mvp-critical.test.ts
+      - src/api/routes.ts
+  - id: REST-3
+    condition: The fix is prepared for review.
+    expected: >-
+      The existing API contract, SwiftData models and editor remain unchanged. Specification
+      and implementation design describe the lock and final update separately.
+    verification:
+      - specs/tasks/RECIPE-STEP-EDITING-001.yaml
+      - docs/implementation-design.md
+
+edge_cases:
+  - The ingredient replacement blocks before step replacement begins.
+  - The step replacement blocks after ingredient replacement finishes.
+  - The parent lock itself must be acquired before computing the final update time.
+  - Two saves target the same recipe; malformed ingredients must roll back valid step edits.
+  - Omitted steps preserve instructions; empty steps still clear them.
+
+security_invariants:
+  - Authentication, ownership and analysis-state restrictions remain unchanged.
+  - The row lock uses parameterized SQL and is limited to the authenticated owner's recipe.
+  - Title, ingredient and step changes remain atomic and are not added to application logs.
+
+compatibility:
+  - No API, database schema, iOS model or sync cursor format changes.
+  - Older clients and memo-only edits continue to preserve omitted cooking instructions.
+
+non_functional:
+  - Keep the fix local to recipe PATCH transaction ordering.
+  - Use real HTTP and isolated PostgreSQL for the deterministic regression.
+  - Avoid a new cross-device coordination framework or an offline edit queue.
+
+out_of_scope:
+  - Global commit-ordered synchronization guarantees for every mutation path.
+  - The separately tracked stale iOS sync-response overwrite bug.
+  - Changes to other mutation APIs, public release, deployment or final merge.
+
+acceptance_criteria:
+  - The new regression fails before the fix and passes after it.
+  - The previously reproduced ingredient-lock and step-write scenarios return edits in subsequent sync.
+  - Existing atomicity, validation, editability, omission and concurrent-save tests pass.
+  - Required backend and iOS verification, formatting, lint and builds pass.
+
+regression:
+  required: true
+  tests:
+    - tests/integration/recipe-edit-sync.test.ts

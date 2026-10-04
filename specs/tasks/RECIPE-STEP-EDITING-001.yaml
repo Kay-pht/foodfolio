@@ -40,7 +40,8 @@ requirements:
       steps in the same transaction as title, genre and ingredients, updates updatedAt and
       returns the resulting DTO. Invalid arrays or non-string text return 422 without any
       recipe changes. Omitting steps preserves existing steps for older clients and memo edits.
-      Recipe updates serialize before replacing child rows to prevent mixed concurrent step lists.
+      The recipe row is locked before replacing child rows to prevent mixed concurrent step lists,
+      and recipe fields and updatedAt are updated after child replacement in the same transaction.
     verification:
       - tests/integration/mvp-critical.test.ts
   - id: RSE-5
