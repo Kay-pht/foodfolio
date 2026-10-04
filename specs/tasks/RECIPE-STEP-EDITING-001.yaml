@@ -20,8 +20,8 @@ requirements:
     condition: A user adds, deletes or reorders steps in the editor.
     expected: >-
       The editor allows adding even when no steps exist, explicitly deleting any step, and
-      moving steps up or down. Numbers reflect the current order and boundary move actions
-      are disabled. Changes stay in the edit draft until save.
+      reordering with always-visible trailing drag handles. Numbers reflect the current order.
+      Changes stay in the edit draft until save.
     verification:
       - ios/FoodfolioUITests/MajorFlowUITests.swift
   - id: RSE-3
@@ -81,7 +81,7 @@ edge_cases:
   - No existing instructions, one step, or multiple steps stored out of array order.
   - Multiline Japanese text and whitespace-only steps between valid steps.
   - All steps are deleted explicitly or cleared to whitespace.
-  - Move up on the first step and move down on the last step.
+  - Reorder the first and last steps, or a list containing only one step.
   - A malformed step follows a valid step while other recipe fields are also changed.
   - An offline or server-failed save and retry.
   - Concurrent step replacements must produce one complete list, not a mixture.
@@ -100,7 +100,7 @@ compatibility:
 
 non_functional:
   - Use the existing online PATCH, mutation response and differential sync paths.
-  - Use up and down buttons as a routine UI choice so order changes do not require dragging.
+  - Use always-visible trailing drag handles and accessible move actions for reordering.
   - Delete whitespace-only steps on save rather than while the user is typing.
   - Keep draft state separate from persisted recipe steps until a successful save.
   - Rely on the existing API request body limit rather than introducing arbitrary text limits.

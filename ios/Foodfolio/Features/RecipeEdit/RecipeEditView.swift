@@ -51,22 +51,6 @@ struct RecipeEditView: View {
             HStack {
               Text("手順\(index + 1)").font(.headline)
               Spacer()
-              Button {
-                steps.swapAt(index, index - 1)
-              } label: {
-                Image(systemName: "arrow.up")
-              }
-              .disabled(index == 0)
-              .accessibilityLabel("手順\(index + 1)を上へ移動")
-              .accessibilityIdentifier("edit.step.\(index).up")
-              Button {
-                steps.swapAt(index, index + 1)
-              } label: {
-                Image(systemName: "arrow.down")
-              }
-              .disabled(index == steps.count - 1)
-              .accessibilityLabel("手順\(index + 1)を下へ移動")
-              .accessibilityIdentifier("edit.step.\(index).down")
               Button(role: .destructive) {
                 steps.remove(at: index)
               } label: {
@@ -74,6 +58,21 @@ struct RecipeEditView: View {
               }
               .accessibilityLabel("手順\(index + 1)を削除")
               .accessibilityIdentifier("edit.step.\(index).delete")
+              Image(systemName: "line.3.horizontal")
+                .foregroundStyle(.secondary)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+                .accessibilityLabel("手順\(index + 1)を並べ替え")
+                .accessibilityHint("長押しして上下にドラッグすると順序を変更できます")
+                .accessibilityIdentifier("edit.step.\(index).reorder")
+                .accessibilityActions {
+                  if index > 0 {
+                    Button("上へ移動") { steps.swapAt(index, index - 1) }
+                  }
+                  if index + 1 < steps.count {
+                    Button("下へ移動") { steps.swapAt(index, index + 1) }
+                  }
+                }
             }
             .buttonStyle(.borderless)
             TextField("作り方を入力", text: $step.text, axis: .vertical)
@@ -81,6 +80,9 @@ struct RecipeEditView: View {
               .accessibilityLabel("手順\(index + 1)の作り方")
               .accessibilityIdentifier("edit.step.\(index).text")
           }
+        }
+        .onMove { source, destination in
+          steps.move(fromOffsets: source, toOffset: destination)
         }
         Button("手順を追加") { steps.append(EditableRecipeStep()) }
           .accessibilityIdentifier("edit.addStep")
@@ -96,7 +98,7 @@ struct RecipeEditView: View {
       if let error { Text(error).foregroundStyle(.red) }
     }
     .disabled(isSaving)
-    .scrollDismissesKeyboard(.interactively)
+    .scrollDismissesKeyboard(.immediately)
     .navigationTitle("レシピ編集")
     .toolbar {
       Button("保存") { save() }

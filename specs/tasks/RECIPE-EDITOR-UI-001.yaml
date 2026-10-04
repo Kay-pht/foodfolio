@@ -1,0 +1,81 @@
+id: RECIPE-EDITOR-UI-001
+type: bug
+status: approved
+
+objective: >-
+  Hide the memo full-text action when the entire memo already fits in the three-line preview,
+  and simplify cooking-step reordering with always-visible trailing drag handles.
+
+requirements:
+  - id: REUI-1
+    condition: A memo is displayed in recipe detail.
+    expected: >-
+      Show at most three lines. Show the full-text action only when text is actually truncated
+      at the current width and font size. One to three fully visible lines have no such action.
+      Hidden measurement text must not appear in accessibility or affect the card height.
+    verification:
+      - ios/FoodfolioUITests/WantToCookUITests.swift
+  - id: REUI-2
+    condition: A user edits a memo or the available width or font size changes.
+    expected: >-
+      Recompute truncation from the rendered text. Long-to-short edits hide the action,
+      short-to-long edits show it, and clearing the memo removes the card.
+      Short memos remain editable through the existing overflow menu.
+    verification:
+      - ios/FoodfolioUITests/WantToCookUITests.swift
+  - id: REUI-3
+    condition: A user edits cooking instructions.
+    expected: >-
+      Each step has an always-visible trailing three-line reorder handle and the existing
+      delete button. Dragging changes draft order and consecutive numbers. Up/down buttons
+      are removed. Text editing, addition, blank removal and zero-step saves remain supported.
+      Scrolling dismisses the keyboard immediately so reordering targets remain reachable.
+    verification:
+      - ios/FoodfolioUITests/MajorFlowUITests.swift
+  - id: REUI-4
+    condition: A user saves reordered instructions or leaves the editor.
+    expected: >-
+      Save persists text and order through the existing API and local mutation path.
+      Leaving without save preserves persisted order. Failed save retains the draft.
+      No API, database or synchronization contract changes are introduced.
+    verification:
+      - ios/FoodfolioUITests/MajorFlowUITests.swift
+      - ios/FoodfolioIntegrationTests/PersistenceIntegrationTests.swift
+      - ios/FoodfolioIntegrationTests/RecipeMutationRaceTests.swift
+
+edge_cases:
+  - No memo, one line, exactly three lines and four explicit lines.
+  - Long Japanese text without explicit newlines that wraps beyond three lines.
+  - Text changes, large Dynamic Type and available-width changes.
+  - Zero steps, one step, adjacent moves and moves over multiple positions.
+  - Multiline drafts, adding and deleting after reordering, failed save and cancelled editing.
+  - Reordering after editing a step while the software keyboard is visible.
+
+security_invariants:
+  - Existing ownership, editability and authentication checks remain unchanged.
+  - Memo and cooking instruction contents are not added to logs or external requests.
+
+compatibility:
+  - Existing memo and step API, persistence, sync and blank-removal semantics remain unchanged.
+  - Existing material editing and deletion remain unchanged.
+  - Existing memo editing from the overflow menu remains available.
+
+non_functional:
+  - Determine truncation using the same rendered width and font as the visible preview.
+  - Provide reorder accessibility actions without reinstating visible up/down buttons.
+  - Keep reordering within the draft until successful save.
+
+out_of_scope:
+  - Backend changes, database migrations, AI rewriting and offline mutation queues.
+  - Apple distribution, deployment, public release and final merge.
+
+acceptance_criteria:
+  - A fully visible memo never displays the full-text action.
+  - A truncated memo opens the existing full-text sheet.
+  - Always-visible drag handles reorder steps and the saved order survives reopening.
+  - Focused regression, full tests, integration, E2E, lint, format and builds pass.
+
+regression:
+  required: true
+  tests:
+    - ios/FoodfolioUITests/WantToCookUITests.swift

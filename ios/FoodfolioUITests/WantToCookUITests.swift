@@ -62,12 +62,13 @@ import XCTest
     let editor = app.textViews["memo.editor"]
     XCTAssertTrue(editor.waitForExistence(timeout: 3))
     editor.tap()
-    editor.typeText("味が少し濃かった。\n次回は醤油を少なめにする。")
+    let memo = "味が少し濃かった。\n次回は醤油を少なめにする。\n火を弱める。\n最後に味見する。"
+    editor.typeText(memo)
     app.buttons["memo.save"].tap()
 
     let preview = app.staticTexts["detail.memoPreviewText"]
     XCTAssertTrue(preview.waitForExistence(timeout: 3))
-    XCTAssertEqual(preview.label, "味が少し濃かった。\n次回は醤油を少なめにする。")
+    XCTAssertEqual(preview.label, memo)
     XCTAssertTrue(app.staticTexts["detail.memoPreviewHeading"].exists)
     XCTAssertFalse(app.buttons["detail.memoShortcut"].exists)
 
@@ -77,7 +78,7 @@ import XCTest
 
     let content = app.staticTexts["memo.content"]
     XCTAssertTrue(content.waitForExistence(timeout: 3))
-    XCTAssertEqual(content.label, "味が少し濃かった。\n次回は醤油を少なめにする。")
+    XCTAssertEqual(content.label, memo)
     XCTAssertTrue(app.buttons["memo.edit"].exists)
   }
 
@@ -90,13 +91,15 @@ import XCTest
     XCTAssertFalse(app.buttons["detail.memoShortcut"].exists)
 
     let openMemo = app.buttons["detail.memoPreviewOpen"]
-    XCTAssertTrue(openMemo.waitForExistence(timeout: 2))
-    openMemo.tap()
-    XCTAssertTrue(app.staticTexts["memo.content"].waitForExistence(timeout: 2))
-    app.buttons["memo.cancel"].tap()
+    XCTAssertTrue(openMemo.waitForNonExistence(timeout: 2))
 
     openRecipeMenu(in: app)
-    XCTAssertTrue(app.buttons["detail.memoMenu"].waitForExistence(timeout: 2))
+    let editMemo = app.buttons["detail.memoMenu"]
+    XCTAssertTrue(editMemo.waitForExistence(timeout: 2))
+    editMemo.tap()
+    let editor = app.textViews["memo.editor"]
+    XCTAssertTrue(editor.waitForExistence(timeout: 2))
+    XCTAssertEqual(editor.value as? String, "味が少し濃かった。\n次回は醤油を少なめにする。")
   }
 
   func testMemoMenuMatchesOrdinaryRecipeEditability() {
@@ -109,6 +112,82 @@ import XCTest
       title: "レシピとして判定できませんでした", expected: false)
     assertMemoMenuAvailability(
       statusArgument: "-ui-testing-status-failed", title: seedTitle, expected: true)
+  }
+
+  func testThreeLinesHaveNoFullTextActionAndEditsRecomputeTruncation() {
+    let app = launch(arguments: ["-ui-testing-existing-memo"])
+    openSeedRecipe(in: app)
+    saveMemo("一行目\n二行目\n三行目", in: app)
+    let openMemo = app.buttons["detail.memoPreviewOpen"]
+    XCTAssertTrue(openMemo.waitForNonExistence(timeout: 2))
+
+    saveMemo("一行目\n二行目\n三行目\n四行目", in: app)
+    XCTAssertTrue(openMemo.waitForExistence(timeout: 3))
+    openMemo.tap()
+    XCTAssertEqual(app.staticTexts["memo.content"].label, "一行目\n二行目\n三行目\n四行目")
+    app.buttons["memo.cancel"].tap()
+
+    saveMemo("短いメモ", in: app)
+    XCTAssertTrue(openMemo.waitForNonExistence(timeout: 3))
+    XCTAssertEqual(app.staticTexts["detail.memoPreviewText"].label, "短いメモ")
+    XCTAssertEqual(app.staticTexts.matching(identifier: "detail.memoPreviewText").count, 1)
+    saveMemo("", in: app)
+    XCTAssertTrue(app.staticTexts["detail.memoPreviewHeading"].waitForNonExistence(timeout: 3))
+  }
+
+  func testLongMemoWithoutNewlinesRecomputesTruncationWhenWidthChanges() {
+    let app = launch(arguments: ["-ui-testing-existing-memo"])
+    openSeedRecipe(in: app)
+    let memo = String(repeating: "次回は調味料を少なめにして最後に味見をする。", count: 4)
+    saveMemo(memo, in: app)
+    let openMemo = app.buttons["detail.memoPreviewOpen"]
+    XCTAssertTrue(openMemo.waitForExistence(timeout: 3))
+    openMemo.tap()
+    XCTAssertEqual(app.staticTexts["memo.content"].label, memo)
+    app.buttons["memo.cancel"].tap()
+
+    defer { XCUIDevice.shared.orientation = .portrait }
+    XCUIDevice.shared.orientation = .landscapeLeft
+    let preview = app.staticTexts["detail.memoPreviewText"]
+    let lower = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
+    let upper = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+    for _ in 0..<12 where !preview.isHittable {
+      lower.press(forDuration: 0.05, thenDragTo: upper)
+    }
+    XCTAssertTrue(preview.isHittable)
+    XCTAssertGreaterThan(max(preview.frame.width, preview.frame.height), 500)
+    XCTAssertTrue(openMemo.waitForNonExistence(timeout: 3))
+    XCUIDevice.shared.orientation = .portrait
+    XCTAssertTrue(openMemo.waitForExistence(timeout: 3))
+  }
+
+  func testMemoTruncationUsesDynamicTypeSize() {
+    let app = launch(
+      arguments: [
+        "-ui-testing-existing-memo",
+        "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL",
+      ])
+    openSeedRecipe(in: app)
+    let preview = app.staticTexts["detail.memoPreviewText"]
+    for _ in 0..<5 where !preview.isHittable { app.swipeUp() }
+    XCTAssertTrue(preview.exists)
+    XCTAssertTrue(app.buttons["detail.memoPreviewOpen"].waitForExistence(timeout: 3))
+  }
+
+  private func saveMemo(_ text: String, in app: XCUIApplication) {
+    openRecipeMenu(in: app)
+    app.buttons["detail.memoMenu"].tap()
+    let editor = app.textViews["memo.editor"]
+    XCTAssertTrue(editor.waitForExistence(timeout: 3))
+    editor.tap()
+    let existing = editor.value as? String ?? ""
+    for _ in 0..<existing.count {
+      editor.typeKey(XCUIKeyboardKey.rightArrow.rawValue, modifierFlags: [])
+    }
+    editor.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: existing.count))
+    if !text.isEmpty { editor.typeText(text) }
+    app.buttons["memo.save"].tap()
+    XCTAssertTrue(editor.waitForNonExistence(timeout: 3))
   }
 
   func testWantToCookRemainsAvailableWhileAnalysisIsPending() {
