@@ -16,4 +16,5 @@
 - TestFlight は対象 build が内部テスターグループへ割り当てられた時点、App Store 本番は公開を確認した時点、Cloud Run は対象 revision へのデプロイ成功と traffic を確認した時点で反映済みとする。実機確認はこの移動条件に含めず、必要な検証を `tasks/todo.md` などで別に管理する。
 - 必要な反映先をすべて証跡付きで確認した項目だけを `tasks/released.md` へ移す。一部だけ反映済みの場合は `tasks/unreleased.md` に残し、反映済みの行だけチェックする。
 - 反映日は日本時間（JST）の `YYYY-MM-DD` で記録する。iOS は `version (build)` と App Store Connect の Build ID、Cloud Run は Git SHA、service 名、revision 名を記録する。
+- Cloud RunのReady・配信先・期待digest確認が成功した場合は、immutable image digestと確認根拠（workflow Run URL等）も記録する。デプロイをskipした成功workflowを新しい確認済み公開版として数えない。エージェントのデプロイ後確認では [インフラ費用削減の手動整理](../infrastructure-cost-reduction.md) に従い、保持対象と30日超の削除候補を確認し、候補があれば現在のチャットで報告する。削除はその回のユーザーの明示的な指示がある場合に限る。
 - 初期 TestFlight が現在の dev バックエンドを利用している間も、iOS build への反映と Cloud Run への反映を別々の反映先として扱う。

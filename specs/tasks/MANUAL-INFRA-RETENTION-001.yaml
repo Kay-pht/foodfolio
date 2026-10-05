@@ -1,0 +1,66 @@
+id: MANUAL-INFRA-RETENTION-001
+type: maintenance
+status: approved
+objective: >-
+  Establish manual Foodfolio revision and image retention, perform the explicitly
+  authorized initial cleanup, and document evidence and agent reporting without
+  adding scheduled resources or automatic deletion.
+requirements:
+  - id: MIR-1
+    condition: An agent checks retention after deployment or during infrastructure maintenance.
+    expected: Keep the latest three distinct verified public revisions per service, all traffic targets, traffic-tagged revisions, latest created and latest Ready revisions, and every revision no older than 30 days. Verification means the existing Ready, traffic, and expected digest deployment checks, not application processing success.
+    verification:
+      - docs/infrastructure-cost-reduction.md
+      - docs/agent/infrastructure.md
+      - scripts/verify-cloud-run-deployment.mjs
+  - id: MIR-2
+    condition: Initial or later cleanup is requested by the user.
+    expected: Require three evidenced verified revisions per service, enumerate and revalidate candidates older than 30 days, delete eligible revisions first, and delete only older images unreferenced by all surviving revisions or jobs, explicit protection tags, and surviving parent manifests. Keep an execution record and stop on incomplete evidence or concurrent deployment.
+    verification:
+      - docs/infrastructure-cost-reduction.md
+      - docs/agent/infrastructure.md
+  - id: MIR-3
+    condition: Maintenance finds cleanup candidates or cannot verify retention.
+    expected: Report counts, ages, protected revisions and digests, image size limitations, and uncertainties in the current chat. Delete only with explicit user authorization; document that agents do not monitor or notify between active tasks.
+    verification:
+      - docs/infrastructure-cost-reduction.md
+      - docs/agent/infrastructure.md
+  - id: MIR-4
+    condition: This maintenance task completes.
+    expected: Existing Terraform cleanup remains dry-run with its latest-ten preview rule; no Cloud Run Job, Scheduler, scheduled workflow, automated notification, deployment, or Terraform apply is added or executed.
+    verification:
+      - docs/infrastructure-cost-reduction.md
+      - infra/terraform/main.tf
+edge_cases:
+  - A rolled-back serving revision outside the latest three is additionally retained.
+  - More than three revisions remain because of the 30-day window or platform protection.
+  - A successful workflow without an executed revision verifier does not count as a verified release.
+  - Ready alone, a mutable image tag, or absent logs does not establish historical verification.
+  - Tagged parent indices and their untagged platform or attestation manifests must be checked as a graph.
+  - Exactly 30 days old is retained; age uses immutable resource creation time and UTC instants.
+  - Shared image layers mean summed image sizes do not prove freed storage or billing savings.
+security_invariants:
+  - Restrict mutations to explicitly authorized Foodfolio services and the app package in project foodfolio-af28aa, region asia-southeast1.
+  - Require renewed authorization for later destructive cleanups unless that cleanup is already explicitly requested in the session.
+  - Never delete a service, repository, current or protected revision, surviving image reference, secret, database, or user asset.
+  - Stop on unknown references, incomplete inventory, image mismatch, running deployment, or CLI failure.
+  - Do not output secrets or commit raw service descriptions or deployment logs.
+compatibility:
+  - Application source, API contracts, deployed service configuration, image tags on retained versions, and infrastructure resources are unchanged.
+  - The older INFRA-COST-REDUCTION-001 task describes its original dry-run introduction; this task separately authorizes manual deletion without activating its automatic policy.
+non_functional:
+  - Inspection and manual cleanup require no new recurring execution resources.
+  - Preserve concise durable verification evidence independently of expiring workflow logs.
+out_of_scope:
+  - Automated deletion, periodic monitoring, scheduled runs, Slack or email messages.
+  - Application smoke tests, real analysis requests, data mutations, and AI charges.
+  - Terraform apply, new deployment, changing retention policy configuration, final LGTM, or merge.
+acceptance_criteria:
+  - Specification validation passes before cleanup and documentation implementation.
+  - Three verified distinct public revisions per service are identified from deployment verification success evidence and matched to immutable registry digests.
+  - Before and after inventories reconcile the exact authorized deletions and retained references; serving revisions, traffic, digests, and API health are checked after cleanup.
+  - Operational documentation includes retention, reporting, authorization, execution order, stop conditions, and the initial cleanup evidence.
+  - Full npm run verify and changed Markdown format validation pass; no unrelated checklist item is changed.
+regression:
+  required: false
+  tests: []
