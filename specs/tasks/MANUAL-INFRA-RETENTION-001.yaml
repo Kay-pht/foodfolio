@@ -15,7 +15,7 @@ requirements:
       - scripts/verify-cloud-run-deployment.mjs
   - id: MIR-2
     condition: Initial or later cleanup is requested by the user.
-    expected: Require three evidenced verified revisions per service, enumerate and revalidate candidates older than 30 days, delete eligible revisions first, and delete only older images unreferenced by all surviving revisions or jobs, explicit protection tags, and surviving parent manifests. Keep an execution record and stop on incomplete evidence or concurrent deployment.
+    expected: Require three evidenced verified revisions per service, enumerate and revalidate candidates older than 30 days, inspect services and jobs across all regions without a region-limited job list, delete eligible revisions first, and delete only older images unreferenced by all surviving revisions or jobs, explicit protection tags, and surviving parent manifests. Keep an execution record and stop on incomplete evidence or concurrent deployment.
     verification:
       - docs/infrastructure-cost-reduction.md
       - docs/agent/infrastructure.md
@@ -39,6 +39,7 @@ edge_cases:
   - Tagged parent indices and their untagged platform or attestation manifests must be checked as a graph.
   - Exactly 30 days old is retained; age uses immutable resource creation time and UTC instants.
   - Shared image layers mean summed image sizes do not prove freed storage or billing savings.
+  - A regional job list cannot prove the absence of job references in other regions; list jobs without --region and inspect each discovered job in its own region.
 security_invariants:
   - Restrict mutations to explicitly authorized Foodfolio services and the app package in project foodfolio-af28aa, region asia-southeast1.
   - Require renewed authorization for later destructive cleanups unless that cleanup is already explicitly requested in the session.

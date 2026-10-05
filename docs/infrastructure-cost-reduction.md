@@ -61,7 +61,7 @@ KEEPはDELETEより優先する。最新10件はpackageごとのversion数であ
 
 ### デプロイ後の読み取り確認と報告
 
-1. 最新のservice、全revision、job、registry versionとtagを再取得する。全regionのservice一覧も確認し、対象repositoryを参照する別resourceがないか確認する。実行中・待機中のデプロイ、取得失敗、不明なdigestや参照、欠落した一覧があれば削除候補の確定を止め、確認できなかった内容を報告する。
+1. 最新のservice、全revision、job、registry versionとtagを再取得する。serviceとjobの一覧は全regionを確認し、対象repositoryを参照する別resourceがないか確認する。実行中・待機中のデプロイ、取得失敗、不明なdigestや参照、欠落した一覧があれば削除候補の確定を止め、確認できなかった内容を報告する。
 2. サービスごとに最新3つの確認済み公開revisionを、成功確認ログとdigest照合を根拠に特定する。履歴のReady状態だけでは認定しない。3つ揃わない場合は新方式の記録が揃うまで削除を開始しない。
 3. 成功確認時刻（JST）、service、revision、Git SHA、期待digest、成功確認の根拠（workflow Run URLや保存済みの検証結果）をリリース記録または整理記録へ残す。ログが期限切れでも根拠が残るよう、環境変数・secret・raw responseを含めず記録する。
 4. service別のrevision総数、30日超の候補数と最古の作成時刻、保護revision / digest、不要image候補の数とサイズを報告する。候補が1件以上あれば整理を提案する。image sizeの合算は共有layerを重複して数えるため、実際の解放容量や請求削減額として報告しない。
@@ -69,11 +69,13 @@ KEEPはDELETEより優先する。最新10件はpackageごとのversion数であ
 
 読み取りには対象を明示したCLIを使う。出力はname、作成時刻、traffic、Ready、digest、tag等の必要項目へ限定する。
 
+Jobの全region一覧は`--region`を指定せず取得する。`--region asia-southeast1`付きの一覧だけで他regionの参照がないとは判断しない。Jobが存在する場合は、そのJobの所在regionを指定して詳細を取得し、全container imageの参照を照合する。
+
 ```bash
 gcloud run services list --platform managed --project foodfolio-af28aa
 gcloud run revisions list --service foodfolio-dev-api --region asia-southeast1 --project foodfolio-af28aa
 gcloud run revisions list --service foodfolio-dev-worker --region asia-southeast1 --project foodfolio-af28aa
-gcloud run jobs list --region asia-southeast1 --project foodfolio-af28aa
+gcloud run jobs list --project foodfolio-af28aa
 gcloud artifacts docker images list asia-southeast1-docker.pkg.dev/foodfolio-af28aa/foodfolio/app --include-tags --project foodfolio-af28aa
 ```
 
@@ -129,4 +131,5 @@ Artifact Registryの標準cleanup policyはdry runを維持する。ユーザー
 - [Artifact Registryのcleanup policyとdry run](https://docs.cloud.google.com/artifact-registry/docs/repositories/cleanup-policy)
 - [Cloud Run revisionの保持と削除](https://docs.cloud.google.com/run/docs/managing/revisions)
 - [Artifact Registry imageの削除](https://docs.cloud.google.com/artifact-registry/docs/docker/manage-images)
+- [全regionのCloud Run Job一覧取得](https://docs.cloud.google.com/sdk/gcloud/reference/run/jobs/list)
 - [Terraformのmock provider](https://developer.hashicorp.com/terraform/language/tests/mocking)
