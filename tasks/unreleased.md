@@ -9,19 +9,19 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
 - [ ] `REL-20261005-01` Foodfolio 1.0.3をAppleへアップデート申請する
   - 内容: 公開中の1.0.2 (15)からパッチ番号を上げ、mainのメモ追加・表示改善・200字上限と作り方編集・ドラッグ並べ替えを1.0.3 (16)へ含める
   - PR: 準備 [#139](https://github.com/Kay-pht/foodfolio/pull/139)。対象機能は [#133](https://github.com/Kay-pht/foodfolio/pull/133) / [#134](https://github.com/Kay-pht/foodfolio/pull/134) / [#135](https://github.com/Kay-pht/foodfolio/pull/135) / [#137](https://github.com/Kay-pht/foodfolio/pull/137) / [#138](https://github.com/Kay-pht/foodfolio/pull/138)
-  - main反映: 準備PRは未反映。準備元mainは`493ed7ea`（PR #138）
+  - main反映: `1b0e95d01aca9da29796eb414b070a953ad302ae`（準備PR #139）
   - 必要な反映先:
-    - [ ] TestFlight内部テスト — 対象version/build: `1.0.3 (16)`
+    - [x] TestFlight内部テスト — 反映日: `2026-10-05`、version: `1.0.3 (16)`、Build ID: `04094ec3-5d57-4f0d-88a8-c447acc6d6d5`、group: `Foodfolio Internal`
     - [ ] App Store本番 — 対象version/build: `1.0.3 (16)`、Appleへの審査申請後も未公開のまま維持し、ユーザーが手動公開する
-    - [x] Cloud Run（dev API / Worker） — 確認日: `2026-10-05`、source: `493ed7ea9d12e378510d1c2c0a2b2583a61830df`、API `foodfolio-dev-api-00052-2tz` / Worker `foodfolio-dev-worker-00056-jnj`、Ready、traffic 100%。Deploy dev Run `37217030911`でmigration未適用なしを確認。配布前にも再取得する
-  - 備考: 本タスクのゴールは人間による準備PRマージ後のApp Review提出。一般公開は対象外。メモ追加PR #133には`20260930152000_add_recipe_memo`が含まれる。ローカル検証、CI、merge、API / DB反映、Apple upload、processing、内部配布、審査申請を別の証跡として記録する
+    - [x] Cloud Run（dev API / Worker） — 確認日: `2026-10-05`、source: `493ed7ea9d12e378510d1c2c0a2b2583a61830df`、API `foodfolio-dev-api-00052-2tz` / Worker `foodfolio-dev-worker-00056-jnj`、Ready、traffic 100%。Deploy dev Run `37217030911`でmigration未適用なしを確認。配布前の再取得でも同じrevisionとtrafficを確認。DBで9 migrations適用済み、メモmigration適用済み、未完了・rollbackなし
+  - 備考: 2026-10-05 11:35（JST）にApp Review提出済み。Submission ID `f80cf6e3-ad26-4410-aa96-62286a4f4b21`、version / submissionともに`WAITING_FOR_REVIEW`、`MANUAL`。新しい審査用アカウントのログイン・APIアクセス確認とApple登録を完了。本タスクのゴールは人間による準備PRマージ後のApp Review提出。一般公開は対象外。メモ追加PR #133には`20260930152000_add_recipe_memo`が含まれる。ローカル検証、CI、merge、API / DB反映、Apple upload、processing、内部配布、審査申請を別の証跡として記録する
 
 - [ ] `REL-20261004-02` メモ画面と保存ボタンを改善し、上限を200字にする
   - 内容: メモシートを半分程度の高さで開き、必要時に広げられるようにする。入力欄を数行分に縮め、保存中のボタン形状を維持する。iOS・APIの保存上限を200字に揃える
   - PR: [#138](https://github.com/Kay-pht/foodfolio/pull/138)
   - main反映: `493ed7ea`（PR #138）
   - 必要な反映先:
-    - [ ] TestFlight内部テスト — 対象version/build: `1.0.3 (16)`
+    - [x] TestFlight内部テスト — 反映日: `2026-10-05`、version: `1.0.3 (16)`、Build ID: `04094ec3-5d57-4f0d-88a8-c447acc6d6d5`、group: `Foodfolio Internal`
     - [ ] App Store本番 — 対象version/build: `1.0.3 (16)`
     - [x] Cloud Run（dev API） — 確認日: `2026-10-05`、source: `493ed7ea9d12e378510d1c2c0a2b2583a61830df`、revision: `foodfolio-dev-api-00052-2tz`、Ready、traffic 100%
   - 備考: DB migrationなし。既存データ対応は不要とユーザー確認済み。APIとiOSの文字数判定を前後空白除去後のUnicode scalar数へ揃える。前後空白の除去対象はサーバーと同じ集合を使い、ゼロ幅スペースなど除去対象外の文字も200字制限に含める
@@ -31,7 +31,7 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
   - PR: [#137](https://github.com/Kay-pht/foodfolio/pull/137)
   - main反映: `11c1aee7`（PR #137）
   - 必要な反映先:
-    - [ ] TestFlight内部テスト — 対象version/build: `1.0.3 (16)`
+    - [x] TestFlight内部テスト — 反映日: `2026-10-05`、version: `1.0.3 (16)`、Build ID: `04094ec3-5d57-4f0d-88a8-c447acc6d6d5`、group: `Foodfolio Internal`
     - [ ] App Store本番 — 対象version/build: `1.0.3 (16)`
   - 備考: iOSのみ。API・DB・同期契約は変更しない。全文表示済みのメモは既存のメニューから編集できる
 
@@ -40,7 +40,7 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
   - PR: [#135](https://github.com/Kay-pht/foodfolio/pull/135)
   - main反映: `4455b8f8`（PR #135）
   - 必要な反映先:
-    - [ ] TestFlight内部テスト — 対象version/build: `1.0.3 (16)`
+    - [x] TestFlight内部テスト — 反映日: `2026-10-05`、version: `1.0.3 (16)`、Build ID: `04094ec3-5d57-4f0d-88a8-c447acc6d6d5`、group: `Foodfolio Internal`
     - [ ] App Store本番 — 対象version/build: `1.0.3 (16)`
   - 備考: メモ未登録のレシピではカードを表示しない。メモ追加・編集・削除、同期、検索対象外など既存のメモ仕様は変更しない
 
@@ -49,7 +49,7 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
   - PR: [#134](https://github.com/Kay-pht/foodfolio/pull/134)
   - main反映: `1e70177a`（PR #134）
   - 必要な反映先:
-    - [ ] TestFlight内部テスト — 対象version/build: `1.0.3 (16)`
+    - [x] TestFlight内部テスト — 反映日: `2026-10-05`、version: `1.0.3 (16)`、Build ID: `04094ec3-5d57-4f0d-88a8-c447acc6d6d5`、group: `Foodfolio Internal`
     - [ ] App Store本番 — 対象version/build: `1.0.3 (16)`
     - [x] Cloud Run（dev API） — 確認日: `2026-10-05`、source: `493ed7ea9d12e378510d1c2c0a2b2583a61830df`、revision: `foodfolio-dev-api-00052-2tz`、Ready、traffic 100%
   - 備考: DB schema変更なし。APIを先に反映してからiOSを配布する。編集transactionでは親行を先にロックし、材料・手順の置換後に更新時刻を設定することで、保存中の差分同期による取りこぼしを抑止する
