@@ -1,8 +1,8 @@
 # TestFlight準備の確認記録
 
-最終更新日: 2026-10-05（JST）。自動テスト、署名済みArchive、Apple側の処理状態、実機確認は別の証跡として扱う。
+最終更新日: 2026-10-07（JST）。自動テスト、署名済みArchive、Apple側の処理状態、実機確認は別の証跡として扱う。
 
-## 1.0.3 (16) の内部配布・App Review提出
+## 1.0.3 (16) の内部配布・App Review提出・本番公開
 
 2026-10-05（JST）にApp Store Connectから取得した最新buildは公開中の`1.0.2 (15)`（Build ID `5407229d-ef1b-47cf-8c98-60f8f1c8848e`）。次の候補はmain `493ed7ea`を元にした`1.0.3 (16)`で、準備PRのマージ後にmerge済みソースからArchiveする。この段落は準備開始時点の記録であり、その後のupload・配布結果は次のとおり。
 
@@ -16,7 +16,9 @@
 
 配布前の再取得でもAPI / Workerは上記revisionでReady、traffic 100%。DBで9 migrations適用済み、メモmigration適用済み、未完了・rollbackなしを確認した。新しい審査用アカウントでメール認証と認証済みAPIのHTTP 200を確認し、App Store・TestFlight双方の審査情報を更新した。認証情報はGitへ保存しない。
 
-App Store version `1.0.3`へbuild 16を選択し、2026-10-05 11:35（JST）にApp Reviewへ提出した。Submission ID `f80cf6e3-ad26-4410-aa96-62286a4f4b21`、version / submissionともに`WAITING_FOR_REVIEW`。公開方式は`MANUAL`。一般公開はユーザーが行う。今回の実機操作の再検証はエージェントでは行っていない。
+App Store version `1.0.3`へbuild 16を選択し、2026-10-05 11:35（JST）にApp Reviewへ提出した。Submission ID `f80cf6e3-ad26-4410-aa96-62286a4f4b21`、提出時点ではversion / submissionともに`WAITING_FOR_REVIEW`だった。公開方式は`MANUAL`で、一般公開の操作はユーザーが担当した。今回の実機操作の再検証はエージェントでは行っていない。
+
+2026-10-07（JST）にAppleの[日本向け公開lookup](https://itunes.apple.com/lookup?id=6806783378&country=jp)で公開version `1.0.3`と`currentVersionReleaseDate: 2026-10-05T21:27:33Z`を再取得した。公開日時は2026-10-06 06:27:33（JST）。App Store Connectのversion ID `35229013-f68c-4595-a000-ba8f6a517246`は`READY_FOR_SALE`で、build `16`（Build ID `04094ec3-5d57-4f0d-88a8-c447acc6d6d5`、processing `VALID`、未期限）との紐付けを確認した。submissionは`COMPLETE`、公開方式は`MANUAL`。App Store本番への反映済み記録は`tasks/released.md`へ移した。
 
 ## 公開ページ
 

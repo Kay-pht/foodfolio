@@ -1,10 +1,14 @@
 # App Store リリース管理
 
-## 更新 1.0.3 (16) の提出状況
+## 更新 1.0.3 (16) の公開状況
+
+2026-10-07（JST）の確認時点で`1.0.3 (16)`はApp Store本番公開済み。公開日時は2026-10-06 06:27:33（JST）。以下に準備・提出時点の履歴と、その後の公開確認結果を記録する。
+
+### 準備開始時点の方針
 
 2026-10-05（JST）にAppleの日本向け公開lookupとApp Store Connectを再取得し、公開版が`1.0.2 (15)`、App Store stateが`READY_FOR_SALE`、Build IDが`5407229d-ef1b-47cf-8c98-60f8f1c8848e`であることを確認した。日本語対応と新画像を含む1.0.2は公開済みであり、下記の過去の審査待ち記録は現在の状態を示さない。準備開始時点ではApp Store version `1.0.3`はなく、最新upload済みbuildは`15`だった。
 
-次の更新はパッチ番号だけを上げた`1.0.3 (16)`とする。準備元はmain `493ed7ea`（PR #138まで取り込み済み）。PRを人間が確認・マージした後、そのmerge済みソースをArchiveし、Appleへのアップデート審査申請まで進める。一般公開はユーザーが行い、エージェントは公開操作を実行しない。
+準備時点ではパッチ番号だけを上げた`1.0.3 (16)`を更新対象とした。準備元はmain `493ed7ea`（PR #138まで取り込み済み）。PRを人間が確認・マージした後、merge済みソースからArchiveし、Appleへのアップデート審査申請までをエージェントが担当する方針とした。一般公開の操作はユーザーが担当した。
 
 ### 今回含める変更
 
@@ -44,7 +48,18 @@ App Store掲載名、インストール後の表示名、既存の日本語ス�
 - [x] App Store version `1.0.3`へbuild `16`を選択。更新内容、既存日本語metadata、連絡先、画像6枚（`APP_IPHONE_67`、すべて`COMPLETE`）、無料（JPY 0）、日本のみ、`MANUAL`を再取得
 - [x] 2026-10-05 11:35（JST）にApp Reviewへ提出。Submission ID `f80cf6e3-ad26-4410-aa96-62286a4f4b21`。versionとsubmissionの両方が`WAITING_FOR_REVIEW`
 
-App Store version IDは`35229013-f68c-4595-a000-ba8f6a517246`。一般公開は実施していない。Apple承認後の手動公開はユーザーが行い、App Store本番の配布チェックは公開を確認するまで未完了のままにする。今回の実機操作の再検証はエージェントでは行っておらず、ユーザーによるテスト、自動テスト、API確認、Apple提出を別の証跡として扱う。
+App Store version IDは`35229013-f68c-4595-a000-ba8f6a517246`。提出時点では一般公開前であり、公開方式は`MANUAL`だった。今回の実機操作の再検証はエージェントでは行っておらず、ユーザーによるテスト、自動テスト、API確認、Apple提出を別の証跡として扱う。
+
+### App Store本番の公開結果
+
+2026-10-07（JST）にAppleの[日本向け公開lookup](https://itunes.apple.com/lookup?id=6806783378&country=jp)とApp Store Connectを読み戻し、`1.0.3 (16)`の公開を確認した。公開lookupの`currentVersionReleaseDate`は`2026-10-05T21:27:33Z`で、日本時間の公開日時は2026-10-06 06:27:33（JST）。ユーザーからも公開完了の報告を受けた。
+
+- [x] 日本向け[App Store公開ページ](https://apps.apple.com/jp/app/id6806783378)の公開versionは`1.0.3`、Bundle IDは`com.keyukt.foodfolio`
+- [x] App Store Connectのversion `1.0.3`は`READY_FOR_SALE`、選択buildは`16`、Build IDは`04094ec3-5d57-4f0d-88a8-c447acc6d6d5`。processing `VALID`、未期限
+- [x] Submission ID `f80cf6e3-ad26-4410-aa96-62286a4f4b21`は`COMPLETE`。公開方式は`MANUAL`のまま
+- [x] `REL-20261005-01`、`REL-20261004-02`、`REL-20261004-01`、`REL-20261003-02`、`REL-20261003-01`のApp Store本番反映を完了し、必要な反映先がすべて確認済みのため`tasks/released.md`へ移動
+
+上記の`WAITING_FOR_REVIEW`は2026-10-05の提出時点の履歴であり、現在の審査・公開状態ではない。
 
 ## 更新 1.0.2 (15) の提出状況
 
