@@ -47,9 +47,13 @@ MVP 作成段階に限り、次の値を使用する。
 
 ## インフラ費用削減
 
-Cloud Runの課金方式、デプロイ後の配信中revision検証、Artifact Registryのdry-run保持条件と削除有効化の前提は [../infrastructure-cost-reduction.md](../infrastructure-cost-reduction.md) を正本とする。
+Cloud Runの課金方式、デプロイ後の配信中revision検証、revision / imageの手動整理・報告、Artifact Registryのdry-run保持条件は [../infrastructure-cost-reduction.md](../infrastructure-cost-reduction.md) を正本とする。
 
-API / Workerはリクエストベース課金を明示し、既存のresource・scale・deadline・認証・監視を維持する。Artifact Registryの整理はdry runで導入し、削除有効化は稼働中・rollback digestの保護と候補照合を済ませた別変更とする。
+API / Workerはリクエストベース課金を明示し、既存のresource・scale・deadline・認証・監視を維持する。Artifact Registryの標準cleanup policyはdry runを維持する。自動削除、定期workflow、Job / Schedulerは追加しない。
+
+エージェントはデプロイ後の確認とインフラ保守時に手動整理のチェックを行い、削除候補があれば現在のチャットでユーザーへ報告する。サービスごとの最新3つの確認済み公開revision、配信中・traffic tag付き・最新・30日以内のrevision、残存する全revision / jobと親manifestが参照するimageを保護する。確認済みとは既存のReady・配信先・期待digest確認の成功を指す。3つ分の成功記録や参照情報が揃わない場合は削除しない。
+
+削除はその回のユーザーの明示的な指示がある場合に限る。既に許可された今回の範囲について同じ確認を繰り返さず、対象・年齢・配信先・全参照を削除直前に再確認する。revisionを先に整理し、再取得した残存参照から不要imageを判断する。将来の整理、標準cleanup policyの自動削除有効化、他resourceへの操作に許可を拡張しない。手順と記録項目は上記正本文書に従う。
 
 ## Runtime monitoring
 
