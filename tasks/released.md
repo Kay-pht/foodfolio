@@ -3,6 +3,56 @@
 `tasks/unreleased.md` で指定した必要な反映先がすべて反映済みになった項目を、日付とversion情報を保ったまま記録する。
 日付は日本時間（JST）の `YYYY-MM-DD`、iOSは `version (build)`、Cloud RunはGit SHAとservice revisionを記載する。
 
+## 2026-10-06
+
+- [x] `REL-20261005-01` Foodfolio 1.0.3をAppleへアップデート申請する
+  - 内容: 公開中の1.0.2 (15)からパッチ番号を上げ、mainのメモ追加・表示改善・200字上限と作り方編集・ドラッグ並べ替えを1.0.3 (16)へ含める
+  - PR: 準備 [#139](https://github.com/Kay-pht/foodfolio/pull/139)、申請・公開記録 [#140](https://github.com/Kay-pht/foodfolio/pull/140)。対象機能は [#133](https://github.com/Kay-pht/foodfolio/pull/133) / [#134](https://github.com/Kay-pht/foodfolio/pull/134) / [#135](https://github.com/Kay-pht/foodfolio/pull/135) / [#137](https://github.com/Kay-pht/foodfolio/pull/137) / [#138](https://github.com/Kay-pht/foodfolio/pull/138)
+  - main反映: `1b0e95d01aca9da29796eb414b070a953ad302ae`（準備PR #139）
+  - 必要な反映先:
+    - [x] TestFlight内部テスト — 反映日: `2026-10-05`、version: `1.0.3 (16)`、Build ID: `04094ec3-5d57-4f0d-88a8-c447acc6d6d5`、group: `Foodfolio Internal`
+    - [x] App Store本番 — 反映日: `2026-10-06`、version: `1.0.3 (16)`、Build ID: `04094ec3-5d57-4f0d-88a8-c447acc6d6d5`、version ID: `35229013-f68c-4595-a000-ba8f6a517246`、`READY_FOR_SALE`。2026-10-07にAppleの[日本向け公開lookup](https://itunes.apple.com/lookup?id=6806783378&country=jp)とApp Store Connectで確認
+    - [x] Cloud Run（dev API / Worker） — 確認日: `2026-10-05`、source: `493ed7ea9d12e378510d1c2c0a2b2583a61830df`、API `foodfolio-dev-api-00052-2tz` / Worker `foodfolio-dev-worker-00056-jnj`、Ready、traffic 100%。Deploy dev Run `37217030911`でmigration未適用なしを確認。配布前の再取得でも同じrevisionとtrafficを確認。DBで9 migrations適用済み、メモmigration適用済み、未完了・rollbackなし
+  - 備考: 2026-10-05 11:35（JST）にApp Review提出済み。Submission ID `f80cf6e3-ad26-4410-aa96-62286a4f4b21`、提出時点ではversion / submissionともに`WAITING_FOR_REVIEW`、`MANUAL`。2026-10-07の再取得でversionは`READY_FOR_SALE`、submissionは`COMPLETE`。公開日時は2026-10-06 06:27:33（JST）。新しい審査用アカウントのログイン・APIアクセス確認とApple登録を完了。申請時のエージェント作業範囲は人間による準備PRマージ後のApp Review提出まで。その後のユーザーによる一般公開を確認した。メモ追加PR #133には`20260930152000_add_recipe_memo`が含まれる。ローカル検証、CI、merge、API / DB反映、Apple upload、processing、内部配布、審査申請を別の証跡として記録する
+
+- [x] `REL-20261004-02` メモ画面と保存ボタンを改善し、上限を200字にする
+  - 内容: メモシートを半分程度の高さで開き、必要時に広げられるようにする。入力欄を数行分に縮め、保存中のボタン形状を維持する。iOS・APIの保存上限を200字に揃える
+  - PR: [#138](https://github.com/Kay-pht/foodfolio/pull/138)
+  - main反映: `493ed7ea`（PR #138）
+  - 必要な反映先:
+    - [x] TestFlight内部テスト — 反映日: `2026-10-05`、version: `1.0.3 (16)`、Build ID: `04094ec3-5d57-4f0d-88a8-c447acc6d6d5`、group: `Foodfolio Internal`
+    - [x] App Store本番 — 反映日: `2026-10-06`、version: `1.0.3 (16)`、Build ID: `04094ec3-5d57-4f0d-88a8-c447acc6d6d5`、version ID: `35229013-f68c-4595-a000-ba8f6a517246`、`READY_FOR_SALE`。2026-10-07にAppleの[日本向け公開lookup](https://itunes.apple.com/lookup?id=6806783378&country=jp)とApp Store Connectで確認
+    - [x] Cloud Run（dev API） — 確認日: `2026-10-05`、source: `493ed7ea9d12e378510d1c2c0a2b2583a61830df`、revision: `foodfolio-dev-api-00052-2tz`、Ready、traffic 100%
+  - 備考: DB migrationなし。既存データ対応は不要とユーザー確認済み。APIとiOSの文字数判定を前後空白除去後のUnicode scalar数へ揃える。前後空白の除去対象はサーバーと同じ集合を使い、ゼロ幅スペースなど除去対象外の文字も200字制限に含める
+
+- [x] `REL-20261004-01` 手順のドラッグ並べ替えとメモ全文の表示条件を改善する
+  - 内容: レシピ編集の各手順に右端の三本線つまみを常時表示し、ドラッグで順序を入れ替える。削除ボタンを残し、上下ボタンを廃止する。メモの「全文を見る」は表示幅・文字サイズに対して本文が実際に3行で省略される場合だけ表示する
+  - PR: [#137](https://github.com/Kay-pht/foodfolio/pull/137)
+  - main反映: `11c1aee7`（PR #137）
+  - 必要な反映先:
+    - [x] TestFlight内部テスト — 反映日: `2026-10-05`、version: `1.0.3 (16)`、Build ID: `04094ec3-5d57-4f0d-88a8-c447acc6d6d5`、group: `Foodfolio Internal`
+    - [x] App Store本番 — 反映日: `2026-10-06`、version: `1.0.3 (16)`、Build ID: `04094ec3-5d57-4f0d-88a8-c447acc6d6d5`、version ID: `35229013-f68c-4595-a000-ba8f6a517246`、`READY_FOR_SALE`。2026-10-07にAppleの[日本向け公開lookup](https://itunes.apple.com/lookup?id=6806783378&country=jp)とApp Store Connectで確認
+  - 備考: iOSのみ。API・DB・同期契約は変更しない。全文表示済みのメモは既存のメニューから編集できる
+
+- [x] `REL-20261003-02` レシピ詳細でメモ本文を見やすく表示する
+  - 内容: 保存済みメモがある場合、レシピ詳細のタグと材料の間に「自分のメモ」カードを表示し、本文冒頭を最大3行までその場で読めるようにする。「全文を見る」から既存のメモシートを開けるようにし、従来の小さな「メモ」ショートカット表示は廃止する
+  - PR: [#135](https://github.com/Kay-pht/foodfolio/pull/135)
+  - main反映: `4455b8f8`（PR #135）
+  - 必要な反映先:
+    - [x] TestFlight内部テスト — 反映日: `2026-10-05`、version: `1.0.3 (16)`、Build ID: `04094ec3-5d57-4f0d-88a8-c447acc6d6d5`、group: `Foodfolio Internal`
+    - [x] App Store本番 — 反映日: `2026-10-06`、version: `1.0.3 (16)`、Build ID: `04094ec3-5d57-4f0d-88a8-c447acc6d6d5`、version ID: `35229013-f68c-4595-a000-ba8f6a517246`、`READY_FOR_SALE`。2026-10-07にAppleの[日本向け公開lookup](https://itunes.apple.com/lookup?id=6806783378&country=jp)とApp Store Connectで確認
+  - 備考: メモ未登録のレシピではカードを表示しない。メモ追加・編集・削除、同期、検索対象外など既存のメモ仕様は変更しない
+
+- [x] `REL-20261003-01` レシピ編集で作り方を編集可能にする
+  - 内容: 手順番号付き複数行入力欄で本文修正・追加・削除・上下移動を可能にする。空欄の手順を保存時に消去し、0件でも保存できる。更新API・ローカル保存・同期で手順と順序を保持する
+  - PR: [#134](https://github.com/Kay-pht/foodfolio/pull/134)
+  - main反映: `1e70177a`（PR #134）
+  - 必要な反映先:
+    - [x] TestFlight内部テスト — 反映日: `2026-10-05`、version: `1.0.3 (16)`、Build ID: `04094ec3-5d57-4f0d-88a8-c447acc6d6d5`、group: `Foodfolio Internal`
+    - [x] App Store本番 — 反映日: `2026-10-06`、version: `1.0.3 (16)`、Build ID: `04094ec3-5d57-4f0d-88a8-c447acc6d6d5`、version ID: `35229013-f68c-4595-a000-ba8f6a517246`、`READY_FOR_SALE`。2026-10-07にAppleの[日本向け公開lookup](https://itunes.apple.com/lookup?id=6806783378&country=jp)とApp Store Connectで確認
+    - [x] Cloud Run（dev API） — 確認日: `2026-10-05`、source: `493ed7ea9d12e378510d1c2c0a2b2583a61830df`、revision: `foodfolio-dev-api-00052-2tz`、Ready、traffic 100%
+  - 備考: DB schema変更なし。APIを先に反映してからiOSを配布する。編集transactionでは親行を先にロックし、材料・手順の置換後に更新時刻を設定することで、保存中の差分同期による取りこぼしを抑止する
+
 ## 2026-09-15
 
 - [x] `REL-20260915-01` AI共有レシピの取り込みと生成サムネイル
