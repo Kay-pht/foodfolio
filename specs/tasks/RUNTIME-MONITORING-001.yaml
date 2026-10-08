@@ -30,7 +30,14 @@ requirements:
       - docs/runtime-monitoring.md
   - id: RTM-4
     condition: Recipe Analysis reaches its final failed state in foodfolio-dev-worker.
-    expected: A LogMatch policy matches only structured logs with analysisStatus=failed, excludes retry-state analysisStatus=pending, opens an ERROR incident on the first matching final failure, and rate-limits Slack notifications to at most one per hour.
+    expected: >-
+      A LogMatch policy matches only structured logs with analysisStatus=failed,
+      excludes retry-state analysisStatus=pending, and opens an ERROR incident on
+      the first matching final failure for each combination of extracted label
+      values. The one-hour notification rate limit applies separately to each
+      combination, including the sanitized source_link, error classification and
+      diagnostic detail. Different sanitized source links can notify within the
+      same hour, subject to Cloud Monitoring service limits.
     verification:
       - infra/terraform/monitoring.tf
       - src/application/analysis/analysis-service.ts
@@ -69,14 +76,16 @@ edge_cases:
   - A single public uptime checker location fails transiently; no uptime incident is opened.
   - One or two API 5xx responses occur inside a five-minute window; no API 5xx incident is opened.
   - Recipe Analysis logs analysisStatus=pending while Cloud Tasks retry is still possible; no final-failure alert matches that log.
-  - Several final Recipe Analysis failures occur within one hour; the LogMatch policy does not flood Slack with more than one notification per configured rate-limit period.
+  - Repeated final failures with identical extracted label values, including source_link, share a one-hour notification rate limit.
+  - Final failures with different sanitized source links have separate notification timelines even when their error classification and diagnosis are identical.
+  - Final failures with the same sanitized source link but different error or diagnostic labels also have separate notification timelines.
   - A Recipe Analysis failure has no AI provider because source retrieval failed; the log and notification use an explicit `not_applicable` value instead of omitting an extracted label.
   - Cloud Run scales to zero and memory metrics are absent; missing metric data is treated as inactive rather than as high memory.
   - A short memory spike exceeds 90 percent but does not persist for five minutes; no high-memory incident is opened.
 
 security_invariants:
   - Slack OAuth tokens, bot tokens, and webhook URLs are never stored in repository files or Terraform state by this change.
-  - Runtime alert documentation and notifications do not expand recipe IDs, source URLs, request bodies, authentication data, or other user content into custom Slack messages.
+  - Runtime alert documentation and notifications do not expand recipe IDs, request bodies, authentication data, or other user content into custom Slack messages. ANALYSIS-ALERT-SOURCE-URL-001 authorizes only the sanitized sourceLink as an exception to the original source URL exclusion.
   - Operational summaries, next actions, and diagnostic details are derived only from controlled error classifications, repository-owned enums, and validated numeric values and never include exception messages or arbitrary external content.
   - The Slack notification channel is referenced by its non-secret Google Cloud resource name only.
   - No application component receives permission or credentials to send Slack messages directly.
@@ -92,7 +101,7 @@ non_functional:
   - Keep monitoring configuration isolated in infra/terraform/monitoring.tf except for shared API enablement and input variables.
   - Keep the initial alert set limited to API uptime, API 5xx, Recipe Analysis final failure, API memory, and Worker memory.
   - Alert instructions distinguish confirmed facts from investigation steps and do not claim a root cause that the alert signal cannot prove.
-  - Metric-based policies send recovery notifications; the Recipe Analysis LogMatch policy uses a one-hour notification rate limit.
+  - Metric-based policies send recovery notifications; the Recipe Analysis LogMatch policy uses a one-hour notification rate limit per combination of extracted label values, subject to Cloud Monitoring service limits.
 
 out_of_scope:
   - GitHub Actions, Quality, Deploy, pull request, or commit Slack notifications.
@@ -111,7 +120,7 @@ acceptance_criteria:
   - The public /health uptime check runs every 60 seconds over HTTPS with a 10-second timeout and validates a successful health response.
   - The uptime alert requires at least two simultaneous failed checker locations for 60 seconds and has CRITICAL severity.
   - API 5xx uses run.googleapis.com/request_count and alerts at three or more 5xx responses in a five-minute aggregation window with ERROR severity.
-  - Recipe Analysis final failure uses a LogMatch filter for foodfolio-dev-worker and jsonPayload.analysisStatus=failed, with a one-hour notification rate limit and ERROR severity.
+  - Recipe Analysis final failure uses a LogMatch filter for foodfolio-dev-worker and jsonPayload.analysisStatus=failed, with a one-hour notification rate limit per combination of extracted label values and ERROR severity; different sanitized source links are separate notification timelines.
   - API and Worker memory policies alert separately when the built-in memory-utilization signal remains above 90 percent for five minutes with WARNING severity.
   - Metric-based runtime policies notify on incident open and close through the configured Slack channel.
   - No application Slack client, webhook, runtime Email channel, GitHub notification, Firebase/APNs change, or deploy-dev Terraform application path is added.

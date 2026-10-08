@@ -173,6 +173,10 @@ resource "google_monitoring_alert_policy" "recipe_analysis_final_failure" {
 
       $${log.extracted_label.summary}
 
+      ## 分析対象URL
+
+      $${log.extracted_label.source_link}
+
       ## 影響
 
       $${log.extracted_label.impact}
@@ -191,7 +195,7 @@ resource "google_monitoring_alert_policy" "recipe_analysis_final_failure" {
       - 再試行状態: `$${log.extracted_label.retry_policy}`
       - [失敗ログ](${local.worker_failure_logs_url})
 
-      この通知はWorker内の自動再試行が終了した最終失敗だけを対象にします。レシピID、URL、リクエスト本文、例外メッセージはSlackへ表示しません。
+      この通知はWorker内の自動再試行が終了した最終失敗だけを対象にします。認証情報、fragment、許可していないクエリは分析対象URLから除去しています。レシピID、リクエスト本文、例外メッセージはSlackへ表示しません。
     EOT
   }
 
@@ -207,6 +211,7 @@ resource "google_monitoring_alert_policy" "recipe_analysis_final_failure" {
         next_action       = "EXTRACT(jsonPayload.nextAction)"
         provider          = "EXTRACT(jsonPayload.provider)"
         retry_policy      = "EXTRACT(jsonPayload.retryPolicy)"
+        source_link       = "EXTRACT(jsonPayload.sourceLink)"
         summary           = "EXTRACT(jsonPayload.summary)"
         target            = "EXTRACT(jsonPayload.target)"
       }

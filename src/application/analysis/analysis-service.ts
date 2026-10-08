@@ -28,6 +28,7 @@ import {
   type TikTokVideoRecipeFallback,
 } from "./types.js";
 import { describeAnalysisFailure } from "./operational-failure.js";
+import { analysisSourceLink } from "./source-link.js";
 
 const PROCESSING_LEASE_MS = 660_000;
 
@@ -371,6 +372,9 @@ export class RecipeAnalysisService {
           analysisAttempt: attempt,
           ...(final ? { analysisAttemptLabel: String(attempt) } : {}),
           ...(final ? { severity: "ERROR" } : {}),
+          ...(final
+            ? { sourceLink: analysisSourceLink(recipe.originalUrl) }
+            : {}),
           errorCode: analysisError.code,
           provider: analysisError.provider,
           ...(operationalFailure ?? {}),
