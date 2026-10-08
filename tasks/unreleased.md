@@ -8,7 +8,7 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
 
 - [ ] `REL-20261009-01` Instagram解析の出力打ち切りを緩和する
   - 内容: Instagramのcaption text・ordered media・legacy videoに限り、Z.aiの出力上限を4000から10000へ増やし、reasoning_effortをlowにする。既存ルーティング・最大3回の配送再試行・prompt・schema・120秒timeoutは維持する
-  - PR: 未作成
+  - PR: [#143](https://github.com/Kay-pht/foodfolio/pull/143)
   - main反映: 未反映
   - 必要な反映先:
     - [ ] Cloud Run（dev Worker） — 対象Git SHA/revision: 未定
