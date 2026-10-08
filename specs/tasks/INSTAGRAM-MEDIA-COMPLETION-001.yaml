@@ -1,0 +1,70 @@
+id: INSTAGRAM-MEDIA-COMPLETION-001
+type: bug
+status: approved
+objective: Reduce observed Instagram output truncation using the measured 10000-token low-effort settings while preserving existing routing and bounded task retries.
+requirements:
+  - id: IMC-1
+    condition: Z.ai extracts an Instagram caption, ordered media or legacy video.
+    expected: Send max_tokens 10000 and reasoning_effort low. Preserve model, messages, JSON mode, schema, media order, 120-second timeout and error classification.
+    verification:
+      - src/infrastructure/ai/zai-recipe-extractor.ts
+      - tests/unit/instagram-media-completion.test.ts
+  - id: IMC-2
+    condition: A non-Instagram text, media or video request is sent.
+    expected: Preserve max_tokens 4000 and omitted reasoning_effort.
+    verification:
+      - tests/unit/instagram-media-completion.test.ts
+      - tests/unit/zai-video-extraction.test.ts
+  - id: IMC-3
+    condition: Instagram extraction times out, returns invalid output or receives a permanent HTTP rejection.
+    expected: Keep existing task delivery retries, pending/503 before exhaustion, failed/204 at the third attempt, and no retry for permanent rejection. Notify only on terminal outcomes and do not call AI again on duplicate terminal delivery.
+    verification:
+      - tests/e2e/instagram-media-completion.test.ts
+      - src/application/analysis/analysis-service.ts
+      - src/api/build-worker.ts
+  - id: IMC-4
+    condition: Jev selects Instagram caption text.
+    expected: Complete text finishes without media; missing ingredients or steps falls back to media. Ingredient omissions alone do not introduce a rejection or retry. Preserve existing minimum-content checks and persist a displayable recipe through Worker, database and API.
+    verification:
+      - tests/e2e/instagram-media-completion.test.ts
+      - tests/integration/instagram-video-analysis.test.ts
+      - src/application/analysis/jev-routing.ts
+  - id: IMC-5
+    condition: The change is prepared for main.
+    expected: Retain dated comparison, quality, cost and cleanup reports. Remove the one-off output-budget runners and their dedicated tests without deleting ignored private evidence. Distinguish measured local job completion from single-call success and deployed behavior.
+    verification:
+      - docs/poc-ai-output-budget-results.md
+      - docs/instagram-media-completion-validation.md
+      - docs/instagram-caption-retry-validation.md
+      - docs/implementation-design.md
+      - tasks/unreleased.md
+edge_cases:
+  - Low effort still times out or reaches the output limit.
+  - Valid JSON contains empty ingredients or steps.
+  - Retryable failures are followed by success or exhaust the configured three attempts.
+  - Duplicate delivery follows completion or final failure.
+  - A complete structured recipe omits some ingredients.
+security_invariants:
+  - Do not commit credentials, signed URLs, source captions, raw reasoning or provider free-form errors.
+  - No paid API calls, production database writes, user notifications or reprocessing during PR preparation.
+  - Preserve private experiment evidence under ignored poc/artifacts without publishing it.
+compatibility:
+  - No prompt, model, schema, routing threshold, retry-count, timeout or API-contract changes.
+  - Other providers and non-Instagram extraction retain their settings.
+  - No iOS implementation changes.
+non_functional:
+  - Report the remaining media timeouts and ingredient-fidelity limitations separately from completion.
+  - Full backend gates must pass before the PR becomes ready for review.
+out_of_scope:
+  - Deployment, release, final LGTM or merge.
+  - New experiments, input reduction, schema relaxation or provider fallback.
+acceptance_criteria:
+  - Configuration regression tests fail against the unchanged main extractor and pass with the fix.
+  - Full backend verification including unit, integration, E2E, lint, format and build passes.
+  - Latest main changes are incorporated without losing their behavior or unrelated edits.
+  - Dated experiment conclusions remain historical and the implementation design states the final settings.
+  - Create a draft PR, record its URL, then mark it ready after required local verification.
+regression:
+  required: true
+  tests:
+    - tests/unit/instagram-media-completion.test.ts

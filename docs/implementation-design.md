@@ -1305,7 +1305,9 @@ PoC合格時の設定を不用意に変更しない。
 
 ```text
 AI request timeout: 120秒
-max output tokens: 4000
+max output tokens: 4000 (non-Instagram text / media)
+Instagram text / media / legacy video max output tokens: 10000
+Instagram text / media / legacy video reasoning_effort: low
 stream: false
 response_format: json_object
 ```
@@ -1313,6 +1315,10 @@ response_format: json_object
 PoCではtemperature / top_p等を明示指定していないため、MVP本番でも追加指定しない。
 
 これらのgeneration parameterを変更する場合は、既存fixtureで回帰確認してから変更する。
+
+Instagram解析はmediaとcaptionのtext経路で観測した出力上限4000での打ち切りに対応するため、両経路で上限10000とlowを使用する。JSON形式、prompt、120秒timeout、最小レシピ内容の検査、既存のCloud Tasks再試行は維持する。材料の一部欠落を理由とした新しい失敗判定は追加しない。実APIとローカルの確認範囲は[追加検証](instagram-caption-retry-validation.md)に記録する。
+
+メディア固定入力の[初期検証](instagram-media-completion-validation.md)ではtimeoutとschema不一致が残り、その時点で採用を保留した。後続の[caption優先・再試行の検証](instagram-caption-retry-validation.md)では再取得入力5投稿×3ジョブが15/15完了し、Instagram text/mediaの10000/lowをmain向け実装とする。media timeoutと材料欠落は残るため、全投稿の失敗解消は保証しない。稼働環境への反映は[tasks/unreleased.md](../tasks/unreleased.md)で別に管理する。
 
 ### 15.3 Prompt方針
 

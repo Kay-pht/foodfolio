@@ -6,6 +6,14 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
 
 ## 未反映
 
+- [ ] `REL-20261009-01` Instagram解析の出力打ち切りを緩和する
+  - 内容: Instagramのcaption text・ordered media・legacy videoに限り、Z.aiの出力上限を4000から10000へ増やし、reasoning_effortをlowにする。既存ルーティング・最大3回の配送再試行・prompt・schema・120秒timeoutは維持する
+  - PR: 未作成
+  - main反映: 未反映
+  - 必要な反映先:
+    - [ ] Cloud Run（dev Worker） — 対象Git SHA/revision: 未定
+  - 備考: 再取得入力5投稿×3ローカルジョブは15/15完了。media timeoutと材料欠落は残る。本番完了率・端末表示は未測定。Backend専用変更のためiOS build更新は不要。詳細は[追加検証](../docs/instagram-caption-retry-validation.md)
+
 - [ ] `REL-20260924-01` Foodfolio 1.0.2で日本語表示情報とApp Store掲載内容を更新する
   - 内容: iOS本体とShare Extensionが日本語対応アプリであることをAppleへ正しく申告し、インストール後のアプリ名は`Foodfolio`のまま維持する。App Store上の表示名を「レシピ保存/管理アプリ - Foodfolio」へ変更し、利用許可を確認済みの新しい日本語マーケティング画像6枚へ差し替える。あわせて、PR #121/#122でmainへ追加した5つのCloud Monitoring alert policyを既存Slack通知先へ反映する
   - PR: 日本語申告 [#124](https://github.com/Kay-pht/foodfolio/pull/124)、App Store画像 [#125](https://github.com/Kay-pht/foodfolio/pull/125)、Runtime Monitoring [#121](https://github.com/Kay-pht/foodfolio/pull/121) / [#122](https://github.com/Kay-pht/foodfolio/pull/122)、配布準備 [#126](https://github.com/Kay-pht/foodfolio/pull/126)、配布記録 [#128](https://github.com/Kay-pht/foodfolio/pull/128)

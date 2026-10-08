@@ -63,6 +63,9 @@
 - [poc-ai-shared-link-results.md](poc-ai-shared-link-results.md)
 - [poc-jev-recipe-gate-results.md](poc-jev-recipe-gate-results.md)
 - [poc-jev-media-routing-results.md](poc-jev-media-routing-results.md)
+- [poc-ai-output-budget-results.md](poc-ai-output-budget-results.md)
+- [instagram-media-completion-validation.md](instagram-media-completion-validation.md)
+- [instagram-caption-retry-validation.md](instagram-caption-retry-validation.md)
 
 ## 実装の主要な入口
 
