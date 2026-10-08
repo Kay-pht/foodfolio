@@ -104,7 +104,7 @@ jsonPayload.analysisStatus="failed"
 
 - severity: ERROR
 - 最初の final failure で incident を開く
-- notification rate limit: 1 hour
+- notification rate limit: 抽出ラベル値の組み合わせごとに1時間
 - final failure log には、アプリケーションが管理する固定文と検証した数値メタデータから `target`、`summary`、`impact`、`retryPolicy`、`nextAction` を追加する
 - Slack には `errorCode`、正規化した `provider`、`analysisAttempt` と上記の対応情報を展開する
 - `provider` が存在しない取得段階の失敗では `not_applicable` を記録し、label extraction に必要なフィールドを欠落させない
@@ -113,18 +113,22 @@ jsonPayload.analysisStatus="failed"
 - URL取得失敗では `sourceOperation`、`sourceFailureStage`、`sourceFailureClass`、`sourceHttpStatus`、`sourceRedirectCount` を利用可能な範囲で記録する。値はアプリケーション管理の固定分類と検証済み数値だけとし、redirect先URL、response body、例外メッセージは記録しない
 - TikTokでは短縮URL解決を `tiktok_short_url`、oEmbed取得を `tiktok_oembed` として区別し、同じ `SOURCE_FETCH_FAILED` でも失敗したHTTP処理をCloud Loggingで判別できるようにする
 - Instagramメディア取得失敗では `mediaFailureStage`、`mediaFailureClass`、`mediaHttpStatus`、`mediaIndex`、`mediaKind`、`mediaAttempt`、`mediaMaxAttempts` を利用可能な範囲で記録する。metadata取得、単一動画download、asset download/validate、GCS publish、local work directory prepare、local/published cleanupを固定値で区別し、media URL、HTTP header、署名URL、raw exceptionは記録しない
-- source/media diagnosticsの各固定enum・検証済み数値は、アプリ側で日本語の `diagnosticDetail` に整形し、Recipe Analysis最終失敗のSlack通知にも「診断情報」として表示する。Slackへはraw diagnostic field、URL、header、例外文を直接展開しない
+- source/media diagnosticsの各固定enum・検証済み数値は、アプリ側で日本語の `diagnosticDetail` に整形し、Recipe Analysis最終失敗のSlack通知にも「診断情報」として表示する。Slackへはraw diagnostic field、media URL、header、例外文を直接展開しない
 - `aiFailureStage` は transport / HTTP / response envelope / content / schema のどこで失敗したかを、アプリケーション管理の固定値で表す。Provider由来の任意メッセージは記録しない
-- Slack へ recipe ID、source URL、request body、認証情報、例外メッセージ等の利用者データや任意文字列を展開しない。Cloud Loggingの `sourceUrl` はSlack labelや通知本文へ展開しない
+- Slackへ表示する分析対象URLは、利用者が保存した `originalUrl` から生成する専用の `sourceLink` に限定する。認証情報（userinfo）、fragment、クエリを除去し、既存の `youtubeVideoId` で識別できるYouTube URLだけは検証済み動画IDを持つ正規URL（`https://www.youtube.com/watch?v=...`）へ整形する。他のSNS・共有ページ・一般Webではパスを維持するが、必要性を確認できないクエリ識別子も除去する。Markdownリンクを壊す文字はpercent-encodeする
+- `sourceLink` は最終失敗ログだけに記録し、`source_link` labelで抽出してSlackの「分析対象URL」欄へ表示する。不正URL、HTTP(S)以外、4096文字を超える入力は固定の「分析対象URLを取得できません。失敗ログを確認してください。」とする。リンク生成のための追加アクセスや短縮URL解決は行わない
+- recipe ID、request body、認証情報、例外メッセージ等は引き続きSlackへ展開しない。Cloud Loggingの既存 `sourceUrl` は全クエリを除去する挙動を維持し、Slack labelや通知本文へ展開しない。今回許可するsource URLの表示は上記 `sourceLink` だけとする
 - Cloud Loggingにもsource本文、prompt、署名付きmedia URL、AI response本文、raw error bodyを記録しない。responseは文字数、正規化済みfinish reason、固定schemaのkeyword/pathだけを診断に利用する
 - 通知の `summary` と「次に行うこと」は、診断段階と既知のエラー分類から失敗内容と対応を具体的に示す。source/mediaの追加診断は `diagnosticDetail` を `diagnostic_detail` labelとして抽出し、Slackの「診断情報」欄へ表示する
 - `providerFinishReason=length` の失敗では「出力トークン上限に達して生成が打ち切られた」と表示し、利用可能なら設定上限と実際の出力token数を付記する。「上限を超えた」とは表示しない
 - Z.aiの `maxOutputTokens` はAPIへ送る `max_tokens` と同一の値を記録する。token数が欠落する場合は数値を補わない
 - 通信・時間切れ・HTTP 429・5xx・リクエスト拒否・本文欠落・不正JSON・schema不一致を区別する。診断がないAI提供元エラーではHTTP詳細を断定しない
 - 取得・共有会話・SNSメディアの既知のエラーは失敗した操作を示す。Instagramメタデータ取得失敗だけから年齢・地域・ログイン制限を特定しない。複数の原因を持つエラーは「詳細原因は未確認」と明示する
-- 未知のエラーでは従来のログ調査案内へ戻す。既存のエラーコード・再試行・通知条件は変更しない。改善した文面の実環境反映にはWorkerのデプロイが必要
+- 未知のエラーでは従来のログ調査案内へ戻す。既存のエラーコード・再試行・通知条件は変更しない。文面と分析対象URLリンクの実環境反映にはWorkerのデプロイと既存monitoring policyへのTerraform適用が必要。コード・ローカル検証だけでは実際のSlack通知は変更されない。`sourceLink` がない旧Workerのログを新テンプレートへ流さないよう、反映時はWorkerを先に更新する
 
-LogMatch policy の notification rate limit は Cloud Monitoring の log-based alert 機能で適用する。
+LogMatch policy の notification rate limit は Cloud Monitoring の log-based alert 機能で適用する。通知は整形後の分析対象URLごとに受け取る方針とし、`source_link`、エラー分類、診断情報など、抽出ラベル値すべての組み合わせを通知の単位とする。同じ組み合わせの繰り返し通知は1時間に1回までに抑える。整形後のURLが違えば、同じエラー・診断内容でも1時間以内にそれぞれ通知できる。同じ整形後URLでもエラーや診断などの抽出ラベルが違えば別の通知単位になる。クエリ除去やYouTube正規化によって同じリンクになるURL、または同じ取得不可文になる入力は、元のURLが違うだけでは別の通知単位にならない。
+
+これはpolicy全体を1時間に1回に制限する契約ではない。Cloud Monitoringのサービス上限（log-based policyごとに新規alertは毎分2件・1日20件、通知は1日20件）も適用されるため、すべてのURLへの通知到達を保証するものではない。抽出ラベルごとの通知単位と上限は [Google公式のalerting limits](https://docs.cloud.google.com/monitoring/quotas#alerting) を参照する。
 
 Recipe Analysis final failure は単発イベントであり、incident の自動closeは復旧を意味しない。Worker内の自動再試行が終了した時点で通知し、再実行が必要かどうかはエラー分類とログに基づいて判断する。
 

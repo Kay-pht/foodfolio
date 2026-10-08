@@ -1,0 +1,77 @@
+id: ANALYSIS-ALERT-SOURCE-URL-001
+type: feature
+status: approved
+objective: >-
+  Include a clickable, sanitized analysis source link in existing final-failure
+  Slack alerts through Cloud Monitoring, as authorized by the user.
+requirements:
+  - id: AASU-1
+    condition: Recipe Analysis records a final failure.
+    expected: >-
+      The log includes a guaranteed sourceLink containing a controlled Markdown
+      link derived from the saved originalUrl, or a fixed unavailable message.
+      Pending retry logs do not include the new Slack field.
+    verification:
+      - src/application/analysis/analysis-service.ts
+      - tests/e2e/backend-worker.test.ts
+  - id: AASU-2
+    condition: A source URL is prepared for Slack.
+    expected: >-
+      Only HTTP(S) is accepted. Userinfo, fragment and arbitrary query parameters
+      are removed. Recognized YouTube URLs retain only the validated video ID in
+      their canonical watch URL. Other source paths remain intact. Characters
+      that could escape a Markdown link destination are percent-encoded.
+    verification:
+      - tests/e2e/backend-worker.test.ts
+      - src/domain/recipe/url.ts
+      - src/application/analysis/source-link.ts
+      - tests/unit/analysis-source-link.test.ts
+  - id: AASU-3
+    condition: Cloud Monitoring renders a final-failure alert.
+    expected: >-
+      The existing LogMatch policy extracts sourceLink into source_link and displays
+      it under a Japanese analysis-source heading. Existing diagnostics, matching,
+      severity, retry behavior and configured rate-limit period remain unchanged.
+      As explicitly confirmed by the user, different sanitized source links have
+      separate notification timelines. The one-hour rate limit applies per
+      combination of all extracted label values, including source_link, error
+      classification and diagnostic detail, subject to Cloud Monitoring service
+      limits; it is not a policy-wide one-notification-per-hour limit.
+    verification:
+      - infra/terraform/monitoring.tf
+      - tests/unit/runtime-monitoring-health-path.test.mjs
+      - docs/runtime-monitoring.md
+edge_cases:
+  - Invalid, non-HTTP(S), or over-4096-character inputs show a fixed unavailable message rather than an unsafe or truncated link.
+  - YouTube watch, short, shorts, embed and live URLs use the existing validated youtubeVideoId parser.
+  - Unrecognized or invalid YouTube video IDs do not cause arbitrary query values to be retained.
+  - General web query identifiers are not inferred to be safe; additional query allowlists require a separate confirmed contract.
+  - SNS and shared-conversation identifiers already present in URL paths remain visible as part of the user-authorized source link.
+  - A URL containing Markdown delimiters cannot inject another link, mention, or notification text.
+  - Different sanitized source links can notify in the same hour even when the error classification and diagnosis are identical.
+  - Identical sourceLink values share a one-hour rate limit only when all other extracted label values also match; different diagnostic labels have separate notification timelines.
+  - Original URLs that sanitize to the same sourceLink, or use the same unavailable message, do not create separate notification timelines solely from their original URL differences.
+security_invariants:
+  - Never expose URL userinfo, fragments, tracking parameters, authentication query parameters, headers, raw provider text or response bodies in Slack.
+  - Only the sanitized sourceLink is newly authorized for Slack; raw originalUrl and existing Cloud Logging sourceUrl are not extracted.
+  - Keep the existing sourceUrl logging sanitization unchanged.
+  - This specification supersedes the source-URL exclusion in RUNTIME-MONITORING-001, ACTIONABLE-ANALYSIS-FAILURE-001 and ANALYSIS-FAILURE-LOG-DIAGNOSTICS-002 only for the sanitized sourceLink.
+compatibility:
+  - Preserve error classifications, HTTP responses, Recipe state transitions, user notifications, alert filters and the configured one-hour rate-limit period. Adding source_link intentionally separates notification timelines by the sanitized source link and the other extracted labels, as reflected in RUNTIME-MONITORING-001 RTM-4.
+  - Add no database migration, external dependency, network request or direct Slack client.
+non_functional:
+  - URL preparation is local, deterministic and bounded by the existing 4096-character URL input limit.
+out_of_scope:
+  - Terraform apply, Worker deployment, live Slack messages or deliberate runtime failure drills.
+  - Showing unsanitized URLs, recipe IDs, media asset URLs or provider request URLs.
+  - Changing URL admission, source extraction, AI routing or retry counts.
+acceptance_criteria:
+  - Final-failure logs render a safe source link while retry logs and existing sourceUrl logging remain compatible.
+  - A recognized YouTube watch URL keeps its video ID but excludes credentials, tracking and fragments.
+  - Notification configuration extracts and displays only the new sanitized source link.
+  - Notification suppression follows the combination of the sanitized source link and all other extracted labels, allowing different sanitized source links to notify within the same hour subject to Cloud Monitoring service limits.
+  - Focused tests, all unit/integration/E2E tests, lint, format, build and local Terraform validation pass.
+  - Documentation records the limited URL disclosure exception and the unperformed runtime rollout.
+regression:
+  required: false
+  tests: []
