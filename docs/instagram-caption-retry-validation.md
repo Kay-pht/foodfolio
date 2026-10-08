@@ -116,3 +116,7 @@ Instagram text/mediaの10000/low＋現行caption優先ルーティング＋既�
 今回だけの比較・費用予約・再開runnerである`poc/ai-output-budget/`と、その専用テスト2ファイルは削除する。本番設定を検証するunit testと、Worker・Postgres・APIを通すE2Eは維持する。3段階の検証報告とGit管理対象外の入力・結果・課金照合等は保持し、追加の有料API呼び出しは行わない。
 
 配布状況は[tasks/unreleased.md](../tasks/unreleased.md)の`REL-20261009-01`に記録する。PR準備ではデプロイ・最終LGTM・マージを実行しない。mainへマージ後は既存のQuality成功を起点としたdevデプロイ対象となるため、稼働revisionへの反映確認は別途必要。
+
+PR準備時の検証は、最新main `fc67b1fa72f289f3a3c4f7190e1fa03a8181ab1a`を取り込んだ`54ebaa2cc695efdc4693c39aaec1c82c2f15e521`で実施した。mainの未変更extractorを隔離した一時ディレクトリで回帰unit testを実行し、Instagram text/media/legacy video設定と診断上限の4件がRED、非Instagramの5件が成功した。同じテストは修正済み実装で9/9 GREEN。既存の作業ファイルはこの比較で変更していない。
+
+`npm run verify`はexit 0。unit488、integration58、E2E63件が成功し、task整合、spec49件/P0 guardrails、format、lint、architecture、docs、Prisma生成・検証、production buildも通過した。変更Markdownのformat checkと`git diff --check`も成功。iOSソース・API契約へ影響しないためiOS検証は対象外。対応するTODO項目はないため変更せず、配布項目は未反映のまま追加した。過去の追加型検査の失敗は上記の実験当時の記録であり、今回必須のproduction buildの成功と区別する。
