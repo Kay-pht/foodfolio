@@ -1598,7 +1598,7 @@ INTERNAL_ANALYSIS_ERROR
 
 Providerのraw error responseやsource本文は保存・出力しない。
 
-Cloud Loggingには `recipeId / sourceUrl / requestId / providerRequestId / errorCode / latencyMs / attempt` 等の診断情報だけを構造化loggingし、取得本文・API key・Firebase tokenを出力しない。失敗時の `sourceUrl` はRecipeのsource URLからuserinfo・query parameter・fragmentを除去した値だけを記録し、Slackには展開しない。Z.ai失敗では `aiFailureStage / model / providerHttpStatus / providerFinishReason / responseContentChars / inputTokens / outputTokens` を利用可能な範囲で追加する。schema不一致では値を出力せず、件数と固定schemaに対するkeyword/pathだけを上限付きで記録する。
+Cloud Loggingには `recipeId / sourceUrl / requestId / providerRequestId / errorCode / latencyMs / attempt` 等の診断情報だけを構造化loggingし、取得本文・API key・Firebase tokenを出力しない。失敗時の `sourceUrl` はRecipeのsource URLからuserinfo・query parameter・fragmentを除去した値だけを記録し、Slackには展開しない。最終失敗のSlack通知には、別の `sourceLink` として認証情報・fragment・許可していないクエリを除去した分析対象URLリンクだけを表示する。YouTubeの検証済み動画ID保持、Markdownエスケープ、不正URL時の固定文、整形後URLと他の抽出ラベルの組み合わせごとの通知・1時間の抑制期間の契約は [runtime-monitoring.md](runtime-monitoring.md) を正本とする。Z.ai失敗では `aiFailureStage / model / providerHttpStatus / providerFinishReason / responseContentChars / inputTokens / outputTokens` を利用可能な範囲で追加する。schema不一致では値を出力せず、件数と固定schemaに対するkeyword/pathだけを上限付きで記録する。
 
 ---
 

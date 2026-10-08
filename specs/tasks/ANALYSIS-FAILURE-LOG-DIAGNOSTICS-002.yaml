@@ -41,7 +41,8 @@ requirements:
     expected: >-
       Every available repository-owned diagnostic enum and validated numeric field is
       translated into a controlled Japanese diagnosticDetail and extracted into the
-      Slack notification without exposing URLs, headers, bodies, or exception text.
+      Slack diagnosis without exposing diagnostic URLs, headers, bodies, or exception text.
+      The separately rendered sourceLink is governed by ANALYSIS-ALERT-SOURCE-URL-001.
     verification:
       - src/application/analysis/operational-failure.ts
       - infra/terraform/monitoring.tf
@@ -67,9 +68,9 @@ edge_cases:
 security_invariants:
   - Do not log redirect target URLs, media asset URLs, signed URLs, request or response bodies, HTTP headers, raw exception messages, or provider free-form text.
   - The existing sourceUrl sanitization remains unchanged.
-  - Slack receives only the controlled diagnosticDetail derived from repository-owned enums and validated numbers; raw diagnostic payloads, URLs, headers, bodies, and exception text are not expanded into the notification.
+  - Slack diagnosis receives only the controlled diagnosticDetail derived from repository-owned enums and validated numbers; raw diagnostic payloads, media URLs, headers, bodies, and exception text are not expanded into the notification. ANALYSIS-ALERT-SOURCE-URL-001 separately authorizes a sanitized sourceLink.
 compatibility:
-  - Preserve existing analysis error codes, retryability, Cloud Tasks retry behavior, recipe state transitions, alert thresholds, and notification rate limits. One diagnostic_detail Slack label is added for controlled diagnosis text.
+  - Preserve existing analysis error codes, retryability, Cloud Tasks retry behavior, recipe state transitions, alert thresholds, and the configured notification rate-limit period. One diagnostic_detail Slack label is added for controlled diagnosis text. Notification suppression applies per combination of extracted labels, including source_link, as defined in ANALYSIS-ALERT-SOURCE-URL-001 and RUNTIME-MONITORING-001 RTM-4.
   - Do not add a database migration, external dependency, or extra network request.
 non_functional:
   - Diagnostic values use repository-owned enums and validated numeric metadata.

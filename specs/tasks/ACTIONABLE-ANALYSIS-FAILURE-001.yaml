@@ -36,8 +36,8 @@ edge_cases:
   - HTTP rejection is not described as a provider outage.
   - Unknown classifications do not leak provider free-form messages.
 security_invariants:
-  - Slack text uses repository-owned phrases and validated numeric metadata only.
-  - Source content, URLs, model names, request IDs, exception messages, raw responses and secrets are not added to Slack.
+  - Slack diagnostic text uses repository-owned phrases and validated numeric metadata only. The separately rendered sourceLink is governed by ANALYSIS-ALERT-SOURCE-URL-001.
+  - Source content, model names, request IDs, exception messages, raw responses and secrets are not added to Slack. URLs remain excluded except for the sanitized sourceLink authorized by ANALYSIS-ALERT-SOURCE-URL-001.
 compatibility:
   - Preserve error codes, retryability, attempt counts, recipe states and alert thresholds.
   - Existing Slack summary and next_action labels carry the more specific text without Terraform changes.

@@ -82,6 +82,7 @@ describe("actionable runtime alert notifications", () => {
       "provider",
       "retryPolicy",
       "summary",
+      "sourceLink",
       "target",
     ]) {
       expect(policy).toContain(`EXTRACT(jsonPayload.${field})`);
@@ -91,8 +92,11 @@ describe("actionable runtime alert notifications", () => {
     expect(policy).toContain("## 診断情報");
     expect(policy).toContain("$${log.extracted_label.diagnostic_detail}");
     expect(policy).toContain("## 次に行うこと");
+    expect(policy).toContain("## 分析対象URL");
+    expect(policy).toContain("$${log.extracted_label.source_link}");
+    expect(policy).not.toContain("EXTRACT(jsonPayload.sourceUrl)");
     expect(policy).toContain(
-      "レシピID、URL、リクエスト本文、例外メッセージはSlackへ表示しません",
+      "認証情報、fragment、許可していないクエリは分析対象URLから除去しています",
     );
   });
 });

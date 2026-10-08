@@ -359,10 +359,13 @@ describe("API/Worker application E2E", () => {
       const recipe = await context.prisma.recipe.create({
         data: {
           userId: user.id,
-          originalUrl:
-            "https://user:password@example.com/fail?access_token=secret#private",
-          normalizedUrl: "https://example.com/fail",
-          sourceType: "web",
+          originalUrl: truncated
+            ? "https://user:password@www.youtube.com/watch?v=abcdefghijk&access_token=secret&utm_source=share#private"
+            : "https://user:password@example.com/fail?access_token=secret#private",
+          normalizedUrl: truncated
+            ? "https://www.youtube.com/watch?v=abcdefghijk"
+            : "https://example.com/fail",
+          sourceType: truncated ? "youtube" : "web",
         },
       });
       const notifications = new FakeNotifications();
@@ -413,6 +416,9 @@ describe("API/Worker application E2E", () => {
       });
       expect(first.statusCode).toBe(503);
       expect(
+        logs.find(({ analysisStatus }) => analysisStatus === "pending"),
+      ).not.toHaveProperty("sourceLink");
+      expect(
         (
           await context.prisma.recipe.findUniqueOrThrow({
             where: { id: recipe.id },
@@ -438,7 +444,12 @@ describe("API/Worker application E2E", () => {
         analysisAttemptLabel: "3",
         errorCode: truncated ? "AI_INVALID_JSON" : "AI_TIMEOUT",
         provider: "zai",
-        sourceUrl: "https://example.com/fail",
+        sourceUrl: truncated
+          ? "https://www.youtube.com/watch"
+          : "https://example.com/fail",
+        sourceLink: truncated
+          ? "[分析対象URL](https://www.youtube.com/watch?v=abcdefghijk)"
+          : "[分析対象URL](https://example.com/fail)",
         aiFailureStage: truncated ? "content_invalid_json" : "request_timeout",
         model: "glm-5.3-flash",
         latencyMs: 120_001,
