@@ -6,6 +6,14 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
 
 ## 未反映
 
+- [ ] `REL-20261009-01` Instagram解析の出力打ち切りを緩和する
+  - 内容: Instagramのcaption text・ordered media・legacy videoに限り、Z.aiの出力上限を4000から10000へ増やし、reasoning_effortをlowにする。既存ルーティング・最大3回の配送再試行・prompt・schema・120秒timeoutは維持する
+  - PR: [#143](https://github.com/Kay-pht/foodfolio/pull/143)
+  - main反映: 未反映
+  - 必要な反映先:
+    - [ ] Cloud Run（dev Worker） — 対象Git SHA/revision: 未定
+  - 備考: 再取得入力5投稿×3ローカルジョブは15/15完了。media timeoutと材料欠落は残る。本番完了率・端末表示は未測定。Backend専用変更のためiOS build更新は不要。詳細は[追加検証](../docs/instagram-caption-retry-validation.md)
+
 - [ ] `REL-20261007-02` 分析最終失敗のSlackアラートに分析対象URLを添付する
   - 内容: 認証情報・fragment・許可していないクエリを除去したリンクを表示し、YouTubeは検証済み動画IDを維持する。不正URL時は固定の取得不可文を表示する。整形後URLと他の抽出ラベルの組み合わせごとに通知し、同じ組み合わせの繰り返し通知は1時間に1回までに抑える（Cloud Monitoringのサービス上限内）
   - PR: [#142](https://github.com/Kay-pht/foodfolio/pull/142)
