@@ -8,12 +8,12 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
 
 - [ ] `REL-20261007-02` 分析最終失敗のSlackアラートに分析対象URLを添付する
   - 内容: 認証情報・fragment・許可していないクエリを除去したリンクを表示し、YouTubeは検証済み動画IDを維持する。不正URL時は固定の取得不可文を表示する。整形後URLと他の抽出ラベルの組み合わせごとに通知し、同じ組み合わせの繰り返し通知は1時間に1回までに抑える（Cloud Monitoringのサービス上限内）
-  - PR: 未作成
+  - PR: [#142](https://github.com/Kay-pht/foodfolio/pull/142)
   - main反映: 未反映
   - 必要な反映先:
     - [ ] Cloud Run（dev Worker） — `sourceLink` を最終失敗ログへ追加
     - [ ] GCP runtime monitoring — 既存Recipe Analysis最終失敗policyへ `source_link` の抽出と通知本文を反映
-  - 備考: 今回の依頼範囲はコード変更・検証まで。Workerデプロイ、Terraform適用、実Slack通知確認は未実施
+  - 備考: 今回の依頼範囲はコード変更・検証・PR作成まで。Workerデプロイ、Terraform適用、実Slack通知確認は未実施
 
 - [ ] `REL-20260924-01` Foodfolio 1.0.2で日本語表示情報とApp Store掲載内容を更新する
   - 内容: iOS本体とShare Extensionが日本語対応アプリであることをAppleへ正しく申告し、インストール後のアプリ名は`Foodfolio`のまま維持する。App Store上の表示名を「レシピ保存/管理アプリ - Foodfolio」へ変更し、利用許可を確認済みの新しい日本語マーケティング画像6枚へ差し替える。あわせて、PR #121/#122でmainへ追加した5つのCloud Monitoring alert policyを既存Slack通知先へ反映する
