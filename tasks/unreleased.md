@@ -8,7 +8,7 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
 
 - [ ] `REL-20261016-01` Instagramの明確な閲覧制限をログ・通知で識別し、不要な再試行を止める
   - 内容: 取得ツールが明示する年齢制限・ログイン要求・閲覧対象制限を固定分類で記録し、metadata取得と単一動画downloadの内部再試行・Cloud Tasks再配送を終了する。曖昧な応答・通信障害は既存の再試行を維持する
-  - PR: 作成前
+  - PR: [#145](https://github.com/Kay-pht/foodfolio/pull/145)
   - main反映: 未反映
   - 必要な反映先:
     - [ ] Cloud Run（dev Worker） — 対象Git SHA/revision: 未定
