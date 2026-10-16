@@ -2,11 +2,17 @@
 
 最終更新日: 2026-10-07（JST）。自動テスト、署名済みArchive、Apple側の処理状態、実機確認は別の証跡として扱う。
 
-## 1.0.4 (17) の準備
+## 1.0.4 (17) の内部配布・App Review提出
 
-2026-10-16（JST）のApp Store Connect再取得では、最新upload済みbuildは`1.0.3 (16)`だった。次の候補はmain `8e75ea7c`を元にした`1.0.4 (17)`。準備PRを人間がマージした後にArchive / upload・内部グループ割り当て・App Review申請を行う。一般公開はユーザーが手動で行う。
+2026-10-16（JST）の準備開始時点のApp Store Connect再取得では、最新upload済みbuildは`1.0.3 (16)`だった。次の候補はmain `8e75ea7c`を元にした`1.0.4 (17)`とし、準備PRを人間がマージした後にArchive / upload・内部グループ割り当て・App Review申請を行う方針とした。一般公開はユーザーが手動で行う。
 
-前回配布元からiOSソースの差分はなく、番号更新以外はBackend・監視側の変更。Workerの稼働環境への反映はiOS uploadと分けて確認する。詳細と未完了チェックは[App Storeリリース管理](app-store-release.md)を参照。現時点でbuild 17のupload・配布・Apple申請は未実施。
+前回配布元からiOSソースの差分はなく、番号更新以外はBackend・監視側の変更。Workerの稼働環境への反映はiOS uploadと分けて確認する。詳細と未完了チェックは[App Storeリリース管理](app-store-release.md)を参照。以下にマージ後の結果を記録する。
+
+2026-10-16（JST）に準備PR [#146](https://github.com/Kay-pht/foodfolio/pull/146)のmerge SHA `ada391b7bae7a12375706a84c6f5d1ffaf6ac5a2`から署名済みRelease Archive / IPAを作成し、Apple validation / uploadに成功した。Build ID `1471a727-5c5e-4289-a7d5-4e859558c153`、processing `VALID`、未期限、`APP_STORE_ELIGIBLE`、暗号化申告`false`を読み戻した。既存`Foodfolio Internal`への割り当てと`IN_BETA_TESTING`を確認し、テスター追加や外部TestFlightへの今回の配布は行っていない。
+
+日本語What to Testには、iOSの画面・機能はbuild 16と同じこと、サーバーの取り込み処理調整、起動・認証・URL保存・Share Extension・材料と作り方・メモ・作り方編集と並べ替え・検索・タグ・「作りたい」・同期・Push通知の確認内容を保存し、読み戻した。既存審査用アカウントのFirebaseログインと認証付きAPI（HTTP 200）、App Review保存済み資格情報との一致を確認した。秘密情報はGitへ保存していない。
+
+App Store version `1.0.4`（ID `2f6cf146-1e86-423b-b9de-68c2402835f5`）へbuild 17を選択し、2026-10-16 21:00:33（JST）にApp Reviewへ提出した。Submission ID `dd746f85-c5bf-4e62-a2d1-ae56ba3fd3f1`。version / submissionはともに`WAITING_FOR_REVIEW`、公開方式は`MANUAL`。一般公開は行っていない。今回の実機操作の再検証はエージェントでは行っていない。
 
 ## 1.0.3 (16) の内部配布・App Review提出・本番公開
 

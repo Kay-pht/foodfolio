@@ -9,11 +9,11 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
 - [ ] `REL-20261016-03` Foodfolio 1.0.4をAppleへアップデート申請する
   - 内容: 公開中の1.0.3 (16)からパッチ番号を上げ、本体・Share Extensionを1.0.4 (17)にする。準備元はmain `8e75ea7c`。前回配布元からiOSコードの変更はなく、解析改善はWorkerの反映と別に確認する
   - PR: [#146](https://github.com/Kay-pht/foodfolio/pull/146)
-  - main反映: 未反映
+  - main反映: `ada391b7bae7a12375706a84c6f5d1ffaf6ac5a2`（PR #146）
   - 必要な反映先:
-    - [ ] TestFlight内部テスト — 対象version/build: `1.0.4 (17)`、既存`Foodfolio Internal`
-    - [ ] App Store本番 — 対象version/build: `1.0.4 (17)`、Apple申請後も`MANUAL`を維持し、公開はユーザーが行う
-  - 備考: 今回のゴールはApple申請まで。人間による準備PRのマージ前にupload・申請は行わない。Workerは既存自動デプロイの成功・配信先を確認済み。PR #142の監視Terraform適用は別管理。各解析改善の配布状況は既存項目で追跡する
+    - [x] TestFlight内部テスト — 反映日: `2026-10-16`、version: `1.0.4 (17)`、Build ID: `1471a727-5c5e-4289-a7d5-4e859558c153`、group: `Foodfolio Internal`、`IN_BETA_TESTING`
+    - [ ] App Store本番 — 対象version/build: `1.0.4 (17)`、version ID: `2f6cf146-1e86-423b-b9de-68c2402835f5`、Submission ID: `dd746f85-c5bf-4e62-a2d1-ae56ba3fd3f1`、2026-10-16 21:00:33（JST）に提出、`WAITING_FOR_REVIEW`。`MANUAL`を維持し、公開はユーザーが行う
+  - 備考: 今回のゴールであるApple申請まで完了。準備PRの人間によるマージ後、署名済みArchive・Apple validation / upload・processing `VALID`・内部配布・審査提出を確認した。Workerは既存自動デプロイの成功・配信先を確認済み。PR #142の監視Terraform適用は別管理。各解析改善の配布状況は既存項目で追跡する
 
 - [ ] `REL-20261007-02` 分析最終失敗のSlackアラートに分析対象URLを添付する
   - 内容: 認証情報・fragment・許可していないクエリを除去したリンクを表示し、YouTubeは検証済み動画IDを維持する。不正URL時は固定の取得不可文を表示する。整形後URLと他の抽出ラベルの組み合わせごとに通知し、同じ組み合わせの繰り返し通知は1時間に1回までに抑える（Cloud Monitoringのサービス上限内）
