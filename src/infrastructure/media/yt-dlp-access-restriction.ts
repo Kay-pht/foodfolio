@@ -24,26 +24,29 @@ export function classifyYtDlpAccessRestriction(
     // Ignore warnings, arbitrary exception messages, URL text and generic cookie hints.
     const message = /^ERROR:\s+\[Instagram\]\s+[^:\r\n]+:\s+(.+)$/i
       .exec(line)?.[1]
-      ?.replace(/https?:\/\/\S+/gi, "");
+      ?.replace(/https?:\/\/\S+/gi, "")
+      .replace(/^Restricted Video:\s*/i, "");
     if (!message) continue;
     if (
-      /\b(?:This (?:video|content) is age[- ]restricted|Sign in to confirm your age|Age verification (?:is )?required|People under \d{1,3} can['’]t see this content)\b/i.test(
+      /^(?:This (?:video|content) is age[- ]restricted|Sign in to confirm your age|Age verification (?:is )?required|People under \d{1,3} can['’]t see this content)(?:[.!;:]|$)/i.test(
         message,
       )
     )
       return "age_restricted";
     if (
-      /This content (?:isn['’]t|is not) available to everyone:\s*It can['’]t be seen by certain audiences\b/i.test(
+      /^This content (?:isn['’]t|is not) available to everyone:\s*It can['’]t be seen by certain audiences(?:[.!;:]|$)/i.test(
         message,
       ) ||
-      /This content is only available for registered users who follow this account\b/i.test(
+      /^This content is only available for registered users who follow this account(?:[.!;:]|$)/i.test(
         message,
       )
     )
       return "audience_restricted";
     if (
-      /\bYou need to log in to access this content\b/i.test(message) ||
-      /\bThe webpage request was redirected to the login page\b/i.test(message)
+      /^You need to log in to access this content(?:[.!;:]|$)/i.test(message) ||
+      /^The webpage request was redirected to the login page(?:[.!;:]|$)/i.test(
+        message,
+      )
     )
       return "login_required";
   }

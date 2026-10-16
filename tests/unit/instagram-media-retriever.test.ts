@@ -940,7 +940,7 @@ describe("YtDlpInstagramMediaRetriever", () => {
   ])("stops metadata retries for %s", async (message, failureClass) => {
     const metadataProbe = vi.fn(async () => {
       throw Object.assign(new Error("private command"), {
-        stderr: `ERROR: [Instagram] fixture: ${message} private-stderr https://cdn.example/private?token=secret`,
+        stderr: `ERROR: [Instagram] fixture: ${message}. private-stderr https://cdn.example/private?token=secret`,
       });
     });
     const sleep = vi.fn(async () => {});

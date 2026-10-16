@@ -66,6 +66,23 @@ describe("bounded yt-dlp access restriction classification", () => {
     {
       stderr: "ERROR: [Instagram] fixture: https://example.com/age-restricted",
     },
+
+    {
+      stderr:
+        "ERROR: [Instagram] fixture: This content is age-restricted or unavailable",
+    },
+    {
+      stderr:
+        "ERROR: [Instagram] fixture: The caption says This content is age-restricted",
+    },
+    {
+      stderr:
+        "ERROR: [Instagram] fixture: You need to log in to access this content or try later",
+    },
+    {
+      stderr:
+        "ERROR: [Instagram] fixture: A caption quotes You need to log in to access this content",
+    },
   ])("does not infer a restriction from ambiguous input %#", (error) => {
     expect(classifyYtDlpAccessRestriction(error)).toBeUndefined();
   });
