@@ -6,6 +6,14 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
 
 ## 未反映
 
+- [ ] `REL-20261016-02` 稼働用レシピ解析の出力上限を10000トークンへ統一し、Z.aiの個別timeoutを180秒にする
+  - 内容: Z.aiの全媒体・text/ordered media/legacy videoとYouTube用Gemini fallbackで、共通定数`RECIPE_EXTRACTION_MAX_OUTPUT_TOKENS`を参照する。Instagram以外のZ.aiは4000、Geminiは8192から10000へ変更する。Z.aiの個別リクエスト期限は全経路で120秒から180秒へ延長する。reasoning_effort lowはInstagram限定のまま維持し、過去のPoC設定は変更しない
+  - PR: [#144](https://github.com/Kay-pht/foodfolio/pull/144)
+  - main反映: 未反映
+  - 必要な反映先:
+    - [ ] Cloud Run（dev Worker） — 対象Git SHA/revision: 未定
+  - 備考: Backend専用変更のためiOS build更新は不要。実API試行、Workerデプロイ、既存レシピの再解析は今回の対象外。上限到達やtimeoutの解消は実環境では未確認。Worker・Cloud Tasksは600秒のままとし、全体の残り時間共有は行わない。本文解析・動画取得・動画解析の合計が600秒を超え得る制約は残る
+
 - [ ] `REL-20261016-01` Instagramの明確な閲覧制限をログ・通知で識別し、不要な再試行を止める
   - 内容: 取得ツールが明示する年齢制限・ログイン要求・閲覧対象制限を固定分類で記録し、metadata取得と単一動画downloadの内部再試行・Cloud Tasks再配送を終了する。曖昧な応答・通信障害は既存の再試行を維持する
   - PR: [#145](https://github.com/Kay-pht/foodfolio/pull/145)

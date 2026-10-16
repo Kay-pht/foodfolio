@@ -5,13 +5,13 @@ objective: Reduce observed Instagram output truncation using the measured 10000-
 requirements:
   - id: IMC-1
     condition: Z.ai extracts an Instagram caption, ordered media or legacy video.
-    expected: Send max_tokens 10000 and reasoning_effort low. Preserve model, messages, JSON mode, schema, media order, 120-second timeout and error classification.
+    expected: Send max_tokens 10000 and reasoning_effort low. Preserve model, messages, JSON mode, schema, media order and error classification. ZAI-REQUEST-TIMEOUT-001 supersedes the original 120-second timeout with 180 seconds.
     verification:
       - src/infrastructure/ai/zai-recipe-extractor.ts
       - tests/unit/instagram-media-completion.test.ts
   - id: IMC-2
     condition: A non-Instagram text, media or video request is sent.
-    expected: Preserve max_tokens 4000 and omitted reasoning_effort.
+    expected: Use the shared 10000-token production limit defined by RECIPE-OUTPUT-TOKEN-LIMIT-001 and preserve omitted reasoning_effort.
     verification:
       - tests/unit/instagram-media-completion.test.ts
       - tests/unit/zai-video-extraction.test.ts
@@ -49,8 +49,8 @@ security_invariants:
   - No paid API calls, production database writes, user notifications or reprocessing during PR preparation.
   - Preserve private experiment evidence under ignored poc/artifacts without publishing it.
 compatibility:
-  - No prompt, model, schema, routing threshold, retry-count, timeout or API-contract changes.
-  - Other providers and non-Instagram extraction retain their settings.
+  - No prompt, model, schema, routing threshold, retry-count or API-contract changes. Z.ai timeout is governed by ZAI-REQUEST-TIMEOUT-001.
+  - RECIPE-OUTPUT-TOKEN-LIMIT-001 supersedes the non-Instagram and other-provider output limits; preserve the remaining generation settings.
   - No iOS implementation changes.
 non_functional:
   - Report the remaining media timeouts and ingredient-fidelity limitations separately from completion.

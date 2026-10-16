@@ -13,14 +13,10 @@ import {
   type VideoRecipeExtractor,
 } from "../../application/analysis/types.js";
 import { RECIPE_EXTRACTION_SYSTEM_PROMPT } from "../../shared/recipe-extraction-system-prompt.js";
+import { RECIPE_EXTRACTION_MAX_OUTPUT_TOKENS } from "../../shared/recipe-extraction-config.js";
 
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 const validate = ajv.compile<ExtractedRecipe>(recipeSchema);
-
-const INSTAGRAM_GENERATION = {
-  maxOutputTokens: 10000,
-  reasoningEffort: "low" as const,
-};
 
 const KNOWN_FINISH_REASONS = new Set([
   "stop",
@@ -110,7 +106,7 @@ export class ZaiRecipeExtractor
               ].join("\n")
             : `SOURCE TEXT\n${input.textForAi}`,
       },
-      input.sourceType === "instagram" ? INSTAGRAM_GENERATION : undefined,
+      input.sourceType === "instagram" ? "low" : undefined,
     );
   }
 
@@ -126,7 +122,7 @@ export class ZaiRecipeExtractor
           },
         ],
       },
-      input.sourceType === "instagram" ? INSTAGRAM_GENERATION : undefined,
+      input.sourceType === "instagram" ? "low" : undefined,
     );
   }
 
@@ -164,7 +160,7 @@ export class ZaiRecipeExtractor
     });
     return this.request(
       { role: "user", content },
-      input.sourceType === "instagram" ? INSTAGRAM_GENERATION : undefined,
+      input.sourceType === "instagram" ? "low" : undefined,
     );
   }
 
@@ -173,11 +169,9 @@ export class ZaiRecipeExtractor
       role: "user";
       content: string | ZaiContentItem[];
     },
-    generation: { maxOutputTokens: number; reasoningEffort?: "low" } = {
-      maxOutputTokens: 4000,
-    },
+    reasoningEffort?: "low",
   ): Promise<RecipeExtractionResult> {
-    const { maxOutputTokens, reasoningEffort } = generation;
+    const maxOutputTokens = RECIPE_EXTRACTION_MAX_OUTPUT_TOKENS;
     const startedAt = Date.now();
     const baseDiagnostics = (
       aiFailureStage: AiFailureStage,
@@ -191,7 +185,7 @@ export class ZaiRecipeExtractor
     try {
       response = await fetch("https://api.z.ai/api/paas/v4/chat/completions", {
         method: "POST",
-        signal: AbortSignal.timeout(120_000),
+        signal: AbortSignal.timeout(180_000),
         headers: {
           authorization: `Bearer ${this.apiKey}`,
           "content-type": "application/json",

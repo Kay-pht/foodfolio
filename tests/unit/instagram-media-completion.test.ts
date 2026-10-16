@@ -61,16 +61,20 @@ describe("Instagram media completion settings", () => {
   });
 
   it.each([
-    { sourceType: "instagram" as const, mode: "text", expected: 10000 },
-    { sourceType: "web" as const, mode: "text", expected: 4000 },
-    { sourceType: "youtube" as const, mode: "text", expected: 4000 },
-    { sourceType: "tiktok" as const, mode: "text", expected: 4000 },
-    { sourceType: "tiktok" as const, mode: "media", expected: 4000 },
-    { sourceType: "tiktok" as const, mode: "video", expected: 4000 },
-    { sourceType: "instagram" as const, mode: "video", expected: 10000 },
+    { sourceType: "instagram" as const, mode: "text" },
+    { sourceType: "web" as const, mode: "text" },
+    { sourceType: "youtube" as const, mode: "text" },
+    { sourceType: "tiktok" as const, mode: "text" },
+    { sourceType: "kurashiru" as const, mode: "text" },
+    { sourceType: "cookpad" as const, mode: "text" },
+    { sourceType: "chatgpt" as const, mode: "text" },
+    { sourceType: "gemini" as const, mode: "text" },
+    { sourceType: "tiktok" as const, mode: "media" },
+    { sourceType: "tiktok" as const, mode: "video" },
+    { sourceType: "instagram" as const, mode: "video" },
   ])(
-    "preserves scope for $sourceType $mode",
-    async ({ sourceType, mode, expected }) => {
+    "uses the unified limit and preserves reasoning settings for $sourceType $mode",
+    async ({ sourceType, mode }) => {
       const fetchMock = vi.fn<
         (url: string, init?: RequestInit) => Promise<Response>
       >(
@@ -106,8 +110,8 @@ describe("Instagram media completion settings", () => {
           },
         ]);
       const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
-      expect(body.max_tokens).toBe(expected);
-      if (expected === 10000) expect(body.reasoning_effort).toBe("low");
+      expect(body.max_tokens).toBe(10000);
+      if (sourceType === "instagram") expect(body.reasoning_effort).toBe("low");
       else expect(body).not.toHaveProperty("reasoning_effort");
     },
   );

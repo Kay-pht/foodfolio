@@ -1,0 +1,62 @@
+id: RECIPE-OUTPUT-TOKEN-LIMIT-001
+type: bug
+status: approved
+objective: Reduce output truncation outside Instagram by unifying production Z.ai and Gemini recipe extraction at a single 10000-token output limit.
+requirements:
+  - id: ROTL-1
+    condition: Any production Z.ai text, ordered media or legacy video recipe extraction request is sent.
+    expected: Send max_tokens 10000 from one shared constant for every source type. Retain reasoning_effort low only for Instagram and omit it for other sources.
+    verification:
+      - src/shared/recipe-extraction-config.ts
+      - src/infrastructure/ai/zai-recipe-extractor.ts
+      - tests/unit/instagram-media-completion.test.ts
+  - id: ROTL-2
+    condition: The production YouTube Gemini fallback builds or sends its request.
+    expected: Send generationConfig.maxOutputTokens 10000 using the same constant as Z.ai, preserving the other generation settings and request content.
+    verification:
+      - src/infrastructure/ai/gemini-youtube-recipe-extractor.ts
+      - tests/unit/gemini-youtube-recipe-extractor.test.ts
+  - id: ROTL-3
+    condition: Z.ai returns invalid output or reaches its output limit.
+    expected: Record the exact limit sent to the provider in maxOutputTokens diagnostics and preserve error classification, safe logging and bounded task retries. Historical diagnostic fixtures may still report their original limits.
+    verification:
+      - tests/unit/zai-video-extraction.test.ts
+      - tests/e2e/backend-worker.test.ts
+      - tests/e2e/instagram-media-completion.test.ts
+  - id: ROTL-4
+    condition: A recipe is analyzed through the Worker and retrieved from the API.
+    expected: Non-Instagram Z.ai extraction uses the unified limit and saves a displayable recipe. Existing Instagram completion, Gemini fallback and terminal-failure behavior remain covered.
+    verification:
+      - tests/e2e/recipe-output-token-limit.test.ts
+      - tests/e2e/instagram-media-completion.test.ts
+      - tests/unit/gemini-youtube-recipe-extractor.test.ts
+edge_cases:
+  - Output is still truncated at 10000 tokens or the request times out.
+  - Provider usage is missing or differs from the configured maximum.
+  - Text, ordered media and legacy video use the same limit.
+  - Historical 4000-token diagnostics remain truthful when replayed.
+security_invariants:
+  - Do not expose credentials, source content, signed URLs or provider reasoning in diagnostics or committed evidence.
+  - No paid API calls, production database writes, notifications or recipe reprocessing during PR preparation.
+compatibility:
+  - Preserve prompts, schemas, models, routing, retry counts and API contracts. ZAI-REQUEST-TIMEOUT-001 supersedes the original Z.ai 120-second timeout with 180 seconds; Gemini remains at 180 seconds.
+  - Preserve Instagram-only reasoning_effort low and all other generation settings.
+  - Supersede only the non-Instagram output-limit constraints in INSTAGRAM-MEDIA-COMPLETION-001; its other requirements remain in force.
+  - Preserve historical PoC settings and dated experiment conclusions.
+non_functional:
+  - Keep the production limit numeric definition in one shared module and reference it from both providers.
+  - Pass full backend verification including unit, integration, E2E, lint, format and build before Ready for review.
+out_of_scope:
+  - PoC configuration changes, new API experiments or guarantees of live failure resolution.
+  - Deployment, release, recipe reprocessing, iOS changes, final LGTM or merge.
+acceptance_criteria:
+  - Non-Instagram Z.ai and production Gemini regression tests fail before the implementation and pass after it.
+  - Request and diagnostic assertions cover 10000 without broadening reasoning_effort low.
+  - Implementation design and the existing Instagram specification describe the current unified output limit without conflicting requirements.
+  - Record the pending Worker rollout in tasks/unreleased.md and create a draft PR, making it ready only after required local verification.
+regression:
+  required: true
+  tests:
+    - tests/unit/instagram-media-completion.test.ts
+    - tests/unit/gemini-youtube-recipe-extractor.test.ts
+    - tests/unit/zai-video-extraction.test.ts
