@@ -1,4 +1,5 @@
 import { Ajv2020 } from "ajv/dist/2020.js";
+import { RECIPE_EXTRACTION_MAX_OUTPUT_TOKENS } from "../../shared/recipe-extraction-config.js";
 import {
   AnalysisError,
   type ExtractedRecipe,
@@ -144,7 +145,7 @@ export function buildYoutubeGeminiRequest(
     generationConfig: {
       responseMimeType: "application/json",
       responseJsonSchema: youtubeGeminiEvidenceSchema,
-      maxOutputTokens: 8192,
+      maxOutputTokens: RECIPE_EXTRACTION_MAX_OUTPUT_TOKENS,
       temperature: 0,
     },
   };

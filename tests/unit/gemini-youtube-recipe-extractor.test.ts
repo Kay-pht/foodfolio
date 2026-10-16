@@ -116,6 +116,12 @@ describe("GeminiYoutubeRecipeExtractor", () => {
       latencyMs: expect.any(Number),
     });
     expect(fetchImpl).toHaveBeenCalledOnce();
+    const request = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body));
+    expect(request.generationConfig).toMatchObject({
+      maxOutputTokens: 10000,
+      temperature: 0,
+      responseMimeType: "application/json",
+    });
   });
 
   it("keeps count yield raw without converting it to people", () => {

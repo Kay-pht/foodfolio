@@ -272,12 +272,13 @@ describe("ZaiRecipeExtractor media input", () => {
           responseContentChars,
           inputTokens: 11,
           outputTokens: 22,
-          maxOutputTokens: 4000,
+          maxOutputTokens: 10000,
           latencyMs: expect.any(Number),
         },
       });
       const request = vi.mocked(fetch).mock.calls[0]?.[1];
-      expect(JSON.parse(String(request?.body)).max_tokens).toBe(4000);
+      const body = JSON.parse(String(request?.body));
+      expect(body.max_tokens).toBe(10000);
     },
   );
 

@@ -1304,10 +1304,12 @@ YouTube fallback API: generateContent with JSON Schema
 PoC合格時の設定を不用意に変更しない。
 
 ```text
-AI request timeout: 120秒
-max output tokens: 4000 (non-Instagram text / media)
-Instagram text / media / legacy video max output tokens: 10000
+Z.ai request timeout: 120秒
+YouTube Gemini fallback request timeout: 180秒
+max output tokens: 10000 (all production Z.ai text / media / legacy video and YouTube Gemini fallback)
+Shared constant: src/shared/recipe-extraction-config.ts / RECIPE_EXTRACTION_MAX_OUTPUT_TOKENS
 Instagram text / media / legacy video reasoning_effort: low
+Non-Instagram Z.ai reasoning_effort: omitted
 stream: false
 response_format: json_object
 ```
@@ -1316,7 +1318,9 @@ PoCではtemperature / top_p等を明示指定していないため、MVP本番�
 
 これらのgeneration parameterを変更する場合は、既存fixtureで回帰確認してから変更する。
 
-Instagram解析はmediaとcaptionのtext経路で観測した出力上限4000での打ち切りに対応するため、両経路で上限10000とlowを使用する。JSON形式、prompt、120秒timeout、最小レシピ内容の検査、既存のCloud Tasks再試行は維持する。材料の一部欠落を理由とした新しい失敗判定は追加しない。実APIとローカルの確認範囲は[追加検証](instagram-caption-retry-validation.md)に記録する。
+稼働用の出力上限は、[RECIPE-OUTPUT-TOKEN-LIMIT-001](../specs/tasks/RECIPE-OUTPUT-TOKEN-LIMIT-001.yaml)に従い、Z.aiの全媒体・全抽出経路とYouTube用Gemini fallbackで共通定数10000を参照する。Z.aiの診断値`maxOutputTokens`もAPIへ送った値と一致させる。PoCの設定と過去の比較実験の数値は維持する。上限到達・timeoutの解消や実環境での成功率改善を保証する変更ではない。
+
+Instagram解析はmediaとcaptionのtext経路で観測した出力上限4000での打ち切りへの対策として、先行して上限10000とlowを採用した。今回の全媒体への上限統一でも、lowはInstagram限定のままとする。JSON形式、prompt、Z.aiの120秒timeout、Geminiの180秒timeout、最小レシピ内容の検査、既存のCloud Tasks再試行は維持する。材料の一部欠落を理由とした新しい失敗判定は追加しない。Instagramの実APIとローカルの確認範囲は[追加検証](instagram-caption-retry-validation.md)に記録する。
 
 メディア固定入力の[初期検証](instagram-media-completion-validation.md)ではtimeoutとschema不一致が残り、その時点で採用を保留した。後続の[caption優先・再試行の検証](instagram-caption-retry-validation.md)では再取得入力5投稿×3ジョブが15/15完了し、Instagram text/mediaの10000/lowをmain向け実装とする。media timeoutと材料欠落は残るため、全投稿の失敗解消は保証しない。稼働環境への反映は[tasks/unreleased.md](../tasks/unreleased.md)で別に管理する。
 

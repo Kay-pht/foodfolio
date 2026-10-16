@@ -11,7 +11,7 @@ requirements:
       - tests/unit/instagram-media-completion.test.ts
   - id: IMC-2
     condition: A non-Instagram text, media or video request is sent.
-    expected: Preserve max_tokens 4000 and omitted reasoning_effort.
+    expected: Use the shared 10000-token production limit defined by RECIPE-OUTPUT-TOKEN-LIMIT-001 and preserve omitted reasoning_effort.
     verification:
       - tests/unit/instagram-media-completion.test.ts
       - tests/unit/zai-video-extraction.test.ts
@@ -50,7 +50,7 @@ security_invariants:
   - Preserve private experiment evidence under ignored poc/artifacts without publishing it.
 compatibility:
   - No prompt, model, schema, routing threshold, retry-count, timeout or API-contract changes.
-  - Other providers and non-Instagram extraction retain their settings.
+  - RECIPE-OUTPUT-TOKEN-LIMIT-001 supersedes the non-Instagram and other-provider output limits; preserve the remaining generation settings.
   - No iOS implementation changes.
 non_functional:
   - Report the remaining media timeouts and ingredient-fidelity limitations separately from completion.
