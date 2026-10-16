@@ -2,6 +2,12 @@
 
 最終更新日: 2026-10-07（JST）。自動テスト、署名済みArchive、Apple側の処理状態、実機確認は別の証跡として扱う。
 
+## 1.0.4 (17) の準備
+
+2026-10-16（JST）のApp Store Connect再取得では、最新upload済みbuildは`1.0.3 (16)`だった。次の候補はmain `8e75ea7c`を元にした`1.0.4 (17)`。準備PRを人間がマージした後にArchive / upload・内部グループ割り当て・App Review申請を行う。一般公開はユーザーが手動で行う。
+
+前回配布元からiOSソースの差分はなく、番号更新以外はBackend・監視側の変更。Workerの稼働環境への反映はiOS uploadと分けて確認する。詳細と未完了チェックは[App Storeリリース管理](app-store-release.md)を参照。現時点でbuild 17のupload・配布・Apple申請は未実施。
+
 ## 1.0.3 (16) の内部配布・App Review提出・本番公開
 
 2026-10-05（JST）にApp Store Connectから取得した最新buildは公開中の`1.0.2 (15)`（Build ID `5407229d-ef1b-47cf-8c98-60f8f1c8848e`）。次の候補はmain `493ed7ea`を元にした`1.0.3 (16)`で、準備PRのマージ後にmerge済みソースからArchiveする。この段落は準備開始時点の記録であり、その後のupload・配布結果は次のとおり。

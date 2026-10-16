@@ -1,5 +1,37 @@
 # App Store リリース管理
 
+## 更新 1.0.4 (17) の準備
+
+2026-10-16（JST）にAppleの[日本向け公開lookup](https://itunes.apple.com/lookup?id=6806783378&country=jp)とApp Store Connectを読み戻した。公開版は`1.0.3 (16)`（version ID `35229013-f68c-4595-a000-ba8f6a517246`、Build ID `04094ec3-5d57-4f0d-88a8-c447acc6d6d5`）。最新upload済みbuildは`16`で、`1.0.4`は未作成だった。パッチ番号だけを上げ、次の候補を`1.0.4 (17)`とする。
+
+準備元はmain `8e75ea7c`（PR #145 / #144まで取り込み済み）。前回の配布元`1b0e95d01aca9da29796eb414b070a953ad302ae`からiOSディレクトリに差分はなく、今回のiOS変更は本体とShare Extensionの番号更新のみ。Bundle ID、日本語resource、価格、配信地域、スクリーンショットは既存設定を維持する。
+
+### mainに追加された変更と反映先
+
+- PR #143 / #144: Instagram等のレシピ解析出力上限を10000トークンへ統一し、Instagramのreasoning effortをlowにする。Z.aiの個別timeoutは180秒。Cloud Run Workerへの反映が必要
+- PR #145: 明確なInstagram閲覧制限を識別し、不要な再試行を止める。Cloud Run Workerへの反映が必要
+- PR #142: 分析最終失敗ログ・Slackアラートに安全な対象URLを添付する。Workerへの反映と監視設定のTerraform適用が別々に必要
+
+これらはBackend・監視の変更であり、iOS buildのuploadだけでは反映されない。Workerデプロイの実施範囲はユーザーへ確認中。監視設定のTerraform適用は別操作として管理し、反映済みとは記録しない。App Storeの更新内容は、申請前に稼働環境への反映を確認できた内容に合わせて確定する。番号更新だけの状態で解析改善の配布済みを主張しない。
+
+### 準備・検証・マージ後の提出チェックリスト
+
+- [x] Appleの公開版・最新build・version重複を確認し、1.0.4 (17)を候補に決定
+- [x] Specification as Codeを確定し、実装前に`npm run check:specs`成功（53仕様）
+- [ ] 本体・Share Extensionの生成projectとbuild済みbundleで1.0.4 (17)を確認
+- [ ] `npm run verify`（単体・結合・E2E・lint・format・build・各guardrail）成功
+- [ ] `npm run verify:ios`（単体・結合・UI・SwiftData migration・lint/format・build）成功
+- [ ] 準備PRの最新HEADでQuality成功。fresh contextの別Reviewerによる確認と人間によるマージ
+- [ ] マージ後の確定ソースを確認し、署名済みArchive / IPAを作成。本体・Extensionの番号・署名・entitlements・日本語resourceを確認
+- [ ] Workerの反映範囲を確定し、必要な場合は稼働source SHA・Ready・traffic・digestを読み戻す
+- [ ] Apple validation / upload後、processing `VALID`、未期限、`APP_STORE_ELIGIBLE`を確認
+- [ ] 既存内部TestFlightグループのbuild割り当てとWhat to Testを読み戻す（テスター追加・外部招待は行わない）
+- [ ] 既存審査アカウントで認証とAPIアクセスを確認。資格情報はGit・出力へ記録しない
+- [ ] App Store version 1.0.4へbuild 17を紐付け、更新内容・既存metadata・画像・配信設定・公開方式`MANUAL`を読み戻す
+- [ ] Appleへ提出し、Submission IDとversion / submissionの審査状態を読み戻す
+
+ユーザーが準備PRをマージした後にApple申請へ進む。一般公開はユーザーが行い、エージェントは公開操作を実行しない。App Store本番チェックは公開を確認するまで未完了のまま維持する。
+
 ## 更新 1.0.3 (16) の公開状況
 
 2026-10-07（JST）の確認時点で`1.0.3 (16)`はApp Store本番公開済み。公開日時は2026-10-06 06:27:33（JST）。以下に準備・提出時点の履歴と、その後の公開確認結果を記録する。

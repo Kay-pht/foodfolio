@@ -6,6 +6,15 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
 
 ## 未反映
 
+- [ ] `REL-20261016-03` Foodfolio 1.0.4をAppleへアップデート申請する
+  - 内容: 公開中の1.0.3 (16)からパッチ番号を上げ、本体・Share Extensionを1.0.4 (17)にする。準備元はmain `8e75ea7c`。前回配布元からiOSコードの変更はなく、解析改善はWorkerの反映と別に確認する
+  - PR: 未作成
+  - main反映: 未反映
+  - 必要な反映先:
+    - [ ] TestFlight内部テスト — 対象version/build: `1.0.4 (17)`、既存`Foodfolio Internal`
+    - [ ] App Store本番 — 対象version/build: `1.0.4 (17)`、Apple申請後も`MANUAL`を維持し、公開はユーザーが行う
+  - 備考: 今回のゴールはApple申請まで。人間による準備PRのマージ前にupload・申請は行わない。Workerのデプロイ範囲は確認中。PR #142の監視Terraform適用は別管理。各解析改善の配布状況は既存項目で追跡する
+
 - [ ] `REL-20261016-02` 稼働用レシピ解析の出力上限を10000トークンへ統一し、Z.aiの個別timeoutを180秒にする
   - 内容: Z.aiの全媒体・text/ordered media/legacy videoとYouTube用Gemini fallbackで、共通定数`RECIPE_EXTRACTION_MAX_OUTPUT_TOKENS`を参照する。Instagram以外のZ.aiは4000、Geminiは8192から10000へ変更する。Z.aiの個別リクエスト期限は全経路で120秒から180秒へ延長する。reasoning_effort lowはInstagram限定のまま維持し、過去のPoC設定は変更しない
   - PR: [#144](https://github.com/Kay-pht/foodfolio/pull/144)
