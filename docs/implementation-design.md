@@ -2482,7 +2482,11 @@ Jevログだけではthreshold未満ケースのtext route成功可否を断定�
 
 URL取得失敗では、取得処理・失敗段階・失敗分類・HTTP status・redirect回数を、アプリケーション管理の固定値と検証済み数値だけで記録する。TikTokは短縮URL解決とoEmbed取得を区別する。Instagramメディア処理では、metadata probe、download/validate、temporary storage publish、local work directory prepare、cleanupを固定値で区別し、HTTP status、投稿内index、media kind、内部attemptを必要な範囲で記録する。redirect先URL、media URL、HTTP header、署名URL、raw exception messageは診断fieldへ含めない。最終失敗時は、これらの固定値と検証済み数値だけから日本語の `diagnosticDetail` を生成し、Cloud Monitoring経由のSlack通知にも表示する。
 
-診断情報の追加で既存のエラーコード・再試行・状態遷移を変えない。不正なredirect Locationは `INTERNAL_ANALYSIS_ERROR / retryable=true` とし、配送試行が残っていればWorkerはHTTP 503を返してRecipeを `pending` に保つ。Instagramの取得・公開後の作業領域削除失敗は内部試行の対象とし、試行上限後のrollbackと最後の削除が成功した場合は `INSTAGRAM_MEDIA_DOWNLOAD_FAILED / retryable=false`、HTTP 204、`failed` とする。最後の作業領域削除そのものが失敗した場合は、既存どおり `INTERNAL_ANALYSIS_ERROR / retryable=true` とする。
+Instagramのmetadata probeと単一動画downloadでは、yt-dlpの明示的なエラー行から `age_restricted`（年齢制限）、`login_required`（ログイン要求）、`audience_restricted`（閲覧対象の制限）を区別する。`audience_restricted` だけで年齢制限を断定しない。警告、一般的なcookie案内、複数原因の候補を並べた曖昧な応答、成功時のstdoutは制限判定に使わない。単一動画downloadのstderrは末尾16 KiBを上限にメモリで分類し、固定enum以外を例外・ログへ伝搬しない。timeout分類は制限らしい途中出力より優先する。
+
+明示された制限は匿名取得の限界として扱い、内部再試行を止めて既存の段階別error codeを保った `retryable=false` にする。Workerの初回配送で `failed` / HTTP 204となり、同じタスクの重複配送でも再取得しない。年齢確認・ログイン・cookie注入は追加しない。SlackのsummaryとnextActionにも制限と自動再試行しない方針を固定文で表示する。
+
+診断情報の追加では、上記のInstagram閲覧制限による終了を除き、既存のエラーコード・再試行・状態遷移を変えない。不正なredirect Locationは `INTERNAL_ANALYSIS_ERROR / retryable=true` とし、配送試行が残っていればWorkerはHTTP 503を返してRecipeを `pending` に保つ。Instagramの取得・公開後の作業領域削除失敗は内部試行の対象とし、試行上限後のrollbackと最後の削除が成功した場合は `INSTAGRAM_MEDIA_DOWNLOAD_FAILED / retryable=false`、HTTP 204、`failed` とする。最後の作業領域削除そのものが失敗した場合は、既存どおり `INTERNAL_ANALYSIS_ERROR / retryable=true` とする。
 
 禁止：
 

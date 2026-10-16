@@ -1,6 +1,7 @@
 import { stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import { classifyYtDlpAccessRestriction } from "../../src/infrastructure/media/yt-dlp-access-restriction.js";
 import { YtDlpMediaRetriever } from "../../src/infrastructure/media/yt-dlp-media-retriever.js";
 
 const baseConfig = {
@@ -288,4 +289,51 @@ describe("YtDlpMediaRetriever", () => {
     ).rejects.toMatchObject({ code: "MEDIA_URL_INVALID" });
     expect(runAttempt).not.toHaveBeenCalled();
   });
+});
+
+it("preserves other platforms' retries when access classification is not enabled", async () => {
+  const runner = vi.fn(async () => {
+    throw Object.assign(new Error("private"), {
+      stderr: "ERROR: [Instagram] fixture: This content is age-restricted",
+    });
+  });
+  const retriever = new YtDlpMediaRetriever(baseConfig, runner, async () => {});
+  await expect(
+    retriever.retrieve(new URL("https://example.com/post/other")),
+  ).rejects.toMatchObject({ code: "MEDIA_DOWNLOAD_FAILED" });
+  expect(runner).toHaveBeenCalledTimes(3);
+});
+
+it("stops opted-in download attempts and cleans their directory for a restriction", async () => {
+  const runner = vi.fn(async () => {
+    throw Object.assign(new Error("private"), {
+      stderr:
+        "ERROR: [Instagram] fixture: You need to log in to access this content",
+    });
+  });
+  const filesystem = {
+    createWorkDirectory: vi.fn(async () => "/tmp/unused-access-fixture"),
+    clearWorkDirectory: vi.fn(async () => {}),
+    removeWorkDirectory: vi.fn(async () => {}),
+  };
+  const sleep = vi.fn(async () => {});
+  const retriever = new YtDlpMediaRetriever(
+    {
+      ...baseConfig,
+      downloadFailureStage: "single_video_download",
+      classifyAccessRestriction: classifyYtDlpAccessRestriction,
+    },
+    runner,
+    sleep,
+    filesystem,
+  );
+  await expect(
+    retriever.retrieve(new URL("https://example.com/post/login")),
+  ).rejects.toMatchObject({
+    retryable: false,
+    diagnostics: { mediaFailureClass: "login_required", mediaAttempt: 1 },
+  });
+  expect(runner).toHaveBeenCalledOnce();
+  expect(filesystem.removeWorkDirectory).toHaveBeenCalledOnce();
+  expect(sleep).not.toHaveBeenCalled();
 });

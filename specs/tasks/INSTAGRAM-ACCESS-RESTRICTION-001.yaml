@@ -1,0 +1,66 @@
+id: INSTAGRAM-ACCESS-RESTRICTION-001
+type: bug
+status: approved
+objective: Identify explicit Instagram access restrictions without exposing tool output, and stop futile internal and task-delivery retries.
+requirements:
+  - id: IAR-1
+    condition: Instagram metadata probing or single-video downloading fails with an explicit access restriction reported by yt-dlp.
+    expected: Classify age_restricted, login_required or audience_restricted using bounded stderr from recognized error lines. A generic audience restriction must never be labeled as an age restriction. Propagate only fixed enums and existing numeric metadata.
+    verification:
+      - tests/unit/instagram-media-retriever.test.ts
+      - tests/unit/media-retriever.test.ts
+  - id: IAR-2
+    condition: An explicit Instagram access restriction is identified.
+    expected: Stop internal attempts at the first observed restriction, preserve the existing stage-specific error code, set retryable false and clean any local files. The Worker returns 204 and stores failed on the first delivery; duplicate deliveries do not probe or call AI again.
+    verification:
+      - tests/unit/instagram-media-retriever.test.ts
+      - tests/e2e/worker-error-compatibility.test.ts
+  - id: IAR-3
+    condition: An access-restricted analysis reaches its terminal log.
+    expected: Log the fixed restriction class and render controlled Japanese summary, nextAction and diagnosticDetail explaining the anonymous retrieval limitation and that automatic retries stop. Do not promise that login alone grants access.
+    verification:
+      - tests/unit/analysis-operational-failure.test.ts
+      - tests/e2e/worker-error-compatibility.test.ts
+  - id: IAR-4
+    condition: The tool reports an ambiguous failure, a cookie hint, or a timeout; retrieval succeeds; or the retriever serves another platform.
+    expected: Retain existing behavior. Cookie hints and ambiguous unavailable/rate-limit/login alternatives do not establish a permanent restriction. Timeout classification takes precedence over partial stderr. Successful stdout and its content are never inspected as an access error.
+    verification:
+      - tests/unit/instagram-media-retriever.test.ts
+      - tests/unit/media-retriever.test.ts
+edge_cases:
+  - The provider reports audience restrictions without disclosing the age, region or account rule.
+  - The current yt-dlp audience-restriction wording includes apostrophes and an Instagram error prefix.
+  - Login is recommended as one of several possible fixes rather than explicitly required.
+  - A child process times out after printing a restriction-like message.
+  - Long stderr is bounded and only its tail is used for classification.
+  - An error message, warning, URL or source text contains restriction-like words without a recognized error line.
+  - A single-video download fails after successful metadata retrieval.
+  - Local cleanup fails while terminating a restricted download; retain the existing filesystem error handling.
+security_invariants:
+  - Never log raw stderr, command text, headers, cookies, source body, signed URLs or arbitrary provider error text.
+  - Do not introduce login, cookie injection, age verification bypass, new network requests or paid AI calls.
+  - Restriction diagnostics are repository-owned fixed enum values only.
+compatibility:
+  - Preserve existing API contracts, database schema, error codes, success behavior and notification settings.
+  - Change retryability only for explicitly identified Instagram access restrictions; all unknown and transient failures retain their retries.
+  - Restriction-specific early termination supersedes the blanket retry-preservation statement in ANALYSIS-FAILURE-LOG-DIAGNOSTICS-002 for this case only.
+  - No changes to token limits, prompts, AI routing or other platforms' retry behavior.
+non_functional:
+  - Capture at most 16384 bytes of single-video stderr in memory and never persist it.
+  - Complete focused regression tests and full npm run verify including unit, integration, E2E, lint, formatting and build.
+out_of_scope:
+  - Deployment, Terraform apply, final self-review approval or merge.
+  - Reprocessing historical failures or automatically supplying an authenticated Instagram session.
+  - Inferring a specific restriction from a screenshot at runtime or rewriting old logs.
+acceptance_criteria:
+  - Demonstrate failing regression tests before implementation and passing tests afterward.
+  - An audience restriction is distinguishable from an explicitly reported age restriction in terminal logs and Slack wording.
+  - Known restrictions produce one internal attempt and a first-delivery terminal outcome; duplicate task delivery does not repeat retrieval.
+  - Unknown failures and timeouts keep their original classification and bounded retries.
+  - All backend verification passes and a PR is created for independent review.
+regression:
+  required: true
+  tests:
+    - tests/unit/instagram-media-retriever.test.ts
+    - tests/unit/analysis-operational-failure.test.ts
+    - tests/e2e/worker-error-compatibility.test.ts

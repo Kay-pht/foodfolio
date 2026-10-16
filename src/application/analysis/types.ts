@@ -107,7 +107,11 @@ export type MediaFailureStage =
   | "local_prepare"
   | "local_cleanup"
   | "published_cleanup";
+export type MediaAccessRestriction =
+  "age_restricted" | "login_required" | "audience_restricted";
+
 export type MediaFailureClass =
+  | MediaAccessRestriction
   | "timeout"
   | "network"
   | "tool_error"

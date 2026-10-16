@@ -113,6 +113,9 @@ jsonPayload.analysisStatus="failed"
 - URL取得失敗では `sourceOperation`、`sourceFailureStage`、`sourceFailureClass`、`sourceHttpStatus`、`sourceRedirectCount` を利用可能な範囲で記録する。値はアプリケーション管理の固定分類と検証済み数値だけとし、redirect先URL、response body、例外メッセージは記録しない
 - TikTokでは短縮URL解決を `tiktok_short_url`、oEmbed取得を `tiktok_oembed` として区別し、同じ `SOURCE_FETCH_FAILED` でも失敗したHTTP処理をCloud Loggingで判別できるようにする
 - Instagramメディア取得失敗では `mediaFailureStage`、`mediaFailureClass`、`mediaHttpStatus`、`mediaIndex`、`mediaKind`、`mediaAttempt`、`mediaMaxAttempts` を利用可能な範囲で記録する。metadata取得、単一動画download、asset download/validate、GCS publish、local work directory prepare、local/published cleanupを固定値で区別し、media URL、HTTP header、署名URL、raw exceptionは記録しない
+- Instagramの取得ツールがエラーとして明示した年齢制限・ログイン要求・閲覧対象制限は、`mediaFailureClass=age_restricted / login_required / audience_restricted` として区別する。`audience_restricted` から年齢・地域等の内訳を推測せず、一般的なcookie利用案内や「取得不可・rate limit・loginのいずれか」という曖昧な応答は従来の分類を維持する
+- 明確なInstagram閲覧制限では、metadata取得・単一動画downloadの内部再試行を初回の制限検出で終了し、既存の段階別error codeを保った `retryable=false` とする。Workerは最初の配送で `failed` / HTTP 204を返してCloud Tasksの再配送を止める。重複配送でも再取得しない。Slackのsummary・診断情報・次に行うことには匿名取得の限界と自動再試行しない旨を固定文で表示し、ログインだけで閲覧できるとは案内しない
+- 制限の判定はyt-dlpのInstagramエラー行だけを対象とし、raw stderrやコマンド文字列をログに残さない。単一動画downloadのstderrは末尾16 KiBだけをメモリに保持して固定分類に変換し、破棄する。timeoutでは途中に制限らしい文があってもtimeout分類・既存の再試行を優先する
 - source/media diagnosticsの各固定enum・検証済み数値は、アプリ側で日本語の `diagnosticDetail` に整形し、Recipe Analysis最終失敗のSlack通知にも「診断情報」として表示する。Slackへはraw diagnostic field、media URL、header、例外文を直接展開しない
 - `aiFailureStage` は transport / HTTP / response envelope / content / schema のどこで失敗したかを、アプリケーション管理の固定値で表す。Provider由来の任意メッセージは記録しない
 - Slackへ表示する分析対象URLは、利用者が保存した `originalUrl` から生成する専用の `sourceLink` に限定する。認証情報（userinfo）、fragment、クエリを除去し、既存の `youtubeVideoId` で識別できるYouTube URLだけは検証済み動画IDを持つ正規URL（`https://www.youtube.com/watch?v=...`）へ整形する。他のSNS・共有ページ・一般Webではパスを維持するが、必要性を確認できないクエリ識別子も除去する。Markdownリンクを壊す文字はpercent-encodeする

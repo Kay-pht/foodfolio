@@ -239,3 +239,27 @@ it("does not present HTTP rejection as a provider outage", () => {
   expect(result.summary).toContain("HTTP 403");
   expect(result.nextAction).not.toMatch(/一時障害|復旧後/);
 });
+
+// IAR-3: Slack explains the anonymous retrieval limit using controlled wording.
+it.each([
+  ["age_restricted", "年齢制限"],
+  ["login_required", "ログイン"],
+  ["audience_restricted", "閲覧対象"],
+] as const)(
+  "explains a permanent Instagram %s restriction",
+  (mediaFailureClass, phrase) => {
+    const result = describeAnalysisFailure({
+      errorCode: "INSTAGRAM_MEDIA_METADATA_FAILED",
+      provider: undefined,
+      attempt: 1,
+      diagnostics: { mediaFailureStage: "metadata_probe", mediaFailureClass },
+    });
+    expect(result.summary).toContain(phrase);
+    expect(result.summary).toContain("匿名");
+    expect(result.nextAction).toContain("自動再試行しません");
+    expect(result.diagnosticDetail).toContain(phrase);
+    if (mediaFailureClass === "audience_restricted") {
+      expect(result.summary).toContain("内訳は未確認");
+    }
+  },
+);

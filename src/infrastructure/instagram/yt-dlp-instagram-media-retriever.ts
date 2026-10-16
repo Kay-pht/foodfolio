@@ -15,6 +15,10 @@ import {
   type PublishedMediaRetriever,
   type TemporaryMediaStore,
 } from "../../application/analysis/types.js";
+import {
+  classifyYtDlpAccessRestriction,
+  YtDlpAccessRestrictionError,
+} from "../media/yt-dlp-access-restriction.js";
 import { YtDlpMediaRetriever } from "../media/yt-dlp-media-retriever.js";
 
 const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
@@ -198,6 +202,7 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
           message: `Instagram media download failed after ${config.maxAttempts} attempts`,
         },
         downloadFailureStage: "single_video_download",
+        classifyAccessRestriction: classifyYtDlpAccessRestriction,
         localPrepareError: {
           code: "INTERNAL_ANALYSIS_ERROR",
           retryable: true,
@@ -229,19 +234,22 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
           this.config.attemptTimeoutMs,
         );
       } catch (error) {
+        const restriction = isTimeoutFailure(error)
+          ? undefined
+          : classifyYtDlpAccessRestriction(error);
         const failure = new AnalysisError(
           "INSTAGRAM_MEDIA_METADATA_FAILED",
-          true,
+          !restriction,
           "Instagram media metadata retrieval failed",
           undefined,
           {
             mediaFailureStage: "metadata_probe",
-            mediaFailureClass: metadataFailureClass(error),
+            mediaFailureClass: restriction ?? metadataFailureClass(error),
             mediaAttempt: attempt,
             mediaMaxAttempts: this.config.maxAttempts,
           },
         );
-        if (attempt === this.config.maxAttempts) {
+        if (restriction || attempt === this.config.maxAttempts) {
           if (workDirectory)
             await this.removeWorkDirectory(workDirectory, attempt, true);
           throw failure;
@@ -667,8 +675,15 @@ export function runInstagramMetadataProbe(
         killSignal: "SIGKILL",
         maxBuffer: MAX_METADATA_BYTES,
       },
-      (error, stdout) => {
-        if (error) return reject(error);
+      (error, stdout, stderr) => {
+        if (error) {
+          const restriction = isTimeoutFailure(error)
+            ? undefined
+            : classifyYtDlpAccessRestriction({ stderr });
+          return reject(
+            restriction ? new YtDlpAccessRestrictionError(restriction) : error,
+          );
+        }
         try {
           resolve(JSON.parse(stdout));
         } catch (parseError) {

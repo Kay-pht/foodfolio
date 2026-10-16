@@ -6,6 +6,14 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
 
 ## 未反映
 
+- [ ] `REL-20261016-01` Instagramの明確な閲覧制限をログ・通知で識別し、不要な再試行を止める
+  - 内容: 取得ツールが明示する年齢制限・ログイン要求・閲覧対象制限を固定分類で記録し、metadata取得と単一動画downloadの内部再試行・Cloud Tasks再配送を終了する。曖昧な応答・通信障害は既存の再試行を維持する
+  - PR: 作成前
+  - main反映: 未反映
+  - 必要な反映先:
+    - [ ] Cloud Run（dev Worker） — 対象Git SHA/revision: 未定
+  - 備考: Backend専用変更。匿名取得の範囲を維持し、ログイン・cookie注入・年齢確認の回避は追加しない。既存summary/nextAction/diagnosticDetailを使うため新しい監視設定は不要
+
 - [ ] `REL-20261009-01` Instagram解析の出力打ち切りを緩和する
   - 内容: Instagramのcaption text・ordered media・legacy videoに限り、Z.aiの出力上限を4000から10000へ増やし、reasoning_effortをlowにする。既存ルーティング・最大3回の配送再試行・prompt・schema・120秒timeoutは維持する
   - PR: [#143](https://github.com/Kay-pht/foodfolio/pull/143)

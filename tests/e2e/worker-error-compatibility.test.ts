@@ -1,4 +1,11 @@
-import { copyFile, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import {
+  copyFile,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -175,6 +182,92 @@ describe("Worker source/media error compatibility E2E", () => {
       await rm(publishedDirectory, { recursive: true, force: true });
     }
   });
+
+  // IAR-2 / IAR-3: real subprocess -> retriever -> Worker -> PostgreSQL -> terminal log.
+  it.each([
+    ["age_restricted", "People under 19 can't see this content", "年齢制限"],
+    ["login_required", "You need to log in to access this content", "ログイン"],
+    [
+      "audience_restricted",
+      "This content isn't available to everyone: It can't be seen by certain audiences.",
+      "閲覧対象",
+    ],
+  ])(
+    "terminates %s on the first delivery without repeating retrieval",
+    async (failureClass, message, phrase) => {
+      const directory = await mkdtemp(join(tmpdir(), "foodfolio-e2e-access-"));
+      const calls = join(directory, "calls.txt");
+      const binaryPath = join(directory, "fake-yt-dlp.mjs");
+      await writeFile(
+        binaryPath,
+        `#!/usr/bin/env node
+import { appendFileSync } from "node:fs";
+appendFileSync(${JSON.stringify(calls)}, "call\\n");
+process.stderr.write(${JSON.stringify("ERROR: [Instagram] fixture: " + message + ". private-access-detail https://cdn.example/?token=secret\n")});
+process.exit(1);
+`,
+        { mode: 0o700 },
+      );
+      const publish = vi.fn();
+      const extractMedia = vi.fn();
+      const retriever = new YtDlpInstagramMediaRetriever(
+        {
+          binaryPath,
+          maxAttempts: 5,
+          attemptTimeoutMs: 1000,
+          retryBaseSeconds: 0,
+          maxRetrySeconds: 0,
+        },
+        { publish },
+      );
+      const fixture = await startWorker(
+        `access-${failureClass}`,
+        {
+          extract: async (url) => ({
+            sourceType: "instagram",
+            resolvedUrl: url.toString(),
+            imageUrl: null,
+            textForAi: null,
+          }),
+        },
+        new ProductionInstagramMediaRecipeFallback(retriever, { extractMedia }),
+      );
+      try {
+        expect(await fixture.deliver(1)).toEqual({
+          httpStatus: 204,
+          recipeStatus: "failed",
+        });
+        expect(await fixture.deliver(2)).toEqual({
+          httpStatus: 204,
+          recipeStatus: "failed",
+        });
+        expect((await readFile(calls, "utf8")).trim().split("\n")).toHaveLength(
+          1,
+        );
+        expect(fixture.logs).toContainEqual(
+          expect.objectContaining({
+            errorCode: "INSTAGRAM_MEDIA_METADATA_FAILED",
+            analysisStatus: "failed",
+            analysisAttempt: 1,
+            mediaFailureClass: failureClass,
+            mediaAttempt: 1,
+            mediaMaxAttempts: 5,
+            summary: expect.stringContaining(phrase),
+            diagnosticDetail: expect.stringContaining(phrase),
+            nextAction: expect.stringContaining("自動再試行しません"),
+          }),
+        );
+        expect(JSON.stringify(fixture.logs)).not.toMatch(
+          /private-access-detail|cdn\.example|token=secret/,
+        );
+        expect(extractMedia).not.toHaveBeenCalled();
+        expect(publish).not.toHaveBeenCalled();
+      } finally {
+        await fixture.worker.close();
+        await rm(directory, { recursive: true, force: true });
+      }
+    },
+  );
 
   it("keeps a malformed real HTTP redirect pending until the Worker delivery limit", async () => {
     const server = createServer((_request, response) => {
