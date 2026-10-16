@@ -12,18 +12,22 @@
 - PR #145: 明確なInstagram閲覧制限を識別し、不要な再試行を止める。Cloud Run Workerへの反映が必要
 - PR #142: 分析最終失敗ログ・Slackアラートに安全な対象URLを添付する。Workerへの反映と監視設定のTerraform適用が別々に必要
 
-これらはBackend・監視の変更であり、iOS buildのuploadだけでは反映されない。Workerデプロイの実施範囲はユーザーへ確認中。監視設定のTerraform適用は別操作として管理し、反映済みとは記録しない。App Storeの更新内容は、申請前に稼働環境への反映を確認できた内容に合わせて確定する。番号更新だけの状態で解析改善の配布済みを主張しない。
+これらはBackend・監視の変更であり、iOS buildのuploadだけでは反映されない。既存の[自動デプロイ](https://github.com/Kay-pht/foodfolio/actions/runs/38870286716)が成功しており、追加デプロイは不要。2026-10-16（JST）にAPI `foodfolio-dev-api-00056-t7l` / Worker `foodfolio-dev-worker-00060-jss`のReadyとtraffic 100%を再取得した。source SHA `8e75ea7c1b2042a50ab7ca9ffd8714d51064fd11`のbuild/pushログと両サービスの配信imageを照合し、共通digest `sha256:567f8b34a417f9a44935b009127d0568cf9acc805649a0cce152c0170aabd587`の一致を確認した。実利用での解析完了率改善は未測定。
+
+デプロイ後の保持状況も読み取り確認した。全regionのserviceは上記2件、Jobは0件。APIは42 revisions、Workerは43 revisionsで、各22件が30日超（最古2026-09-05）。Registryは39 versions中19件が30日超。これらは整理候補の調査対象であり、最新3件の成功証跡・全残存参照・親manifestの照合による削除対象の確定は未実施。今回の作業では削除しない。
+
+監視設定のTerraform適用は別操作として管理し、反映済みとは記録しない。日本語の更新内容案は「レシピの取り込み処理を調整しました。」とし、申請直前に稼働環境を再確認する。
 
 ### 準備・検証・マージ後の提出チェックリスト
 
 - [x] Appleの公開版・最新build・version重複を確認し、1.0.4 (17)を候補に決定
 - [x] Specification as Codeを確定し、実装前に`npm run check:specs`成功（53仕様）
-- [ ] 本体・Share Extensionの生成projectとbuild済みbundleで1.0.4 (17)を確認
-- [ ] `npm run verify`（単体・結合・E2E・lint・format・build・各guardrail）成功
-- [ ] `npm run verify:ios`（単体・結合・UI・SwiftData migration・lint/format・build）成功
+- [x] 本体・Share Extensionの生成projectとbuild済みbundleで1.0.4 (17)、表示名Foodfolio、日本語resourceを確認
+- [x] `npm run verify`成功（単体540件・結合58件・E2E68件、lint・format・build・各guardrail）
+- [x] `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer IOS_PARALLEL_WORKERS=1 npm run verify:ios`成功（136件、失敗0・skip0。単体75件・結合27件・UI34件、SwiftData migration・lint/format・buildを含む）
 - [ ] 準備PRの最新HEADでQuality成功。fresh contextの別Reviewerによる確認と人間によるマージ
 - [ ] マージ後の確定ソースを確認し、署名済みArchive / IPAを作成。本体・Extensionの番号・署名・entitlements・日本語resourceを確認
-- [ ] Workerの反映範囲を確定し、必要な場合は稼働source SHA・Ready・traffic・digestを読み戻す
+- [x] 既存自動デプロイの成功とAPI / Workerの稼働source SHA・Ready・traffic・digestを読み戻す（追加デプロイなし）
 - [ ] Apple validation / upload後、processing `VALID`、未期限、`APP_STORE_ELIGIBLE`を確認
 - [ ] 既存内部TestFlightグループのbuild割り当てとWhat to Testを読み戻す（テスター追加・外部招待は行わない）
 - [ ] 既存審査アカウントで認証とAPIアクセスを確認。資格情報はGit・出力へ記録しない

@@ -4,7 +4,7 @@ status: approved
 
 objective: >-
   Prepare current main for the Foodfolio patch update from the live App Store
-  version 1.0.4 (16) to 1.0.4 (17). Create a preparation PR for the human to
+  version 1.0.3 (16) to 1.0.4 (17). Create a preparation PR for the human to
   merge, then upload the merged source and submit the update to Apple App Review.
   Stop before public release, which the user performs manually.
 
@@ -53,7 +53,7 @@ requirements:
     expected: >-
       PRs 142 through 145 are backend or monitoring changes with no iOS source
       changes since the prior release. An iOS upload alone does not deliver
-      them. Worker deployment scope is confirmed separately with the user;
+      them. Existing automatic deployment is checked without duplicate deployment;
       serving source, Ready state, traffic and immutable digest are verified
       before claiming deployed improvements in release notes. Monitoring
       Terraform application is tracked separately.
