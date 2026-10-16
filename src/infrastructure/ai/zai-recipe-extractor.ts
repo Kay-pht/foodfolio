@@ -185,7 +185,7 @@ export class ZaiRecipeExtractor
     try {
       response = await fetch("https://api.z.ai/api/paas/v4/chat/completions", {
         method: "POST",
-        signal: AbortSignal.timeout(120_000),
+        signal: AbortSignal.timeout(180_000),
         headers: {
           authorization: `Bearer ${this.apiKey}`,
           "content-type": "application/json",

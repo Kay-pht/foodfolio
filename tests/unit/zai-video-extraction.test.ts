@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ZaiRecipeExtractor } from "../../src/infrastructure/ai/zai-recipe-extractor.js";
 
 afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
@@ -35,6 +37,141 @@ const tiktokVideoSource = {
   imageUrl: null,
   textForAi: "TITLE\nパスタ",
 };
+
+function simulatedRequestTimeout() {
+  vi.useFakeTimers();
+  vi.setSystemTime(0);
+  return vi.spyOn(AbortSignal, "timeout").mockImplementation((milliseconds) => {
+    const controller = new AbortController();
+    setTimeout(
+      () => controller.abort(new DOMException("Timed out", "TimeoutError")),
+      milliseconds,
+    );
+    return controller.signal;
+  });
+}
+
+function delayedResponse(signal: AbortSignal, milliseconds: number) {
+  return new Promise<Response>((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(signal.reason);
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve(successfulResponse("delayed-request"));
+    }, milliseconds);
+    signal.addEventListener("abort", onAbort, { once: true });
+    if (signal.aborted) onAbort();
+  });
+}
+
+function extractVia(route: "text" | "media" | "video") {
+  const extractor = new ZaiRecipeExtractor("test-api-key");
+  if (route === "text") return extractor.extract(tiktokVideoSource);
+  if (route === "video")
+    return extractor.extractVideo(
+      tiktokVideoSource,
+      "https://storage.example/video",
+    );
+  return extractor.extractMedia(tiktokVideoSource, [
+    {
+      index: 1,
+      kind: "video",
+      url: "https://storage.example/video",
+      contentType: "video/mp4",
+      dispose: async () => {},
+    },
+  ]);
+}
+
+describe("Z.ai individual request timeout", () => {
+  it.each(["text", "media", "video"] as const)(
+    "%s extraction accepts a response at 150 seconds, beyond the old deadline",
+    async (route) => {
+      const timeout = simulatedRequestTimeout();
+      const fetchMock = vi.fn<typeof fetch>(async (_url, init) =>
+        delayedResponse(init!.signal!, 150_000),
+      );
+      vi.stubGlobal("fetch", fetchMock);
+      const outcome = extractVia(route).catch((error: unknown) => error);
+
+      await vi.advanceTimersByTimeAsync(120_001);
+      expect(fetchMock.mock.calls[0]![1]!.signal!.aborted).toBe(false);
+      await vi.advanceTimersByTimeAsync(29_999);
+      expect(await outcome).toMatchObject({
+        provider: "zai",
+        recipe: { title: "パスタ" },
+        latencyMs: 150_000,
+      });
+      expect(timeout).toHaveBeenCalledExactlyOnceWith(180_000);
+      expect(fetchMock).toHaveBeenCalledOnce();
+    },
+  );
+
+  it.each(["text", "media", "video"] as const)(
+    "%s extraction aborts at 180 seconds and preserves retryable diagnostics",
+    async (route) => {
+      simulatedRequestTimeout();
+      const fetchMock = vi.fn<typeof fetch>(async (_url, init) =>
+        delayedResponse(init!.signal!, 180_001),
+      );
+      vi.stubGlobal("fetch", fetchMock);
+      const outcome = extractVia(route).catch((error: unknown) => error);
+
+      await vi.advanceTimersByTimeAsync(179_999);
+      expect(fetchMock.mock.calls[0]![1]!.signal!.aborted).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(await outcome).toMatchObject({
+        code: "AI_TIMEOUT",
+        retryable: true,
+        provider: "zai",
+        diagnostics: { aiFailureStage: "request_timeout", latencyMs: 180_000 },
+      });
+      expect(fetchMock.mock.calls[0]![1]!.signal!.aborted).toBe(true);
+      expect(fetchMock).toHaveBeenCalledOnce();
+    },
+  );
+
+  it.each([
+    { bodyDelay: 149_000, timesOut: false },
+    { bodyDelay: 179_001, timesOut: true },
+  ])(
+    "shares the header deadline with the body (body delay $bodyDelay ms)",
+    async ({ bodyDelay, timesOut }) => {
+      simulatedRequestTimeout();
+      const fetchMock = vi.fn<typeof fetch>(async (_url, init) => {
+        const signal = init!.signal!;
+        const response = await delayedResponse(signal, 1_000);
+        vi.spyOn(response, "json").mockImplementation(async () => {
+          const body = await delayedResponse(signal, bodyDelay);
+          return body.json();
+        });
+        return response;
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      const outcome = extractVia("text").catch((error: unknown) => error);
+
+      await vi.advanceTimersByTimeAsync(120_001);
+      expect(fetchMock.mock.calls[0]![1]!.signal!.aborted).toBe(false);
+      await vi.advanceTimersByTimeAsync(timesOut ? 59_999 : 29_999);
+      expect(await outcome).toMatchObject(
+        timesOut
+          ? {
+              code: "INTERNAL_ANALYSIS_ERROR",
+              retryable: true,
+              diagnostics: {
+                aiFailureStage: "request_timeout",
+                providerHttpStatus: 200,
+                latencyMs: 180_000,
+              },
+            }
+          : { provider: "zai", latencyMs: 150_000 },
+      );
+      expect(fetchMock).toHaveBeenCalledOnce();
+    },
+  );
+});
 
 describe("ZaiRecipeExtractor media input", () => {
   it.each([

@@ -1,0 +1,49 @@
+id: ZAI-REQUEST-TIMEOUT-001
+type: bug
+status: approved
+objective: Allow production Z.ai recipe requests to finish after 120 seconds by increasing the individual request timeout to 180 seconds.
+requirements:
+  - id: ZRT-1
+    condition: Production Z.ai text, ordered media or legacy video extraction sends an API request for any source type.
+    expected: Use one 180000-millisecond request timeout, covering both response headers and body. A valid response after 120 seconds and before 180 seconds succeeds.
+    verification:
+      - src/infrastructure/ai/zai-recipe-extractor.ts
+      - tests/unit/zai-video-extraction.test.ts
+  - id: ZRT-2
+    condition: A Z.ai request exceeds 180 seconds before headers or while reading its response body.
+    expected: Abort the request and preserve the existing error code, retryable flag and request_timeout diagnostics for that failure stage. Do not add internal AI retries.
+    verification:
+      - tests/unit/zai-video-extraction.test.ts
+      - tests/e2e/backend-worker.test.ts
+  - id: ZRT-3
+    condition: Other provider settings, task deadlines or download retry policies are used.
+    expected: Preserve Gemini at 180 seconds, Worker and Cloud Tasks at 600 seconds, existing download retries, generation settings, routing and API contracts.
+    verification:
+      - src/infrastructure/ai/gemini-youtube-recipe-extractor.ts
+      - src/infrastructure/tasks/task-queue.ts
+      - infra/terraform/main.tf
+      - tests/e2e/recipe-output-token-limit.test.ts
+edge_cases:
+  - A response after the old 120-second limit can still finish before the new deadline.
+  - Response headers may arrive before the deadline while the body exceeds it.
+  - Sequential text and media requests each receive their own 180-second deadline.
+security_invariants:
+  - Preserve privacy-safe diagnostics; do not log source content, signed URLs or credentials.
+  - Do not make paid provider calls, modify production data or send real notifications during validation.
+compatibility:
+  - Supersede only the Z.ai timeout constraints in INSTAGRAM-MEDIA-COMPLETION-001 and RECIPE-OUTPUT-TOKEN-LIMIT-001.
+  - Keep historical experiment settings and findings unchanged.
+non_functional:
+  - Full Backend verification must pass, including unit, integration, E2E, lint, format and build.
+  - This is an individual-request limit, not a guarantee that every Worker delivery finishes within 600 seconds. Two AI requests plus five 45-second video-download attempts and 20 seconds of backoff can total 605 seconds before other work; Instagram has additional metadata and asset stages.
+out_of_scope:
+  - Shared Worker time budgets, changes to fallback behavior, retry counts or outer deadlines, as explicitly selected by the user.
+  - PoC changes, paid live validation, deployment, recipe reprocessing, iOS changes, final LGTM and merge.
+acceptance_criteria:
+  - Boundary regression tests fail with the old 120-second limit and pass with the new 180-second limit.
+  - Text, ordered media and legacy video share the new timeout; body timeout classification remains unchanged.
+  - Document the pending Worker rollout and the possible 600-second overall overrun without claiming live failure resolution.
+regression:
+  required: true
+  tests:
+    - tests/unit/zai-video-extraction.test.ts

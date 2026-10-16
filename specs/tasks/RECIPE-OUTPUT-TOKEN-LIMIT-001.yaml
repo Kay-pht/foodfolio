@@ -39,7 +39,7 @@ security_invariants:
   - Do not expose credentials, source content, signed URLs or provider reasoning in diagnostics or committed evidence.
   - No paid API calls, production database writes, notifications or recipe reprocessing during PR preparation.
 compatibility:
-  - Preserve prompts, schemas, models, routing, retry counts, timeouts and API contracts.
+  - Preserve prompts, schemas, models, routing, retry counts and API contracts. ZAI-REQUEST-TIMEOUT-001 supersedes the original Z.ai 120-second timeout with 180 seconds; Gemini remains at 180 seconds.
   - Preserve Instagram-only reasoning_effort low and all other generation settings.
   - Supersede only the non-Instagram output-limit constraints in INSTAGRAM-MEDIA-COMPLETION-001; its other requirements remain in force.
   - Preserve historical PoC settings and dated experiment conclusions.
