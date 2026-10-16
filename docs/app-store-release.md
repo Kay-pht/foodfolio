@@ -1,6 +1,6 @@
 # App Store リリース管理
 
-## 更新 1.0.4 (17) の準備
+## 更新 1.0.4 (17) の提出状況
 
 2026-10-16（JST）にAppleの[日本向け公開lookup](https://itunes.apple.com/lookup?id=6806783378&country=jp)とApp Store Connectを読み戻した。公開版は`1.0.3 (16)`（version ID `35229013-f68c-4595-a000-ba8f6a517246`、Build ID `04094ec3-5d57-4f0d-88a8-c447acc6d6d5`）。最新upload済みbuildは`16`で、`1.0.4`は未作成だった。パッチ番号だけを上げ、次の候補を`1.0.4 (17)`とする。
 
@@ -25,16 +25,28 @@
 - [x] 本体・Share Extensionの生成projectとbuild済みbundleで1.0.4 (17)、表示名Foodfolio、日本語resourceを確認
 - [x] `npm run verify`成功（単体540件・結合58件・E2E68件、lint・format・build・各guardrail）
 - [x] `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer IOS_PARALLEL_WORKERS=1 npm run verify:ios`成功（136件、失敗0・skip0。単体75件・結合27件・UI34件、SwiftData migration・lint/format・buildを含む）
-- [ ] 準備PRの最新HEADでQuality成功。fresh contextの別Reviewerによる確認と人間によるマージ
-- [ ] マージ後の確定ソースを確認し、署名済みArchive / IPAを作成。本体・Extensionの番号・署名・entitlements・日本語resourceを確認
+- [x] 準備PR [#146](https://github.com/Kay-pht/foodfolio/pull/146)の最新HEAD `ad5a529e`で[Quality成功](https://github.com/Kay-pht/foodfolio/actions/runs/38872294430)。人間によるマージを確認
+- [x] マージ後の確定ソース `ada391b7bae7a12375706a84c6f5d1ffaf6ac5a2`は検証済みPR HEADと同一tree。[main Quality成功](https://github.com/Kay-pht/foodfolio/actions/runs/38895432012)。署名済みArchive / IPAを作成し、本体・Extensionの番号・署名・entitlements・日本語resourceを確認
 - [x] 既存自動デプロイの成功とAPI / Workerの稼働source SHA・Ready・traffic・digestを読み戻す（追加デプロイなし）
-- [ ] Apple validation / upload後、processing `VALID`、未期限、`APP_STORE_ELIGIBLE`を確認
-- [ ] 既存内部TestFlightグループのbuild割り当てとWhat to Testを読み戻す（テスター追加・外部招待は行わない）
-- [ ] 既存審査アカウントで認証とAPIアクセスを確認。資格情報はGit・出力へ記録しない
-- [ ] App Store version 1.0.4へbuild 17を紐付け、更新内容・既存metadata・画像・配信設定・公開方式`MANUAL`を読み戻す
-- [ ] Appleへ提出し、Submission IDとversion / submissionの審査状態を読み戻す
+- [x] Apple validation / upload後、processing `VALID`、未期限、`APP_STORE_ELIGIBLE`、暗号化申告`false`を確認。Build ID `1471a727-5c5e-4289-a7d5-4e859558c153`
+- [x] 既存`Foodfolio Internal`へのbuild 17割り当て、`IN_BETA_TESTING`、日本語What to Testを読み戻した。テスター追加・外部招待は行っていない
+- [x] 既存審査アカウントのFirebaseログインと認証付き `/v1/settings`・`/v1/recipes?limit=1`（HTTP 200）を確認。App Reviewの保存済み資格情報との一致を読み戻した。資格情報はGit・出力へ記録しない
+- [x] App Store version 1.0.4へbuild 17を紐付け、更新内容・既存metadata・画像6枚・配信設定・公開方式`MANUAL`を読み戻した
+- [x] 2026-10-16 21:00:33（JST）にAppleへ提出。Submission ID `dd746f85-c5bf-4e62-a2d1-ae56ba3fd3f1`、version / submissionともに`WAITING_FOR_REVIEW`を読み戻した
 
-ユーザーが準備PRをマージした後にApple申請へ進む。一般公開はユーザーが行い、エージェントは公開操作を実行しない。App Store本番チェックは公開を確認するまで未完了のまま維持する。
+### マージ後の確認記録
+
+2026-10-16（JST）にPR #146の人間によるマージを確認した。merge SHAは`ada391b7bae7a12375706a84c6f5d1ffaf6ac5a2`。署名済みRelease Archive / IPAの作成、Apple validation（`VERIFY SUCCEEDED with no errors`）、upload（`UPLOAD SUCCEEDED with no errors`）を完了した。Delivery UUIDは`1471a727-5c5e-4289-a7d5-4e859558c153`。本体のproduction APNs・Sign in with Apple、両targetのApp Group、日本語resource、署名検証も成功した。
+
+API / Workerは準備時と同じrevisionを維持し、リポジトリの`verify-cloud-run-deployment.mjs`でReady・traffic 100%・期待image / digest・request-based billingを再検証した。API `/health`はHTTP 200。追加デプロイは実行していない。
+
+App Store version IDは`2f6cf146-1e86-423b-b9de-68c2402835f5`。日本語の説明・keywords・support / marketing URL・promotional textは前バージョンと一致し、画像6枚もfile情報が一致、すべて`COMPLETE`。無料（JPY 0）、日本のみ、`MANUAL`を読み戻した。App Reviewの連絡先・既存メモを維持し、今回の調整がBackend側であることを追記した。
+
+Apple処理は`COMPLETE`（エラー・警告なし）、build `17`はprocessing `VALID`、未期限、`APP_STORE_ELIGIBLE`、暗号化申告`false`。Build IDは`1471a727-5c5e-4289-a7d5-4e859558c153`。既存`Foodfolio Internal`への割り当てと`IN_BETA_TESTING`、日本語What to Testの保存・読み戻しを確認した。外部TestFlightへの今回の配布は行っていない。
+
+2026-10-16 21:00:33（JST）にApp Reviewへ提出した。Submission IDは`dd746f85-c5bf-4e62-a2d1-ae56ba3fd3f1`。提出後にversion / submissionの両方が`WAITING_FOR_REVIEW`、release typeが`MANUAL`であることを再取得した。ユーザー依頼のAppleアップデート申請まで完了し、一般公開は行っていない。App Store本番チェックは公開を確認するまで未完了のまま維持する。
+
+今回、エージェントによる実機のインストール・操作確認は行っていない。ローカル自動テスト、署名付きArchive、認証付きAPI確認、Apple処理・審査申請を別の証跡として扱う。
 
 ## 更新 1.0.3 (16) の公開状況
 
