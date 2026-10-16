@@ -8,7 +8,7 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
 
 - [ ] `REL-20261016-02` 稼働用レシピ解析の出力上限を10000トークンへ統一する
   - 内容: Z.aiの全媒体・text/ordered media/legacy videoとYouTube用Gemini fallbackで、共通定数`RECIPE_EXTRACTION_MAX_OUTPUT_TOKENS`を参照する。Instagram以外のZ.aiは4000、Geminiは8192から10000へ変更する。reasoning_effort lowはInstagram限定のまま維持し、過去のPoC設定は変更しない
-  - PR: 未作成
+  - PR: [#144](https://github.com/Kay-pht/foodfolio/pull/144)
   - main反映: 未反映
   - 必要な反映先:
     - [ ] Cloud Run（dev Worker） — 対象Git SHA/revision: 未定
