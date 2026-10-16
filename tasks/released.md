@@ -3,6 +3,32 @@
 `tasks/unreleased.md` で指定した必要な反映先がすべて反映済みになった項目を、日付とversion情報を保ったまま記録する。
 日付は日本時間（JST）の `YYYY-MM-DD`、iOSは `version (build)`、Cloud RunはGit SHAとservice revisionを記載する。
 
+## 2026-10-16
+
+- [x] `REL-20261016-02` 稼働用レシピ解析の出力上限を10000トークンへ統一し、Z.aiの個別timeoutを180秒にする
+  - 内容: Z.aiの全媒体・text/ordered media/legacy videoとYouTube用Gemini fallbackで、共通定数`RECIPE_EXTRACTION_MAX_OUTPUT_TOKENS`を参照する。Instagram以外のZ.aiは4000、Geminiは8192から10000へ変更する。Z.aiの個別リクエスト期限は全経路で120秒から180秒へ延長する。reasoning_effort lowはInstagram限定のまま維持し、過去のPoC設定は変更しない
+  - PR: [#144](https://github.com/Kay-pht/foodfolio/pull/144)
+  - main反映: `8e75ea7c1b2042a50ab7ca9ffd8714d51064fd11`（PR #144まで取り込み済み）
+  - 必要な反映先:
+    - [x] Cloud Run（dev Worker） — 反映日: `2026-10-16`、SHA: `8e75ea7c1b2042a50ab7ca9ffd8714d51064fd11`、revision: `foodfolio-dev-worker-00060-jss`、Ready、traffic 100%、digest: `sha256:567f8b34a417f9a44935b009127d0568cf9acc805649a0cce152c0170aabd587`、[自動デプロイ・照合成功](https://github.com/Kay-pht/foodfolio/actions/runs/38870286716)
+  - 備考: Backend専用変更のためiOS build更新は不要。元の実装PRでは実API試行、Workerデプロイ、既存レシピの再解析は対象外。その後、既存自動デプロイでWorkerへの反映を確認した。上限到達やtimeoutの解消は実環境では未確認。Worker・Cloud Tasksは600秒のままとし、全体の残り時間共有は行わない。本文解析・動画取得・動画解析の合計が600秒を超え得る制約は残る
+
+- [x] `REL-20261016-01` Instagramの明確な閲覧制限をログ・通知で識別し、不要な再試行を止める
+  - 内容: 取得ツールが明示する年齢制限・ログイン要求・閲覧対象制限を固定分類で記録し、metadata取得と単一動画downloadの内部再試行・Cloud Tasks再配送を終了する。曖昧な応答・通信障害は既存の再試行を維持する
+  - PR: [#145](https://github.com/Kay-pht/foodfolio/pull/145)
+  - main反映: `8e75ea7c1b2042a50ab7ca9ffd8714d51064fd11`（PR #144まで取り込み済み）
+  - 必要な反映先:
+    - [x] Cloud Run（dev Worker） — 反映日: `2026-10-16`、SHA: `8e75ea7c1b2042a50ab7ca9ffd8714d51064fd11`、revision: `foodfolio-dev-worker-00060-jss`、Ready、traffic 100%、digest: `sha256:567f8b34a417f9a44935b009127d0568cf9acc805649a0cce152c0170aabd587`、[自動デプロイ・照合成功](https://github.com/Kay-pht/foodfolio/actions/runs/38870286716)
+  - 備考: Backend専用変更。匿名取得の範囲を維持し、ログイン・cookie注入・年齢確認の回避は追加しない。既存summary/nextAction/diagnosticDetailを使うため新しい監視設定は不要
+
+- [x] `REL-20261009-01` Instagram解析の出力打ち切りを緩和する
+  - 内容: Instagramのcaption text・ordered media・legacy videoに限り、Z.aiの出力上限を4000から10000へ増やし、reasoning_effortをlowにする。既存ルーティング・最大3回の配送再試行・prompt・schema・120秒timeoutは維持する
+  - PR: [#143](https://github.com/Kay-pht/foodfolio/pull/143)
+  - main反映: `8e75ea7c1b2042a50ab7ca9ffd8714d51064fd11`（PR #144まで取り込み済み）
+  - 必要な反映先:
+    - [x] Cloud Run（dev Worker） — 反映日: `2026-10-16`、SHA: `8e75ea7c1b2042a50ab7ca9ffd8714d51064fd11`、revision: `foodfolio-dev-worker-00060-jss`、Ready、traffic 100%、digest: `sha256:567f8b34a417f9a44935b009127d0568cf9acc805649a0cce152c0170aabd587`、[自動デプロイ・照合成功](https://github.com/Kay-pht/foodfolio/actions/runs/38870286716)
+  - 備考: 再取得入力5投稿×3ローカルジョブは15/15完了。media timeoutと材料欠落は残る。本番完了率・端末表示は未測定。Backend専用変更のためiOS build更新は不要。詳細は[追加検証](../docs/instagram-caption-retry-validation.md)
+
 ## 2026-10-06
 
 - [x] `REL-20261005-01` Foodfolio 1.0.3をAppleへアップデート申請する

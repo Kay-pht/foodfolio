@@ -6,38 +6,23 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
 
 ## 未反映
 
-- [ ] `REL-20261016-02` 稼働用レシピ解析の出力上限を10000トークンへ統一し、Z.aiの個別timeoutを180秒にする
-  - 内容: Z.aiの全媒体・text/ordered media/legacy videoとYouTube用Gemini fallbackで、共通定数`RECIPE_EXTRACTION_MAX_OUTPUT_TOKENS`を参照する。Instagram以外のZ.aiは4000、Geminiは8192から10000へ変更する。Z.aiの個別リクエスト期限は全経路で120秒から180秒へ延長する。reasoning_effort lowはInstagram限定のまま維持し、過去のPoC設定は変更しない
-  - PR: [#144](https://github.com/Kay-pht/foodfolio/pull/144)
+- [ ] `REL-20261016-03` Foodfolio 1.0.4をAppleへアップデート申請する
+  - 内容: 公開中の1.0.3 (16)からパッチ番号を上げ、本体・Share Extensionを1.0.4 (17)にする。準備元はmain `8e75ea7c`。前回配布元からiOSコードの変更はなく、解析改善はWorkerの反映と別に確認する
+  - PR: [#146](https://github.com/Kay-pht/foodfolio/pull/146)
   - main反映: 未反映
   - 必要な反映先:
-    - [ ] Cloud Run（dev Worker） — 対象Git SHA/revision: 未定
-  - 備考: Backend専用変更のためiOS build更新は不要。実API試行、Workerデプロイ、既存レシピの再解析は今回の対象外。上限到達やtimeoutの解消は実環境では未確認。Worker・Cloud Tasksは600秒のままとし、全体の残り時間共有は行わない。本文解析・動画取得・動画解析の合計が600秒を超え得る制約は残る
-
-- [ ] `REL-20261016-01` Instagramの明確な閲覧制限をログ・通知で識別し、不要な再試行を止める
-  - 内容: 取得ツールが明示する年齢制限・ログイン要求・閲覧対象制限を固定分類で記録し、metadata取得と単一動画downloadの内部再試行・Cloud Tasks再配送を終了する。曖昧な応答・通信障害は既存の再試行を維持する
-  - PR: [#145](https://github.com/Kay-pht/foodfolio/pull/145)
-  - main反映: 未反映
-  - 必要な反映先:
-    - [ ] Cloud Run（dev Worker） — 対象Git SHA/revision: 未定
-  - 備考: Backend専用変更。匿名取得の範囲を維持し、ログイン・cookie注入・年齢確認の回避は追加しない。既存summary/nextAction/diagnosticDetailを使うため新しい監視設定は不要
-
-- [ ] `REL-20261009-01` Instagram解析の出力打ち切りを緩和する
-  - 内容: Instagramのcaption text・ordered media・legacy videoに限り、Z.aiの出力上限を4000から10000へ増やし、reasoning_effortをlowにする。既存ルーティング・最大3回の配送再試行・prompt・schema・120秒timeoutは維持する
-  - PR: [#143](https://github.com/Kay-pht/foodfolio/pull/143)
-  - main反映: 未反映
-  - 必要な反映先:
-    - [ ] Cloud Run（dev Worker） — 対象Git SHA/revision: 未定
-  - 備考: 再取得入力5投稿×3ローカルジョブは15/15完了。media timeoutと材料欠落は残る。本番完了率・端末表示は未測定。Backend専用変更のためiOS build更新は不要。詳細は[追加検証](../docs/instagram-caption-retry-validation.md)
+    - [ ] TestFlight内部テスト — 対象version/build: `1.0.4 (17)`、既存`Foodfolio Internal`
+    - [ ] App Store本番 — 対象version/build: `1.0.4 (17)`、Apple申請後も`MANUAL`を維持し、公開はユーザーが行う
+  - 備考: 今回のゴールはApple申請まで。人間による準備PRのマージ前にupload・申請は行わない。Workerは既存自動デプロイの成功・配信先を確認済み。PR #142の監視Terraform適用は別管理。各解析改善の配布状況は既存項目で追跡する
 
 - [ ] `REL-20261007-02` 分析最終失敗のSlackアラートに分析対象URLを添付する
   - 内容: 認証情報・fragment・許可していないクエリを除去したリンクを表示し、YouTubeは検証済み動画IDを維持する。不正URL時は固定の取得不可文を表示する。整形後URLと他の抽出ラベルの組み合わせごとに通知し、同じ組み合わせの繰り返し通知は1時間に1回までに抑える（Cloud Monitoringのサービス上限内）
   - PR: [#142](https://github.com/Kay-pht/foodfolio/pull/142)
-  - main反映: 未反映
+  - main反映: `fc67b1fa`（PR #142）
   - 必要な反映先:
-    - [ ] Cloud Run（dev Worker） — `sourceLink` を最終失敗ログへ追加
+    - [x] Cloud Run（dev Worker） — 反映日: `2026-10-16`、SHA: `8e75ea7c1b2042a50ab7ca9ffd8714d51064fd11`、revision: `foodfolio-dev-worker-00060-jss`、Ready、traffic 100%、digest: `sha256:567f8b34a417f9a44935b009127d0568cf9acc805649a0cce152c0170aabd587`、[自動デプロイ・照合成功](https://github.com/Kay-pht/foodfolio/actions/runs/38870286716)
     - [ ] GCP runtime monitoring — 既存Recipe Analysis最終失敗policyへ `source_link` の抽出と通知本文を反映
-  - 備考: 今回の依頼範囲はコード変更・検証・PR作成まで。Workerデプロイ、Terraform適用、実Slack通知確認は未実施
+  - 備考: 今回の依頼範囲はコード変更・検証・PR作成まで。Workerは後続の既存自動デプロイで反映済み。Terraform適用、実Slack通知確認は未実施
 
 - [ ] `REL-20260924-01` Foodfolio 1.0.2で日本語表示情報とApp Store掲載内容を更新する
   - 内容: iOS本体とShare Extensionが日本語対応アプリであることをAppleへ正しく申告し、インストール後のアプリ名は`Foodfolio`のまま維持する。App Store上の表示名を「レシピ保存/管理アプリ - Foodfolio」へ変更し、利用許可を確認済みの新しい日本語マーケティング画像6枚へ差し替える。あわせて、PR #121/#122でmainへ追加した5つのCloud Monitoring alert policyを既存Slack通知先へ反映する
