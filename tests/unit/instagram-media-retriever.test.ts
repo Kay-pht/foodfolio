@@ -928,6 +928,167 @@ describe("YtDlpInstagramMediaRetriever", () => {
     expect(JSON.stringify(failure)).not.toContain("private process detail");
   });
 
+  // IAR-1 / IAR-2: explicit restrictions are terminal and never expose stderr.
+  it.each([
+    ["People under 19 can't see this content", "age_restricted"],
+    ["This content is age-restricted", "age_restricted"],
+    ["You need to log in to access this content", "login_required"],
+    [
+      "This content isn't available to everyone: It can't be seen by certain audiences.",
+      "audience_restricted",
+    ],
+  ])("stops metadata retries for %s", async (message, failureClass) => {
+    const metadataProbe = vi.fn(async () => {
+      throw Object.assign(new Error("private command"), {
+        stderr: `ERROR: [Instagram] fixture: ${message}. private-stderr https://cdn.example/private?token=secret`,
+      });
+    });
+    const sleep = vi.fn(async () => {});
+    const retriever = new YtDlpInstagramMediaRetriever(
+      config,
+      createMediaStore(),
+      metadataProbe,
+      { retrieve: vi.fn() },
+      vi.fn(),
+      sleep,
+    );
+    let failure: unknown;
+    try {
+      await retriever.retrieve(
+        new URL("https://www.instagram.com/reel/restricted/"),
+      );
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toMatchObject({
+      code: "INSTAGRAM_MEDIA_METADATA_FAILED",
+      retryable: false,
+      diagnostics: {
+        mediaFailureStage: "metadata_probe",
+        mediaFailureClass: failureClass,
+        mediaAttempt: 1,
+        mediaMaxAttempts: 2,
+      },
+    });
+    expect(metadataProbe).toHaveBeenCalledOnce();
+    expect(sleep).not.toHaveBeenCalled();
+    expect(JSON.stringify(failure)).not.toMatch(
+      /private-|token=secret|cdn\.example/,
+    );
+  });
+
+  it.each([
+    "Instagram sent an empty media response. Check if this post is accessible in your browser without being logged-in. Use --cookies-from-browser.",
+    "Requested content is not available, rate-limit reached or login required",
+    "WARNING: This content is age-restricted",
+    "ERROR: [Instagram] fixture: https://example.com/This-content-is-age-restricted",
+  ])(
+    "does not turn ambiguous tool output into a permanent restriction: %s",
+    async (stderr) => {
+      const metadataProbe = vi.fn(async () => {
+        throw Object.assign(new Error("private command"), { stderr });
+      });
+      const retriever = new YtDlpInstagramMediaRetriever(
+        config,
+        createMediaStore(),
+        metadataProbe,
+        { retrieve: vi.fn() },
+        vi.fn(),
+        async () => {},
+      );
+      await expect(
+        retriever.retrieve(new URL("https://www.instagram.com/reel/unknown/")),
+      ).rejects.toMatchObject({
+        retryable: true,
+        diagnostics: { mediaFailureClass: "tool_error", mediaAttempt: 2 },
+      });
+      expect(metadataProbe).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it("retains timeout retries despite restriction-like partial stderr", async () => {
+    const metadataProbe = vi.fn(async () => {
+      throw Object.assign(new Error("private timeout"), {
+        killed: true,
+        signal: "SIGKILL",
+        stderr: "ERROR: [Instagram] fixture: This content is age-restricted",
+      });
+    });
+    const retriever = new YtDlpInstagramMediaRetriever(
+      config,
+      createMediaStore(),
+      metadataProbe,
+      { retrieve: vi.fn() },
+      vi.fn(),
+      async () => {},
+    );
+    await expect(
+      retriever.retrieve(
+        new URL("https://www.instagram.com/reel/timeout-restriction/"),
+      ),
+    ).rejects.toMatchObject({
+      retryable: true,
+      diagnostics: { mediaFailureClass: "timeout", mediaAttempt: 2 },
+    });
+    expect(metadataProbe).toHaveBeenCalledTimes(2);
+  });
+
+  it("captures a real single-video restriction, stops after one process and removes partial files", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "foodfolio-test-access-"));
+    temporaryDirectories.push(directory);
+    const binaryPath = join(directory, "fake-yt-dlp.mjs");
+    const calls = join(directory, "calls.jsonl");
+    await writeFile(
+      binaryPath,
+      `#!/usr/bin/env node
+import { appendFileSync, writeFileSync } from "node:fs";
+const output = process.argv[process.argv.indexOf("-o") + 1];
+writeFileSync(output, "partial");
+appendFileSync(${JSON.stringify(calls)}, JSON.stringify(output) + "\\n");
+process.stderr.write("ERROR: [Instagram] fixture: This content is age-restricted. private-stderr https://cdn.example/?token=secret\\n");
+process.exit(1);
+`,
+      { mode: 0o700 },
+    );
+    const store = createMediaStore();
+    const retriever = new YtDlpInstagramMediaRetriever(
+      { ...config, binaryPath, retryBaseSeconds: 0, maxRetrySeconds: 0 },
+      store,
+      async () => ({
+        formats: [
+          { url: "https://cdn.example/video.mp4", width: 1080, height: 1920 },
+        ],
+      }),
+    );
+    let failure: unknown;
+    try {
+      await retriever.retrieve(
+        new URL("https://www.instagram.com/reel/age-restricted/"),
+      );
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toMatchObject({
+      code: "INSTAGRAM_MEDIA_DOWNLOAD_FAILED",
+      retryable: false,
+      diagnostics: {
+        mediaFailureStage: "single_video_download",
+        mediaFailureClass: "age_restricted",
+        mediaAttempt: 1,
+        mediaMaxAttempts: 2,
+      },
+    });
+    const lines = (await readFile(calls, "utf8")).trim().split("\n");
+    expect(lines).toHaveLength(1);
+    await expect(access(JSON.parse(lines[0]!) as string)).rejects.toMatchObject(
+      { code: "ENOENT" },
+    );
+    expect(store.publish).not.toHaveBeenCalled();
+    expect(JSON.stringify(failure)).not.toMatch(
+      /private-stderr|token=secret|cdn\.example/,
+    );
+  });
+
   it("maps repeated metadata probe failures to a retryable analysis error", async () => {
     const metadataProbe = vi.fn(async () => {
       throw new Error("yt-dlp failed");

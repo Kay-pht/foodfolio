@@ -70,7 +70,7 @@ security_invariants:
   - The existing sourceUrl sanitization remains unchanged.
   - Slack diagnosis receives only the controlled diagnosticDetail derived from repository-owned enums and validated numbers; raw diagnostic payloads, media URLs, headers, bodies, and exception text are not expanded into the notification. ANALYSIS-ALERT-SOURCE-URL-001 separately authorizes a sanitized sourceLink.
 compatibility:
-  - Preserve existing analysis error codes, retryability, Cloud Tasks retry behavior, recipe state transitions, alert thresholds, and the configured notification rate-limit period. One diagnostic_detail Slack label is added for controlled diagnosis text. Notification suppression applies per combination of extracted labels, including source_link, as defined in ANALYSIS-ALERT-SOURCE-URL-001 and RUNTIME-MONITORING-001 RTM-4.
+  - Preserve existing analysis error codes, retryability and Cloud Tasks retry behavior except explicit Instagram access restrictions governed by INSTAGRAM-ACCESS-RESTRICTION-001, recipe state transitions, alert thresholds, and the configured notification rate-limit period. One diagnostic_detail Slack label is added for controlled diagnosis text. Notification suppression applies per combination of extracted labels, including source_link, as defined in ANALYSIS-ALERT-SOURCE-URL-001 and RUNTIME-MONITORING-001 RTM-4.
   - Do not add a database migration, external dependency, or extra network request.
 non_functional:
   - Diagnostic values use repository-owned enums and validated numeric metadata.

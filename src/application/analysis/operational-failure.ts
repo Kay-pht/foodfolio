@@ -134,6 +134,9 @@ const MEDIA_CLASS_LABELS: Record<string, string> = {
   timeout: "タイムアウト",
   network: "ネットワーク障害",
   tool_error: "取得ツールエラー",
+  age_restricted: "年齢制限",
+  login_required: "ログイン要求",
+  audience_restricted: "閲覧対象の制限",
   invalid_response: "応答内容不正",
   http_error: "HTTPエラー",
   body_missing: "本文欠落",
@@ -196,6 +199,32 @@ function describeObservedFailure(
   input: AnalysisFailureDescriptionInput,
 ): FailureDetail | undefined {
   const diagnostics = input.diagnostics;
+  if (
+    input.errorCode === "INSTAGRAM_MEDIA_METADATA_FAILED" ||
+    input.errorCode === "INSTAGRAM_MEDIA_DOWNLOAD_FAILED"
+  ) {
+    const restriction = diagnostics?.mediaFailureClass;
+    const nextAction =
+      "現在の取得処理は匿名アクセスのため、この制限では自動再試行しません。元投稿の閲覧条件を確認してください。ログインだけで閲覧可能になるとは限りません。";
+    if (restriction === "age_restricted")
+      return {
+        summary:
+          "Instagramの年齢制限により、匿名でメディアを取得できませんでした。",
+        nextAction,
+      };
+    if (restriction === "login_required")
+      return {
+        summary:
+          "Instagramからログインを要求され、匿名でメディアを取得できませんでした。",
+        nextAction,
+      };
+    if (restriction === "audience_restricted")
+      return {
+        summary:
+          "Instagramの閲覧対象の制限により、匿名でメディアを取得できませんでした。年齢・地域などの内訳は未確認です。",
+        nextAction,
+      };
+  }
   if (
     diagnostics?.providerFinishReason === "length" ||
     input.errorCode === "YOUTUBE_GEMINI_OUTPUT_TRUNCATED"

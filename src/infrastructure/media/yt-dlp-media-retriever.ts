@@ -6,11 +6,18 @@ import {
   AnalysisError,
   type AnalysisFailureDiagnostics,
   type MediaCollection,
+  type MediaAccessRestriction,
   type MediaFailureStage,
   type MediaKind,
   type MediaOperationErrorSpec,
   type MediaRetriever,
 } from "../../application/analysis/types.js";
+
+import {
+  classifyYtDlpAccessRestriction,
+  MAX_YT_DLP_DIAGNOSTIC_BYTES,
+  YtDlpAccessRestrictionError,
+} from "./yt-dlp-access-restriction.js";
 
 export interface YtDlpMediaRetrieverConfig {
   binaryPath: string;
@@ -29,6 +36,9 @@ export interface YtDlpMediaRetrieverConfig {
   invalidUrlError: MediaOperationErrorSpec;
   downloadFailedError: MediaOperationErrorSpec;
   downloadFailureStage?: MediaFailureStage;
+  classifyAccessRestriction?: (
+    error: unknown,
+  ) => MediaAccessRestriction | undefined;
   localPrepareError?: MediaOperationErrorSpec;
   localCleanupError?: MediaOperationErrorSpec;
 }
@@ -140,7 +150,10 @@ export class YtDlpMediaRetriever implements MediaRetriever {
           },
         };
       } catch (error) {
-        if (attempt === this.config.maxAttempts) {
+        const restriction = isTimeoutFailure(error)
+          ? undefined
+          : this.config.classifyAccessRestriction?.(error);
+        if (restriction || attempt === this.config.maxAttempts) {
           try {
             await this.filesystem.removeWorkDirectory(workDirectory);
           } catch (cleanupError) {
@@ -152,13 +165,19 @@ export class YtDlpMediaRetriever implements MediaRetriever {
             );
           }
           throw toAnalysisError(
-            this.config.downloadFailedError,
+            restriction
+              ? {
+                  ...this.config.downloadFailedError,
+                  retryable: false,
+                  message: "Media access is restricted",
+                }
+              : this.config.downloadFailedError,
             this.config.downloadFailureStage
               ? {
                   mediaFailureStage: this.config.downloadFailureStage,
-                  mediaFailureClass: isTimeoutFailure(error)
-                    ? "timeout"
-                    : "unknown",
+                  mediaFailureClass:
+                    restriction ??
+                    (isTimeoutFailure(error) ? "timeout" : "unknown"),
                   mediaIndex: 1,
                   mediaKind: this.config.kind,
                   mediaAttempt: attempt,
@@ -284,8 +303,14 @@ export async function runYtDlpAttempt(
         outputPath,
         sourceUrl,
       ],
-      { stdio: "ignore" },
+      { stdio: ["ignore", "ignore", "pipe"] },
     );
+    let stderr = Buffer.alloc(0);
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderr = Buffer.from(
+        Buffer.concat([stderr, chunk]).subarray(-MAX_YT_DLP_DIAGNOSTIC_BYTES),
+      );
+    });
     let timedOut = false;
     const timeout = setTimeout(() => {
       timedOut = true;
@@ -311,7 +336,14 @@ export async function runYtDlpAttempt(
         reject(error);
         return;
       }
-      reject(new Error("yt-dlp process failed"));
+      const restriction = classifyYtDlpAccessRestriction({
+        stderr: stderr.toString("utf8"),
+      });
+      reject(
+        restriction
+          ? new YtDlpAccessRestrictionError(restriction)
+          : new Error("yt-dlp process failed"),
+      );
     });
   });
 }
