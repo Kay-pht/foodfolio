@@ -26,6 +26,8 @@ Slackプラグインがbot IDを省略した表示形式を返す場合も、そ
 
 作業は案件ごとの独立Git cloneと `codex/alert-<id>` ブランチで行い、ユーザーの作業ツリーへ触れない。mainはremoteから取得した固定baseを使う。自動化自身、CI、hook、依存設定、既存test helperへの変更は自動修正の対象外とする。
 
+制御コード自身も実行時に、controllerのHEADが `origin/main` に含まれること、ローカルの制御コードに変更がないこと、main上の仕様がapprovedであることを確認する。未mergeのハーネスやローカルで改変されたハーネスから実案件の作業コピーを作らない。
+
 実装後に回帰テストと `npm run verify` を必須とする。iOSソース・API契約等へ影響する変更は `npm run verify:ios` も必要。実行できない確認を成功と扱わない。PRはDraftで作成し、ローカル検証成功後だけReadyへ変更する。Auto Fix後の最新HEADに対して、本物のQuality workflowと全checkの成功を確認する。Auto FixがHEADを変えた場合は新しいtreeをローカルでも検証する。同じHEADですでに成功した検証を無条件に繰り返さない。
 
 独立Reviewerへ元仕様、差分、正確なHEAD、RED / GREEN、全検証とCI結果を渡す。Reviewerは読み取り専用。PRの更新やファイル変更があればレビューを無効とし停止する。具体的な指摘があればPRをDraftへ戻し、新規Fixerセッションで修正して検証・Ready・新規Reviewerを繰り返す。修正は最大3回、4回目が必要なら停止する。
@@ -34,7 +36,7 @@ LGTMは独立Reviewerの成功結果と正確なSHAを確認した制御側が�
 
 ## 認証情報・副作用・検証費用
 
-エージェントは専用HOME、環境変数allowlist、`--ignore-user-config`、`--ignore-rules`、web search無効、approval neverで実行する。個人設定の広い権限やMCP接続を持ち込まない。macOSではsandbox-execの二重適用でコマンド起動が失敗するため、CLI自体のsandbox modeは `danger-full-access` とし、必須の外側sandboxで制限する。読み取りは作業clone、工程用ディレクトリ、Node runtimeを許可し、元HOMEの秘密情報と他プロジェクトは拒否する。書き込みは工程用ディレクトリだけを許可し、Implementer / Fixer / Prepareだけ作業cloneも許可する。`.git` の書き込みは禁止する。エージェントの外部接続はCodex接続に必要な443番ポートに限定し、通常のDBポートへの直接接続は許可しない。有料provider認証情報は渡さず、API直接呼び出しは禁止する。ChatGPTの認証ファイルは工程用ディレクトリへ一時コピーし、終了時に削除する。stateと実行証跡はprivate modeで保持する。
+エージェントは専用HOME、環境変数allowlist、`--ignore-user-config`、`--ignore-rules`、web search無効、approval neverで実行する。個人設定の広い権限やMCP接続を持ち込まない。macOSではsandbox-execの二重適用でコマンド起動が失敗するため、CLI自体のsandbox modeは `danger-full-access` とし、必須の外側sandboxで制限する。読み取りは作業clone、工程用ディレクトリ、Node runtimeを許可し、元HOMEの秘密情報と他プロジェクトは拒否する。書き込みは工程用ディレクトリだけを許可し、Implementer / Fixer / Prepareだけ作業cloneも許可する。`.git` の書き込みは禁止する。エージェントの外部接続はCodex接続に必要な443番ポートとDNS名前解決に限定し、通常のDBポートへの直接接続は許可しない。有料provider認証情報は渡さず、API直接呼び出しは禁止する。ChatGPTの認証ファイルは工程用ディレクトリへ一時コピーし、終了時に削除する。stateと実行証跡はprivate modeで保持する。
 
 既存ローカルDB・共有DB・稼働環境へのmigrationは禁止。テストは認証情報を除いた専用HOMEから実行し、既存test helperが作る使い捨てDocker DBだけへmigrationを適用する。DBのURL、有料API key、gcloud設定を実装・レビューの子プロセスへ渡さない。これは信頼したMac上の保守用ハーネスであり、Docker daemonを含むホスト全体に対する敵対的コードの完全隔離を保証するものではない。
 
@@ -55,7 +57,7 @@ adapterは管理者がstateディレクトリの `external-adapters.json` に置
 独立型のローカルスケジュールを05:00 / 17:00 JSTに登録する。各起動は新規チャットで、既存Slackプラグインが取得・投稿を担当し、下記の手順を実行する。
 
 1. remote mainへこの仕様と制御コードがmerge済みであることを確認する。未mergeならコードを稼働させず、Codexに未稼働と記録する。
-2. 専用のcontroller cloneへremote mainをfast-forwardし、ユーザーの作業ブランチを変更しない。変更や不一致があれば停止する。
+2. 専用のcontroller cloneへremote mainをfast-forwardし、ユーザーの作業ブランチを変更しない。変更や不一致があれば停止する。初回、node_modules欠落時、lockfile hashの更新時には、controllerの依存関係をlifecycle script無効でインストールしてからCLIを起動する。
 3. 固定のstateパスを使用して `window` を実行し、指定範囲のSlack全ページを取得する。完全取得できた場合だけpacketを保存して `ingest` する。
 4. `run` を1回実行する。子プロセスが動いている間は完了まで待ち、同じ案件を重複起動しない。キューの残りは次回へ持ち越す。
 5. `outbox` を元スレッドと照合して投稿・ackする。取得が失敗しても既存outboxの配送は試みる。返信失敗時はoutboxを残しCodexで報告する。

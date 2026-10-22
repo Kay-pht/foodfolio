@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 import {
   changedPaths,
   command,
+  requireReviewedController,
   processQueue,
   snapshot,
 } from "../../scripts/alert-repair/runner.mjs";
@@ -24,6 +25,63 @@ import {
 import { harness } from "../helpers/alert-repair-fixture.mjs";
 
 describe("alert repair integration", () => {
+  it("refuses an unmerged or locally modified controller before starting incident work", async () => {
+    const directory = await mkdtemp(
+      join(tmpdir(), "foodfolio-controller-approval-"),
+    );
+    const git = (...args) =>
+      execFileSync("git", ["-C", directory, ...args], {
+        encoding: "utf8",
+        stdio: "pipe",
+      }).trim();
+    try {
+      git("init", "-q", "-b", "main");
+      await mkdir(join(directory, "specs/tasks"), { recursive: true });
+      await writeFile(
+        join(directory, "specs/tasks/ALERT-REPAIR-001.yaml"),
+        "status: approved\n",
+      );
+      git("add", ".");
+      git(
+        "-c",
+        "user.name=Fixture",
+        "-c",
+        "user.email=fixture@example.test",
+        "commit",
+        "-qm",
+        "main",
+      );
+      git("update-ref", "refs/remotes/origin/main", "HEAD");
+      git("switch", "-qc", "codex/new-controller");
+      await mkdir(join(directory, "scripts/alert-repair"), { recursive: true });
+      await writeFile(
+        join(directory, "scripts/alert-repair/core.mjs"),
+        "// committed controller\n",
+      );
+      git("add", ".");
+      git(
+        "-c",
+        "user.name=Fixture",
+        "-c",
+        "user.email=fixture@example.test",
+        "commit",
+        "-qm",
+        "feature",
+      );
+      expect(() => requireReviewedController(directory)).toThrow();
+      git("update-ref", "refs/remotes/origin/main", "HEAD");
+      expect(() => requireReviewedController(directory)).not.toThrow();
+      await writeFile(
+        join(directory, "scripts/alert-repair/core.mjs"),
+        "// locally altered\n",
+      );
+      expect(() => requireReviewedController(directory)).toThrow(
+        /local changes/,
+      );
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
   it("writes real SHA-bound LGTM proof only with distinct author and reviewer identities", async () => {
     const directory = await mkdtemp(join(tmpdir(), "foodfolio-review-proof-"));
     try {

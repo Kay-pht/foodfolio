@@ -69,6 +69,30 @@ function git(directory, args) {
   return command("git", ["-C", directory, ...args]);
 }
 
+export function requireReviewedController(directory = root) {
+  const head = git(directory, ["rev-parse", "HEAD"]);
+  git(directory, ["merge-base", "--is-ancestor", head, "origin/main"]);
+  if (
+    git(directory, [
+      "status",
+      "--porcelain",
+      "--",
+      "scripts/alert-repair",
+      "scripts/review-proof.mjs",
+    ])
+  ) {
+    throw new Error(
+      "Controller contains local changes; only committed main code may execute.",
+    );
+  }
+  const specification = git(directory, [
+    "show",
+    "origin/main:specs/tasks/ALERT-REPAIR-001.yaml",
+  ]);
+  if (!/^status: approved$/m.test(specification))
+    throw new Error("Controller specification is not approved on main.");
+}
+
 export function changedPaths(directory) {
   const tracked = git(directory, ["diff", "--name-only", "HEAD"]);
   const untracked = git(directory, [
@@ -493,6 +517,7 @@ function collectLogs(incident) {
 export function liveAdapters() {
   return {
     createWorkspace(incident, directory) {
+      requireReviewedController();
       incident.repository = "Kay-pht/foodfolio";
       incident.branch = `codex/alert-${incident.id}`;
       incident.workspace = join(directory, incident.id, "checkout");

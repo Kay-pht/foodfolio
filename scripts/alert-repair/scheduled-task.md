@@ -14,6 +14,8 @@
 
 mainに反映済みなら、controller cloneがなければ固定remoteのmainから専用cloneを作る。既存ならremote、mainブランチ、cleanな状態を確認してからfetch / fast-forwardだけを行う。変更や不一致があれば停止し、破棄しない。
 
+controllerの初回起動前、およびpackage-lock.jsonのSHA-256がstate内 `controller-lock.sha256` の記録と異なる場合は、controller cloneで `npm ci --ignore-scripts --no-audit --no-fund` を実行する。node_modulesが欠落している場合も同様とする。成功した場合だけlockfileのhashを記録する。依存関係がないままCLIを起動しない。installに失敗したら取得位置を変更せず、Codexで未稼働と報告する。
+
 以降のコマンドはcontroller cloneで実行し、各コマンドに `FOODFOLIO_ALERT_REPAIR_STATE` で上記stateの絶対パスを明示する。controllerの `docs/agent/alert-repair.md` を読み、そこに記載された制御処理を使う。ユーザーが作業中のcheckout内の未mergeコードを起動しない。
 
 ## Slack確認と取り込み

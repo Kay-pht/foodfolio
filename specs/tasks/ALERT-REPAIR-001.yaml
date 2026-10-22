@@ -29,10 +29,11 @@ requirements:
       - scripts/review-proof.mjs
   - id: AR-SIDE-EFFECTS
     condition: Agents or tests execute.
-    expected: Agents receive no production or paid-provider credentials, web search is disabled, and a mandatory outer macOS sandbox enforces role-specific writes, protects the original HOME, denies Git metadata writes and limits agent outbound connections to port 443. Shared or existing DB migrations, deployment and merge are forbidden. Existing verification can apply migrations only to disposable test databases. Changes to the control plane require human review.
+    expected: Agents receive no production or paid-provider credentials, web search is disabled, and a mandatory outer macOS sandbox enforces role-specific writes, protects the original HOME, denies Git metadata writes and limits agent outbound connections to port 443 and DNS resolution. Shared or existing DB migrations, deployment and merge are forbidden. Existing verification can apply migrations only to disposable test databases. Changes to the control plane require human review.
     verification:
       - tests/unit/alert-repair.test.mjs
       - tests/helpers/postgres.ts
+      - tests/integration/alert-repair.test.mjs
   - id: AR-COST
     condition: External API validation is requested.
     expected: A durable per-incident reservation ledger limits cumulative maximum charges across all sessions and retries to 30 yen. Unknown costs, missing trusted adapters or excessive reservations stop without calling the API; unaccounted provider calls are not allowed.
