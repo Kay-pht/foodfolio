@@ -7,6 +7,7 @@ const AUTHORITATIVE_DOCS = [
   "docs/README.md",
   "docs/architecture-boundaries.md",
   "docs/agent/autonomous-p0.md",
+  "docs/agent/alert-repair.md",
   "docs/agent/development.md",
   "docs/agent/review.md",
   "docs/agent/testing.md",

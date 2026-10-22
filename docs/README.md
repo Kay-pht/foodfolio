@@ -39,6 +39,7 @@
 ## エージェント向け運用ルール
 
 - [P0 自律開発ガードレール](agent/autonomous-p0.md)
+- [Slackアラート修正ハーネス](agent/alert-repair.md)
 - [開発フロー](agent/development.md)
 - [AIレビューと停止条件](agent/review.md)
 - [テストと検証](agent/testing.md)

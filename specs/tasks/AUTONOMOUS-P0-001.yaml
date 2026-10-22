@@ -28,7 +28,7 @@ requirements:
       - tests/unit/specification-change-gate.test.mjs
   - id: P0-3
     condition: Agent implementation and review are performed.
-    expected: Implementer, Reviewer, and Fixer responsibilities are separated by documented workflow; session separation is performed by the human operator.
+    expected: Implementer, Reviewer, and Fixer responsibilities are separated by documented workflow; session separation is performed by the human operator or the explicitly authorized ALERT-REPAIR-001 controller with distinct persisted session IDs.
     verification:
       - docs/agent/review.md
       - docs/agent/development.md
@@ -78,7 +78,7 @@ non_functional:
   - The implementation should avoid unnecessary new runtime dependencies.
 
 out_of_scope:
-  - Automatic orchestration of separate Implementer, Reviewer, and Fixer sessions.
+  - Session orchestration outside the explicitly authorized ALERT-REPAIR-001 controller.
   - Automatic merge by an AI agent.
   - Paid GitHub branch protection or ruleset configuration.
 

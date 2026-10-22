@@ -57,6 +57,8 @@ API / Workerはリクエストベース課金を明示し、既存のresource・
 
 ## Runtime monitoring
 
+[アラート修正ハーネス](alert-repair.md) はMac上の独立した保守制御処理であり、以下のapplication-to-Slack禁止とは分離する。ユーザーの明示許可に基づき既存Slackプラグインから元アラートのスレッドへ結果を返信する。アプリケーションやTerraformへBot token、webhook、送信処理を追加しない。エージェントへ既存DBや有料APIの認証情報は渡さない。既存ローカルDB・共有DB・稼働環境へのmigrationは禁止し、使い捨てテストDBだけを許可する。外部API検証費用は調査・実装・全修正を通算して1案件30円を上限とする。
+
 ランタイム監視の正本は [../runtime-monitoring.md](../runtime-monitoring.md) とする。
 
 - Runtime alert は Cloud Monitoring から Slack `#foodfolio-alerts` へ送る。

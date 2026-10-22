@@ -19,7 +19,7 @@
 - ユーザーの既存変更を無断で破棄、上書き、退避しない。
 - バグ修正では、修正前に今回の不具合を再現して失敗する回帰テストを用意し、修正後に成功することを確認する。対応するbug specには `regression.required: true` とテストパスを記録する。
 - Pull Request は Draft で作成し、実装と必要な検証が完了してから Ready for review に変更する。
-- Implementer は自分の実装に最終LGTMを出さない。Reviewerはfresh contextの別セッションでコードを変更せずにレビューし、必要ならFixerへ戻す。セッション分離は人間が行う。
+- Implementer は自分の実装に最終LGTMを出さない。Reviewerはfresh contextの別セッションでコードを変更せずにレビューし、必要ならFixerへ戻す。セッション分離は原則人間が行い、明示的に承認された [アラート修正ハーネス](docs/agent/alert-repair.md) に限り制御プログラムが行う。
 - AIエージェントは最終マージを実行しない。`npm run pr:merge` は人間専用コマンドであり、エージェントは実行禁止とする。
 - 詳細は [開発フロー](docs/agent/development.md) と [AIレビューと停止条件](docs/agent/review.md) を参照する。
 

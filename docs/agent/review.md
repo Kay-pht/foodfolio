@@ -2,7 +2,7 @@
 
 ## 責務分離
 
-人間がセッションを分離し、Implementer / Reviewer / Fixer を同一セッションで兼任させない。
+原則として人間がセッションを分離し、Implementer / Reviewer / Fixer を同一セッションで兼任させない。ユーザーが明示的に承認した [アラート修正ハーネス](alert-repair.md) では、制御プログラムが毎回新規Codexセッションを起動し、重複しないセッションIDを保存・検証する。この例外は同ハーネスの案件だけに適用する。
 
 - Implementer: 仕様に基づく実装、テスト追加、検証、コミットを行う。自分の実装に最終LGTMを出さない。
 - Reviewer: fresh context で仕様、PR差分、関連コード、検証結果を確認する。コードを変更しない。結果は `LGTM` または `AUTOMATION_BLOCKED` のみとする。
@@ -26,6 +26,8 @@ Reviewer は少なくとも次を独立に確認する。
 問題がなければReviewerは、現在のPR HEAD SHAに対してLGTMを記録する。
 
 レビュー証跡はGit管理対象外の `.git/foodfolio/review-proof.json` に保存する。`npm run review:lgtm` を使用し、手作業でSHAを書き込まない。
+
+アラート修正ハーネスのReviewerは読み取り専用のまま結果を返す。制御プログラムは元仕様、実装者と異なるReviewerセッションID、成功したレビューのSHA、最新PR HEAD、検証結果を確認してから、`npm run review:lgtm -- --attestation <path>` で証跡を保存する。これは承認済みの責務分離の例外であり、Implementer自身がレビュー結果を作成する許可ではない。ハーネス自身の変更はこの例外による自動承認の対象外とし、人間が別Reviewerセッションに依頼する。
 
 LGTMは記録時点のHEAD SHAだけに有効である。新しいコミットが1つでも追加された場合、以前のLGTMは無効とし、再レビューする。
 
