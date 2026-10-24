@@ -32,6 +32,8 @@ Slackプラグインがbot IDを省略した表示形式を返す場合も、そ
 
 独立Reviewerへ元仕様、差分、正確なHEAD、RED / GREEN、全検証とCI結果を渡す。Reviewerは読み取り専用。PRの更新やファイル変更があればレビューを無効とし停止する。具体的な指摘があればPRをDraftへ戻し、新規Fixerセッションで修正して検証・Ready・新規Reviewerを繰り返す。修正は最大3回、4回目が必要なら停止する。
 
+前工程の会話や実行履歴全体は引き継がない。必要なREDのassertion reportとGREENの検証ログだけを、新しい工程のprivate handoffディレクトリへコピーする。これにより元HOMEの読み取り拒否を維持したまま、Implementer / Reviewerが実際の検証内容を確認できる。CIはrun ID・workflow・conclusion・HEAD・base・merge parents・tree・artifactの照合結果を渡す。証跡コピーは一時認証情報の作成前に完了し、証跡の読み取りに失敗した場合は認証コピーを残さず停止する。
+
 LGTMは独立Reviewerの成功結果と正確なSHAを確認した制御側が、既存 `review:lgtm` コマンドへセッション証跡を渡して記録する。Git管理対象外の作業cloneの `.git/foodfolio/review-proof.json` を保持する。人間は `status` が示すworkspaceで最終確認し、既存の人間専用mergeコマンドを使う。自動merge、deploy、稼働環境への反映は行わない。ハーネス自体は通常の別Reviewerセッションでレビューし、自己承認しない。
 
 ## 認証情報・副作用・検証費用

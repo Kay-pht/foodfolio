@@ -4,9 +4,9 @@
 
 ## 固定の場所と起動条件
 
-- repository: `/Users/yasudakeisuke/Developer/practice/foodfolio`
+- repository: `/Users/yasudakeisuke/Developer/foodfolio`
 - remote: `https://github.com/Kay-pht/foodfolio.git`
-- state: `/Users/yasudakeisuke/Developer/practice/foodfolio/.git/foodfolio/alert-repair`
+- state: `/Users/yasudakeisuke/Developer/foodfolio/.git/foodfolio/alert-repair`
 - controller clone: state内の `controller`
 - channel: `#foodfolio-alerts` / `C0C4D12AD3J`
 

@@ -9,7 +9,7 @@ import {
 } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   changedPaths,
   command,
@@ -23,8 +23,79 @@ import {
   withLock,
 } from "../../scripts/alert-repair/cli.mjs";
 import { harness } from "../helpers/alert-repair-fixture.mjs";
+import { prepareHandoff, runAgent } from "../../scripts/alert-repair/agent.mjs";
 
 describe("alert repair integration", () => {
+  it("does not leave temporary authentication when handoff preparation fails", async () => {
+    const directory = await mkdtemp(
+      join(tmpdir(), "foodfolio-handoff-failure-"),
+    );
+    try {
+      const stage = join(directory, "stage");
+      const authDirectory = join(directory, "saved-auth");
+      await mkdir(stage);
+      await mkdir(authDirectory);
+      await writeFile(
+        join(authDirectory, "auth.json"),
+        JSON.stringify({
+          auth_mode: "chatgpt",
+          tokens: { access_token: "fixture-not-a-real-token" },
+        }),
+      );
+      vi.stubEnv("CODEX_HOME", authDirectory);
+      expect(() =>
+        runAgent({
+          role: "review",
+          incident: {},
+          directory,
+          stageDirectory: stage,
+          context: { red: { report: join(directory, "missing-red.json") } },
+          codexPath: join(directory, "must-not-start"),
+        }),
+      ).toThrow();
+      await expect(
+        readFile(join(stage, ".codex/auth.json"), "utf8"),
+      ).rejects.toMatchObject({ code: "ENOENT" });
+    } finally {
+      vi.unstubAllEnvs();
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+  it("copies only selected verification evidence into the next isolated stage", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "foodfolio-handoff-"));
+    try {
+      const previous = join(directory, "previous");
+      const next = join(directory, "next");
+      await mkdir(previous);
+      await mkdir(next);
+      await writeFile(join(previous, "red.json"), '{"assertion":"failed"}');
+      await writeFile(
+        join(previous, "verification.json"),
+        '{"unit":"passed","integration":"passed","e2e":"passed"}',
+      );
+      await writeFile(
+        join(previous, "conversation.json"),
+        "must not be copied",
+      );
+      const input = {
+        red: { report: join(previous, "red.json") },
+        verification: { evidence: join(previous, "verification.json") },
+      };
+      const output = prepareHandoff(input, next);
+      expect(output.red.report).toBe(join(next, "handoff/red.json"));
+      expect(input.red.report).toBe(join(previous, "red.json"));
+      expect(
+        JSON.parse(await readFile(output.verification.evidence, "utf8")).e2e,
+      ).toBe("passed");
+      const { readdir } = await import("node:fs/promises");
+      expect((await readdir(join(next, "handoff"))).sort()).toEqual([
+        "red.json",
+        "verification.json",
+      ]);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
   it("refuses an unmerged or locally modified controller before starting incident work", async () => {
     const directory = await mkdtemp(
       join(tmpdir(), "foodfolio-controller-approval-"),

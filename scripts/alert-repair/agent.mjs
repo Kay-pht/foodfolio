@@ -174,6 +174,23 @@ JSON Schemaに沿った結果だけを返す。実行できなかった検証を
   return common + instructions[role];
 }
 
+export function prepareHandoff(context, stageDirectory) {
+  const handoff = structuredClone(context ?? {});
+  for (const [group, key, name] of [
+    ["red", "report", "red.json"],
+    ["verification", "evidence", "verification.json"],
+  ]) {
+    const source = handoff[group]?.[key];
+    if (!source) continue;
+    const directory = join(stageDirectory, "handoff");
+    mkdirSync(directory, { recursive: true, mode: 0o700 });
+    const target = join(directory, name);
+    writeFileSync(target, readFileSync(source), { mode: 0o600 });
+    handoff[group][key] = target;
+  }
+  return handoff;
+}
+
 export function runAgent({
   role,
   incident,
@@ -186,6 +203,8 @@ export function runAgent({
     throw new Error(
       "Live agent isolation currently requires this Mac's sandbox-exec.",
     );
+  // Evidence must be ready before temporary authentication is copied.
+  const handoff = prepareHandoff(context, stageDirectory);
   mkdirSync(join(stageDirectory, ".codex"), { recursive: true, mode: 0o700 });
   mkdirSync(join(stageDirectory, "tmp"), { mode: 0o700 });
   const auth = JSON.parse(
@@ -220,7 +239,7 @@ export function runAgent({
       "/usr/bin/sandbox-exec",
       ["-p", profile, codexPath, ...agentArgs(role, directory, output, schema)],
       {
-        input: promptFor(role, incident, context),
+        input: promptFor(role, incident, handoff),
         cwd: directory,
         env: agentEnvironment(stageDirectory),
         stdio: ["pipe", out, err],
