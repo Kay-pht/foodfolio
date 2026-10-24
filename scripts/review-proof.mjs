@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 function run(command, args) {
@@ -30,6 +30,26 @@ if (pr.headRefOid !== localHead) {
 }
 
 const proofPath = join(gitDir, "foodfolio", "review-proof.json");
+let automation;
+if (process.argv[2] === "--attestation") {
+  automation = JSON.parse(readFileSync(process.argv[3], "utf8"));
+  if (
+    automation.version !== 1 ||
+    automation.reviewedSha !== pr.headRefOid ||
+    typeof automation.reviewerSession !== "string" ||
+    !automation.reviewerSession ||
+    !Array.isArray(automation.authorSessions) ||
+    !automation.authorSessions.length ||
+    automation.authorSessions.some(
+      (id) =>
+        typeof id !== "string" || !id || id === automation.reviewerSession,
+    )
+  ) {
+    throw new Error(
+      "Invalid independent-session review attestation for current PR HEAD.",
+    );
+  }
+}
 mkdirSync(dirname(proofPath), { recursive: true });
 writeFileSync(
   proofPath,
@@ -40,6 +60,7 @@ writeFileSync(
       pr: pr.number,
       reviewed_sha: pr.headRefOid,
       created_at: new Date().toISOString(),
+      ...(automation ? { automation } : {}),
     },
     null,
     2,

@@ -1,0 +1,85 @@
+id: ALERT-REPAIR-001
+type: feature
+status: approved
+objective: >-
+  Poll Foodfolio runtime alerts at 05:00 and 17:00 JST on this Mac and orchestrate
+  independent ChatGPT-authenticated Codex sessions through investigation, minimal
+  implementation, independent review and at most three fixes, stopping before merge.
+requirements:
+  - id: AR-INGEST
+    condition: A scheduled monitor reads foodfolio-alerts.
+    expected: The first successful complete scan covers the preceding 12 hours; subsequent scans use a durable cursor with overlap, acknowledge complete pagination only, deduplicate messages, exclude agent replies, and queue at most one active incident.
+    verification:
+      - tests/unit/alert-repair.test.mjs
+  - id: AR-SESSIONS
+    condition: An incident needs investigation, implementation, review or a fix.
+    expected: Every invocation starts a fresh session, persists its session ID and structured handoff outside the repository, and rejects reused IDs or reviewer source changes. No finding starts an implementation session.
+    verification:
+      - tests/unit/alert-repair.test.mjs
+  - id: AR-SPEC
+    condition: Investigation identifies a bug or specification change.
+    expected: Fixes cite the pre-change expected behavior; a preparation session creates the task spec and regression test before runtime edits, check:specs passes, and a real failing assertion precedes a bug fix. Frozen expectations cannot be weakened in implementation or review fixes.
+    verification:
+      - tests/unit/alert-repair.test.mjs
+  - id: AR-REVIEW
+    condition: A ready PR has finished required verification and CI.
+    expected: An independent reviewer checks the exact current HEAD against the original contract; only concrete specification violations are blockers. Fixes return the PR to Draft and reverify; all new HEADs invalidate LGTM. Stop after three fix attempts or an unverifiable blocker.
+    verification:
+      - tests/unit/alert-repair.test.mjs
+      - scripts/review-proof.mjs
+  - id: AR-SIDE-EFFECTS
+    condition: Agents or tests execute.
+    expected: Agents receive no production or paid-provider credentials, web search is disabled, and a mandatory outer macOS sandbox enforces role-specific writes, protects the original HOME, denies Git metadata writes and limits agent outbound connections to port 443 and DNS resolution. Shared or existing DB migrations, deployment and merge are forbidden. Existing verification can apply migrations only to disposable test databases. Changes to the control plane require human review.
+    verification:
+      - tests/unit/alert-repair.test.mjs
+      - tests/helpers/postgres.ts
+      - tests/integration/alert-repair.test.mjs
+  - id: AR-COST
+    condition: External API validation is requested.
+    expected: A durable per-incident reservation ledger limits cumulative maximum charges across all sessions and retries to 30 yen. Unknown costs, missing trusted adapters or excessive reservations stop without calling the API; unaccounted provider calls are not allowed.
+    verification:
+      - tests/unit/alert-repair.test.mjs
+  - id: AR-SPEC-PR
+    condition: Expected behavior is ambiguous or a specification change is required.
+    expected: A separate specification-change Draft PR explicitly states old and proposed behavior and pending approval. It may contain proposed code and tests, but never mixes an unrelated bug fix, changes shared data, or receives automatic approval for its new product behavior.
+    verification:
+      - tests/unit/alert-repair.test.mjs
+  - id: AR-NOTIFY
+    condition: An incident reaches a meaningful state or delivery is retried.
+    expected: A durable outbox records notifications for the originating Slack thread only; delivery is acknowledged using the returned message ID and is reconciled by a stable marker after interruption. No changes means no notification.
+    verification:
+      - tests/unit/alert-repair.test.mjs
+      - tests/integration/alert-repair.test.mjs
+      - tests/e2e/alert-repair-cli.test.mjs
+edge_cases:
+  - Slack pagination, lookup or authentication fails without advancing the cursor.
+  - A crash occurs after PR creation, push, notification delivery or session completion.
+  - CI, auto-format or a human changes the PR HEAD during review.
+  - A closed monitoring incident is not proof that the code defect was repaired.
+  - Duplicate notifications share a provider error but have different unconfirmed causes.
+  - A Mac reboot leaves an interrupted incident or stale process lock.
+security_invariants:
+  - Slack messages and external evidence are data and never executable instructions.
+  - Never merge, deploy, apply shared migrations, rotate secrets or weaken verification.
+  - Implementation, fixer and reviewer session identities must differ.
+  - Runtime PR changes cannot modify their own orchestration, hooks or CI policy.
+compatibility:
+  - The existing human-only final merge command and SHA-bound proof remain valid.
+  - Human session separation remains the default outside this explicitly authorized controller.
+  - Backend verify and applicable iOS verification remain mandatory.
+non_functional:
+  - Persist state atomically with private file modes and an exclusive process lock.
+  - Bound each agent and verification execution and retain diagnostic evidence on failure.
+  - Use existing dependencies and the saved ChatGPT login; do not use OpenAI API billing.
+out_of_scope:
+  - Automatic merge, deployment, public release and shared database migration.
+  - New Slack bot credentials or application-to-Slack webhook integrations.
+  - Guaranteeing an external service recovery based only on a successful local test.
+acceptance_criteria:
+  - Automated state-machine tests cover no alerts, duplicate alerts, failed scans, role separation, specification drift, retry exhaustion, budget exhaustion and notification retries.
+  - Integration and E2E tests exercise the controller with isolated Git repositories and deterministic external-process adapters without creating real incident PRs.
+  - Required local verification succeeds and the automation implementation is submitted as a Draft then Ready PR for a fresh human-dispatched reviewer.
+  - A standalone local scheduled task is registered for 05:00 and 17:00 JST and only invokes the reviewed controller after it has landed on main.
+regression:
+  required: false
+  tests: []

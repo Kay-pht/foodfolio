@@ -1,0 +1,53 @@
+id: ALERT-REPAIR-HANDOFF-001
+type: bug
+status: approved
+objective: Integrate the existing isolated-stage evidence handoff and repository path relocation into the alert-repair PR while preserving authentication cleanup and the previous verification fixes.
+requirements:
+  - id: ARH-EVIDENCE
+    condition: An implementer or reviewer needs earlier RED and GREEN evidence.
+    expected: Copy only the selected assertion report and verification log into the new private stage and rewrite the copied context paths without mutating the original context or copying conversation history.
+    verification:
+      - tests/integration/alert-repair.test.mjs
+  - id: ARH-AUTH
+    condition: Preparing handoff evidence fails before an agent can start.
+    expected: No temporary ChatGPT authentication copy is created or left behind. Missing evidence fails closed before starting the agent and does not expose the original HOME.
+    verification:
+      - tests/integration/alert-repair.test.mjs
+  - id: ARH-CI
+    condition: A ready PR has valid exact-HEAD Quality evidence.
+    expected: Pass the verified workflow run identity, base, head, merge parents and artifact identity to the independent reviewer without additional API calls or weakening existing CI checks.
+    verification:
+      - tests/unit/alert-repair.test.mjs
+      - scripts/alert-repair/runner.mjs
+  - id: ARH-PATH
+    condition: The existing scheduled task locates its repository and persistent state.
+    expected: Use the current Developer/foodfolio repository location and its existing Git state directory instead of the retired Developer/practice/foodfolio location; do not change the schedule or live automation configuration.
+    verification:
+      - scripts/alert-repair/scheduled-task.md
+edge_cases:
+  - The source evidence path is missing or unreadable.
+  - A context has no RED or GREEN evidence.
+  - Previous conversation files exist beside the selected evidence.
+  - Relocation and verification fixes change different files on branches sharing the original PR base.
+security_invariants:
+  - Preserve the original HOME read denial, agent role restrictions and temporary authentication cleanup.
+  - Never pass unrelated conversations, provider credentials or arbitrary previous-stage directories to the next agent.
+  - Do not merge main, deploy, change live data or start CI as part of branch consolidation.
+compatibility:
+  - Retain all three fixes under ALERT-REPAIR-VERIFICATION-001 after integrating branches.
+  - Use the same existing PR and keep it Draft.
+non_functional:
+  - Preserve the original uncommitted work in Git history without stashing or dropping it.
+  - Validate the integrated source with local unit, integration, E2E, lint, format and build checks.
+out_of_scope:
+  - New application behavior, iOS implementation, workflow jobs or scheduling changes.
+  - Removing unrelated branches or changing another worktree.
+acceptance_criteria:
+  - The evidence-failure regression fails before the initialization-order fix and passes afterward.
+  - The relocation commit, original uncommitted changes and verification fixes are ancestors of the updated PR branch.
+  - The primary checkout uses the integrated PR branch and has no uncommitted changes.
+  - Full local verification succeeds and the existing Draft PR is updated.
+regression:
+  required: true
+  tests:
+    - tests/integration/alert-repair.test.mjs
