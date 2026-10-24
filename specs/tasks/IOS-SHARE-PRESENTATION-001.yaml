@@ -1,0 +1,74 @@
+id: IOS-SHARE-PRESENTATION-001
+type: bug
+status: approved
+
+objective: >-
+  Prevent a blank Share Extension sheet by preserving the standard compose controller's
+  editable input lifecycle until its presentation animation finishes, while keeping
+  the confirmed recipe URL immutable and preserving explicit submission.
+
+requirements:
+  - id: ISP-1
+    condition: The Share Extension loads before the standard sheet presentation finishes.
+    expected: The compose text view remains editable so its initial input and presentation lifecycle is not suppressed in viewDidLoad.
+    verification:
+      - ios/FoodfolioShareExtension/ShareViewController.swift
+      - ios/FoodfolioShareExtensionTests/SharePresentationTests.swift
+  - id: ISP-2
+    condition: The user attempts typing, pasting, or deleting text before presentation finishes.
+    expected: The text view delegate rejects the edit so the displayed confirmation cannot diverge from the prepared shared URL.
+    verification:
+      - ios/FoodfolioShareExtension/ShareViewController.swift
+      - ios/FoodfolioShareExtensionTests/SharePresentationTests.swift
+  - id: ISP-3
+    condition: The standard compose controller reports presentationAnimationDidFinish.
+    expected: The controller calls the superclass hook and makes its text view read-only without changing displayed text or Post validity; repeated callbacks are harmless.
+    verification:
+      - ios/FoodfolioShareExtension/ShareViewController.swift
+      - ios/FoodfolioShareExtensionTests/SharePresentationTests.swift
+  - id: ISP-4
+    condition: URL loading or recipe submission changes state.
+    expected: Existing content validation, explicit Post confirmation, authenticated API submission, retry messages, and acknowledged completion remain in effect.
+    verification:
+      - tests/unit/share-extension-proof.test.mjs
+      - ios/FoodfolioTests/SharedRecipeSubmissionTests.swift
+      - ios/FoodfolioTests/SharedURLParserTests.swift
+
+edge_cases:
+  - A provider returns a URL before or after sheet presentation finishes.
+  - The initial provider never returns and the standard sheet still needs to appear.
+  - A user attempts an edit during presentation or the completion hook runs more than once.
+  - The extension is opened repeatedly from Chrome or another source app.
+  - Missing URLs, authentication errors, duplicate URLs, and transient submission failures retain their existing behavior.
+
+security_invariants:
+  - No recipe request starts before the user explicitly selects Post.
+  - User edits cannot change the confirmation text or the prepared URL.
+  - Firebase Auth, App Group, bearer token handling, HTTPS endpoints, and accepted URL schemes remain unchanged.
+  - Diagnostic logging, timed recovery, and device identifiers are not shipped in the application.
+
+compatibility:
+  - Keep SLComposeServiceViewController and its system Post and Cancel controls.
+  - Preserve iOS 26 support, Swift 6, Light appearance, and existing Japanese submission messages.
+  - Existing IOS-SHARE-POST-VALIDATION-001 and IOS-SHARE-SUBMISSION-STATUS-001 submission contracts continue to apply.
+
+non_functional:
+  - Use the public presentation completion hook rather than timers, private APIs, or forced layout.
+  - Cover the extension controller with runtime XCTest tests included in verify:ios.
+
+out_of_scope:
+  - Changing recipe analysis, backend APIs, activation rules, or authentication configuration.
+  - Replacing the standard compose UI or introducing automatic submission.
+  - Publishing an App Store release or merging the pull request.
+
+acceptance_criteria:
+  - The initial-editability regression test fails before the fix and passes after it.
+  - Typing, paste, and delete are rejected during presentation.
+  - Presentation completion makes text read-only without changing content validation.
+  - The previously failing physical iPhone displays the sharing controls after the fix.
+  - Targeted tests, full tests, integration, E2E, lint, format, and build all pass.
+
+regression:
+  required: true
+  tests:
+    - ios/FoodfolioShareExtensionTests/SharePresentationTests.swift

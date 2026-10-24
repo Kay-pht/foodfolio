@@ -57,6 +57,20 @@
             buildForAnalyzing = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
+               BlueprintIdentifier = "E3DBD7E6A178CD5935593A11"
+               BuildableName = "FoodfolioShareExtensionTests.xctest"
+               BlueprintName = "FoodfolioShareExtensionTests"
+               ReferencedContainer = "container:Foodfolio.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
                BlueprintIdentifier = "C8EA1A71A5B56D83A6CE3965"
                BuildableName = "FoodfolioTests.xctest"
                BlueprintName = "FoodfolioTests"
@@ -114,6 +128,17 @@
                BlueprintIdentifier = "C6575E10CA9A712FD1753C37"
                BuildableName = "FoodfolioIntegrationTests.xctest"
                BlueprintName = "FoodfolioIntegrationTests"
+               ReferencedContainer = "container:Foodfolio.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "E3DBD7E6A178CD5935593A11"
+               BuildableName = "FoodfolioShareExtensionTests.xctest"
+               BlueprintName = "FoodfolioShareExtensionTests"
                ReferencedContainer = "container:Foodfolio.xcodeproj">
             </BuildableReference>
          </TestableReference>

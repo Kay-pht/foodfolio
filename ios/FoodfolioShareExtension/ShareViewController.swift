@@ -28,13 +28,30 @@ final class ShareViewController: SLComposeServiceViewController {
     super.viewDidLoad()
     title = "Foodfolio"
     placeholder = "共有するレシピURLを確認してください"
-    textView.isEditable = false
     updateUI()
     validateContent()
 
     Task { @MainActor in
       await loadSharedURL()
     }
+  }
+
+  override func presentationAnimationDidFinish() {
+    super.presentationAnimationDidFinish()
+    // Keep the standard input lifecycle active until the compose sheet is visible.
+    textView.isEditable = false
+  }
+
+  override func textView(
+    _ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String
+  ) -> Bool {
+    false
+  }
+
+  override func textView(
+    _ textView: UITextView, shouldChangeTextInRanges ranges: [NSValue], replacementText text: String
+  ) -> Bool {
+    false
   }
 
   override func isContentValid() -> Bool {
