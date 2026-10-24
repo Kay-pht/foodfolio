@@ -133,3 +133,9 @@
 - [x] 分析最終失敗のSlackアラートへ安全に整形した分析対象URLリンクを追加し、ローカル検証を完了する
   - 認証情報・fragment・許可していないクエリを除去し、YouTubeの検証済み動画IDを維持する
   - デプロイ・Terraform適用・実Slack通知確認は今回の範囲外として未反映管理に残す
+- [x] Foodfolio 1.0.5 (18)をAppleへアップデート申請する
+  - [x] Appleの公開版・最新buildを確認し、パッチ番号更新の仕様と申請手順を確定する
+  - [x] 本体・Share Extensionを1.0.5 (18)へ更新し、PR #149の成功済み検証を再利用する
+  - [x] 人間が準備PR #151をマージしたことを確認する（別Reviewerの証跡は未確認）
+  - [x] マージ済みソースから配布用Archive / uploadを行い、Apple処理と既存掲載設定を確認する
+  - [x] MANUAL公開設定でAppleへ審査提出し、Submission ID `09c00d47-a2ac-43ea-b11f-f22766bc56cd` とWAITING_FOR_REVIEWを読み戻す（2026-10-24、一般公開はユーザーが行う）
