@@ -18,7 +18,7 @@ requirements:
       - tests/unit/cloud-run-deployment.test.mjs
   - id: ICR-2
     condition: Deployment completes or a serving revision has stale billing settings.
-    expected: A read-only verification rejects unready revisions, unexpected traffic or images, and instance-based billing on the serving revision without printing environment variables or secrets. The template tag matches the deployment image and the serving revision matches the immutable digest resolved from Artifact Registry after push.
+    expected: A read-only verification rejects unready revisions, unexpected traffic or images, and instance-based billing on the serving revision without printing environment variables or secrets. The template tag matches the deployment image and the serving revision matches the immutable digest resolved from Artifact Registry after push, or the unique linux/amd64 image manifest digest inside that immutable OCI index or Docker manifest list.
     verification:
       - .github/workflows/deploy-dev.yml
       - tests/unit/quality-proof.test.mjs
@@ -54,7 +54,7 @@ edge_cases:
   - No current keep tags exist; this PR does not assume existing images are already protected and must keep dry-run enabled.
 
 security_invariants:
-  - Verification uses only service and revision describe operations scoped to the explicit project and region.
+  - Cloud Run verification uses only service and revision describe operations scoped to the explicit project and region. When the revision digest differs from the expected digest, read-only Registry inspection with docker buildx imagetools inspect is permitted only for the validated immutable expected repository and digest, never a mutable tag. Only the unique linux/amd64 image manifest may match; unrelated repositories, other platforms, attestations, ambiguous candidates, malformed responses, and inspection failures are rejected.
   - Verification output does not expose environment variables, secret values, or raw CLI responses.
   - Worker internal ingress, OIDC authentication, API authentication, and uptime monitoring are preserved.
   - Cleanup deletion activation, artifact deletion, deployment, and Terraform apply are outside this implementation request.
