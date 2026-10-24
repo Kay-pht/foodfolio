@@ -1,0 +1,46 @@
+id: ALERT-REPAIR-VERIFICATION-001
+type: bug
+status: approved
+objective: Correct the three reviewed alert-repair verification defects without changing the approved product behavior or adding CI runs.
+requirements:
+  - id: ARV-HOOKS
+    condition: Isolated verification runs after the controller configured the required Git hooks.
+    expected: Hook setup succeeds by reading the existing correct local configuration without attempting Git metadata writes. Missing or incorrect configuration still requires installation and fails closed if writes are denied. Agent sandbox restrictions remain unchanged.
+    verification:
+      - tests/integration/alert-repair-verification.test.mjs
+  - id: ARV-RED
+    condition: The controller validates a failed regression run.
+    expected: Only actual assertion failures in test bodies with successful hooks and no suite or unhandled runtime errors establish RED. Setup, teardown, imports, generic runtime exceptions and missing structured provenance are rejected using actual Vitest task results.
+    verification:
+      - tests/integration/alert-repair-verification.test.mjs
+      - tests/unit/alert-repair.test.mjs
+  - id: ARV-IOS
+    condition: Local verification determines whether iOS verification is necessary before publishing.
+    expected: Include untracked additions and committed changes since the incident base as well as working-tree changes. New iOS files trigger the existing local verify:ios command; backend-only changes retain the existing behavior. No new CI runs or jobs are introduced.
+    verification:
+      - tests/integration/alert-repair-verification.test.mjs
+edge_cases:
+  - A beforeEach assertion fails before the test body starts.
+  - A real test assertion fails but teardown also fails.
+  - A JSON report has failed tests but lacks trustworthy task error and hook metadata.
+  - Only a new untracked Swift file affects iOS.
+  - A previously published incident changes iOS in a committed file.
+security_invariants:
+  - Preserve the existing agent and validation sandbox profiles and Git metadata write prohibition.
+  - Do not weaken verification, run paid APIs, change existing databases, deploy or merge.
+compatibility:
+  - This corrects AR-SPEC and AR-REVIEW under ALERT-REPAIR-001, without changing application contracts.
+  - Preserve normal hook installation when configuration is missing or different.
+non_functional:
+  - Verify locally with disposable Git fixtures and actual Vitest subprocesses.
+out_of_scope:
+  - Changes to the CI workflows, scheduling, session handoff or product behavior.
+  - Publishing, deployment, merge and independent final LGTM.
+acceptance_criteria:
+  - All three direct regressions fail before implementation and pass afterward.
+  - Full local verification passes, including unit, integration, E2E, lint, format and build.
+  - The real sandbox can run the full verification against a disposable checkout.
+regression:
+  required: true
+  tests:
+    - tests/integration/alert-repair-verification.test.mjs

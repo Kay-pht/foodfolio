@@ -201,12 +201,29 @@ describe("alert repair contract", () => {
     expect(() =>
       assertRedReport({
         testResults: [{ assertionResults: [{ status: "failed" }] }],
+        redEvidence: {
+          version: 1,
+          unhandledErrors: 0,
+          tasks: [
+            {
+              type: "test",
+              state: "fail",
+              hooks: {},
+              errorNames: ["AssertionError"],
+            },
+          ],
+        },
       }),
     ).not.toThrow();
     expect(() =>
       assertRedReport({ numRuntimeErrorTestSuites: 1, testResults: [] }),
     ).toThrow(/assertion/);
     expect(() => assertRedReport({ numFailedTests: 1 })).toThrow(/assertion/);
+    expect(() =>
+      assertRedReport({
+        testResults: [{ assertionResults: [{ status: "failed" }] }],
+      }),
+    ).toThrow(/assertion/);
   });
 
   it("prevents runtime edits before specs, control-plane edits and path escapes", () => {

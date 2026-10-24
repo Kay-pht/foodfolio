@@ -146,6 +146,19 @@ export function verificationEnvironment(home) {
   };
 }
 
+export function requiresIosVerification(directory, base) {
+  const paths = [
+    ...git(directory, ["diff", "--name-only", base]).split("\n"),
+    ...changedPaths(directory),
+  ];
+  return paths.some(
+    (path) =>
+      path.startsWith("ios/") ||
+      path === "schemas/extracted-recipe.schema.json" ||
+      path.startsWith("src/api/"),
+  );
+}
+
 function verify(directory, incident, stageDirectory, mode) {
   const home = join(stageDirectory, "verify-home");
   mkdirSync(join(home, "tmp"), { recursive: true, mode: 0o700 });
@@ -193,7 +206,7 @@ function verify(directory, incident, stageDirectory, mode) {
         "vitest",
         "run",
         ...incident.contract.regressionTests.map(safeTestPath),
-        "--reporter=json",
+        `--reporter=${join(directory, "scripts/alert-repair/red-reporter.mjs")}`,
         `--outputFile=${report}`,
       ]);
     } catch {
@@ -216,17 +229,7 @@ function verify(directory, incident, stageDirectory, mode) {
     ]);
   }
   logs.verify = run("npm", ["run", "verify"]);
-  const paths = git(directory, ["diff", "--name-only", incident.base]).split(
-    "\n",
-  );
-  if (
-    paths.some(
-      (path) =>
-        path.startsWith("ios/") ||
-        path === "schemas/extracted-recipe.schema.json" ||
-        path.startsWith("src/api/"),
-    )
-  ) {
+  if (requiresIosVerification(directory, incident.base)) {
     logs.ios = run("npm", ["run", "verify:ios"]);
   }
   const evidence = join(stageDirectory, "verification.json");

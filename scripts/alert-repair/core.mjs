@@ -302,7 +302,30 @@ export function assertRedReport(report) {
   const failedAssertions = (report.testResults ?? [])
     .flatMap((suite) => suite.assertionResults ?? [])
     .filter((test) => test.status === "failed");
-  if (!failedAssertions.length || (report.numRuntimeErrorTestSuites ?? 0) > 0) {
+  const evidence = report.redEvidence;
+  const tasks = evidence?.tasks;
+  const failedTests = Array.isArray(tasks)
+    ? tasks.filter((task) => task.type === "test" && task.state === "fail")
+    : [];
+  if (
+    !failedAssertions.length ||
+    (report.numRuntimeErrorTestSuites ?? 0) > 0 ||
+    evidence?.version !== 1 ||
+    evidence.unhandledErrors !== 0 ||
+    failedTests.length !== failedAssertions.length ||
+    tasks.some(
+      (task) =>
+        !task.hooks ||
+        Object.values(task.hooks).some((state) => state !== "pass") ||
+        !Array.isArray(task.errorNames) ||
+        (task.type !== "test" && task.errorNames.length > 0),
+    ) ||
+    failedTests.some(
+      (task) =>
+        !task.errorNames.length ||
+        task.errorNames.some((name) => name !== "AssertionError"),
+    )
+  ) {
     throw new Error(
       "RED must be a failing test assertion, not a setup, import or infrastructure failure.",
     );
