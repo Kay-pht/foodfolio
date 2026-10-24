@@ -1,5 +1,37 @@
 # App Store リリース管理
 
+## 更新 1.0.5 (18) の申請準備
+
+2026-10-24（JST）にAppleの[日本向け公開lookup](https://itunes.apple.com/lookup?id=6806783378&country=jp)とApp Store Connect APIを読み戻した。公開版は `1.0.4 (17)`、version ID `2f6cf146-1e86-423b-b9de-68c2402835f5`、Build ID `1471a727-5c5e-4289-a7d5-4e859558c153`。App Store Connectは `READY_FOR_SALE` / `READY_FOR_DISTRIBUTION`、公開lookupの公開日時は `2026-10-17T15:42:55Z`（2026-10-18 00:42:55 JST）。最新upload済みbuildは17で、1.0.5は未作成。次のパッチ更新を **1.0.5 (18)** とする。下記の1.0.4審査待ち記録は提出当時の履歴である。
+
+準備元はmain `3eff7064051086e5d6d784d5ef327ae988daf480`。[PR #149](https://github.com/Kay-pht/foodfolio/pull/149)はマージ済みで、Share Extensionの表示完了後に本文を読み取り専用へ切り替える修正を含む。本PRの製品変更は `ios/project.yml` と生成projectのバージョン番号のみ。本体とShare Extensionを揃えて更新する。
+
+日本語の更新内容:
+
+「共有メニューからFoodfolioを開いた際に、画面が正しく表示されない問題を修正しました。」
+
+### 既存検証の利用と今回の差分確認
+
+ユーザーの明示指示により、以下の成功済み検証は再実行しない。実機での繰り返し表示と投稿受付、unit 560件・結合73件・E2E70件・iOS139件、lint・format・build・最終CIはPR #149の証跡を利用する。[Quality成功](https://github.com/Kay-pht/foodfolio/actions/runs/40078689899)をAPIで読み戻し、対象HEAD `49c63be7b24ca38694ad18cbe7fae8b25a6836ed` と `conclusion: success` を確認した。CI対象HEADおよびPR #149最終HEAD `f51b2743452c5a541e77481e3df2727e59c7ccd4` から準備元mainへのiOS差分はない。mainのBackendには別途PR #150の差分があるため、このCIを現在のBackend全体の新規成功とは扱わない。
+
+今回の番号更新後のソースに対する全体テスト・全体CIの新規成功は主張しない。新しい仕様のcheck、番号と生成projectの整合性、変更文書のcheckだけを実施する。Readyへの変更はAuto Fix / Qualityによる検証の再実行につながるため、この準備PRはDraftで引き渡す。独立レビューは別Reviewerセッションで行い、マージは人間が行う。
+
+### 準備・マージ後の提出チェックリスト
+
+- [x] 公開版1.0.4 (17)、最新upload済みbuild 17、1.0.5未作成を確認
+- [x] `APP-STORE-UPDATE-1-0-5` の仕様を実装前に確定し、`npm run check:specs` 成功（59仕様）
+- [x] 本体・Share Extensionの番号を1.0.5 (18)へ更新し、生成projectの差分を確認
+- [x] PR #149の既存成功結果を参照し、ユーザー指定の検証を再実行しない方針を記録
+- [ ] 別Reviewerセッションのレビューと人間による準備PRのマージ
+- [ ] マージ済みソースとApple側の番号競合を再確認
+- [ ] マージ済みソースから新しい配布用Archive / IPAを作成し、両targetの番号・署名・entitlements・日本語resourceを確認
+- [ ] Apple validation / upload、processing `VALID`、未期限、`APP_STORE_ELIGIBLE`、暗号化申告を読み戻す
+- [ ] 既存 `Foodfolio Internal` への割り当てと日本語What to Testを確認（テスター追加・外部招待なし）
+- [ ] 既存審査アカウント・認証付きAPI、掲載情報・画像・価格・地域を確認し、build 18を選択
+- [ ] 公開方式 `MANUAL` を読み戻してAppleへ審査提出し、Submission IDと審査状態を記録
+
+現在の依頼はまず準備PRを作成してユーザーの確認・マージを待つ段階である。Appleへのupload・申請は未実施。マージ後の配布用Archiveは既存のテスト用buildの再実行とは区別する。一般公開はユーザーが行い、公開操作は実施しない。今回のiOS修正にBackend変更・DB migrationは不要で、Backendの追加デプロイは行わない。
+
 ## 更新 1.0.4 (17) の提出状況
 
 2026-10-16（JST）にAppleの[日本向け公開lookup](https://itunes.apple.com/lookup?id=6806783378&country=jp)とApp Store Connectを読み戻した。公開版は`1.0.3 (16)`（version ID `35229013-f68c-4595-a000-ba8f6a517246`、Build ID `04094ec3-5d57-4f0d-88a8-c447acc6d6d5`）。最新upload済みbuildは`16`で、`1.0.4`は未作成だった。パッチ番号だけを上げ、次の候補を`1.0.4 (17)`とする。

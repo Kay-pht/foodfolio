@@ -1,0 +1,91 @@
+id: APP-STORE-UPDATE-1-0-5
+type: maintenance
+status: approved
+
+objective: >-
+  Prepare Foodfolio 1.0.5 (18) from main containing the merged Share Extension
+  presentation fix in PR 149. The human merges the preparation PR; then submit
+  the merged source to Apple App Review with MANUAL release and stop before publication.
+
+requirements:
+  - id: ASUP105-1
+    condition: Apple release state is checked before selecting the patch version.
+    expected: >-
+      Public lookup and App Store Connect show 1.0.4 (17) released; the latest
+      uploaded build is 17 and version 1.0.5 does not exist. Both iOS targets use
+      MARKETING_VERSION 1.0.5 and CURRENT_PROJECT_VERSION 18.
+    verification:
+      - ios/project.yml
+      - ios/Foodfolio.xcodeproj/project.pbxproj
+      - docs/app-store-release.md
+  - id: ASUP105-2
+    condition: The preparation PR is handed to the human.
+    expected: >-
+      Reuse the user-provided successful device, unit 560, integration 73,
+      E2E 70, iOS 139, lint, format, build and final CI evidence from PR 149.
+      Do not rerun those checks. Verify only the new specification, version
+      metadata and changed documents. Keep the PR Draft to avoid automatically
+      rerunning Quality; disclose that this preparation HEAD has no new full CI.
+      The implementer neither issues final LGTM nor merges.
+    verification:
+      - docs/app-store-release.md
+      - tasks/todo.md
+      - .github/workflows/quality.yml
+  - id: ASUP105-3
+    condition: The human has merged the preparation PR.
+    expected: >-
+      Recheck Apple version and build availability. Archive and upload the merged
+      source, checking both target versions, signatures, production entitlements,
+      Japanese resources and eligible VALID processing. This new distribution
+      archive is distinct from repeating the already successful test build.
+      Read back existing internal TestFlight assignment without changing testers.
+    verification:
+      - docs/testflight-preparation.md
+      - docs/app-store-release.md
+  - id: ASUP105-4
+    condition: The update is submitted to Apple.
+    expected: >-
+      Version 1.0.5 selects build 18, Japanese notes describe the Share Extension
+      display fix, and existing listing metadata, screenshots, price and regions
+      are preserved. Recheck review credentials and MANUAL release before submission;
+      record submission ID and review state. Never perform public release.
+    verification:
+      - docs/app-store-release.md
+      - tasks/unreleased.md
+
+edge_cases:
+  - Another session reserves version 1.0.5 or build 18 before upload.
+  - Human merge or independent review remains pending.
+  - Main changes after the reused verification evidence; do not claim new code is verified.
+  - Apple contracts, authentication, metadata or processing prevent submission.
+
+security_invariants:
+  - Never commit or print signing keys, tokens or review credentials.
+  - Do not change tester membership, public links or unrelated cloud resources.
+  - Never send a public-release request, even after approval.
+
+compatibility:
+  - Preserve bundle identifiers, deployment target, App Groups and backend URL.
+  - Preserve saved recipes, schema and Japanese resources.
+  - Preserve existing listing metadata and screenshots except accurate update notes.
+
+non_functional:
+  - Track prior verification, new metadata checks, merge, upload and submission separately.
+  - Keep archives and IPA files outside Git.
+  - No duplicate test suites, full CI, device testing or backend deployment for this preparation.
+
+out_of_scope:
+  - Agent merge, implementer final LGTM and public release.
+  - Apple upload or App Review submission before human merge.
+  - New features, screenshots, external TestFlight invitations and cloud configuration changes.
+
+acceptance_criteria:
+  - Both iOS targets inherit version 1.0.5 build 18 from matching project configuration.
+  - The new specification and changed document checks pass.
+  - A Draft preparation PR records reused evidence and pending human merge and submission.
+  - After human merge, Apple submission and MANUAL release are read back.
+  - App Store publication remains unchecked until confirmed after human release.
+
+regression:
+  required: false
+  tests: []
