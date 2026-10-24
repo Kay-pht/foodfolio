@@ -19,7 +19,7 @@ const options = {
 };
 
 function fixtures() {
-  return {
+  return globalThis.structuredClone({
     service: {
       metadata: { name: serviceName },
       spec: {
@@ -45,7 +45,7 @@ function fixtures() {
       spec: { containers: [{ image: imageDigest }] },
       status: ready,
     },
-  };
+  });
 }
 
 function verify({ service, revision }) {
@@ -176,6 +176,111 @@ describe("ICR-2 serving revision deployment verification", () => {
       expect(describe).not.toHaveBeenCalled();
     },
   );
+});
+
+describe("DID-1 immutable image index verification", () => {
+  const child = `sha256:${"b".repeat(64)}`;
+  const index = {
+    schemaVersion: 2,
+    mediaType: "application/vnd.oci.image.index.v1+json",
+    manifests: [
+      {
+        mediaType: "application/vnd.oci.image.manifest.v1+json",
+        digest: child,
+        platform: { os: "linux", architecture: "amd64" },
+      },
+    ],
+  };
+  async function check(
+    manifest,
+    digest = child,
+    repository = image.split(":")[0],
+  ) {
+    const data = fixtures();
+    data.revision.spec.containers[0].image = `${repository}@${digest}`;
+    const inspect = vi.fn().mockResolvedValue(manifest);
+    const describe = vi
+      .fn()
+      .mockResolvedValueOnce(data.service)
+      .mockResolvedValueOnce(data.revision);
+    const result = await verifyCloudRunDeployment({
+      ...options,
+      describe,
+      inspect,
+    });
+    expect(inspect).toHaveBeenCalledWith(imageDigest);
+    return result;
+  }
+  it("accepts the linux/amd64 child of the expected immutable OCI index", async () => {
+    await expect(check(index)).resolves.toMatchObject({
+      serviceName,
+      revisionName,
+    });
+  });
+  it("accepts a Docker manifest list", async () => {
+    await expect(
+      check({
+        ...index,
+        mediaType: "application/vnd.docker.distribution.manifest.list.v2+json",
+        manifests: [
+          {
+            ...index.manifests[0],
+            mediaType: "application/vnd.docker.distribution.manifest.v2+json",
+          },
+        ],
+      }),
+    ).resolves.toMatchObject({ serviceName });
+  });
+  it.each([
+    ["unrelated child", index, `sha256:${"c".repeat(64)}`],
+    ["other repository", index, child, "other/app"],
+    [
+      "wrong platform",
+      {
+        ...index,
+        manifests: [
+          {
+            ...index.manifests[0],
+            platform: { os: "linux", architecture: "arm64" },
+          },
+        ],
+      },
+    ],
+    [
+      "ambiguous platform",
+      { ...index, manifests: [...index.manifests, ...index.manifests] },
+    ],
+    [
+      "attestation",
+      {
+        ...index,
+        manifests: [
+          {
+            ...index.manifests[0],
+            annotations: {
+              "vnd.docker.reference.type": "attestation-manifest",
+            },
+          },
+        ],
+      },
+    ],
+    [
+      "invalid digest",
+      { ...index, manifests: [{ ...index.manifests[0], digest: "bad" }] },
+    ],
+    [
+      "non-image child",
+      { ...index, manifests: [{ ...index.manifests[0], mediaType: "other" }] },
+    ],
+    ["missing manifests", { ...index, manifests: undefined }],
+    [
+      "single manifest",
+      { mediaType: "application/vnd.oci.image.manifest.v1+json" },
+    ],
+    ["invalid response", null],
+  ])("fails closed for %s", async (_label, manifest, digest, repository) => {
+    await expect(check(manifest, digest, repository)).rejects.toThrow();
+  });
 });
 
 describe("ICR-1 dev deployment wiring", () => {

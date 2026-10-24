@@ -1,0 +1,39 @@
+id: DEPLOY-INDEX-DIGEST-001
+type: bug
+status: approved
+objective: Verify Cloud Run serving images against the platform manifest inside an immutable image index without rejecting valid deployments.
+requirements:
+  - id: DID-1
+    condition: The expected digest identifies an OCI index or Docker manifest list and Cloud Run serves its linux/amd64 child.
+    expected: Inspect the immutable expected reference and accept only its unique linux/amd64 image manifest digest.
+    verification:
+      - scripts/verify-cloud-run-deployment.mjs
+      - tests/unit/cloud-run-deployment.test.mjs
+      - tests/e2e/cloud-run-deployment-cli.test.mjs
+  - id: DID-2
+    condition: The revision digest differs from the expected digest.
+    expected: Reject unrelated digests, unsupported or ambiguous manifests, malformed responses, and inspection failures without exposing raw output.
+    verification:
+      - tests/unit/cloud-run-deployment.test.mjs
+      - tests/e2e/cloud-run-deployment-cli.test.mjs
+edge_cases:
+  - Attestation manifests and other platforms must not be accepted.
+  - A direct single-image digest remains supported without registry inspection.
+security_invariants:
+  - Resolve only the validated immutable expected repository and digest, never a mutable tag.
+  - Preserve Ready, traffic, image repository, and request billing checks.
+  - Do not print credentials or raw CLI responses.
+compatibility:
+  - Keep the existing workflow environment and successful output contract.
+non_functional:
+  - Bound registry inspection time and output size using the existing Docker CLI.
+out_of_scope:
+  - Redeployment, migrations, resource cleanup, and application behavior changes.
+acceptance_criteria:
+  - Reproduce the index versus child mismatch as RED before implementation and GREEN after the fix.
+  - Complete repository verification including integration and E2E tests.
+regression:
+  required: true
+  tests:
+    - tests/unit/cloud-run-deployment.test.mjs
+    - tests/e2e/cloud-run-deployment-cli.test.mjs

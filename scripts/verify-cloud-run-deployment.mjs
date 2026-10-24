@@ -41,6 +41,60 @@ async function describeResource(args) {
   }
 }
 
+async function inspectManifest(reference) {
+  let stdout;
+  try {
+    ({ stdout } = await execFileAsync(
+      "docker",
+      ["buildx", "imagetools", "inspect", reference, "--raw"],
+      { timeout: 20_000, maxBuffer: 1024 * 1024 },
+    ));
+  } catch {
+    throw new Error("Image manifest inspection failed");
+  }
+  try {
+    return JSON.parse(stdout);
+  } catch {
+    throw new Error("Image manifest inspection returned invalid JSON");
+  }
+}
+
+async function matchesImage(actual, expected, repository, inspect) {
+  if (actual === expected) return true;
+  if (
+    typeof actual !== "string" ||
+    !actual.startsWith(`${repository}@sha256:`) ||
+    !/^[0-9a-f]{64}$/.test(actual.split("@sha256:")[1] ?? "")
+  )
+    return false;
+  const manifest = await inspect(expected);
+  if (
+    manifest?.schemaVersion !== 2 ||
+    ![
+      "application/vnd.oci.image.index.v1+json",
+      "application/vnd.docker.distribution.manifest.list.v2+json",
+    ].includes(manifest?.mediaType) ||
+    !Array.isArray(manifest?.manifests)
+  )
+    return false;
+  const candidates = manifest.manifests.filter(
+    (entry) =>
+      entry?.platform?.os === "linux" &&
+      entry?.platform?.architecture === "amd64" &&
+      entry?.annotations?.["vnd.docker.reference.type"] !==
+        "attestation-manifest" &&
+      [
+        "application/vnd.oci.image.manifest.v1+json",
+        "application/vnd.docker.distribution.manifest.v2+json",
+      ].includes(entry?.mediaType),
+  );
+  return (
+    candidates.length === 1 &&
+    /^sha256:[0-9a-f]{64}$/.test(candidates[0].digest) &&
+    actual === `${repository}@${candidates[0].digest}`
+  );
+}
+
 export async function verifyCloudRunDeployment({
   serviceName,
   project,
@@ -48,6 +102,7 @@ export async function verifyCloudRunDeployment({
   image,
   imageDigest,
   describe = describeResource,
+  inspect = inspectManifest,
 }) {
   requireCondition(
     [serviceName, project, region, image, imageDigest].every(
@@ -106,7 +161,12 @@ export async function verifyCloudRunDeployment({
     "Serving revision is not Ready",
   );
   requireCondition(
-    revision?.spec?.containers?.[0]?.image === imageDigest,
+    await matchesImage(
+      revision?.spec?.containers?.[0]?.image,
+      imageDigest,
+      repository,
+      inspect,
+    ),
     "Serving revision image does not match deployment",
   );
   requireCondition(

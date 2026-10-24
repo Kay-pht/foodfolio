@@ -1,5 +1,9 @@
 # Foodfolio TODO
 
+- [ ] Cloud RunのOCI indexと実行イメージdigestの照合を修正する
+  - [x] Specification as Codeを確定し、回帰テストのREDからGREENを確認する
+  - [x] ローカルLinux環境で全体・結合・E2E・lint・format・buildを確認する
+  - [ ] 別Reviewerセッションで最新HEADをレビューする
 - [ ] Share Extensionを選択した際の白画面を修正する
   - [x] iOS 27実機で再現し、同じ白画面で編集許可を変更した後に表示が回復することを確認する
   - [x] 初期表示の回帰テストでREDを確認し、表示完了後に読み取り専用化する修正でGREENにする

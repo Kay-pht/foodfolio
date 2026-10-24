@@ -16,7 +16,7 @@ deployはTerraformを実行しないため、Artifact Registryのdry-runポリ�
 
 ## デプロイ後の確認
 
-`scripts/verify-cloud-run-deployment.mjs`は、`PROJECT_ID`、`REGION`、`IMAGE`、`IMAGE_DIGEST`と引数のサービス名を使い、`gcloud run services describe` / `gcloud run revisions describe`のみで確認する。Ready状態、最新作成revisionと最新Ready revisionの一致、最新Ready revisionへのtraffic 100%、期待image、templateと配信中revisionのリクエストベース課金を検証する。Cloud Runのrevisionはtagをdigestへ解決するため、サービスtemplateは`IMAGE`、配信中revisionはpush後にArtifact Registryから取得した`IMAGE_DIGEST`と照合する。raw response、環境変数、secretは出力しない。annotation省略時はGoogleの定義に従いリクエストベース課金として扱う。
+`scripts/verify-cloud-run-deployment.mjs`は、`PROJECT_ID`、`REGION`、`IMAGE`、`IMAGE_DIGEST`と引数のサービス名を使い、`gcloud run services describe` / `gcloud run revisions describe`で確認する。Ready状態、最新作成revisionと最新Ready revisionの一致、最新Ready revisionへのtraffic 100%、期待image、templateと配信中revisionのリクエストベース課金を検証する。Cloud Runのrevisionはtagをdigestへ解決するため、サービスtemplateは`IMAGE`、配信中revisionはpush後にArtifact Registryから取得した`IMAGE_DIGEST`と照合する。raw response、環境変数、secretは出力しない。annotation省略時はGoogleの定義に従いリクエストベース課金として扱う。
 
 1. APIの配信中revisionと課金設定を確認し、`/health`、認証付きAPIの取得・保存・同期が成功することを確認する。
 2. Workerの配信中revisionと課金設定を確認する。解析依頼を送り、DBのterminal状態・通知・HTTP応答を照合する。成功のacknowledgement前に解析と後処理が完了し、再試行可能な失敗は503を返すことを確認する。
@@ -25,6 +25,12 @@ deployはTerraformを実行しないため、Artifact Registryのdry-runポリ�
 5. エージェントがデプロイ結果を確認する際は、下記の手動整理チェックも行い、削除候補があれば現在のチャットで報告する。
 
 このチェックはローカルのmock / E2E検証と区別する。実環境で未実施の確認を完了と報告しない。
+
+### OCI indexのdigest照合
+
+Registryの期待digestがOCI index / Docker manifest listの場合、Cloud Runのrevisionはその中のLinux/amd64 image manifestのdigestを返す。両者が異なる場合は、既存Docker認証を使って`docker buildx imagetools inspect <期待するimmutable digest> --raw`を実行し、index内の一意なLinux/amd64 image manifestと照合する。attestation、別platform、別repository、曖昧な候補、取得失敗は許可しない。単一image digestが直接一致する場合は追加取得しない。CLIの実行時間は20秒、出力は1 MiBに制限し、エラーにはraw responseを含めない。
+
+2026-10-25の修正では、indexと子manifestのdigestが異なる回帰テストが修正前に`Serving revision image does not match deployment`で失敗し、修正後に成功することを確認した。Ready・traffic・billingの確認条件は維持する。ローカルE2EではgcloudとDockerのCLI境界をfixtureで検証し、実環境への反映成功とは区別する。
 
 ## Artifact Registryのdry run
 
