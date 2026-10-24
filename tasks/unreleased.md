@@ -8,6 +8,7 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
 
 - [ ] `REL-20261024-01` TikTok動画のoEmbedに画像がない場合もサムネイルを補完する
   - 内容: 投稿ページ内の対象動画カバーを取得し、初回解析と保存済みレシピの画像再取得で共用する。画像取得に失敗しても材料・作り方の解析成功を維持する
+  - PR: [#150](https://github.com/Kay-pht/foodfolio/pull/150)
   - 必要な反映先:
     - [ ] Cloud Run（dev API / Worker）
   - 備考: iOS変更・DB migration・既存Recipe再解析は不要。調査証跡は `docs/image-recovery.md` に記録。利用者端末での表示確認はデプロイ後に行う
