@@ -17,4 +17,4 @@ readonly -a formatter
 
 cd "${IOS_DIR}"
 "${formatter[@]}" --in-place --recursive \
-  Foodfolio FoodfolioShareExtension FoodfolioTests FoodfolioIntegrationTests FoodfolioUITests
+  Foodfolio FoodfolioShareExtension FoodfolioTests FoodfolioShareExtensionTests FoodfolioIntegrationTests FoodfolioUITests
