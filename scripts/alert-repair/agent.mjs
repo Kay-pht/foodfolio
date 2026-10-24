@@ -175,7 +175,7 @@ JSON Schemaに沿った結果だけを返す。実行できなかった検証を
 }
 
 export function prepareHandoff(context, stageDirectory) {
-  const handoff = structuredClone(context ?? {});
+  const handoff = globalThis.structuredClone(context ?? {});
   for (const [group, key, name] of [
     ["red", "report", "red.json"],
     ["verification", "evidence", "verification.json"],
