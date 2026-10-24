@@ -14,7 +14,7 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
   - 備考: iOS変更・DB migration・既存Recipe再解析は不要。調査証跡は `docs/image-recovery.md` に記録。利用者端末での表示確認はデプロイ後に行う
 - [ ] `REL-20261024-01` Share Extensionの初期表示時の白画面を修正する
   - 内容: 標準共有UIの表示完了前に本文の入力経路を無効化しない。表示途中のユーザー編集は拒否し、表示完了後に読み取り専用へ切り替える。明示的なPost確認と既存の送信処理を維持する
-  - PR: 未作成
+  - PR: [#149](https://github.com/Kay-pht/foodfolio/pull/149)
   - main反映: 未反映
   - 必要な反映先:
     - [ ] TestFlight内部テスト — version / build未確定

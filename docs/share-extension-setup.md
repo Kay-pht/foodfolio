@@ -42,6 +42,8 @@ Share Extension Bundle ID `com.keyukt.foodfolio.ShareExtension` をFirebase iOS 
 
 編集拒否は従来の単一範囲のdelegateメソッドと、iOS 26以降の複数範囲のdelegateメソッドの両方で行う。
 
+診断処理を外した製品ソースの開発用buildを同じ不具合端末にインストールし、ユーザーが共有画面を繰り返し開いて毎回表示できることを確認した。さらに未保存のレシピURLを実際にPostし、「追加を受け付けました」の表示まで確認した。これはローカル実機での確認であり、TestFlight / App Storeへの配布とは別に管理する。
+
 別アプリIDの診断版は、同じソースのDebug / Release・英語 / 日本語のいずれでも表示できたため、それらの設定だけを発生条件とは断定しない。また、標準UIの `_hasPresentedSheet == NO` ログは正常起動時にも存在し、そのログ単独を障害の証拠にはしない。Apple内部の分岐条件まで断定せず、再現端末での入力状態の変更と画面の回復を根拠とする。
 
 コントローラーの初期入力状態、表示途中の編集拒否、表示完了後の読み取り専用化は `FoodfolioShareExtensionTests/SharePresentationTests.swift` で実行時に検証し、iOS全体検証にも含める。
