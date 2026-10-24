@@ -6,10 +6,11 @@ import { describe, expect, it } from "vitest";
 const repositoryRoot = fileURLToPath(new URL("../../", import.meta.url));
 
 describe("iOS verification test count", () => {
-  it("matches the XCTest methods in all three Foodfolio test targets", () => {
+  it("matches the XCTest methods in all Foodfolio test targets", () => {
     const targets = [
       "FoodfolioTests",
       "FoodfolioIntegrationTests",
+      "FoodfolioShareExtensionTests",
       "FoodfolioUITests",
     ];
     let declaredTests = 0;

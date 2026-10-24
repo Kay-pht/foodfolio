@@ -129,6 +129,20 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.keyukt.foodfolio.integrationtests
         GENERATE_INFOPLIST_FILE: YES
+  FoodfolioShareExtensionTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: FoodfolioShareExtensionTests
+      - path: FoodfolioShareExtension/ShareViewController.swift
+      - path: Foodfolio/Core/Sharing/SharedURLParser.swift
+      - path: Foodfolio/Core/Sharing/SharedRecipeSubmission.swift
+    dependencies:
+      - target: Foodfolio
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.keyukt.foodfolio.shareextensiontests
+        GENERATE_INFOPLIST_FILE: YES
   FoodfolioUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -148,12 +162,15 @@ schemes:
         FoodfolioShareExtension: all
         FoodfolioTests: [test]
         FoodfolioIntegrationTests: [test]
+        FoodfolioShareExtensionTests: [test]
         FoodfolioUITests: [test]
     test:
       targets:
         - name: FoodfolioTests
           parallelizable: true
         - name: FoodfolioIntegrationTests
+          parallelizable: true
+        - name: FoodfolioShareExtensionTests
           parallelizable: true
         - name: FoodfolioUITests
           parallelizable: true
