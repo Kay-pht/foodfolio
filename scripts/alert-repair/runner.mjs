@@ -473,7 +473,36 @@ function readyAndQuality(incident) {
       if (allChecks.some((check) => ["fail", "cancel"].includes(check.bucket)))
         throw new Error("A required PR check failed.");
       if (!allChecks.some((check) => check.bucket === "pending"))
-        return { head: incident.head, treeSha, quality: quality.details_url };
+        return {
+          head: incident.head,
+          treeSha,
+          quality: quality.details_url,
+          proof: {
+            run: {
+              id: run.id,
+              event: run.event,
+              status: run.status,
+              conclusion: run.conclusion,
+              name: run.name,
+              path: run.path,
+              head_sha: run.head_sha,
+              repository: run.repository?.full_name,
+            },
+            base: pull.base.sha,
+            head: pull.head.sha,
+            mergeCommit: mergeCommit.sha,
+            parents: mergeCommit.parents.map((parent) => parent.sha),
+            artifacts: artifacts
+              .filter(
+                (artifact) => artifact.name === `quality-proof-${treeSha}`,
+              )
+              .map((artifact) => ({
+                id: artifact.id,
+                name: artifact.name,
+                expired: artifact.expired,
+              })),
+          },
+        };
     }
     // A bounded synchronous delay avoids starting another agent while CI runs.
     Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 15_000);
