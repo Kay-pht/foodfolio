@@ -6,6 +6,7 @@ import {
 } from "../../src/application/analysis/types.js";
 import type { AuthVerifier } from "../../src/infrastructure/auth/auth-verifier.js";
 import type { AnalysisTaskQueue } from "../../src/infrastructure/tasks/task-queue.js";
+import { posts, setup } from "../helpers/tiktok-thumbnail.js";
 import {
   startPostgres,
   stopPostgres,
@@ -110,4 +111,57 @@ describe("recipe image resolution API", () => {
 
     await app.close();
   });
+
+  it.each(posts)(
+    "recovers the missing TikTok thumbnail for $id without mutating saved content (TVT-2)",
+    async (post) => {
+      const { extractor, get } = setup({}, post);
+      const app = buildApi({
+        prisma: context.prisma,
+        authVerifier: auth,
+        firebaseUsers: { deleteUser: async () => {} },
+        taskQueue: noOpQueue,
+        imageResolver: extractor,
+      });
+      try {
+        const owner = `tiktok-image-${post.id}`;
+        const created = await app.inject({
+          method: "POST",
+          url: "/v1/recipes",
+          headers: headers(owner),
+          payload: { url: post.short },
+        });
+        expect(created.statusCode).toBe(201);
+        const recipeId = created.json().id as string;
+        const before = await context.prisma.recipe.findUniqueOrThrow({
+          where: { id: recipeId },
+        });
+        expect(before.imageUrl).toBeNull();
+        const resolved = await app.inject({
+          method: "POST",
+          url: `/v1/recipes/${recipeId}/image/resolve`,
+          headers: headers(owner),
+        });
+        expect(resolved.statusCode).toBe(200);
+        expect(resolved.json()).toEqual({
+          imageUrl: `https://images.example/${post.id}.jpg`,
+        });
+        expect(
+          await context.prisma.recipe.findUniqueOrThrow({
+            where: { id: recipeId },
+          }),
+        ).toEqual(before);
+        const calls = get.mock.calls.length;
+        const forbidden = await app.inject({
+          method: "POST",
+          url: `/v1/recipes/${recipeId}/image/resolve`,
+          headers: headers("tiktok-other-user"),
+        });
+        expect(forbidden.statusCode).toBe(404);
+        expect(get).toHaveBeenCalledTimes(calls);
+      } finally {
+        await app.close();
+      }
+    },
+  );
 });
