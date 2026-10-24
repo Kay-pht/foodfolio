@@ -58,7 +58,7 @@ YouTube再解決のため、API Cloud RunにもWorkerと同じSecret Manager上�
 - 両方のoEmbed実応答はHTTP 200で、動画iframeと `embed_product_id` を含む一方、`thumbnail_url` と `title` を含まなかった。canonical URLへ置き換えたoEmbed要求でも欠落していた。
 - 修正前の `ProductionSourceContentExtractor` と `SafeHttpClient` を実URLへ実行し、両方で `imageUrl: null` / `textForAi: null` を再現した。材料・作り方は動画解析経路で取得可能だが、その結果から画像を補完する処理はなかった。解析成功時のWorkerは `source.imageUrl` を保存するため、本文が正常でも画像だけ欠落する。
 - 画像再取得APIも同じextractorを呼ぶため、oEmbedに画像がない間は繰り返しても `null` となる。iOSは再取得URLがない場合にplaceholderを表示する。
-- 稼働APIが参照するDBを `BEGIN READ ONLY` で照会し、2件目の投稿IDに一致する保存済みRecipeが `completed` / `imageUrl: null` / provider `zai` / 材料10件 / 手順8件であることを確認した。Cloud Runログでも同Recipeへの画像再取得API呼び出しが繰り返しHTTP 200で終了していた。1件目は短縮URL・投稿IDで一致するDB行を照会時点で見つけられなかったため、その保存状態は未確認。両URLの抽出失敗と修正後の画像取得は実URLで直接再現済み。
+- 稼働APIが参照するDBを `BEGIN READ ONLY` で照会し、両投稿の保存済みRecipeが `completed` / `imageUrl: null` であることを確認した。1件目は材料6件・手順5件、2件目は材料10件・手順8件。保存済み短縮URL `https://vt.tiktok.com/ZSgaapfwE/` は1件目の投稿IDへ、`https://vt.tiktok.com/ZSgmH9q69/` は2件目の投稿IDへ転送されることをSafeHttpClientで照合した。2件目はcanonical URLでも別途保存されており、provider `zai` / 材料10件 / 手順8件 / 画像nullだった。Cloud RunログでもこれらRecipeへの画像再取得API呼び出しが繰り返しHTTP 200で終了していた。
 - 投稿ページのJSON hydrationには、両方とも対象投稿IDと `video.cover` / `video.originCover` が存在した。修正後の同じextractorとSafeHttpClientで両実URLを実行し、画像URLの取得とJPEGダウンロードを確認した。順にHTTP 200 / `image/jpeg` / 126,037 bytes、HTTP 200 / `image/jpeg` / 108,880 bytesだった。
 - Player metadata APIも調べたが両方HTTP 403だったため、今回の補完には使用しない。追加の有料AI呼び出しは行っていない。
 
