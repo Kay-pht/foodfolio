@@ -1,6 +1,6 @@
 # App Store リリース管理
 
-## 更新 1.0.5 (18) の申請準備
+## 更新 1.0.5 (18) の提出状況
 
 2026-10-24（JST）にAppleの[日本向け公開lookup](https://itunes.apple.com/lookup?id=6806783378&country=jp)とApp Store Connect APIを読み戻した。公開版は `1.0.4 (17)`、version ID `2f6cf146-1e86-423b-b9de-68c2402835f5`、Build ID `1471a727-5c5e-4289-a7d5-4e859558c153`。App Store Connectは `READY_FOR_SALE` / `READY_FOR_DISTRIBUTION`、公開lookupの公開日時は `2026-10-17T15:42:55Z`（2026-10-18 00:42:55 JST）。最新upload済みbuildは17で、1.0.5は未作成。次のパッチ更新を **1.0.5 (18)** とする。下記の1.0.4審査待ち記録は提出当時の履歴である。
 
@@ -16,7 +16,7 @@
 
 今回の番号更新後のソースに対する全体テスト・全体CIの新規成功は主張しない。新しい仕様のcheck、番号と生成projectの整合性、変更文書のcheckだけを実施する。Readyへの変更はAuto Fix / Qualityによる検証の再実行につながるため、この準備PRはDraftで引き渡す。独立レビューは別Reviewerセッションで行い、マージは人間が行う。
 
-準備PR: [#151](https://github.com/Kay-pht/foodfolio/pull/151)（Draft）。新規spec check、task check、docs check、変更文書・仕様のformat check、diff checkは成功。本体・Share ExtensionのDebug / Releaseが共通設定から1.0.5 (18)を継承することを生成projectの解析で確認した。
+準備PR: [#151](https://github.com/Kay-pht/foodfolio/pull/151)（作成時Draft、2026-10-24に人間によるマージを確認）。新規spec check、task check、docs check、変更文書・仕様のformat check、diff checkは成功。本体・Share ExtensionのDebug / Releaseが共通設定から1.0.5 (18)を継承することを生成projectの解析で確認した。
 
 ### 準備・マージ後の提出チェックリスト
 
@@ -24,15 +24,25 @@
 - [x] `APP-STORE-UPDATE-1-0-5` の仕様を実装前に確定し、`npm run check:specs` 成功（59仕様）
 - [x] 本体・Share Extensionの番号を1.0.5 (18)へ更新し、生成projectの差分を確認
 - [x] PR #149の既存成功結果を参照し、ユーザー指定の検証を再実行しない方針を記録
-- [ ] 別Reviewerセッションのレビューと人間による準備PRのマージ
-- [ ] マージ済みソースとApple側の番号競合を再確認
-- [ ] マージ済みソースから新しい配布用Archive / IPAを作成し、両targetの番号・署名・entitlements・日本語resourceを確認
-- [ ] Apple validation / upload、processing `VALID`、未期限、`APP_STORE_ELIGIBLE`、暗号化申告を読み戻す
-- [ ] 既存 `Foodfolio Internal` への割り当てと日本語What to Testを確認（テスター追加・外部招待なし）
-- [ ] 既存審査アカウント・認証付きAPI、掲載情報・画像・価格・地域を確認し、build 18を選択
-- [ ] 公開方式 `MANUAL` を読み戻してAppleへ審査提出し、Submission IDと審査状態を記録
+- [x] 人間による準備PRのマージ（独立レビューの証跡は本セッションでは確認していない）
+- [x] マージ済みソースとApple側の番号競合を再確認
+- [x] マージ済みソースから新しい配布用Archive / IPAを作成し、両targetの番号・署名・entitlements・日本語resourceを確認
+- [x] Apple validation / upload、processing `VALID`、未期限、`APP_STORE_ELIGIBLE`、暗号化申告を読み戻す
+- [x] 既存 `Foodfolio Internal` への割り当てと日本語What to Testを確認（テスター追加・外部招待なし）
+- [x] 既存審査アカウント・認証付きAPI、掲載情報・画像・価格・地域を確認し、build 18を選択
+- [x] 公開方式 `MANUAL` を読み戻してAppleへ審査提出し、Submission IDと審査状態を記録
 
-現在の依頼はまず準備PRを作成してユーザーの確認・マージを待つ段階である。Appleへのupload・申請は未実施。マージ後の配布用Archiveは既存のテスト用buildの再実行とは区別する。一般公開はユーザーが行い、公開操作は実施しない。今回のiOS修正にBackend変更・DB migrationは不要で、Backendの追加デプロイは行わない。
+### マージ後の配布記録
+
+2026-10-24（JST）にPR #151の人間によるマージを確認した。配布ソースは `f8ab1617f31bda31969338a8b38d40739c4e3a49` で、準備PR最終HEAD `3f135d94` と同一tree。成功済みのunit・結合・E2E・iOS・lint・format・build・最終CIは再実行していない。新しい配布用Release Archive / IPAの作成、両targetの1.0.5 (18)、署名検証、App Group、日本語resource、本体のproduction APNs・Sign in with Appleを確認した。
+
+Apple validationは `VERIFY SUCCEEDED with no errors`、uploadは `UPLOAD SUCCEEDED with no errors`。Delivery UUIDは `5ddd843a-5e88-4604-97c4-790461c6b01a`。Archive / IPA / ログはGit管理外の `/tmp/foodfolio-submit-105/` に保存した。書き出し時にExtension profile名の指定誤りで一度失敗したが、既存projectと同じprofile名に修正してexportが成功した。
+
+App Store version IDは `0b09136d-e532-4315-924f-35afa1b4328e`。既存の日本語description・keywords・support URL等を維持し、更新内容のみ差し替えた。画像6枚は前版とfile名・サイズ・checksumが一致し、すべて `COMPLETE`。無料（JPY 0）、日本のみ、Food & Drink、掲載名と `MANUAL` を読み戻した。既存審査アカウントのFirebaseログインと認証付き `/v1/settings`・`/v1/recipes?limit=1`、API `/health` はHTTP 200。審査連絡先・資格情報は維持し、審査メモの先頭を今回の共有画面修正の説明に更新して読み戻した。秘密情報はGitへ保存しない。
+
+Appleのupload処理は `COMPLETE`（エラー・警告なし）。Build ID `5ddd843a-5e88-4604-97c4-790461c6b01a` はprocessing `VALID`、未期限、`APP_STORE_ELIGIBLE`、暗号化申告 `false`。既存 `Foodfolio Internal` への割り当て、内部state `IN_BETA_TESTING`、共有画面修正を説明した日本語What to Testを読み戻した。テスター構成・外部グループ・公開リンクは変更していない。
+
+2026-10-24 22:46:18（JST）にAppleへ審査提出した。Submission IDは `09c00d47-a2ac-43ea-b11f-f22766bc56cd`。提出後の再取得でversion / submissionの両方が `WAITING_FOR_REVIEW`、選択buildが18、公開方式が `MANUAL` であることを確認した。ユーザー依頼のAppleアップデート申請まで完了し、一般公開は行っていない。App Store本番反映はユーザーによる公開を確認するまで未完了とする。今回のiOS修正にBackend変更・DB migrationは不要で、Backendの追加デプロイは行っていない。
 
 ## 更新 1.0.4 (17) の提出状況
 

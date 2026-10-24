@@ -1,6 +1,16 @@
 # TestFlight準備の確認記録
 
-最終更新日: 2026-10-07（JST）。自動テスト、署名済みArchive、Apple側の処理状態、実機確認は別の証跡として扱う。
+最終更新日: 2026-10-24（JST）。自動テスト、署名済みArchive、Apple側の処理状態、実機確認は別の証跡として扱う。
+
+## 1.0.5 (18) の内部配布・App Review提出
+
+2026-10-24（JST）に準備PR [#151](https://github.com/Kay-pht/foodfolio/pull/151)の人間によるマージを確認し、merge SHA `f8ab1617f31bda31969338a8b38d40739c4e3a49` から署名済みArchive / IPAを作成した。ユーザー指定によりPR #149の成功済み実機確認・unit 560件・結合73件・E2E70件・iOS139件・lint・format・build・最終CIを再実行せず、既存証跡を利用した。
+
+Apple validation / uploadはエラーなしで成功し、upload処理は `COMPLETE`、エラー・警告なし。Build ID `5ddd843a-5e88-4604-97c4-790461c6b01a` は `1.0.5 (18)`、processing `VALID`、未期限、`APP_STORE_ELIGIBLE`、暗号化申告 `false`。本体・Share Extensionの番号、署名、App Group、日本語resource、本体のproduction APNs・Sign in with Appleを確認した。
+
+既存 `Foodfolio Internal` への割り当てと `IN_BETA_TESTING`、日本語What to Testを読み戻した。共有メニューから開いた際の表示修正、URLとPost／Cancelの表示、受付結果を確認対象として記載した。既存テスター構成・外部グループ・公開リンクは変更していない。今回の実機再検証は行っていない。
+
+App Store version ID `0b09136d-e532-4315-924f-35afa1b4328e` へbuild 18を選択し、2026-10-24 22:46:18（JST）に審査提出した。Submission ID `09c00d47-a2ac-43ea-b11f-f22766bc56cd`、version / submissionとも `WAITING_FOR_REVIEW`、公開方式 `MANUAL` を再取得した。既存審査資格情報・掲載情報・画像6枚・無料・日本限定の設定も確認済み。一般公開はユーザーが行う。詳細は[App Storeリリース管理](app-store-release.md)を参照。
 
 ## 1.0.4 (17) の内部配布・App Review提出
 
