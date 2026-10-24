@@ -6,6 +6,14 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
 
 ## 未反映
 
+- [ ] `REL-20261024-03` Foodfolio 1.0.5 (18)をAppleへアップデート申請する
+  - 内容: 公開中の1.0.4 (17)からパッチ番号を上げ、PR #149のShare Extension表示修正を含むmain `3eff7064051086e5d6d784d5ef327ae988daf480` を配布対象とする
+  - PR: [#151](https://github.com/Kay-pht/foodfolio/pull/151)（Draft）
+  - main反映: 未反映
+  - 必要な反映先:
+    - [ ] TestFlight内部テスト — 対象version/build: `1.0.5 (18)`、upload未実施
+    - [ ] App Store本番 — 対象version/build: `1.0.5 (18)`、Apple申請未実施。公開方式MANUAL、一般公開は人間が行う
+  - 備考: 成功済みの実機・unit 560件・結合73件・E2E70件・iOS139件・lint・format・build・最終CIはPR #149の証跡を利用し再実行しない。準備PRの人間によるマージ後に新しい配布用Archive・upload・審査申請を進める。詳細は `docs/app-store-release.md`
 - [ ] `REL-20261024-01` TikTok動画のoEmbedに画像がない場合もサムネイルを補完する
   - 内容: 投稿ページ内の対象動画カバーを取得し、初回解析と保存済みレシピの画像再取得で共用する。画像取得に失敗しても材料・作り方の解析成功を維持する
   - PR: [#150](https://github.com/Kay-pht/foodfolio/pull/150)
@@ -15,10 +23,10 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
 - [ ] `REL-20261024-01` Share Extensionの初期表示時の白画面を修正する
   - 内容: 標準共有UIの表示完了前に本文の入力経路を無効化しない。表示途中のユーザー編集は拒否し、表示完了後に読み取り専用へ切り替える。明示的なPost確認と既存の送信処理を維持する
   - PR: [#149](https://github.com/Kay-pht/foodfolio/pull/149)
-  - main反映: 未反映
+  - main反映: `3eff7064051086e5d6d784d5ef327ae988daf480`（PR #149）
   - 必要な反映先:
-    - [ ] TestFlight内部テスト — version / build未確定
-    - [ ] App Store本番 — version / build未確定。一般公開は人間が行う
+    - [ ] TestFlight内部テスト — 対象version/build: `1.0.5 (18)`
+    - [ ] App Store本番 — 対象version/build: `1.0.5 (18)`。一般公開は人間が行う
   - 備考: 実機診断用のローカルインストールと、配布用buildへの反映は別に管理する
 
 - [ ] `REL-20261016-03` Foodfolio 1.0.4をAppleへアップデート申請する
