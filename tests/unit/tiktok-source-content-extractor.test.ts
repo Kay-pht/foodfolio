@@ -61,7 +61,10 @@ describe("ProductionSourceContentExtractor TikTok metadata", () => {
         finalUrl: endpoint.toString(),
         statusCode: 200,
         contentType: "application/json",
-        body: JSON.stringify({ title: "料理動画" }),
+        body: JSON.stringify({
+          title: "料理動画",
+          thumbnail_url: "https://images.example/tiktok.jpg",
+        }),
       };
     });
     const extractor = new ProductionSourceContentExtractor(

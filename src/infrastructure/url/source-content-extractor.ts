@@ -11,6 +11,7 @@ import {
   type SourceContentExtractor,
 } from "../../application/analysis/types.js";
 import { SafeHttpClient } from "./safe-http-client.js";
+import { resolveTikTokVideoThumbnail } from "./tiktok-video-thumbnail.js";
 
 const MAX_AI_CHARS = 18_000;
 const normalize = (value: unknown): string | null =>
@@ -167,7 +168,11 @@ export class ProductionSourceContentExtractor
       resolvedUrl: resolvedUrl.toString(),
       imageUrl: thumbnailUrl
         ? new URL(thumbnailUrl, response.finalUrl).toString()
-        : null,
+        : await resolveTikTokVideoThumbnail(
+            this.http,
+            resolvedUrl,
+            record.embed_product_id,
+          ),
       textForAi: title ? `TITLE\n${title}`.slice(0, MAX_AI_CHARS) : null,
       ...(post ? { tiktokMediaKind: "video" as const } : {}),
     };

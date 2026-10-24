@@ -1,0 +1,49 @@
+id: TIKTOK-VIDEO-THUMBNAIL-001
+type: bug
+status: approved
+objective: Recover TikTok video thumbnails when successful oEmbed responses omit thumbnail_url, for both initial analysis and existing recipe image recovery.
+requirements:
+  - id: TVT-1
+    condition: TikTok video oEmbed succeeds without thumbnail_url.
+    expected: Fetch the post page through SafeHttpClient and select the matching post's video cover, falling back to originCover, from its JSON hydration data.
+    verification:
+      - tests/unit/tiktok-video-thumbnail.test.ts
+      - tests/e2e/tiktok-thumbnail.test.ts
+  - id: TVT-2
+    condition: An owned saved TikTok recipe has no usable image and requests image resolution.
+    expected: The same extraction fallback returns a fresh cover URL without reanalyzing recipe content or updating the saved recipe.
+    verification:
+      - tests/integration/image-resolution.test.ts
+  - id: TVT-3
+    condition: oEmbed already supplies a thumbnail or the optional page fallback fails.
+    expected: Existing thumbnails need no extra request; unavailable or invalid fallback metadata leaves imageUrl null without discarding a successful recipe analysis.
+    verification:
+      - tests/unit/tiktok-video-thumbnail.test.ts
+      - tests/e2e/tiktok-thumbnail.test.ts
+edge_cases:
+  - Handle vt.tiktok.com and vm.tiktok.com redirects as well as canonical video URLs.
+  - Ignore malformed JSON, missing video data, mismatched post IDs, non-video or non-TikTok destinations, and non-HTTPS image URLs.
+  - Preserve existing TikTok photo metadata and recipe text extraction behavior.
+security_invariants:
+  - Every page request uses SafeHttpClient with existing SSRF, DNS, redirect, timeout, and response-size limits.
+  - Only JSON.parse is used for hydration data; scripts are never evaluated.
+  - The final TikTok video post ID must match the hydration item ID and any oEmbed embed_product_id before returning an image.
+  - No cookies, credentials, new provider, or paid image generation is introduced.
+compatibility:
+  - No API response schema, iOS source, database schema, or persisted recipe content contract changes.
+  - Initial extraction and image recovery share the same fallback.
+non_functional:
+  - Add at most one optional page fetch after oEmbed when its thumbnail is absent.
+out_of_scope:
+  - Deployment, data migrations, and reanalysis or mutation of existing recipes.
+  - Replacing TikTok thumbnails with AI-generated images or changing video recipe extraction.
+acceptance_criteria:
+  - Sanitized fixtures of both reported posts reproduce missing thumbnails before the fix and return covers after it.
+  - Worker tests persist the recovered image with complete ingredients and steps.
+  - Image resolution recovers an existing null image without changing the recipe or allowing another user to access it.
+  - All required repository checks pass.
+regression:
+  required: true
+  tests:
+    - tests/unit/tiktok-video-thumbnail.test.ts
+    - tests/e2e/tiktok-thumbnail.test.ts
