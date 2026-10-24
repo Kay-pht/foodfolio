@@ -16,6 +16,8 @@
 
 今回の番号更新後のソースに対する全体テスト・全体CIの新規成功は主張しない。新しい仕様のcheck、番号と生成projectの整合性、変更文書のcheckだけを実施する。Readyへの変更はAuto Fix / Qualityによる検証の再実行につながるため、この準備PRはDraftで引き渡す。独立レビューは別Reviewerセッションで行い、マージは人間が行う。
 
+準備PR: [#151](https://github.com/Kay-pht/foodfolio/pull/151)（Draft）。新規spec check、task check、docs check、変更文書・仕様のformat check、diff checkは成功。本体・Share ExtensionのDebug / Releaseが共通設定から1.0.5 (18)を継承することを生成projectの解析で確認した。
+
 ### 準備・マージ後の提出チェックリスト
 
 - [x] 公開版1.0.4 (17)、最新upload済みbuild 17、1.0.5未作成を確認
