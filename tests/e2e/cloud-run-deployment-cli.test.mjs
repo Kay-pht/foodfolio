@@ -18,7 +18,12 @@ const image =
   "asia-southeast1-docker.pkg.dev/foodfolio-af28aa/foodfolio/app:test";
 const imageDigest = `${image.split(":")[0]}@sha256:${"a".repeat(64)}`;
 
-async function runVerifier({ billing = "true", mode = "json" } = {}) {
+async function runVerifier({
+  billing = "true",
+  mode = "json",
+  indexed = false,
+  manifestMode = "json",
+} = {}) {
   const directory = await mkdtemp(join(tmpdir(), "foodfolio-cloud-run-cli-"));
   try {
     const ready = { conditions: [{ type: "Ready", status: "True" }] };
@@ -49,7 +54,15 @@ async function runVerifier({ billing = "true", mode = "json" } = {}) {
           name: revisionName,
           annotations: { "run.googleapis.com/cpu-throttling": billing },
         },
-        spec: { containers: [{ image: imageDigest }] },
+        spec: {
+          containers: [
+            {
+              image: indexed
+                ? imageDigest.replace(/a{64}$/, "b".repeat(64))
+                : imageDigest,
+            },
+          ],
+        },
         status: ready,
       },
     };
@@ -72,6 +85,17 @@ process.stdout.write(JSON.stringify(process.argv[3] === "services" ? data.servic
 `,
       { mode: 0o755 },
     );
+    await writeFile(
+      join(directory, "docker"),
+      `#!${process.execPath}
+const fs = require("node:fs");
+fs.appendFileSync(process.env.CLI_CALLS, JSON.stringify(process.argv.slice(2)) + "\\n");
+if (process.env.MANIFEST_MODE === "failure") { process.stderr.write("private-fixture"); process.exit(1); }
+if (process.env.MANIFEST_MODE === "invalid") { process.stdout.write("private-fixture"); process.exit(0); }
+process.stdout.write(JSON.stringify({schemaVersion: 2, mediaType: "application/vnd.oci.image.index.v1+json", manifests: [{mediaType: "application/vnd.oci.image.manifest.v1+json", digest: "sha256:" + "b".repeat(64), platform: {os: "linux", architecture: "amd64"}}]}));
+`,
+      { mode: 0o755 },
+    );
     let result;
     try {
       const { stdout, stderr } = await execFileAsync(
@@ -88,6 +112,7 @@ process.stdout.write(JSON.stringify(process.argv[3] === "services" ? data.servic
             CLI_FIXTURES: join(directory, "fixtures.json"),
             CLI_CALLS: join(directory, "calls.jsonl"),
             CLI_MODE: mode,
+            MANIFEST_MODE: manifestMode,
           },
         },
       );
@@ -141,6 +166,32 @@ describe("ICR-2 deployed verification CLI", () => {
       ],
     ]);
   });
+
+  it("DID-1 resolves the immutable index through Docker and verifies its child", async () => {
+    const result = await runVerifier({ indexed: true });
+    expect(result.code).toBe(0);
+    expect(result.calls[2]).toEqual([
+      "buildx",
+      "imagetools",
+      "inspect",
+      imageDigest,
+      "--raw",
+    ]);
+  });
+
+  it.each(["failure", "invalid"])(
+    "DID-2 rejects manifest %s without leaking CLI output",
+    async (manifestMode) => {
+      const result = await runVerifier({ indexed: true, manifestMode });
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain(
+        manifestMode === "failure"
+          ? "Image manifest inspection failed"
+          : "Image manifest inspection returned invalid JSON",
+      );
+      expect(result.stderr).not.toContain("private-fixture");
+    },
+  );
 
   it.each([
     [
