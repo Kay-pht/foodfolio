@@ -50,7 +50,7 @@ Backend の層間依存は [../architecture-boundaries.md](../architecture-bound
 ## LGTM時の外部タスクリスト同期
 
 - Reviewerは最新PR HEADに対する `npm run review:lgtm` の成功後、作業終了前にローカル環境変数 `TASK_LIST_REPO_PATH` が指すTask-Listを参照する。これはObsidianのTask-List Vaultへのパスであり、Foodfolio内の `tasks/todo.md` とは別の管理先である。
-- `TASK_LIST_REPO_PATH` はGit管理対象外の `.env.local` に設定する。既存ファイルの内容を保持して未定義のキーだけ追記し、ファイル全体や既存の設定を上書きしない。個人環境の絶対パスをGit管理対象ファイルへ記載しない。設定例のキーは `.env.local.example` を参照する。
+- `TASK_LIST_REPO_PATH` はGit管理対象外の `.env.local` に設定する。既存ファイルの内容を保持して未定義のキーだけ追記し、ファイル全体や既存の設定を上書きしない。個人環境の絶対パスをGit管理対象ファイルへ記載しない。その他の端末固有設定は [インフラと外部操作](infrastructure.md#cli-実行時の固定ルール) に従う。設定例のキーは `.env.local.example` を参照する。
 - 同期を行うシェルではFoodfolioルートから下記のように値を読み込む。`.env.local` はシェルスクリプトとして実行せず、Nodeのenv-file読み込みを使う。未設定・空値・参照先不存在の場合は同期を開始せず、ユーザーに設定を確認する。
 
 ```bash

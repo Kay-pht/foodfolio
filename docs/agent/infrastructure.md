@@ -8,7 +8,7 @@ MVP 作成段階に限り、次の値を使用する。
 - Bundle ID: `com.keyukt.foodfolio`
 - GCP Project ID: `foodfolio-af28aa`
 - GCP リージョン: Project 自体はグローバル。Cloud Run、Cloud Tasks、Artifact Registry 等のリージョン指定が必要なリソースは `asia-southeast1` (Singapore) を使用する。
-- GCP 認証アカウント: `kei.patheng@gmail.com`
+- CLI実行用GCP認証アカウント: ローカル環境変数 `FOODFOLIO_GCLOUD_ACCOUNT`（共有のIAM設定や公開問い合わせ先とは別に管理する）
 - GCP Billing Account ID: `01C106-36E5A8-E7EA38`
 - GCP 予算目安: 月額 1,000 円
 - Neon Project ID: `patient-hill-48111601`
@@ -20,8 +20,10 @@ MVP 作成段階に限り、次の値を使用する。
 
 ## CLI 実行時の固定ルール
 
-- `gcloud` の現在の global project は Foodfolio 以外を指しているため、Foodfolio 向けコマンドでは必ず `--project foodfolio-af28aa` 等で対象を明示し、global 設定を変更しない。
-- Xcode は `/Applications/Xcode.app` に導入済みだが、global の active developer directory は Command Line Tools を指している。Foodfolio の Xcode コマンドでは `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` を指定し、global 設定を変更しない。
+- `gcloud` のglobal projectに依存せず、Foodfolio向けコマンドでは必ず `--project foodfolio-af28aa` 等で対象を明示し、global 設定を変更しない。
+- CLI認証アカウント、checkout・stateの場所、Xcodeの選択など端末固有の実値はGit管理対象外の `.env.local` に保存し、既存内容を保持して未定義のキーだけ追記する。Git管理対象には変数名と参照手順だけを記載する。
+- GCPのCLI認証は `FOODFOLIO_GCLOUD_ACCOUNT` を参照し、globalの認証設定を変更しない。YouTube PoCの3エントリーポイントはこのキーをプロセス環境または `.env.local` から読み、未設定ならgcloudを実行せず停止する。
+- Xcodeの個別選択が必要な端末では `.env.local` の `DEVELOPER_DIR` を使用する。手動のiOS検証は `node --env-file=.env.local --run verify:ios` で設定を渡す。アラート検証も同キーだけを明示的に参照し、他のローカル認証情報を検証環境へ流さない。プロセス環境に明示された値を優先し、globalのactive developer directoryを変更しない。
 
 ## MVP 期間中に許可されている外部操作
 

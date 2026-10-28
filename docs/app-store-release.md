@@ -36,7 +36,7 @@
 
 2026-10-24（JST）にPR #151の人間によるマージを確認した。配布ソースは `f8ab1617f31bda31969338a8b38d40739c4e3a49` で、準備PR最終HEAD `3f135d94` と同一tree。成功済みのunit・結合・E2E・iOS・lint・format・build・最終CIは再実行していない。新しい配布用Release Archive / IPAの作成、両targetの1.0.5 (18)、署名検証、App Group、日本語resource、本体のproduction APNs・Sign in with Appleを確認した。
 
-Apple validationは `VERIFY SUCCEEDED with no errors`、uploadは `UPLOAD SUCCEEDED with no errors`。Delivery UUIDは `5ddd843a-5e88-4604-97c4-790461c6b01a`。Archive / IPA / ログはGit管理外の `/tmp/foodfolio-submit-105/` に保存した。書き出し時にExtension profile名の指定誤りで一度失敗したが、既存projectと同じprofile名に修正してexportが成功した。
+Apple validationは `VERIFY SUCCEEDED with no errors`、uploadは `UPLOAD SUCCEEDED with no errors`。Delivery UUIDは `5ddd843a-5e88-4604-97c4-790461c6b01a`。Archive / IPA / ログはGit管理外のローカル一時ディレクトリに保存した。書き出し時にExtension profile名の指定誤りで一度失敗したが、既存projectと同じprofile名に修正してexportが成功した。
 
 App Store version IDは `0b09136d-e532-4315-924f-35afa1b4328e`。既存の日本語description・keywords・support URL等を維持し、更新内容のみ差し替えた。画像6枚は前版とfile名・サイズ・checksumが一致し、すべて `COMPLETE`。無料（JPY 0）、日本のみ、Food & Drink、掲載名と `MANUAL` を読み戻した。既存審査アカウントのFirebaseログインと認証付き `/v1/settings`・`/v1/recipes?limit=1`、API `/health` はHTTP 200。審査連絡先・資格情報は維持し、審査メモの先頭を今回の共有画面修正の説明に更新して読み戻した。秘密情報はGitへ保存しない。
 
@@ -68,7 +68,7 @@ Appleのupload処理は `COMPLETE`（エラー・警告なし）。Build ID `5dd
 - [x] Specification as Codeを確定し、実装前に`npm run check:specs`成功（53仕様）
 - [x] 本体・Share Extensionの生成projectとbuild済みbundleで1.0.4 (17)、表示名Foodfolio、日本語resourceを確認
 - [x] `npm run verify`成功（単体540件・結合58件・E2E68件、lint・format・build・各guardrail）
-- [x] `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer IOS_PARALLEL_WORKERS=1 npm run verify:ios`成功（136件、失敗0・skip0。単体75件・結合27件・UI34件、SwiftData migration・lint/format・buildを含む）
+- [x] `DEVELOPER_DIR="$DEVELOPER_DIR" IOS_PARALLEL_WORKERS=1 npm run verify:ios`成功（136件、失敗0・skip0。単体75件・結合27件・UI34件、SwiftData migration・lint/format・buildを含む）
 - [x] 準備PR [#146](https://github.com/Kay-pht/foodfolio/pull/146)の最新HEAD `ad5a529e`で[Quality成功](https://github.com/Kay-pht/foodfolio/actions/runs/38872294430)。人間によるマージを確認
 - [x] マージ後の確定ソース `ada391b7bae7a12375706a84c6f5d1ffaf6ac5a2`は検証済みPR HEADと同一tree。[main Quality成功](https://github.com/Kay-pht/foodfolio/actions/runs/38895432012)。署名済みArchive / IPAを作成し、本体・Extensionの番号・署名・entitlements・日本語resourceを確認
 - [x] 既存自動デプロイの成功とAPI / Workerの稼働source SHA・Ready・traffic・digestを読み戻す（追加デプロイなし）
@@ -121,7 +121,7 @@ App Store掲載名、インストール後の表示名、既存の日本語ス�
 
 - `npm run check:specs`: 46仕様すべて成功。PR差分のspec変更gateも成功
 - `npm run verify`: 成功。単体454件、結合58件、E2E52件。P0 guardrail、format、lint、architecture、docs、Prisma generate / validate、buildを含む
-- `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer IOS_PARALLEL_WORKERS=1 npm run verify:ios`: 全136件成功、失敗0、skip0（単体75件、結合27件、UI34件）。SwiftData legacy-store migration、iOS lint / format、build、日本語resource確認を含む
+- `DEVELOPER_DIR="$DEVELOPER_DIR" IOS_PARALLEL_WORKERS=1 npm run verify:ios`: 全136件成功、失敗0、skip0（単体75件、結合27件、UI34件）。SwiftData legacy-store migration、iOS lint / format、build、日本語resource確認を含む
 - ビルド済み本体とShare Extensionの両方で`1.0.3 (16)`、表示名`Foodfolio`、日本語`InfoPlist.strings`を確認
 - task check、変更Markdownのformat check、`git diff --check`: 成功
 
@@ -350,7 +350,7 @@ On September 18, 2026, the Share Extension was reverified on a physical device a
 - `npm run check:docs`: 成功
 - `npm run format:check`: 成功
 - `npm run verify`: 成功。unit 277件、integration 49件、E2E 34件を含む
-- `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer IOS_PARALLEL_WORKERS=1 npm run verify:ios`: 110件成功、失敗0、skip 0
+- `DEVELOPER_DIR="$DEVELOPER_DIR" IOS_PARALLEL_WORKERS=1 npm run verify:ios`: 110件成功、失敗0、skip 0
 
 ### 残存確認と今後の操作
 

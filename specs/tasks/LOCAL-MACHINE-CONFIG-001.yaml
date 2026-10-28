@@ -1,0 +1,50 @@
+id: LOCAL-MACHINE-CONFIG-001
+type: maintenance
+status: approved
+objective: Move operator-specific repository locations, state locations, CLI identity and Xcode selection into untracked local configuration while retaining shared product and infrastructure contracts.
+requirements:
+  - id: LMC-LOCAL
+    condition: An operator runs the YouTube PoC or alert verification.
+    expected: Read only the supported local account and developer-directory keys from the environment or untracked .env.local; explicit process values take precedence, unrelated credentials are not exported, and existing files and environment entries are never modified by the reader.
+    verification:
+      - tests/unit/local-machine-env.test.mjs
+      - tests/unit/alert-repair.test.mjs
+  - id: LMC-ACCOUNT
+    condition: A YouTube PoC obtains a gcloud access token.
+    expected: Require FOODFOLIO_GCLOUD_ACCOUNT and pass it as one explicit account argument; fail before running gcloud when absent, rather than embedding an operator identity or changing the global CLI account.
+    verification:
+      - tests/unit/local-machine-env.test.mjs
+      - poc/ai-extraction/run-gemini-youtube.ts
+      - poc/ai-extraction/run-gemini-youtube-final.ts
+      - poc/ai-extraction/run-gemini-youtube-stability.ts
+  - id: LMC-DOCS
+    condition: An agent follows the scheduled maintenance instructions.
+    expected: Resolve repository and persistent-state locations through FOODFOLIO_REPOSITORY_PATH and FOODFOLIO_ALERT_REPAIR_STATE in the untracked local file, retain existing state, and never alter live scheduling or copy the local file into isolated checkouts.
+    verification:
+      - scripts/alert-repair/scheduled-task.md
+      - docs/agent/infrastructure.md
+edge_cases:
+  - A local configuration file is absent, unreadable, or contains quoted paths with spaces.
+  - A process override is present but empty.
+  - An account is missing and must not silently fall back to the global account.
+security_invariants:
+  - Never log local file contents, tokens, API keys or unrelated settings.
+  - Preserve the isolated verification environment allowlist and credential exclusion.
+  - Never rewrite or truncate existing local configuration files.
+compatibility:
+  - Container paths, shared IAM membership, public contact addresses and application identifiers remain unchanged.
+  - Existing overridable standard tool defaults and synthetic test paths remain portable defaults or fixtures.
+  - Existing alert state and live schedules remain unchanged.
+non_functional:
+  - Local settings are read without mutating process.env or files.
+  - Use the existing dotenv dependency and deterministic tests without paid API calls.
+out_of_scope:
+  - Cloud identity rotation, infrastructure apply, deployment, live automation edits and public release.
+  - Altering historical validation results or rewriting repository history.
+acceptance_criteria:
+  - Tracked current sources contain no operator home directory or operator-specific checkout location.
+  - The three PoC entrypoints use the configured account and isolated verification honors the configured developer directory without exposing credentials.
+  - Unit, integration, E2E, lint, format and build checks pass.
+regression:
+  required: false
+  tests: []

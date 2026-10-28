@@ -4,11 +4,14 @@
 
 ## 固定の場所と起動条件
 
-- repository: `/Users/yasudakeisuke/Developer/foodfolio`
+- repository: ローカル環境変数 `FOODFOLIO_REPOSITORY_PATH`
 - remote: `https://github.com/Kay-pht/foodfolio.git`
-- state: `/Users/yasudakeisuke/Developer/foodfolio/.git/foodfolio/alert-repair`
+- state: ローカル環境変数 `FOODFOLIO_ALERT_REPAIR_STATE`
+- developer directory: ローカル環境変数 `DEVELOPER_DIR`（個別のXcode選択が必要な端末のみ）
 - controller clone: state内の `controller`
 - channel: `#foodfolio-alerts` / `C0C4D12AD3J`
+
+repositoryとstateの実値はGit管理対象外の `.env.local` で管理する。プロジェクトの現在の作業ディレクトリにある同ファイルから、Nodeのenv-file読み込み等でrepository・stateの2キーと必要に応じて `DEVELOPER_DIR` を読む。repository・stateが未設定・空値、または参照先が不一致なら起動せずユーザーへ確認する。ファイルをシェルとして実行したり、既存設定を上書きしたりしない。stateは従来の保存先を維持し、移動・再初期化しない。`.env.local` をcontrollerや各工程のcloneへコピーせず、制御側にはrepository・stateと必要な `DEVELOPER_DIR` の値だけを渡す。実行スケジュールや登録済みautomation設定はこの手順の変更だけで更新しない。
 
 最初にrepositoryの `git status` とremoteを読み取り、`git fetch origin main` でmainを取得する。ユーザーのcheckoutのswitch、reset、stash、clean、未コミット変更の操作は禁止。`origin/main:specs/tasks/ALERT-REPAIR-001.yaml` と `origin/main:scripts/alert-repair/cli.mjs` が存在し、仕様がapprovedであることを確認する。まだmainへmergeされていなければハーネスを起動せず、初回だけ未稼働・人間のレビューとmerge待ちとCodexで報告し、state内 `awaiting-main-reported` に記録する。同じ状態の後続回は静かに終了する。main未反映を正常稼働と報告しない。
 

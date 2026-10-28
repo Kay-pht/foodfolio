@@ -10,6 +10,7 @@ import {
 import { join, resolve } from "node:path";
 import { fileURLToPath, URL } from "node:url";
 import Ajv from "ajv";
+import { localMachineValue } from "../local-machine-env.mjs";
 
 import {
   assertChanges,
@@ -131,6 +132,7 @@ export function assertFrozen(directory, frozen) {
 }
 
 export function verificationEnvironment(home) {
+  const developerDirectory = localMachineValue("DEVELOPER_DIR");
   return {
     HOME: home,
     PATH: process.env.PATH,
@@ -138,7 +140,7 @@ export function verificationEnvironment(home) {
     CI: "true",
     LANG: "en_US.UTF-8",
     TZ: "Asia/Tokyo",
-    DEVELOPER_DIR: "/Applications/Xcode.app/Contents/Developer",
+    ...(developerDirectory ? { DEVELOPER_DIR: developerDirectory } : {}),
     // Testcontainers creates its own database and rewrites DATABASE_URL.
     ...(process.env.DOCKER_HOST
       ? { DOCKER_HOST: process.env.DOCKER_HOST }
