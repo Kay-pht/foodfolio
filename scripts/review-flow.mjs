@@ -104,20 +104,20 @@ export function validateLedger(ledger, pr) {
       ledger.reviews.length <= MAX_RE_REVIEWS + 1,
     "Invalid PR-bound review ledger.",
   );
-  const identities = new Set([ledger.implementerChat]);
+  const reviewerChat = ledger.reviews[0]?.reviewerChat;
   for (const review of ledger.reviews) {
     requireThat(
       text(review.reviewerChat) &&
-        !identities.has(review.reviewerChat) &&
+        review.reviewerChat !== ledger.implementerChat &&
+        review.reviewerChat === reviewerChat &&
         /^[a-f0-9]{40,64}$/.test(review.sha ?? "") &&
         text(review.context?.request) &&
         text(review.context?.verification) &&
         Array.isArray(review.context?.specs) &&
         review.context.specs.length > 0 &&
         review.context.specs.every(text),
-      "Each review requires a fresh independent chat, SHA and handoff context.",
+      "Each review must reuse the same independent reviewer chat with SHA and handoff context.",
     );
-    identities.add(review.reviewerChat);
     // Preserve historical reviews written before structured handoff was introduced.
     if (review.context.successfulCommands !== undefined) {
       validateSuccessfulCommands(review.context.successfulCommands, review.sha);
@@ -218,7 +218,7 @@ export function transition(
     );
     requireThat(
       latest.sha === pr.headRefOid,
-      "Review HEAD changed; request a fresh reviewer.",
+      "Review HEAD changed; request re-review in the same reviewer chat.",
     );
     if (command === "result") {
       requireThat(!latest.result, "Review result is immutable.");

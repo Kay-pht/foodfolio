@@ -11,7 +11,7 @@ requirements:
       - docs/agent/development.md
   - id: IRC-RETURN
     condition: The reviewer finds a reproducible bug or a violation of the approved specification.
-    expected: The reviewer does not edit the reviewed code, reports evidence to the original implementation chat, and the implementer acting as fixer reports and corrects the issue there using regression tests, full verification and a new independent reviewer chat for the updated HEAD.
+    expected: The reviewer does not edit the reviewed code, reports evidence to the original implementation chat, and the implementer acting as fixer reports and corrects the issue there using regression tests, full verification and the same independent reviewer chat for the updated HEAD.
     verification:
       - docs/agent/review.md
       - docs/agent/autonomous-p0.md
@@ -40,7 +40,7 @@ out_of_scope:
   - Implementing a suggested product specification change without user approval.
 acceptance_criteria:
   - The authoritative agent documents consistently require autonomous separate-chat review and evidence-based return to the implementation chat.
-  - A new independent review chat reviews the latest PR HEAD and sends its result to the original chat under the user's authorization.
+  - The independent review chat created initially reviews the latest PR HEAD and sends its result to the original chat under the user's authorization.
   - Documentation guardrails and required repository verification pass.
 regression:
   required: false

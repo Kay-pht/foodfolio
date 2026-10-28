@@ -147,9 +147,12 @@ for (let cycle = 1; cycle <= 3; cycle++) {
   pr.headRefOid = String(cycle).repeat(40);
   context.successfulCommands = successfulCommands(pr.headRefOid);
   assert.throws(() =>
-    step(ledger, "request", { reviewer: "reviewer", context }),
+    step(ledger, "request", {
+      reviewer: `different-reviewer-${cycle}`,
+      context,
+    }),
   );
-  const reviewer = `reviewer-${cycle}`;
+  const reviewer = "reviewer";
   ledger = step(ledger, "request", { reviewer, context });
   ledger = step(ledger, "result", {
     session: reviewer,
@@ -360,7 +363,7 @@ try {
     "implementer",
     "request",
     "--reviewer",
-    "reviewer-2",
+    "reviewer",
     "--context",
     contextPath,
   );

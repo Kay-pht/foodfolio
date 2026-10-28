@@ -17,7 +17,7 @@ requirements:
       - docs/agent/review.md
   - id: RFH-RETRY
     condition: A review needs correction or its HEAD becomes stale.
-    expected: Retain review history, require a fresh reviewer chat for every updated HEAD, and permit at most three re-reviews after the initial review; exhaustion returns AUTOMATION_BLOCKED without resetting history.
+    expected: Retain review history, reuse the same independent reviewer chat for every updated HEAD, and permit at most three re-reviews after the initial review; exhaustion returns AUTOMATION_BLOCKED without resetting history.
     verification:
       - scripts/test-review-proof.mjs
   - id: RFH-PROOF
@@ -57,7 +57,7 @@ out_of_scope:
 acceptance_criteria:
   - The normal flow records start, request, classified result and delivery acknowledgement and enforces identity and retry limits.
   - Agent documentation defines create, wait, return and fix steps with the new commands.
-  - Required local verification and CI pass, and a fresh separate reviewer chat reviews the resulting PR.
+  - Required local verification and CI pass, and the original independent reviewer chat reviews the latest resulting PR HEAD.
 regression:
   required: false
   tests: []
