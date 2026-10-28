@@ -149,6 +149,14 @@ describe("alert repair integration", () => {
       expect(() => requireReviewedController(directory)).toThrow(
         /local changes/,
       );
+      git("restore", "scripts/alert-repair/core.mjs");
+      await writeFile(
+        join(directory, "scripts/review-flow.mjs"),
+        "// unreviewed proof dependency\n",
+      );
+      expect(() => requireReviewedController(directory)).toThrow(
+        /local changes/,
+      );
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

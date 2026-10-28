@@ -1,0 +1,63 @@
+id: REVIEW-FLOW-HARNESS-001
+type: maintenance
+status: approved
+objective: Enforce the approved separate-chat review workflow with local PR-bound records and at most three fix and re-review cycles.
+requirements:
+  - id: RFH-IDENTITY
+    condition: An implementer requests an independent review after verification.
+    expected: A local PR-bound ledger records the implementation chat, distinct reviewer chat, immutable HEAD and handoff evidence; only the registered reviewer session may submit a classified result and write normal LGTM proof.
+    verification:
+      - scripts/test-review-proof.mjs
+      - docs/agent/review.md
+  - id: RFH-RESULT
+    condition: A reviewer returns findings.
+    expected: Findings contain classification and evidence; existing-spec bugs block LGTM and may be fixed in the original chat, ambiguous behavior requires user confirmation, and specification proposals alone do not block otherwise valid code or authorize implementation.
+    verification:
+      - scripts/test-review-proof.mjs
+      - docs/agent/review.md
+  - id: RFH-RETRY
+    condition: A review needs correction or its HEAD becomes stale.
+    expected: Retain review history, reuse the same independent reviewer chat for every updated HEAD, and permit at most three re-reviews after the initial review; exhaustion returns AUTOMATION_BLOCKED without resetting history.
+    verification:
+      - scripts/test-review-proof.mjs
+  - id: RFH-PROOF
+    condition: LGTM is recorded or consumed by the human merge command.
+    expected: Reject missing independent-review records, author self-approval and stale SHA results; preserve the existing isolated alert-repair attestation protocol while rejecting a legacy ordinary proof without independent-review evidence.
+    verification:
+      - scripts/test-review-proof.mjs
+      - tests/integration/alert-repair.test.mjs
+      - tests/unit/pr-final-merge.test.mjs
+  - id: RFH-REUSE-VERIFICATION
+    condition: The implementer hands a verified HEAD to a read-only reviewer.
+    expected: Require a nonempty structured list of successful commands with matching source SHA, exit code zero and evidence references. The reviewer trusts these results and does not rerun successful commands, including their verified subcommands. Additional checks require a concrete reason and must not duplicate the handed-off commands; failed additional checks block LGTM.
+    verification:
+      - scripts/test-review-proof.mjs
+      - docs/agent/review.md
+      - docs/agent/testing.md
+edge_cases:
+  - Missing session identity, malformed findings, wrong PR and stale SHA fail closed.
+  - Repeated request or result submission must not overwrite history or evade retry limits.
+  - Chat creation, result retrieval or return messaging is unavailable; report incomplete and do not fabricate evidence.
+  - A specification proposal without a proven existing-contract defect remains advisory.
+security_invariants:
+  - No automatic merge or specification approval; the user remains the only specification decision maker.
+  - Session identifiers and local handoff records remain outside tracked files.
+  - The implementer cannot use the normal LGTM path to approve their own changes.
+compatibility:
+  - Keep the approved alert-repair attestation format and existing SHA-bound proof fields.
+  - Existing ordinary proofs without independent-chat evidence require fresh review.
+  - Keep prior ledger history readable; new requests and latest LGTM require structured successful-command evidence.
+non_functional:
+  - Serialize local ledger updates with a lock and atomic replacement to avoid lost updates.
+  - Explain that local session records are guardrails rather than cryptographic proof of remote chat execution.
+out_of_scope:
+  - Changing the alert-repair session protocol or its permissions; its existing source guard also covers the new review-proof dependency.
+  - Automatic specification changes, merge, deployment or public release.
+  - Implementing an API for creating chats; the agent uses the existing app tools and records their observed identifiers.
+acceptance_criteria:
+  - The normal flow records start, request, classified result and delivery acknowledgement and enforces identity and retry limits.
+  - Agent documentation defines create, wait, return and fix steps with the new commands.
+  - Required local verification and CI pass, and the original independent reviewer chat reviews the latest resulting PR HEAD.
+regression:
+  required: false
+  tests: []

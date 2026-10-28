@@ -27,7 +27,7 @@
 - Pull Request は Draft で作成し、実装とReady前に実行可能な検証が完了するまで Draft のまま更新する。Draft中のPR更新ではAuto FixとQualityのrunnerを起動しない。
 - 最終CIを開始するときにReady for reviewへ変更する。ReadyではAuto Fixを先に実行し、自動修正後の最終HEADに対してQualityを1回実行する。
 - Ready後に修正が必要になった場合は、修正をpushする前にPRをDraftへ戻す。修正をまとめてpushし、Ready前の確認を終えてから再度Readyへ変更する。
-- Implementerは自分の実装へ最終LGTMを出さない。実装と必要な検証が完了したら、自主的に新規の別チャットを作成してfresh contextの独立Reviewerへ依頼し、結果を待つ。同じ会話内のサブエージェントや実装会話のforkで代用しない。返却・再レビュー手順は [review.md](review.md) に従う。承認済みの [アラート修正ハーネス](alert-repair.md) の案件は既存の独立セッション制御を維持する。
+- Implementerは自分の実装へ最終LGTMを出さない。実装と必要な検証が完了したら、初回だけ自主的に新規の別チャットを作成してfresh contextの独立Reviewerへ依頼し、結果を待つ。同じ会話内のサブエージェントや実装会話のforkで代用しない。`npm run review:flow` で成功コマンド・対象SHA・終了コード・ログ参照も引き継ぎ、Reviewerは成功済みの検証を再実行しない。未検証の具体的な論点に対する追加検証だけ理由付きで認める。初回後は実装チャットと同じReviewerチャットの2つで往復し、修正・再レビューは最大3回とする。チャット作成・待機・返却と停止時の手順は [review.md](review.md) に従う。承認済みの [アラート修正ハーネス](alert-repair.md) の案件は既存の独立セッション制御を維持する。
 
 Backend の層間依存は [../architecture-boundaries.md](../architecture-boundaries.md) に従う。レビュー責務、LGTM証跡、停止条件は [review.md](review.md) に従う。
 
@@ -35,7 +35,7 @@ Backend の層間依存は [../architecture-boundaries.md](../architecture-bound
 
 - Reviewerはコードを変更せず、仕様・最新HEAD SHA・差分・関連コード・テスト結果を独立に確認する。
 - Reviewerはblockerを元の実装チャットへ返し、コードを変更せず停止する。元チャットは修正が必要な旨をユーザーに報告する。既存仕様に基づくバグはFixerとして自律的に修正してよいが、仕様変更の提案や期待動作が曖昧な指摘は必ず変更前にユーザーへ確認する。FixerはPRをDraftへ戻してから修正し、必要なローカル検証を経てpush・Readyへ戻し、最終HEADでCIを確認する。
-- Fixerがコミットした後は以前のLGTMを使用せず、自主的に新規の別Reviewerチャットを作成して最新HEADを再レビューする。
+- Fixerがコミットした後は以前のLGTMを使用せず、初回の同じReviewerチャットへ更新内容を送り、最新HEADを再レビューする。
 - 問題がなければReviewerは `npm run review:lgtm` で最新HEADにLGTM証跡を作成する。
 - AIエージェントの作業は `LGTM` または `AUTOMATION_BLOCKED` で終了する。最終マージは人間だけが `npm run pr:merge` で行い、AIはこのコマンドを実行しない。
 
@@ -62,7 +62,7 @@ test -n "$TASK_LIST_REPO_PATH" && test -d "$TASK_LIST_REPO_PATH"
 - LGTMだけを根拠に、未実装のレビュー指摘、別の障害通知、デプロイ・公開・実機確認などが残る項目を完了にしない。判定できない項目は未完了のまま、対象と不足する根拠を示してこのチャットでユーザーへ質問する。Slack通知などの重複は、元通知URL・日時・対象を照合し、同じエラーコードだけで同一案件と扱わない。
 - 更新にはTask-Listの `npm --prefix "$TASK_LIST_REPO_PATH" run task:update` を使用する。保存元を読み直し、`file`、1始まりの `line`、正確な `expectedLine`、`status: done` をJSONで渡し、`--dry-run` で確認してから保存する。既存の本文・Project・Priority・Due dateと、他者の未コミット変更を保持する。競合や結果未確定の場合は同Vaultのルールに従い、未確認の再試行・巻き戻しをしない。
 - 保存後にTask-Listで `npm --prefix "$TASK_LIST_REPO_PATH" run lint:tasks` を実行し、今回更新した行だけをステージしてタスク内容の変更として直接コミットする。PRは不要とし、コミット本文には対応するFoodfolio PR URL、レビューしたSHA、完了判定の根拠を記録する。他の未コミット変更をコミットへ混ぜない。
-- この外部Vaultのタスク内容更新・コミットはReviewerの同期作業として認める。レビュー対象のFoodfolioのコードやGit管理対象ファイルは変更しない。Foodfolio内のチェックリスト修正が必要ならImplementer / Fixerへ戻し、変更後のHEADで別Reviewerセッションによる再レビューを行う。
+- この外部Vaultのタスク内容更新・コミットはReviewerの同期作業として認める。レビュー対象のFoodfolioのコードやGit管理対象ファイルは変更しない。Foodfolio内のチェックリスト修正が必要ならImplementer / Fixerへ戻し、変更後のHEADで同じReviewerチャットによる再レビューを行う。
 - Task-Listにアクセスできない、検証やコミットに失敗した、またはユーザーへの確認が残る場合、同期済みとは報告しない。LGTM対象SHA、更新したタスク、Task-Listのコミット、未解決の確認事項を完了報告に記載する。最終マージは引き続き人間だけが行う。
 
 ## 完了報告
