@@ -43,6 +43,7 @@
 ## レビュー完了状態
 
 - Reviewerは問題がなければ最新PR HEADに対して `npm run review:lgtm` を実行し、Git管理対象外のレビュー証跡へ `LGTM + reviewed_sha` を記録する。
+- LGTMを記録したら、外部の `/Users/yasudakeisuke/Developer/Task-List` のFoodfolio未完了タスクを参照し、今回の変更で完了条件を満たした項目を完了へ更新・検証・コミットする。手順と確認が必要な場合の扱いは [開発フロー](docs/agent/development.md#lgtm時の外部タスクリスト同期) に従う。
 - 新しいコミットが追加された場合、以前のLGTMは無効とし、別Reviewerセッションで再レビューする。
 - 定義された停止条件に該当する場合はLGTMを出さず `AUTOMATION_BLOCKED` として停止する。
 - AIの責務は `LGTM` または `AUTOMATION_BLOCKED` までで終了する。最終確認とマージは人間が行う。

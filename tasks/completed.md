@@ -139,3 +139,12 @@
   - [x] 人間が準備PR #151をマージしたことを確認する（別Reviewerの証跡は未確認）
   - [x] マージ済みソースから配布用Archive / uploadを行い、Apple処理と既存掲載設定を確認する
   - [x] MANUAL公開設定でAppleへ審査提出し、Submission ID `09c00d47-a2ac-43ea-b11f-f22766bc56cd` とWAITING_FOR_REVIEWを読み戻す（2026-10-24、一般公開はユーザーが行う）
+- [x] Cloud RunのOCI indexと実行イメージdigestの照合を修正する
+  - [x] Specification as Codeを確定し、回帰テストのREDからGREENを確認する
+  - [x] ローカルLinux環境で全体・結合・E2E・lint・format・buildを確認する
+  - [x] 人間による修正[PR #153](https://github.com/Kay-pht/foodfolio/pull/153)のmergeを確認する（最終HEADの別Reviewer証跡は今回未確認）
+- [x] Share Extensionを選択した際の白画面を修正する
+  - [x] iOS 27実機で再現し、同じ白画面で編集許可を変更した後に表示が回復することを確認する
+  - [x] 初期表示の回帰テストでREDを確認し、表示完了後に読み取り専用化する修正でGREENにする
+  - [x] 全体・結合・E2E・lint・format・buildと修正後の実機表示・投稿受付を検証する
+  - [x] 人間による修正[PR #149](https://github.com/Kay-pht/foodfolio/pull/149)のmergeを確認する（最終HEADの別Reviewer証跡は今回未確認）

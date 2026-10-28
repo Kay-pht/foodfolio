@@ -47,6 +47,16 @@ Backend の層間依存は [../architecture-boundaries.md](../architecture-bound
 - 一部だけ完了した場合、検証が失敗した場合、または外部確認が残っている場合はチェックを入れない。
 - 対応する項目が存在しない場合は、無関係な項目を更新しない。新しい項目の追加先が不明な場合はユーザーに確認する。
 
+## LGTM時の外部タスクリスト同期
+
+- Reviewerは最新PR HEADに対する `npm run review:lgtm` の成功後、作業終了前に `/Users/yasudakeisuke/Developer/Task-List` を参照する。これはObsidianのTask-List Vaultへのパスであり、Foodfolio内の `tasks/todo.md` とは別の管理先である。
+- まずTask-Listの `AGENTS.md` とGitの状態を読み、`Inbox.md` と `Projects/*.md` にある `[[Projects/Foodfolio|Foodfolio]]` の未完了タスクを確認する。今回のPRの要求・差分・検証結果と照合し、対応する完了条件をすべて満たす項目だけを完了にする。該当項目がなければ追加・変更しない。
+- LGTMだけを根拠に、未実装のレビュー指摘、別の障害通知、デプロイ・公開・実機確認などが残る項目を完了にしない。判定できない項目は未完了のまま、対象と不足する根拠を示してこのチャットでユーザーへ質問する。Slack通知などの重複は、元通知URL・日時・対象を照合し、同じエラーコードだけで同一案件と扱わない。
+- 更新にはTask-Listの `npm --prefix /Users/yasudakeisuke/Developer/Task-List run task:update` を使用する。保存元を読み直し、`file`、1始まりの `line`、正確な `expectedLine`、`status: done` をJSONで渡し、`--dry-run` で確認してから保存する。既存の本文・Project・Priority・Due dateと、他者の未コミット変更を保持する。競合や結果未確定の場合は同Vaultのルールに従い、未確認の再試行・巻き戻しをしない。
+- 保存後にTask-Listで `npm --prefix /Users/yasudakeisuke/Developer/Task-List run lint:tasks` を実行し、今回更新した行だけをステージしてタスク内容の変更として直接コミットする。PRは不要とし、コミット本文には対応するFoodfolio PR URL、レビューしたSHA、完了判定の根拠を記録する。他の未コミット変更をコミットへ混ぜない。
+- この外部Vaultのタスク内容更新・コミットはReviewerの同期作業として認める。レビュー対象のFoodfolioのコードやGit管理対象ファイルは変更しない。Foodfolio内のチェックリスト修正が必要ならImplementer / Fixerへ戻し、変更後のHEADで別Reviewerセッションによる再レビューを行う。
+- Task-Listにアクセスできない、検証やコミットに失敗した、またはユーザーへの確認が残る場合、同期済みとは報告しない。LGTM対象SHA、更新したタスク、Task-Listのコミット、未解決の確認事項を完了報告に記載する。最終マージは引き続き人間だけが行う。
+
 ## 完了報告
 
 - 変更した内容と主要ファイルを簡潔に示す。
