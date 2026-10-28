@@ -28,7 +28,7 @@ requirements:
       - tests/unit/specification-change-gate.test.mjs
   - id: P0-3
     condition: Agent implementation and review are performed.
-    expected: Implementer, Reviewer, and Fixer responsibilities are separated by documented workflow; session separation is performed by the human operator or the explicitly authorized ALERT-REPAIR-001 controller with distinct persisted session IDs.
+    expected: The implementer autonomously creates a fresh independent reviewer chat after required validation, without forking implementation history or using an in-chat subagent; the original chat may fix proven existing-specification defects but must obtain user approval before specification changes. The explicitly authorized ALERT-REPAIR-001 controller retains its distinct persisted session protocol.
     verification:
       - docs/agent/review.md
       - docs/agent/development.md

@@ -27,15 +27,15 @@
 - Pull Request は Draft で作成し、実装とReady前に実行可能な検証が完了するまで Draft のまま更新する。Draft中のPR更新ではAuto FixとQualityのrunnerを起動しない。
 - 最終CIを開始するときにReady for reviewへ変更する。ReadyではAuto Fixを先に実行し、自動修正後の最終HEADに対してQualityを1回実行する。
 - Ready後に修正が必要になった場合は、修正をpushする前にPRをDraftへ戻す。修正をまとめてpushし、Ready前の確認を終えてから再度Readyへ変更する。
-- Implementerは自分の実装へ最終LGTMを出さない。実装後のレビューは原則人間がfresh contextの別Reviewerセッションへ依頼する。明示的に承認された [アラート修正ハーネス](alert-repair.md) の案件では、制御プログラムが独立Reviewerセッションを起動する。
+- Implementerは自分の実装へ最終LGTMを出さない。実装と必要な検証が完了したら、自主的に新規の別チャットを作成してfresh contextの独立Reviewerへ依頼し、結果を待つ。同じ会話内のサブエージェントや実装会話のforkで代用しない。返却・再レビュー手順は [review.md](review.md) に従う。承認済みの [アラート修正ハーネス](alert-repair.md) の案件は既存の独立セッション制御を維持する。
 
 Backend の層間依存は [../architecture-boundaries.md](../architecture-boundaries.md) に従う。レビュー責務、LGTM証跡、停止条件は [review.md](review.md) に従う。
 
 ## レビューと修正
 
 - Reviewerはコードを変更せず、仕様・最新HEAD SHA・差分・関連コード・テスト結果を独立に確認する。
-- Reviewerにblockerがあれば `AUTOMATION_BLOCKED` として停止する。FixerはPRをDraftへ戻してから指摘された内容を修正・pushし、Readyへ戻した後の最終HEADで必要な検証を再実行する。
-- Fixerがコミットした後は以前のLGTMを使用せず、別Reviewerセッションで最新HEADを再レビューする。
+- Reviewerはblockerを元の実装チャットへ返し、コードを変更せず停止する。元チャットは修正が必要な旨をユーザーに報告する。既存仕様に基づくバグはFixerとして自律的に修正してよいが、仕様変更の提案や期待動作が曖昧な指摘は必ず変更前にユーザーへ確認する。FixerはPRをDraftへ戻してから修正し、必要なローカル検証を経てpush・Readyへ戻し、最終HEADでCIを確認する。
+- Fixerがコミットした後は以前のLGTMを使用せず、自主的に新規の別Reviewerチャットを作成して最新HEADを再レビューする。
 - 問題がなければReviewerは `npm run review:lgtm` で最新HEADにLGTM証跡を作成する。
 - AIエージェントの作業は `LGTM` または `AUTOMATION_BLOCKED` で終了する。最終マージは人間だけが `npm run pr:merge` で行い、AIはこのコマンドを実行しない。
 

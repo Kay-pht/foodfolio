@@ -8,8 +8,8 @@ Foodfolio の自律開発では、AIの判断そのものを信頼境界にせ�
 2. `npm run check:specs` が成功してからImplementerが実装する。
 3. バグ修正では修正前に回帰テストが失敗することを確認し、修正後に成功させる。
 4. Implementerが必要なローカル検証とCIを完了させる。
-5. 原則人間が別セッションのReviewerにレビューを依頼する。明示的に承認された [アラート修正ハーネス](alert-repair.md) の案件に限り、制御プログラムが別セッションを起動し、セッションIDの独立性を検証する。
-6. Reviewerは問題があれば `AUTOMATION_BLOCKED`、問題がなければ `npm run review:lgtm` で最新HEADにLGTMを記録する。
+5. Implementerが自主的に新規の別チャットを作成し、fresh contextの独立Reviewerへ依頼して結果を待つ。同じ会話内のサブエージェントや実装会話のforkで代用しない。承認済みの [アラート修正ハーネス](alert-repair.md) の案件は既存の独立セッション制御を維持する。
+6. Reviewerは問題があれば元の実装チャットへ根拠と分類を返し、元チャットが修正する。既存仕様に基づくバグは自律的に修正し、仕様変更や期待動作が曖昧な指摘は必ず変更前にユーザーへ確認する。修正後は必要な検証と新規の別チャットでの再レビューを行う。問題がなければReviewerが `npm run review:lgtm` で最新HEADにLGTMを記録し、対応する外部Task-Listを同期する。
 7. AIの作業はここで終了する。
 8. 人間が最終確認として `npm run pr:merge` を実行する。
 
