@@ -49,11 +49,19 @@ Backend の層間依存は [../architecture-boundaries.md](../architecture-bound
 
 ## LGTM時の外部タスクリスト同期
 
-- Reviewerは最新PR HEADに対する `npm run review:lgtm` の成功後、作業終了前に `/Users/yasudakeisuke/Developer/Task-List` を参照する。これはObsidianのTask-List Vaultへのパスであり、Foodfolio内の `tasks/todo.md` とは別の管理先である。
+- Reviewerは最新PR HEADに対する `npm run review:lgtm` の成功後、作業終了前にローカル環境変数 `TASK_LIST_REPO_PATH` が指すTask-Listを参照する。これはObsidianのTask-List Vaultへのパスであり、Foodfolio内の `tasks/todo.md` とは別の管理先である。
+- `TASK_LIST_REPO_PATH` はGit管理対象外の `.env.local` に設定する。既存ファイルの内容を保持して未定義のキーだけ追記し、ファイル全体や既存の設定を上書きしない。個人環境の絶対パスをGit管理対象ファイルへ記載しない。設定例のキーは `.env.local.example` を参照する。
+- 同期を行うシェルではFoodfolioルートから下記のように値を読み込む。`.env.local` はシェルスクリプトとして実行せず、Nodeのenv-file読み込みを使う。未設定・空値・参照先不存在の場合は同期を開始せず、ユーザーに設定を確認する。
+
+```bash
+TASK_LIST_REPO_PATH="$(node --env-file=.env.local --print 'process.env.TASK_LIST_REPO_PATH ?? ""')"
+test -n "$TASK_LIST_REPO_PATH" && test -d "$TASK_LIST_REPO_PATH"
+```
+
 - まずTask-Listの `AGENTS.md` とGitの状態を読み、`Inbox.md` と `Projects/*.md` にある `[[Projects/Foodfolio|Foodfolio]]` の未完了タスクを確認する。今回のPRの要求・差分・検証結果と照合し、対応する完了条件をすべて満たす項目だけを完了にする。該当項目がなければ追加・変更しない。
 - LGTMだけを根拠に、未実装のレビュー指摘、別の障害通知、デプロイ・公開・実機確認などが残る項目を完了にしない。判定できない項目は未完了のまま、対象と不足する根拠を示してこのチャットでユーザーへ質問する。Slack通知などの重複は、元通知URL・日時・対象を照合し、同じエラーコードだけで同一案件と扱わない。
-- 更新にはTask-Listの `npm --prefix /Users/yasudakeisuke/Developer/Task-List run task:update` を使用する。保存元を読み直し、`file`、1始まりの `line`、正確な `expectedLine`、`status: done` をJSONで渡し、`--dry-run` で確認してから保存する。既存の本文・Project・Priority・Due dateと、他者の未コミット変更を保持する。競合や結果未確定の場合は同Vaultのルールに従い、未確認の再試行・巻き戻しをしない。
-- 保存後にTask-Listで `npm --prefix /Users/yasudakeisuke/Developer/Task-List run lint:tasks` を実行し、今回更新した行だけをステージしてタスク内容の変更として直接コミットする。PRは不要とし、コミット本文には対応するFoodfolio PR URL、レビューしたSHA、完了判定の根拠を記録する。他の未コミット変更をコミットへ混ぜない。
+- 更新にはTask-Listの `npm --prefix "$TASK_LIST_REPO_PATH" run task:update` を使用する。保存元を読み直し、`file`、1始まりの `line`、正確な `expectedLine`、`status: done` をJSONで渡し、`--dry-run` で確認してから保存する。既存の本文・Project・Priority・Due dateと、他者の未コミット変更を保持する。競合や結果未確定の場合は同Vaultのルールに従い、未確認の再試行・巻き戻しをしない。
+- 保存後にTask-Listで `npm --prefix "$TASK_LIST_REPO_PATH" run lint:tasks` を実行し、今回更新した行だけをステージしてタスク内容の変更として直接コミットする。PRは不要とし、コミット本文には対応するFoodfolio PR URL、レビューしたSHA、完了判定の根拠を記録する。他の未コミット変更をコミットへ混ぜない。
 - この外部Vaultのタスク内容更新・コミットはReviewerの同期作業として認める。レビュー対象のFoodfolioのコードやGit管理対象ファイルは変更しない。Foodfolio内のチェックリスト修正が必要ならImplementer / Fixerへ戻し、変更後のHEADで別Reviewerセッションによる再レビューを行う。
 - Task-Listにアクセスできない、検証やコミットに失敗した、またはユーザーへの確認が残る場合、同期済みとは報告しない。LGTM対象SHA、更新したタスク、Task-Listのコミット、未解決の確認事項を完了報告に記載する。最終マージは引き続き人間だけが行う。
 
