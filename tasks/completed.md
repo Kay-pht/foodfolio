@@ -149,3 +149,4 @@
   - [x] 全体・結合・E2E・lint・format・buildと修正後の実機表示・投稿受付を検証する
   - [x] 人間による修正[PR #149](https://github.com/Kay-pht/foodfolio/pull/149)のmergeを確認する（最終HEADの別Reviewer証跡は今回未確認）
 - [x] 別チャットレビューのPR別台帳・LGTM検証・最大3回の再レビュー制限を実装し、ローカル全体検証を通す
+- [x] Implementerの成功コマンドをSHAと結果参照付きで引き継ぎ、Reviewerの重複検証を拒否する仕組みを実装してCLIテストで確認する

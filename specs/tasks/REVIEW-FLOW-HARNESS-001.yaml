@@ -27,6 +27,13 @@ requirements:
       - scripts/test-review-proof.mjs
       - tests/integration/alert-repair.test.mjs
       - tests/unit/pr-final-merge.test.mjs
+  - id: RFH-REUSE-VERIFICATION
+    condition: The implementer hands a verified HEAD to a read-only reviewer.
+    expected: Require a nonempty structured list of successful commands with matching source SHA, exit code zero and evidence references. The reviewer trusts these results and does not rerun successful commands, including their verified subcommands. Additional checks require a concrete reason and must not duplicate the handed-off commands; failed additional checks block LGTM.
+    verification:
+      - scripts/test-review-proof.mjs
+      - docs/agent/review.md
+      - docs/agent/testing.md
 edge_cases:
   - Missing session identity, malformed findings, wrong PR and stale SHA fail closed.
   - Repeated request or result submission must not overwrite history or evade retry limits.
@@ -39,6 +46,7 @@ security_invariants:
 compatibility:
   - Keep the approved alert-repair attestation format and existing SHA-bound proof fields.
   - Existing ordinary proofs without independent-chat evidence require fresh review.
+  - Keep prior ledger history readable; new requests and latest LGTM require structured successful-command evidence.
 non_functional:
   - Serialize local ledger updates with a lock and atomic replacement to avoid lost updates.
   - Explain that local session records are guardrails rather than cryptographic proof of remote chat execution.

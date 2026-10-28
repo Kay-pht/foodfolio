@@ -16,7 +16,29 @@ const requireThat = (condition, message) => {
   if (!condition) throw new Error(message);
 };
 
-export function validateResult(result, sha) {
+const normalizeCommand = (command) => command.trim().replace(/\s+/gu, " ");
+
+export function validateSuccessfulCommands(commands, sha) {
+  requireThat(
+    Array.isArray(commands) && commands.length > 0,
+    "A nonempty successfulCommands handoff is required.",
+  );
+  const seen = new Set();
+  for (const entry of commands) {
+    requireThat(
+      text(entry?.command) &&
+        entry.sha === sha &&
+        entry.exitCode === 0 &&
+        text(entry.evidence),
+      "Successful commands require command, matching SHA, exitCode 0 and evidence.",
+    );
+    const command = normalizeCommand(entry.command);
+    requireThat(!seen.has(command), "Duplicate successful command in handoff.");
+    seen.add(command);
+  }
+}
+
+export function validateResult(result, sha, successfulCommands = []) {
   requireThat(result?.reviewedSha === sha, "Review result SHA is stale.");
   requireThat(
     ["LGTM", "AUTOMATION_BLOCKED"].includes(result.verdict) &&
@@ -34,11 +56,41 @@ export function validateResult(result, sha) {
       "Every finding requires classification, evidence, impact and reproduction.",
     );
   }
+  requireThat(
+    result.additionalChecks === undefined ||
+      Array.isArray(result.additionalChecks),
+    "additionalChecks must be an array when supplied.",
+  );
+  const verified = new Set(
+    successfulCommands.map((entry) => normalizeCommand(entry.command)),
+  );
+  for (const check of result.additionalChecks ?? []) {
+    requireThat(
+      text(check?.command) &&
+        text(check.reason) &&
+        text(check.evidence) &&
+        Number.isSafeInteger(check.exitCode) &&
+        check.exitCode >= 0,
+      "Additional checks require command, concrete reason, evidence and exitCode.",
+    );
+    requireThat(
+      !verified.has(normalizeCommand(check.command)),
+      "Do not rerun a successful command handed off by the implementer.",
+    );
+    requireThat(
+      check.exitCode === 0 || result.verdict === "AUTOMATION_BLOCKED",
+      "A failed additional check blocks LGTM.",
+    );
+  }
   const blockers = result.findings.filter(
     (finding) => finding.classification !== "specification_change",
   );
   requireThat(
-    result.verdict === (blockers.length ? "AUTOMATION_BLOCKED" : "LGTM"),
+    result.verdict ===
+      (blockers.length ||
+      result.additionalChecks?.some((check) => check.exitCode !== 0)
+        ? "AUTOMATION_BLOCKED"
+        : "LGTM"),
     "Bugs and unclear behavior block LGTM; specification proposals alone do not.",
   );
 }
@@ -66,7 +118,17 @@ export function validateLedger(ledger, pr) {
       "Each review requires a fresh independent chat, SHA and handoff context.",
     );
     identities.add(review.reviewerChat);
-    if (review.result) validateResult(review.result, review.sha);
+    // Preserve historical reviews written before structured handoff was introduced.
+    if (review.context.successfulCommands !== undefined) {
+      validateSuccessfulCommands(review.context.successfulCommands, review.sha);
+    }
+    if (review.result) {
+      validateResult(
+        review.result,
+        review.sha,
+        review.context.successfulCommands,
+      );
+    }
     requireThat(
       !review.delivery || (review.result && text(review.delivery)),
       "A delivered review requires a result and return reference.",
@@ -78,6 +140,7 @@ export function requireChatLgtm(ledger, pr, session) {
   validateLedger(ledger, pr);
   const review = ledger.reviews.at(-1);
   requireThat(review?.sha === pr.headRefOid, "Latest review SHA is stale.");
+  validateSuccessfulCommands(review.context.successfulCommands, review.sha);
   requireThat(
     review.result?.verdict === "LGTM" && text(review.delivery),
     "Independent LGTM result and return delivery record are required.",
@@ -146,6 +209,7 @@ export function transition(
       !latest || latest.sha !== pr.headRefOid,
       "Re-review requires an updated HEAD; do not repeat the same review.",
     );
+    validateSuccessfulCommands(context?.successfulCommands, pr.headRefOid);
     next.reviews.push({ reviewerChat: reviewer, sha: pr.headRefOid, context });
   } else {
     requireThat(
@@ -158,7 +222,7 @@ export function transition(
     );
     if (command === "result") {
       requireThat(!latest.result, "Review result is immutable.");
-      validateResult(result, latest.sha);
+      validateResult(result, latest.sha, latest.context.successfulCommands);
       latest.result = result;
     } else if (command === "delivered") {
       requireThat(

@@ -14,6 +14,8 @@ import {
   requireIndependentProof,
   transition,
   validateResult,
+  validateLedger,
+  validateSuccessfulCommands,
 } from "./review-flow.mjs";
 
 const source = readFileSync("scripts/pr-final-merge.mjs", "utf8");
@@ -30,10 +32,19 @@ for (const required of [
 }
 
 const pr = { number: 42, headRefOid: "a".repeat(40) };
+const successfulCommands = (sha) => [
+  {
+    command: "npm run verify",
+    sha,
+    exitCode: 0,
+    evidence: "Local verification log",
+  },
+];
 const context = {
   request: "Original user request reference",
   specs: ["specs/tasks/REVIEW-FLOW-HARNESS-001.yaml"],
   verification: "Required verification passed; local log and CI run references",
+  successfulCommands: successfulCommands(pr.headRefOid),
 };
 const finding = (classification) => ({
   classification,
@@ -117,6 +128,14 @@ ledger = step(ledger, "delivered", {
   reference: "Return message in original chat",
 });
 requireChatLgtm(ledger, pr, "reviewer");
+const legacy = JSON.parse(JSON.stringify(ledger));
+delete legacy.reviews[0].context.successfulCommands;
+validateLedger(legacy, pr);
+assert.throws(
+  () => requireChatLgtm(legacy, pr, "reviewer"),
+  /successfulCommands/,
+);
+
 assert.throws(() => requireChatLgtm(ledger, pr, "implementer"));
 assert.throws(() => requireChatLgtm(ledger, pr, ""));
 assert.throws(() => requireChatLgtm(ledger, { ...pr, number: 43 }, "reviewer"));
@@ -126,6 +145,7 @@ assert.throws(() =>
 assert.throws(() => step(ledger, "request", { reviewer: "another", context }));
 for (let cycle = 1; cycle <= 3; cycle++) {
   pr.headRefOid = String(cycle).repeat(40);
+  context.successfulCommands = successfulCommands(pr.headRefOid);
   assert.throws(() =>
     step(ledger, "request", { reviewer: "reviewer", context }),
   );
@@ -147,6 +167,83 @@ assert.throws(
   /three re-reviews exhausted/,
 );
 assert.equal(ledger.reviews.length, 4);
+
+// Successful implementation verification is consumed without repeating commands.
+const verifiedSha = "e".repeat(40);
+const verified = successfulCommands(verifiedSha);
+validateSuccessfulCommands(verified, verifiedSha);
+for (const invalid of [
+  undefined,
+  [],
+  [{ ...verified[0], exitCode: 1 }],
+  [{ ...verified[0], sha: "f".repeat(40) }],
+  [{ ...verified[0], evidence: "" }],
+  [verified[0], verified[0]],
+]) {
+  assert.throws(() => validateSuccessfulCommands(invalid, verifiedSha));
+}
+const extra = {
+  command: "node local-specific-reproducer.mjs",
+  reason: "A concrete uncovered boundary in the changed code",
+  evidence: "Additional-check log",
+  exitCode: 0,
+};
+validateResult(
+  { ...result(verifiedSha), additionalChecks: [extra] },
+  verifiedSha,
+  verified,
+);
+assert.throws(
+  () =>
+    validateResult(
+      {
+        ...result(verifiedSha),
+        additionalChecks: [{ ...extra, command: " npm   run verify " }],
+      },
+      verifiedSha,
+      verified,
+    ),
+  /Do not rerun/,
+);
+assert.throws(() =>
+  validateResult(
+    { ...result(verifiedSha), additionalChecks: [{ ...extra, reason: "" }] },
+    verifiedSha,
+    verified,
+  ),
+);
+assert.throws(
+  () =>
+    validateResult(
+      { ...result(verifiedSha), additionalChecks: [{ ...extra, exitCode: 1 }] },
+      verifiedSha,
+      verified,
+    ),
+  /blocks LGTM/,
+);
+validateResult(
+  {
+    ...result(verifiedSha),
+    verdict: "AUTOMATION_BLOCKED",
+    additionalChecks: [{ ...extra, exitCode: 1 }],
+  },
+  verifiedSha,
+  verified,
+);
+const previous = transition(undefined, "start", {
+  pr: { number: 7, headRefOid: verifiedSha },
+  session: "implementer",
+});
+assert.throws(
+  () =>
+    transition(previous, "request", {
+      pr: { number: 7, headRefOid: verifiedSha },
+      session: "implementer",
+      reviewer: "new-reviewer",
+      context: { ...context, successfulCommands: undefined },
+    }),
+  /successfulCommands/,
+);
 
 // Execute the real CLI and proof writer against a disposable Git repository.
 const directory = mkdtempSync(join(tmpdir(), "foodfolio-review-flow-"));
@@ -199,7 +296,10 @@ try {
     cli(session, "scripts/review-proof.mjs", ...args);
   const contextPath = join(directory, "context.json");
   const resultPath = join(directory, "result.json");
-  writeFileSync(contextPath, JSON.stringify(context));
+  writeFileSync(
+    contextPath,
+    JSON.stringify({ ...context, successfulCommands: successfulCommands(sha) }),
+  );
   writeFileSync(resultPath, JSON.stringify(result(sha)));
   assert.throws(() => proof("implementer"));
   flow("implementer", "start");
@@ -249,6 +349,13 @@ try {
     isDraft: false,
   });
   assert.throws(() => proof("reviewer"));
+  writeFileSync(
+    contextPath,
+    JSON.stringify({
+      ...context,
+      successfulCommands: successfulCommands(updated),
+    }),
+  );
   flow(
     "implementer",
     "request",

@@ -27,7 +27,7 @@
 - Pull Request は Draft で作成し、実装とReady前に実行可能な検証が完了するまで Draft のまま更新する。Draft中のPR更新ではAuto FixとQualityのrunnerを起動しない。
 - 最終CIを開始するときにReady for reviewへ変更する。ReadyではAuto Fixを先に実行し、自動修正後の最終HEADに対してQualityを1回実行する。
 - Ready後に修正が必要になった場合は、修正をpushする前にPRをDraftへ戻す。修正をまとめてpushし、Ready前の確認を終えてから再度Readyへ変更する。
-- Implementerは自分の実装へ最終LGTMを出さない。実装と必要な検証が完了したら、自主的に新規の別チャットを作成してfresh contextの独立Reviewerへ依頼し、結果を待つ。同じ会話内のサブエージェントや実装会話のforkで代用しない。`npm run review:flow` で記録し、初回後の修正・再レビューは最大3回とする。チャット作成・待機・返却と停止時の手順は [review.md](review.md) に従う。承認済みの [アラート修正ハーネス](alert-repair.md) の案件は既存の独立セッション制御を維持する。
+- Implementerは自分の実装へ最終LGTMを出さない。実装と必要な検証が完了したら、自主的に新規の別チャットを作成してfresh contextの独立Reviewerへ依頼し、結果を待つ。同じ会話内のサブエージェントや実装会話のforkで代用しない。`npm run review:flow` で成功コマンド・対象SHA・終了コード・ログ参照も引き継ぎ、Reviewerは成功済みの検証を再実行しない。未検証の具体的な論点に対する追加検証だけ理由付きで認める。初回後の修正・再レビューは最大3回とする。チャット作成・待機・返却と停止時の手順は [review.md](review.md) に従う。承認済みの [アラート修正ハーネス](alert-repair.md) の案件は既存の独立セッション制御を維持する。
 
 Backend の層間依存は [../architecture-boundaries.md](../architecture-boundaries.md) に従う。レビュー責務、LGTM証跡、停止条件は [review.md](review.md) に従う。
 
