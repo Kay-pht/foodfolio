@@ -1,0 +1,47 @@
+id: INDEPENDENT-REVIEW-CHAT-001
+type: maintenance
+status: approved
+objective: Autonomously request review in a new independent chat after implementation, return concrete bug findings to the implementation chat, and require user approval before specification changes.
+requirements:
+  - id: IRC-SEPARATE
+    condition: Implementation and required validation are complete.
+    expected: The implementer creates a fresh reviewer chat without forking implementation history or using an in-conversation subagent, supplies the original requirements and immutable PR HEAD, and waits for the independent result.
+    verification:
+      - docs/agent/review.md
+      - docs/agent/development.md
+  - id: IRC-RETURN
+    condition: The reviewer finds a reproducible bug or a violation of the approved specification.
+    expected: The reviewer does not edit the reviewed code, reports evidence to the original implementation chat, and the implementer acting as fixer reports and corrects the issue there using regression tests, full verification and a new independent reviewer chat for the updated HEAD.
+    verification:
+      - docs/agent/review.md
+      - docs/agent/autonomous-p0.md
+  - id: IRC-APPROVAL
+    condition: A finding proposes changed requirements, a design preference, or an ambiguous expected behavior.
+    expected: Separate the proposal from existing-specification defects and ask the user in the original chat before changing specifications, contracts, acceptance criteria or implementation behavior; never weaken the specification to clear a review finding.
+    verification:
+      - AGENTS.md
+      - docs/agent/review.md
+edge_cases:
+  - The PR HEAD changes during review and invalidates the reviewed result.
+  - Cross-chat messaging or independent-chat creation is unavailable.
+  - A finding contains both a proven defect and a specification-change proposal.
+security_invariants:
+  - The implementer or fixer never grants final LGTM to its own changes.
+  - Only the user may authorize product specification changes and final merge remains human-only.
+  - No review chat switches, resets or modifies the shared implementation checkout.
+compatibility:
+  - Keep SHA-bound review proof, existing regression requirements and post-LGTM external task synchronization.
+  - The approved alert-repair controller retains its isolated session protocol; changes to the controller itself receive the ordinary independent-chat review.
+non_functional:
+  - Pass concise evidence and original requirements rather than implementation conversation history.
+  - Preserve existing local settings and unrelated work.
+out_of_scope:
+  - Automatic merge, public release or changing the alert-repair controller implementation.
+  - Implementing a suggested product specification change without user approval.
+acceptance_criteria:
+  - The authoritative agent documents consistently require autonomous separate-chat review and evidence-based return to the implementation chat.
+  - A new independent review chat reviews the latest PR HEAD and sends its result to the original chat under the user's authorization.
+  - Documentation guardrails and required repository verification pass.
+regression:
+  required: false
+  tests: []

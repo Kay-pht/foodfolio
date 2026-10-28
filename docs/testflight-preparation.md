@@ -235,7 +235,7 @@ Firebase Analytics/Crashlyticsを含めないことと、他SDKの診断・Analy
 - 配布ソースはmain `f0c1501e33cca924adabc1f409cce8a8c6bd791a`。version/buildは`1.0.2 (15)`。
 - 本体とShare Extensionは日本語をdevelopment languageとして宣言し、それぞれのbuilt bundleへ`ja.lproj/InfoPlist.strings`を含める。インストール後の`CFBundleDisplayName`と`CFBundleName`は`Foodfolio`を維持する。
 - `npm run verify`: unit 366件、integration 51件、E2E 42件、およびspecification、Prisma、lint、format、architecture、docs、TypeScript buildを含めて成功。
-- `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer IOS_PARALLEL_WORKERS=1 npm run verify:ios`: SwiftData legacy-store migration、built bundleの日本語リソース検証、iOSテスト118件成功、失敗0、skip 0。
+- `DEVELOPER_DIR="$DEVELOPER_DIR" IOS_PARALLEL_WORKERS=1 npm run verify:ios`: SwiftData legacy-store migration、built bundleの日本語リソース検証、iOSテスト118件成功、失敗0、skip 0。
 - `npm run appstore:generate`: `1320 x 2868`のApp Store画像6枚を指定順で再生成済み。生成物はGit管理外。
 - Release Archive、署名・entitlement確認、IPA export、Apple validation、uploadに成功。本体とShare Extensionはともに`1.0.2 (15)`で、本体はproduction APNs、Sign in with Apple、共通App Group、Extensionは共通App Groupを保持している。
 - App Store Connect Build ID `5407229d-ef1b-47cf-8c98-60f8f1c8848e`のprocessing `VALID`、build有効、`APP_STORE_ELIGIBLE`、暗号化申告`false`をAPIで確認した。

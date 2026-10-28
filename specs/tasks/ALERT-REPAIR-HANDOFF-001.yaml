@@ -21,7 +21,7 @@ requirements:
       - scripts/alert-repair/runner.mjs
   - id: ARH-PATH
     condition: The existing scheduled task locates its repository and persistent state.
-    expected: Use the current Developer/foodfolio repository location and its existing Git state directory instead of the retired Developer/practice/foodfolio location; do not change the schedule or live automation configuration.
+    expected: Use the locally configured FOODFOLIO_REPOSITORY_PATH and FOODFOLIO_ALERT_REPAIR_STATE to locate the current repository and its existing Git state directory; do not change the schedule or live automation configuration.
     verification:
       - scripts/alert-repair/scheduled-task.md
 edge_cases:

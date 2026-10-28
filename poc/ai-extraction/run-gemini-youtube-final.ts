@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { gcloudAccessTokenArguments } from "../../scripts/local-machine-env.mjs";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs/promises";
@@ -18,11 +19,9 @@ const apiKey = process.env.GEMINI_API_KEY;
 if (!apiKey) throw new Error("GEMINI_API_KEY missing");
 const youtubeApiKey = process.env.YOUTUBE_API_KEY;
 if (!youtubeApiKey) throw new Error("YOUTUBE_API_KEY missing");
-const token = execFileSync(
-  "gcloud",
-  ["auth", "print-access-token", "--account", "kei.patheng@gmail.com"],
-  { encoding: "utf8" },
-).trim();
+const token = execFileSync("gcloud", gcloudAccessTokenArguments(), {
+  encoding: "utf8",
+}).trim();
 const runId = new Date().toISOString().replaceAll(":", "-");
 const artifactDirectory = `poc/artifacts/gemini-youtube/${runId}`;
 const reportPath = `poc/results/gemini-youtube-final-${runId}.json`;

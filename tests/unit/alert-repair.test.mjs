@@ -243,6 +243,25 @@ describe("alert repair contract", () => {
     expect(() => safeTestPath("--reporter=custom")).toThrow();
   });
 
+  it("honors the configured developer directory without forwarding local credentials", () => {
+    const previous = process.env.DEVELOPER_DIR;
+    process.env.DEVELOPER_DIR = "/fixture/Custom Xcode.app/Contents/Developer";
+    try {
+      const environment = verificationEnvironment("/isolated");
+      expect(environment.DEVELOPER_DIR).toBe(process.env.DEVELOPER_DIR);
+      for (const key of [
+        "OPENAI_API_KEY",
+        "GEMINI_API_KEY",
+        "FOODFOLIO_GCLOUD_ACCOUNT",
+        "TASK_LIST_REPO_PATH",
+      ])
+        expect(environment).not.toHaveProperty(key);
+    } finally {
+      if (previous === undefined) delete process.env.DEVELOPER_DIR;
+      else process.env.DEVELOPER_DIR = previous;
+    }
+  });
+
   it("does not inherit API credentials or MCP settings and disables network tools", () => {
     const env = agentEnvironment("/isolated", "/node/bin");
     expect(Object.keys(env)).not.toContain("OPENAI_API_KEY");

@@ -19,7 +19,8 @@
 - ユーザーの既存変更を無断で破棄、上書き、退避しない。
 - バグ修正では、修正前に今回の不具合を再現して失敗する回帰テストを用意し、修正後に成功することを確認する。対応するbug specには `regression.required: true` とテストパスを記録する。
 - Pull Request は Draft で作成し、実装と必要な検証が完了してから Ready for review に変更する。
-- Implementer は自分の実装に最終LGTMを出さない。Reviewerはfresh contextの別セッションでコードを変更せずにレビューし、必要ならFixerへ戻す。セッション分離は原則人間が行い、明示的に承認された [アラート修正ハーネス](docs/agent/alert-repair.md) に限り制御プログラムが行う。
+- Implementerは実装と必要な検証の完了後、自主的にfresh contextの別チャットを新規作成して独立Reviewerへレビューを依頼し、結果を待つ。この会話内のサブエージェントや実装履歴のforkで代用せず、自分の実装に最終LGTMを出さない。Reviewerはコードを変更せず、修正が必要な指摘を元の実装チャットへ返す。元チャットがFixerとして修正し、新しいHEADは新規の別Reviewerチャットで再レビューする。詳細は [AIレビューと停止条件](docs/agent/review.md) に従う。
+- 既存仕様に基づくバグ・不具合は根拠と回帰テストを用意して自律的に修正してよい。仕様の改善提案、要件・契約・受入条件の変更、期待動作が曖昧な指摘は、仕様や実装を変更する前に必ず元チャットでユーザーへ確認する。好みや改善案を理由に無断で仕様変更しない。
 - AIエージェントは最終マージを実行しない。`npm run pr:merge` は人間専用コマンドであり、エージェントは実行禁止とする。
 - 詳細は [開発フロー](docs/agent/development.md) と [AIレビューと停止条件](docs/agent/review.md) を参照する。
 
@@ -30,6 +31,7 @@
 - Backend の層間依存ルールは [architecture-boundaries.md](docs/architecture-boundaries.md) を正本とする。
 - 要件、基本設計、実装設計などが衝突する場合は、各文書で定義された優先関係に従う。
 - 実装や運用ルールを変更した場合は、対応する正本文書も同じ PR で更新する。
+- 個人のcheckout・保存先・CLI認証アカウントなど端末固有の値はGit管理対象へ記載せず、Git管理対象外の `.env.local` と環境変数参照で管理する。既存設定を上書き・削除せず、未定義のキーだけ追記する。共有のインフラ契約、コンテナ内配置、公開情報、テストfixtureとは区別する。
 
 ## 検証
 
@@ -43,6 +45,7 @@
 ## レビュー完了状態
 
 - Reviewerは問題がなければ最新PR HEADに対して `npm run review:lgtm` を実行し、Git管理対象外のレビュー証跡へ `LGTM + reviewed_sha` を記録する。
+- LGTMを記録したら、ローカル環境変数 `TASK_LIST_REPO_PATH` が指す外部Task-ListのFoodfolio未完了タスクを参照し、今回の変更で完了条件を満たした項目を完了へ更新・検証・コミットする。手順と確認が必要な場合の扱いは [開発フロー](docs/agent/development.md#lgtm時の外部タスクリスト同期) に従う。
 - 新しいコミットが追加された場合、以前のLGTMは無効とし、別Reviewerセッションで再レビューする。
 - 定義された停止条件に該当する場合はLGTMを出さず `AUTOMATION_BLOCKED` として停止する。
 - AIの責務は `LGTM` または `AUTOMATION_BLOCKED` までで終了する。最終確認とマージは人間が行う。

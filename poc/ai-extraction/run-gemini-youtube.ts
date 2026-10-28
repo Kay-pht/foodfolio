@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { gcloudAccessTokenArguments } from "../../scripts/local-machine-env.mjs";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs/promises";
 import { createHash } from "node:crypto";
@@ -17,11 +18,9 @@ const withDescription = process.argv.includes("--with-description");
 const youtubeKey = process.env.YOUTUBE_API_KEY;
 if (withDescription && !youtubeKey)
   throw new Error("YOUTUBE_API_KEY is not set");
-const accessToken = execFileSync(
-  "gcloud",
-  ["auth", "print-access-token", "--account", "kei.patheng@gmail.com"],
-  { encoding: "utf8" },
-).trim();
+const accessToken = execFileSync("gcloud", gcloudAccessTokenArguments(), {
+  encoding: "utf8",
+}).trim();
 const billing = await verifyFreeBilling(apiKey, accessToken);
 const runId = new Date().toISOString().replaceAll(":", "-");
 const directory = `poc/artifacts/gemini-youtube/${runId}`;
