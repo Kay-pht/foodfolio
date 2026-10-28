@@ -18,6 +18,7 @@ Foodfolio の自律開発では、AIの判断そのものを信頼境界にせ�
 - `main` への直接pushは禁止する。tracked pre-push hookで通常操作を拒否し、main push時のCIでも違反を検知する。ただしGitHub Free private repositoryではサーバー側branch protection相当の完全な強制ではない。
 - AIは `npm run pr:merge` を実行しない。
 - LGTMはPR番号と完全なHEAD SHAに紐付ける。新しいコミットが追加された時点で無効になる。
+- 通常レビューは `npm run review:flow` のPR別台帳でチャットID・SHA・分類・返却を記録し、通常LGTMと人間のmerge時に独立レビュー情報を検証する。初回後の再レビューは最大3回で、実装者の自己承認や履歴リセットを認めない。
 - レビュー証跡は `.git/foodfolio/review-proof.json` に保存し、tracked Git treeへ含めない。
 - 人間のmergeコマンドは `--match-head-commit` を使用し、review後のHEAD変更をGitHub側でも拒否させる。
 

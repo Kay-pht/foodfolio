@@ -2,6 +2,8 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
+import { requireIndependentProof } from "./review-flow.mjs";
+
 const QUALITY_WORKFLOW_PATH = ".github/workflows/quality.yml";
 const QUALITY_EVENTS = new Set(["pull_request", "workflow_dispatch"]);
 
@@ -203,6 +205,8 @@ export function main() {
       `LGTM is stale. reviewed_sha=${proof.reviewed_sha}, local_head=${localHead}, pr_head=${pr.headRefOid}. Re-review the latest HEAD.`,
     );
   }
+
+  requireIndependentProof(proof, pr);
 
   console.log(`Final human check: PR #${pr.number}`);
   console.log(`LGTM reviewed_sha: ${proof.reviewed_sha}`);

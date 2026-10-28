@@ -46,6 +46,7 @@
 
 - Reviewerは問題がなければ最新PR HEADに対して `npm run review:lgtm` を実行し、Git管理対象外のレビュー証跡へ `LGTM + reviewed_sha` を記録する。
 - LGTMを記録したら、ローカル環境変数 `TASK_LIST_REPO_PATH` が指す外部Task-ListのFoodfolio未完了タスクを参照し、今回の変更で完了条件を満たした項目を完了へ更新・検証・コミットする。手順と確認が必要な場合の扱いは [開発フロー](docs/agent/development.md#lgtm時の外部タスクリスト同期) に従う。
+- 通常レビューは `npm run review:flow` で実装・独立Reviewerチャット、SHA、分類付き結果、元チャットへの返却を記録する。初回後の修正と再レビューは最大3回とし、履歴の初期化で上限を回避しない。仕様変更は引き続きユーザー承認を必須とする。
 - 新しいコミットが追加された場合、以前のLGTMは無効とし、別Reviewerセッションで再レビューする。
 - 定義された停止条件に該当する場合はLGTMを出さず `AUTOMATION_BLOCKED` として停止する。
 - AIの責務は `LGTM` または `AUTOMATION_BLOCKED` までで終了する。最終確認とマージは人間が行う。

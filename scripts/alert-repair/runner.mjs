@@ -80,6 +80,7 @@ export function requireReviewedController(directory = root) {
       "--",
       "scripts/alert-repair",
       "scripts/review-proof.mjs",
+      "scripts/review-flow.mjs",
     ])
   ) {
     throw new Error(

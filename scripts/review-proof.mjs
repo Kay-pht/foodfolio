@@ -1,72 +1,50 @@
-import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { readFileSync } from "node:fs";
+import {
+  currentPr,
+  readLedger,
+  requireChatLgtm,
+  requireIndependentProof,
+  reviewPaths,
+  saveJson,
+  withReviewLock,
+} from "./review-flow.mjs";
 
-function run(command, args) {
-  return execFileSync(command, args, {
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "inherit"],
-  }).trim();
-}
-
-const gitDir = run("git", ["rev-parse", "--git-dir"]);
-const localHead = run("git", ["rev-parse", "HEAD"]);
-const pr = JSON.parse(
-  run("gh", ["pr", "view", "--json", "number,headRefOid,state,isDraft"]),
-);
-
-if (pr.state !== "OPEN") {
-  throw new Error(`PR #${pr.number} is not open.`);
-}
-if (pr.isDraft) {
+const args = process.argv.slice(2);
+if (args.length && !(args.length === 2 && args[0] === "--attestation")) {
   throw new Error(
-    `PR #${pr.number} is still draft. Complete verification before LGTM.`,
+    "Use review:lgtm with no arguments, or --attestation <path> for the approved alert controller.",
   );
 }
-if (pr.headRefOid !== localHead) {
-  throw new Error(
-    `Local HEAD ${localHead} does not match PR HEAD ${pr.headRefOid}.`,
-  );
-}
-
-const proofPath = join(gitDir, "foodfolio", "review-proof.json");
-let automation;
-if (process.argv[2] === "--attestation") {
-  automation = JSON.parse(readFileSync(process.argv[3], "utf8"));
-  if (
-    automation.version !== 1 ||
-    automation.reviewedSha !== pr.headRefOid ||
-    typeof automation.reviewerSession !== "string" ||
-    !automation.reviewerSession ||
-    !Array.isArray(automation.authorSessions) ||
-    !automation.authorSessions.length ||
-    automation.authorSessions.some(
-      (id) =>
-        typeof id !== "string" || !id || id === automation.reviewerSession,
-    )
-  ) {
+const pr = currentPr();
+const paths = reviewPaths(pr);
+withReviewLock(paths, () => {
+  if (args.length && readLedger(paths)) {
     throw new Error(
-      "Invalid independent-session review attestation for current PR HEAD.",
+      "A normal chat review ledger exists; alert attestation cannot bypass it.",
     );
   }
-}
-mkdirSync(dirname(proofPath), { recursive: true });
-writeFileSync(
-  proofPath,
-  `${JSON.stringify(
-    {
-      version: 1,
-      verdict: "LGTM",
-      pr: pr.number,
-      reviewed_sha: pr.headRefOid,
-      created_at: new Date().toISOString(),
-      ...(automation ? { automation } : {}),
-    },
-    null,
-    2,
-  )}\n`,
-  { mode: 0o600 },
-);
-
-console.log(`LGTM proof written for PR #${pr.number} at ${pr.headRefOid}`);
-console.log(`Proof: ${proofPath}`);
+  const evidence = args.length
+    ? { automation: JSON.parse(readFileSync(args[1], "utf8")) }
+    : { chatReview: readLedger(paths) };
+  if (!args.length) {
+    requireChatLgtm(evidence.chatReview, pr, process.env.CODEX_THREAD_ID ?? "");
+  }
+  requireIndependentProof(evidence, pr);
+  const refreshed = currentPr();
+  if (
+    refreshed.number !== pr.number ||
+    refreshed.headRefOid !== pr.headRefOid
+  ) {
+    throw new Error("PR HEAD changed while recording LGTM.");
+  }
+  saveJson(paths.proofPath, {
+    version: 1,
+    verdict: "LGTM",
+    pr: pr.number,
+    reviewed_sha: pr.headRefOid,
+    created_at: new Date().toISOString(),
+    ...evidence,
+  });
+  console.log(`LGTM proof written for PR #${pr.number} at ${pr.headRefOid}`);
+  console.log(`Proof: ${paths.proofPath}`);
+});
