@@ -157,3 +157,85 @@ it("times out after a storage server reads the body without responding", async (
     server.close();
   }
 });
+
+it.each([
+  { status: 403, attempts: 1, retryable: false },
+  { status: 503, attempts: 2, retryable: true },
+])(
+  "uses the video retry budget for storage status $status",
+  async ({ status, attempts, retryable }) => {
+    const { createServer } = await import("node:http");
+    const { once } = await import("node:events");
+    const { mkdtemp, rm, writeFile } = await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const { Storage: StorageClient } = await import("@google-cloud/storage");
+    const { YtDlpTikTokVideoDownloader } =
+      await import("../../src/infrastructure/tiktok/yt-dlp-video-downloader.js");
+    const operations: string[] = [];
+    const server = createServer(async (request, response) => {
+      const chunks: Buffer[] = [];
+      for await (const chunk of request) chunks.push(chunk as Buffer);
+      operations.push(request.method ?? "");
+      if (
+        request.method === "POST" &&
+        !Buffer.concat(chunks).includes("\r\nvideo\r\n")
+      ) {
+        response.writeHead(400).end();
+        return;
+      }
+      response.writeHead(request.method === "DELETE" ? 404 : status).end();
+    }).listen(0, "127.0.0.1");
+    const directory = await mkdtemp(join(tmpdir(), "foodfolio-gcs-status-"));
+    try {
+      if (!server.listening) await once(server, "listening");
+      const address = server.address();
+      if (!address || typeof address === "string")
+        throw new Error("No test address");
+      const storage = new StorageClient({
+        apiEndpoint: `http://127.0.0.1:${address.port}`,
+        useAuthWithCustomEndpoint: false,
+        retryOptions: { autoRetry: false },
+      });
+      vi.spyOn(storage.authClient, "getRequestHeaders").mockResolvedValue({});
+      const store = new GcsTemporaryMediaStore(
+        {
+          bucketName: "fixture",
+          publishFailure: {
+            code: "PUBLISH_FAILED",
+            retryable: true,
+            message: "failed",
+          },
+        },
+        storage,
+      );
+      const binaryPath = join(directory, "yt-dlp");
+      await writeFile(binaryPath, "#!/bin/sh\nprintf video\n", { mode: 0o700 });
+      const backoff = vi.fn(async () => {});
+      const downloader = new YtDlpTikTokVideoDownloader(
+        {
+          binaryPath,
+          maxAttempts: 2,
+          attemptTimeoutMs: 5_000,
+          retryBaseSeconds: 2,
+          maxRetrySeconds: 10,
+        },
+        backoff,
+      );
+      await expect(
+        downloader.publish(
+          new URL("https://www.tiktok.com/@chef/video/123"),
+          store.publishStream,
+        ),
+      ).rejects.toMatchObject({ code: "PUBLISH_FAILED", retryable });
+      expect(operations).toEqual(
+        Array.from({ length: attempts }, () => ["POST", "DELETE"]).flat(),
+      );
+      expect(backoff).toHaveBeenCalledTimes(attempts - 1);
+    } finally {
+      server.closeAllConnections();
+      server.close();
+      await rm(directory, { recursive: true, force: true });
+    }
+  },
+);

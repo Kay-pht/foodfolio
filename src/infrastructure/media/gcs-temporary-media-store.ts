@@ -110,9 +110,7 @@ export class GcsTemporaryMediaStore implements TemporaryMediaStore {
     }).then(async (response) => {
       if (response.statusCode < 200 || response.statusCode >= 300) {
         response.body.destroy();
-        throw Object.assign(new Error("Cloud Storage upload failed"), {
-          code: response.statusCode,
-        });
+        throw new StorageUploadHttpError(response.statusCode);
       }
       const metadata = (await response.body.json()) as { crc32c?: unknown };
       if (
