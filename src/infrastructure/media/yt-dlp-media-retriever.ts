@@ -1,7 +1,8 @@
 import { spawn } from "node:child_process";
 import { mkdtemp, readdir, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve as resolvePath } from "node:path";
+import type { Readable } from "node:stream";
 import {
   AnalysisError,
   type AnalysisFailureDiagnostics,
@@ -11,6 +12,7 @@ import {
   type MediaKind,
   type MediaOperationErrorSpec,
   type MediaRetriever,
+  type PublishedMedia,
 } from "../../application/analysis/types.js";
 
 import {
@@ -18,6 +20,13 @@ import {
   MAX_YT_DLP_DIAGNOSTIC_BYTES,
   YtDlpAccessRestrictionError,
 } from "./yt-dlp-access-restriction.js";
+
+import {
+  transferVideo,
+  VideoSizeError,
+  VideoSourceError,
+  type VideoStreamPublisher,
+} from "./video-stream.js";
 
 export interface YtDlpMediaRetrieverConfig {
   binaryPath: string;
@@ -197,6 +206,91 @@ export class YtDlpMediaRetriever implements MediaRetriever {
     throw toAnalysisError(this.config.downloadFailedError);
   }
 
+  async publishVideo(
+    url: URL,
+    publish: VideoStreamPublisher,
+  ): Promise<{ media: PublishedMedia; attempts: number }> {
+    if (!this.config.validateUrl(url))
+      throw toAnalysisError(this.config.invalidUrlError);
+    const options = {
+      formatSelector: this.config.formatSelector,
+      maxFileSizeArgument: this.config.maxFileSizeArgument,
+    };
+    for (let attempt = 1; attempt <= this.config.maxAttempts; attempt += 1) {
+      try {
+        const media = await publish(
+          { index: 1, kind: "video", contentType: this.config.contentType },
+          (destination) =>
+            runYtDlpAttempt(
+              this.config.binaryPath,
+              url.toString(),
+              (stdout, exited) =>
+                transferVideo(
+                  stdout,
+                  destination,
+                  this.config.maxBytes,
+                  exited,
+                ),
+              this.config.attemptTimeoutMs,
+              options,
+            ),
+        );
+        return { media, attempts: attempt };
+      } catch (error) {
+        const sourceError =
+          error instanceof VideoSourceError ? error.cause : error;
+        const timedOut = isTimeoutFailure(sourceError);
+        const restriction = timedOut
+          ? undefined
+          : this.config.classifyAccessRestriction?.(sourceError);
+        const classification =
+          error instanceof VideoSizeError ? error.classification : restriction;
+        if (error instanceof AnalysisError) {
+          if (!error.retryable || attempt === this.config.maxAttempts) {
+            if (!this.config.downloadFailureStage) throw error;
+            throw new AnalysisError(
+              error.code,
+              error.retryable,
+              error.message,
+              error.provider,
+              {
+                mediaFailureStage: "publish",
+                mediaFailureClass: "storage",
+                ...error.diagnostics,
+                mediaIndex: 1,
+                mediaKind: "video",
+                mediaAttempt: attempt,
+                mediaMaxAttempts: this.config.maxAttempts,
+              },
+            );
+          }
+        } else if (classification || attempt === this.config.maxAttempts) {
+          throw toAnalysisError(
+            this.config.downloadFailedError,
+            this.config.downloadFailureStage
+              ? {
+                  mediaFailureStage: this.config.downloadFailureStage,
+                  mediaFailureClass:
+                    classification ?? (timedOut ? "timeout" : "unknown"),
+                  mediaIndex: 1,
+                  mediaKind: "video",
+                  mediaAttempt: attempt,
+                  mediaMaxAttempts: this.config.maxAttempts,
+                }
+              : undefined,
+          );
+        }
+        await this.sleep(
+          Math.min(
+            this.config.retryBaseSeconds * attempt,
+            this.config.maxRetrySeconds,
+          ) * 1000,
+        );
+      }
+    }
+    throw toAnalysisError(this.config.downloadFailedError);
+  }
+
   private localFilesystemFailure(
     error: unknown,
     stage: "local_prepare" | "local_cleanup",
@@ -272,41 +366,123 @@ function isTimeoutFailure(error: unknown): boolean {
   return false;
 }
 
+const MAX_FRAGMENT_FILE_BYTES = 32 * 1024 * 1024;
+
+type YtDlpOutput =
+  string | ((stdout: Readable, exited: Promise<void>) => Promise<void>);
+
 export async function runYtDlpAttempt(
   binaryPath: string,
   sourceUrl: string,
-  outputPath: string,
+  output: YtDlpOutput,
   timeoutMs: number,
   options: YtDlpAttemptOptions,
 ): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn(
-      binaryPath,
-      [
-        "--no-playlist",
-        "--no-cache-dir",
-        "--no-progress",
-        "--no-warnings",
-        "--retries",
-        "3",
-        "--fragment-retries",
-        "3",
-        "--extractor-retries",
-        "3",
-        "--sleep-requests",
-        "1",
-        "--max-filesize",
-        options.maxFileSizeArgument,
-        "-f",
-        options.formatSelector,
-        "-o",
-        outputPath,
-        sourceUrl,
-      ],
-      { stdio: ["ignore", "ignore", "pipe"] },
+  if (typeof output === "string") {
+    return runYtDlpProcess(binaryPath, sourceUrl, output, timeoutMs, options);
+  }
+
+  let scratchDirectory: string;
+  try {
+    scratchDirectory = await mkdtemp(
+      join(tmpdir(), "foodfolio-video-fragments-"),
     );
+  } catch {
+    throw scratchFailure("local_prepare", true);
+  }
+  const command = binaryPath.includes("/")
+    ? resolvePath(binaryPath)
+    : binaryPath;
+  const result = await runYtDlpProcess(
+    command,
+    sourceUrl,
+    output,
+    timeoutMs,
+    options,
+    scratchDirectory,
+  ).then(
+    () => ({ ok: true as const }),
+    (error: unknown) => ({ ok: false as const, error }),
+  );
+  try {
+    await rm(scratchDirectory, { recursive: true, force: true });
+  } catch {
+    throw scratchFailure("local_cleanup", false);
+  }
+  if (!result.ok) throw result.error;
+}
+
+function scratchFailure(
+  stage: "local_prepare" | "local_cleanup",
+  retryable: boolean,
+): AnalysisError {
+  return new AnalysisError(
+    "INTERNAL_ANALYSIS_ERROR",
+    retryable,
+    stage === "local_prepare"
+      ? "Video scratch directory preparation failed"
+      : "Video scratch directory cleanup failed",
+    undefined,
+    { mediaFailureStage: stage, mediaFailureClass: "filesystem" },
+  );
+}
+
+async function runYtDlpProcess(
+  binaryPath: string,
+  sourceUrl: string,
+  output: YtDlpOutput,
+  timeoutMs: number,
+  options: YtDlpAttemptOptions,
+  scratchDirectory?: string,
+): Promise<void> {
+  const streaming = typeof output !== "string";
+  const args = [
+    "--no-playlist",
+    "--no-cache-dir",
+    "--no-progress",
+    "--no-warnings",
+    "--retries",
+    "3",
+    "--fragment-retries",
+    "3",
+    "--extractor-retries",
+    "3",
+    "--sleep-requests",
+    "1",
+    ...(streaming
+      ? ["--concurrent-fragments", "1", "--abort-on-unavailable-fragments"]
+      : []),
+    "--max-filesize",
+    options.maxFileSizeArgument,
+    "-f",
+    options.formatSelector,
+    "-o",
+    streaming ? "-" : output,
+    sourceUrl,
+  ];
+  // The native fragment downloader uses relative filenames even on stdout.
+  // RLIMIT_FSIZE bounds those files without limiting writes to the stdout pipe.
+  const limitUnit = process.platform === "darwin" ? 1024 : 512;
+  const child = spawn(
+    streaming ? "/bin/sh" : binaryPath,
+    streaming
+      ? [
+          "-c",
+          'ulimit -f "$1" || exit 1; shift; exec "$@"',
+          "foodfolio-yt-dlp",
+          String(MAX_FRAGMENT_FILE_BYTES / limitUnit),
+          binaryPath,
+          ...args,
+        ]
+      : args,
+    {
+      cwd: scratchDirectory,
+      stdio: ["ignore", streaming ? "pipe" : "ignore", "pipe"],
+    },
+  );
+  const exited = new Promise<void>((resolve, reject) => {
     let stderr = Buffer.alloc(0);
-    child.stderr.on("data", (chunk: Buffer) => {
+    child.stderr!.on("data", (chunk: Buffer) => {
       stderr = Buffer.from(
         Buffer.concat([stderr, chunk]).subarray(-MAX_YT_DLP_DIAGNOSTIC_BYTES),
       );
@@ -336,8 +512,16 @@ export async function runYtDlpAttempt(
         reject(error);
         return;
       }
+      const diagnostic = stderr.toString("utf8");
+      if (
+        streaming &&
+        (signal === "SIGXFSZ" || diagnostic.includes("[Errno 27]"))
+      ) {
+        reject(new VideoSizeError("too_large"));
+        return;
+      }
       const restriction = classifyYtDlpAccessRestriction({
-        stderr: stderr.toString("utf8"),
+        stderr: diagnostic,
       });
       reject(
         restriction
@@ -346,4 +530,14 @@ export async function runYtDlpAttempt(
       );
     });
   });
+  if (!streaming) return exited;
+  void exited.catch(() => {});
+  const transfer = output(child.stdout!, exited);
+  try {
+    await transfer;
+  } catch (error) {
+    child.kill("SIGKILL");
+    await exited.catch(() => {});
+    throw error;
+  }
 }

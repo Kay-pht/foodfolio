@@ -22,10 +22,28 @@ export function classifyYtDlpAccessRestriction(
     .toString("utf8");
   for (const line of tail.split(/\r?\n/)) {
     // Ignore warnings, arbitrary exception messages, URL text and generic cookie hints.
-    const message = /^ERROR:\s+\[Instagram\]\s+[^:\r\n]+:\s+(.+)$/i
-      .exec(line)?.[1]
+    const diagnostic =
+      /^ERROR:\s+\[(Instagram|TikTok)\]\s+[^:\r\n]+:\s+(.+)$/i.exec(line);
+    const message = diagnostic?.[2]
       ?.replace(/https?:\/\/\S+/gi, "")
       .replace(/^Restricted Video:\s*/i, "");
+    if (diagnostic?.[1]?.toLowerCase() === "tiktok") {
+      if (
+        message &&
+        /^(?:TikTok is requiring login for access to this content|This post may not be comfortable for some audiences\. Log in for access)(?:[.!;:]|$)/i.test(
+          message,
+        )
+      )
+        return "login_required";
+      if (
+        message &&
+        /^You do not have permission to view this post\. Log into an account that has access(?:[.!;:]|$)/i.test(
+          message,
+        )
+      )
+        return "audience_restricted";
+      continue;
+    }
     if (!message) continue;
     if (
       /^(?:This (?:video|content) is age[- ]restricted|Sign in to confirm your age|Age verification (?:is )?required|People under \d{1,3} can['’]t see this content)(?:[.!;:]|$)/i.test(

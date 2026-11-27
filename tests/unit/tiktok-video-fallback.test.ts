@@ -1,9 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-import type {
-  TemporaryVideoStore,
-  TikTokVideoDownloader,
-  VideoRecipeExtractor,
-} from "../../src/application/analysis/types.js";
 import { ProductionTikTokVideoRecipeFallback } from "../../src/infrastructure/tiktok/tiktok-video-recipe-fallback.js";
 
 const source = {
@@ -30,70 +25,36 @@ const extraction = {
 };
 
 describe("ProductionTikTokVideoRecipeFallback", () => {
-  it("publishes the downloaded file, analyzes it, and deletes both copies", async () => {
-    const disposeDownload = vi.fn(async () => {});
-    const disposePublished = vi.fn(async () => {});
-    const downloader: TikTokVideoDownloader = {
-      download: vi.fn(async () => ({
-        filePath: "/tmp/video.mp4",
-        sizeBytes: 123,
-        attempts: 2,
-        dispose: disposeDownload,
-      })),
-    };
-    const videoStore: TemporaryVideoStore = {
-      publish: vi.fn(async () => ({
+  it.each([false, true])(
+    "disposes the published video when analysis fails=%s",
+    async (failure) => {
+      const dispose = vi.fn(async () => {});
+      const publish = vi.fn(async () => ({
         url: "https://storage.example/signed-video",
-        dispose: disposePublished,
-      })),
-    };
-    const recipeExtractor: VideoRecipeExtractor = {
-      extractVideo: vi.fn(async () => extraction),
-    };
-
-    const fallback = new ProductionTikTokVideoRecipeFallback(
-      downloader,
-      videoStore,
-      recipeExtractor,
-    );
-
-    await expect(fallback.extract(source)).resolves.toEqual(extraction);
-    expect(videoStore.publish).toHaveBeenCalledWith("/tmp/video.mp4");
-    expect(recipeExtractor.extractVideo).toHaveBeenCalledWith(
-      source,
-      "https://storage.example/signed-video",
-    );
-    expect(disposePublished).toHaveBeenCalledOnce();
-    expect(disposeDownload).toHaveBeenCalledOnce();
-  });
-
-  it("deletes temporary files even when video analysis fails", async () => {
-    const disposeDownload = vi.fn(async () => {});
-    const disposePublished = vi.fn(async () => {});
-    const fallback = new ProductionTikTokVideoRecipeFallback(
-      {
-        download: async () => ({
-          filePath: "/tmp/video.mp4",
-          sizeBytes: 123,
-          attempts: 1,
-          dispose: disposeDownload,
-        }),
-      },
-      {
-        publish: async () => ({
-          url: "https://storage.example/signed-video",
-          dispose: disposePublished,
-        }),
-      },
-      {
-        extractVideo: async () => {
-          throw new Error("provider failed");
-        },
-      },
-    );
-
-    await expect(fallback.extract(source)).rejects.toThrow("provider failed");
-    expect(disposePublished).toHaveBeenCalledOnce();
-    expect(disposeDownload).toHaveBeenCalledOnce();
-  });
+        kind: "video" as const,
+        contentType: "video/mp4",
+        dispose,
+      }));
+      const extractVideo = vi.fn(async () => {
+        if (failure) throw new Error("provider failed");
+        return extraction;
+      });
+      const fallback = new ProductionTikTokVideoRecipeFallback(publish, {
+        extractVideo,
+      });
+      if (failure) {
+        await expect(fallback.extract(source)).rejects.toThrow(
+          "provider failed",
+        );
+      } else {
+        await expect(fallback.extract(source)).resolves.toEqual(extraction);
+      }
+      expect(publish).toHaveBeenCalledWith(new URL(source.resolvedUrl));
+      expect(extractVideo).toHaveBeenCalledWith(
+        source,
+        "https://storage.example/signed-video",
+      );
+      expect(dispose).toHaveBeenCalledOnce();
+    },
+  );
 });

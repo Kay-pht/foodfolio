@@ -1,0 +1,54 @@
+id: WORKER-VIDEO-STREAMING-001
+type: bug
+status: approved
+objective: Prevent avoidable Worker memory spikes by installing the existing yt-dlp version unpacked and streaming Instagram and TikTok videos into temporary Cloud Storage.
+requirements:
+  - id: WVS-1
+    condition: The runtime image is built for amd64 or arm64.
+    expected: Install the checksum-pinned unpacked yt-dlp 2026.08.19 release at build time and expose the existing command path.
+    verification:
+      - tests/unit/media-retriever.test.ts
+  - id: WVS-2
+    condition: The Worker retrieves a TikTok video, an Instagram single video, or a video in an Instagram mixed-media post.
+    expected: Stream the existing selected media into the existing private bucket without writing a complete video locally. Enforce the existing size limit on actual bytes and issue a signed URL only after successful source completion, storage completion and integrity validation.
+    verification:
+      - tests/unit/media-retriever.test.ts
+      - tests/unit/instagram-media-retriever.test.ts
+      - tests/unit/tiktok-video-fallback.test.ts
+      - tests/unit/gcs-temporary-media-store.test.ts
+  - id: WVS-3
+    condition: A source or storage transfer fails or an Instagram collection is incomplete.
+    expected: Cancel the attempt, remove partial objects and restart eligible transient failures from acquisition using the existing bounded attempts and backoff. Stop on size overflow or explicit restrictions and keep collection ordering and all-or-nothing handoff.
+    verification:
+      - tests/unit/media-retriever.test.ts
+      - tests/unit/instagram-media-retriever.test.ts
+      - tests/unit/gcs-temporary-media-store.test.ts
+  - id: WVS-4
+    condition: yt-dlp needs scratch files for media fragments when streaming.
+    expected: Run each source attempt in a private scratch directory, download one fragment at a time, cap each local file at 32 MiB and delete the directory before releasing the result or retrying. A size-limit failure stops retries.
+    verification:
+      - tests/unit/tiktok-video-downloader.test.ts
+edge_cases:
+  - A downloader emits valid bytes and exits unsuccessfully after stdout closes.
+  - Storage reads the full request body but stops responding, or TikTok explicitly requires login.
+  - A transfer is empty, too large, interrupted, or storage completes before the source process exits.
+  - A later media item fails after earlier items are published.
+security_invariants:
+  - Only sign complete private objects and keep the existing URL lifetimes.
+  - Never log raw downloader output, media URLs, headers or signed URLs.
+compatibility:
+  - Preserve media selection, image processing, AI inputs, existing storage paths and error classifications.
+  - No disk fallback for video streaming or additional transfer retry loop.
+non_functional:
+  - Avoid buffering entire videos and verify parallel video transfer under the existing 512 MiB limit with controlled fixtures.
+out_of_scope:
+  - Reusing selected URLs for Instagram single videos, changing memory settings, live rollout or final merge.
+acceptance_criteria:
+  - Show a failing regression before implementation and pass it after implementation.
+  - Verify focused and full backend checks and create a PR for independent review.
+regression:
+  required: true
+  tests:
+    - tests/unit/media-retriever.test.ts
+    - tests/unit/gcs-temporary-media-store.test.ts
+    - tests/unit/tiktok-video-downloader.test.ts
