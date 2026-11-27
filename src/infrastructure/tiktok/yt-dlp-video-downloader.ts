@@ -1,3 +1,4 @@
+import { classifyYtDlpAccessRestriction } from "../media/yt-dlp-access-restriction.js";
 import { YtDlpMediaRetriever } from "../media/yt-dlp-media-retriever.js";
 import type { VideoStreamPublisher } from "../media/video-stream.js";
 
@@ -30,6 +31,7 @@ export class YtDlpTikTokVideoDownloader {
         contentType: "video/mp4",
         formatSelector: "b[ext=mp4]",
         validateUrl: isTikTokUrl,
+        classifyAccessRestriction: classifyYtDlpAccessRestriction,
         invalidUrlError: {
           code: "TIKTOK_VIDEO_URL_INVALID",
           retryable: false,
@@ -38,7 +40,7 @@ export class YtDlpTikTokVideoDownloader {
         downloadFailedError: {
           code: "TIKTOK_VIDEO_DOWNLOAD_FAILED",
           retryable: false,
-          message: `TikTok video download failed after ${config.maxAttempts} attempts`,
+          message: "TikTok video download failed",
         },
       },
       undefined,

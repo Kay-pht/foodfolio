@@ -16,11 +16,13 @@ import {
 } from "./video-stream.js";
 
 const DEFAULT_SIGNED_URL_LIFETIME_MS = 10 * 60 * 1000;
+const DEFAULT_STREAM_TIMEOUT_MS = 45_000;
 
 export interface GcsTemporaryMediaStoreConfig {
   bucketName: string;
   publishFailure: MediaOperationErrorSpec;
   signedUrlLifetimeMs?: number;
+  streamTimeoutMs?: number;
 }
 
 export class GcsTemporaryMediaStore implements TemporaryMediaStore {
@@ -47,9 +49,10 @@ export class GcsTemporaryMediaStore implements TemporaryMediaStore {
       media,
       extensionFor(media),
       async (bucket, objectName) => {
-        const destination = bucket
-          .file(objectName)
-          .createWriteStream(uploadOptions(media.contentType));
+        const destination = bucket.file(objectName).createWriteStream({
+          ...uploadOptions(media.contentType),
+          timeout: this.config.streamTimeoutMs ?? DEFAULT_STREAM_TIMEOUT_MS,
+        });
         try {
           await write(destination);
         } finally {

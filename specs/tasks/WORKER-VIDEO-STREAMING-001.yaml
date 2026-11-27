@@ -30,6 +30,7 @@ requirements:
       - tests/unit/tiktok-video-downloader.test.ts
 edge_cases:
   - A downloader emits valid bytes and exits unsuccessfully after stdout closes.
+  - Storage reads the full request body but stops responding, or TikTok explicitly requires login.
   - A transfer is empty, too large, interrupted, or storage completes before the source process exits.
   - A later media item fails after earlier items are published.
 security_invariants:

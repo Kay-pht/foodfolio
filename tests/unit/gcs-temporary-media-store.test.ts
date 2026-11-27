@@ -99,3 +99,58 @@ it("never signs a partial video when the source fails after writing bytes", asyn
   expect(getSignedUrl).not.toHaveBeenCalled();
   expect(deleteObject).toHaveBeenCalledOnce();
 });
+
+it("times out after a storage server reads the body without responding", async () => {
+  const { createServer } = await import("node:http");
+  const { once } = await import("node:events");
+  const { Readable } = await import("node:stream");
+  const { pipeline } = await import("node:stream/promises");
+  const { Storage: StorageClient } = await import("@google-cloud/storage");
+  const requests: string[] = [];
+  const server = createServer(async (request, response) => {
+    for await (const _chunk of request) {
+      // Drain the request so only the response is stalled.
+    }
+    requests.push(request.method ?? "");
+    if (request.method === "DELETE") response.writeHead(204).end();
+  }).listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  if (!address || typeof address === "string")
+    throw new Error("No test address");
+  const store = new GcsTemporaryMediaStore(
+    {
+      bucketName: "fixture",
+      streamTimeoutMs: 60,
+      publishFailure: {
+        code: "PUBLISH_FAILED",
+        retryable: true,
+        message: "failed",
+      },
+    },
+    new StorageClient({
+      apiEndpoint: `http://127.0.0.1:${address.port}`,
+      useAuthWithCustomEndpoint: false,
+      retryOptions: { autoRetry: false },
+    }),
+  );
+  const timer = AbortSignal.timeout(900);
+  try {
+    await expect(
+      Promise.race([
+        store.publishStream(
+          { index: 1, kind: "video", contentType: "video/mp4" },
+          (destination) =>
+            pipeline(Readable.from([Buffer.from("video")]), destination),
+        ),
+        once(timer, "abort").then(() => {
+          throw new Error("storage did not time out");
+        }),
+      ]),
+    ).rejects.toMatchObject({ code: "PUBLISH_FAILED", retryable: true });
+    expect(requests).toEqual(["POST", "DELETE"]);
+  } finally {
+    server.closeAllConnections();
+    server.close();
+  }
+});

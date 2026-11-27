@@ -141,6 +141,30 @@ describe("YtDlpTikTokVideoDownloader", () => {
     expect(delay).not.toHaveBeenCalled();
   });
 
+  it("stops on a recognized TikTok access restriction on the first attempt", async () => {
+    const delay = vi.fn(async () => {});
+    const instance = await downloader(
+      'printf "%s\\n" "ERROR: [TikTok] 123: TikTok is requiring login for access to this content. Use --cookies for the authentication" >&2; exit 1',
+      delay,
+    );
+    const publish: VideoStreamPublisher = vi.fn(async (_media, write) => {
+      await write(
+        new Writable({
+          write(_chunk, _encoding, callback) {
+            callback();
+          },
+        }),
+      );
+      throw new Error("expected downloader failure");
+    });
+    await expect(instance.publish(source, publish)).rejects.toMatchObject({
+      code: "TIKTOK_VIDEO_DOWNLOAD_FAILED",
+      retryable: false,
+    });
+    expect(publish).toHaveBeenCalledOnce();
+    expect(delay).not.toHaveBeenCalled();
+  });
+
   it("rejects non-TikTok URLs without starting an upload", async () => {
     const instance = await downloader("exit 1");
     const publish = vi.fn();
