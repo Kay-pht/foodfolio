@@ -255,22 +255,6 @@ export interface TemporaryMediaStore {
   publish(media: LocalMediaItem): Promise<PublishedMedia>;
 }
 
-export interface DownloadedVideo {
-  filePath: string;
-  sizeBytes: number;
-  attempts: number;
-  dispose(): Promise<void>;
-}
-export interface TikTokVideoDownloader {
-  download(url: URL): Promise<DownloadedVideo>;
-}
-export interface PublishedVideo {
-  url: string;
-  dispose(): Promise<void>;
-}
-export interface TemporaryVideoStore {
-  publish(filePath: string): Promise<PublishedVideo>;
-}
 export const NOT_RECIPE_MESSAGE = "レシピとして判定できませんでした";
 
 export interface NotificationSender {

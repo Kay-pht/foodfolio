@@ -65,16 +65,20 @@ const tiktokMediaStore = config.tiktokMediaAnalysisEnabled
 const tiktokPhotoAnalysis = tiktokMediaStore
   ? new ProductionTikTokPhotoRecipeAnalysis(tiktokMediaStore, recipeExtractor)
   : null;
-const tiktokVideoFallback = config.tiktokMediaAnalysisEnabled
+const tiktokVideoDownloader = new YtDlpTikTokVideoDownloader({
+  binaryPath: config.ytDlpPath,
+  maxAttempts: config.tiktokVideoMaxAttempts,
+  attemptTimeoutMs: 45_000,
+  retryBaseSeconds: 2,
+  maxRetrySeconds: 10,
+});
+const tiktokVideoStore = config.tiktokMediaAnalysisEnabled
+  ? new GcsTemporaryVideoStore(config.tiktokVideoBucket)
+  : null;
+const tiktokVideoFallback = tiktokVideoStore
   ? new ProductionTikTokVideoRecipeFallback(
-      new YtDlpTikTokVideoDownloader({
-        binaryPath: config.ytDlpPath,
-        maxAttempts: config.tiktokVideoMaxAttempts,
-        attemptTimeoutMs: 45_000,
-        retryBaseSeconds: 2,
-        maxRetrySeconds: 10,
-      }),
-      new GcsTemporaryVideoStore(config.tiktokVideoBucket),
+      (url) =>
+        tiktokVideoDownloader.publish(url, tiktokVideoStore.publishStream),
       recipeExtractor,
     )
   : null;

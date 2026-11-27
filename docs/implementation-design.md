@@ -1238,7 +1238,7 @@ TikTokの動画・写真media routeは必要な利用許可を満たしたうえ
 - `yt-dlp`は`2026.08.19`へ固定し、実行ファイルのSHA-256をDocker build時に検証する
 - 動画取得は初回を含めて最大5回。5回すべて失敗した場合は非リトライ可能とし、Cloud Tasksで同じ取得を繰り返さない
 - 1試行のtimeoutは45秒、待機は2秒、4秒、6秒、8秒とする
-- MP4は100MBを上限とし、非公開GCS bucketへ一時uploadする
+- MP4は100 MiBを上限とし、非公開GCS bucketへ一時uploadする。動画全体をWorkerの一時ファイルへ保存せず、取得したデータを順次転送する
 - Z.aiには有効期限10分のV4署名URLを`video_url`として渡す
 - AI処理終了後はGCS objectとWorker一時ファイルを削除し、異常終了時もbucket lifecycleで1日後に削除する。動画を保持し続けないよう、この専用bucketのsoft deleteは無効化する
 - 動画、署名URL、yt-dlpの生出力は通常ログへ記録しない
@@ -2491,6 +2491,8 @@ Jevログだけではthreshold未満ケースのtext route成功可否を断定�
 URL取得失敗では、取得処理・失敗段階・失敗分類・HTTP status・redirect回数を、アプリケーション管理の固定値と検証済み数値だけで記録する。TikTokは短縮URL解決とoEmbed取得を区別する。Instagramメディア処理では、metadata probe、download/validate、temporary storage publish、local work directory prepare、cleanupを固定値で区別し、HTTP status、投稿内index、media kind、内部attemptを必要な範囲で記録する。redirect先URL、media URL、HTTP header、署名URL、raw exception messageは診断fieldへ含めない。最終失敗時は、これらの固定値と検証済み数値だけから日本語の `diagnosticDetail` を生成し、Cloud Monitoring経由のSlack通知にも表示する。
 
 Instagramのmetadata probeと単一動画downloadでは、yt-dlpの明示的なエラー行から `age_restricted`（年齢制限）、`login_required`（ログイン要求）、`audience_restricted`（閲覧対象の制限）を区別する。`audience_restricted` だけで年齢制限を断定しない。警告、一般的なcookie案内、複数原因の候補を並べた曖昧な応答、成功時のstdoutは制限判定に使わない。単一動画downloadのstderrは末尾16 KiBを上限にメモリで分類し、固定enum以外を例外・ログへ伝搬しない。timeout分類は制限らしい途中出力より優先する。
+
+InstagramとTikTokの動画転送では、受信したバイト数を数えて上限を適用する。正常な取得、サイズ検証、Cloud Storageへの転送とCRC32C照合が完了してから署名URLを発行する。一時的な失敗では中断した取得と転送を閉じ、一時objectを片付けて既存の再試行枠で取得から再開する。サイズ超過と明示的な閲覧制限は再試行しない。Instagramの複数メディアは投稿順を保持し、試行中に失敗した場合、その試行で転送済みの項目を削除してから再取得する。画像の転送経路は従来どおりとする。DASH等で `yt-dlp` が書き出す断片は試行専用の作業ディレクトリへ隔離する。1断片ずつ取得し、ファイル1個あたり32 MiBを上限とする。取得完了・中断のいずれでも試行終了時に作業ディレクトリを削除する。
 
 明示された制限は匿名取得の限界として扱い、内部再試行を止めて既存の段階別error codeを保った `retryable=false` にする。Workerの初回配送で `failed` / HTTP 204となり、同じタスクの重複配送でも再取得しない。年齢確認・ログイン・cookie注入は追加しない。SlackのsummaryとnextActionにも制限と自動再試行しない方針を固定文で表示する。
 

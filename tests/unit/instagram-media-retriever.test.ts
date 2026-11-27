@@ -1336,3 +1336,98 @@ describe("Instagram media metadata and HTTP download", () => {
     ).rejects.toThrow("unsupported by the AI provider");
   });
 });
+
+describe("Instagram carousel video streaming", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("cleans earlier items and reloads the collection after a temporary video publish failure", async () => {
+    const events: string[] = [];
+    const fetchAsset = vi.fn(
+      async () =>
+        new Response("video", {
+          headers: { "content-type": "video/mp4" },
+        }),
+    );
+    vi.stubGlobal("fetch", fetchAsset);
+    const probe = vi.fn(async () => ({
+      entries: [
+        { thumbnails: [{ url: "https://cdn.example/image.jpg" }] },
+        { formats: [{ url: "https://cdn.example/video.mp4" }] },
+      ],
+    }));
+    const downloadImage = vi.fn(
+      async (asset: InstagramMediaAsset, directory: string) => {
+        if (asset.kind !== "image")
+          throw new Error("videos may not use the file downloader");
+        const filePath = join(directory, "photo.jpg");
+        await writeFile(filePath, "photo");
+        return { filePath, sizeBytes: 5, contentType: "image/jpeg" };
+      },
+    );
+    const { Writable } = await import("node:stream");
+    const mediaStore = {
+      publish: vi.fn(async () => ({
+        kind: "image" as const,
+        contentType: "image/jpeg",
+        url: "https://storage.example/image",
+        dispose: async () => {
+          events.push("clean-image");
+        },
+      })),
+      publishStream: vi.fn(
+        async (
+          media: Parameters<
+            import("../../src/infrastructure/media/video-stream.js").VideoStreamPublisher
+          >[0],
+          write: Parameters<
+            import("../../src/infrastructure/media/video-stream.js").VideoStreamPublisher
+          >[1],
+        ) => {
+          events.push("video");
+          const chunks: Buffer[] = [];
+          await write(
+            new Writable({
+              write(chunk: Buffer, _encoding, callback) {
+                chunks.push(chunk);
+                callback();
+              },
+            }),
+          );
+          expect(Buffer.concat(chunks).toString()).toBe("video");
+          if (events.length === 1)
+            throw new AnalysisError(
+              "INSTAGRAM_MEDIA_PUBLISH_FAILED",
+              true,
+              "temporary",
+            );
+          return {
+            ...media,
+            url: "https://storage.example/video",
+            dispose: async () => {},
+          };
+        },
+      ),
+    };
+    const retriever = new YtDlpInstagramMediaRetriever(
+      config,
+      mediaStore,
+      probe,
+      undefined,
+      downloadImage,
+      async () => {},
+    );
+    const result = await retriever.retrieve(
+      new URL("https://www.instagram.com/p/mixed/"),
+    );
+    expect(result.attempts).toBe(2);
+    expect(result.items.map((item) => [item.index, item.kind])).toEqual([
+      [1, "image"],
+      [2, "video"],
+    ]);
+    expect(events).toEqual(["video", "clean-image", "video"]);
+    expect(probe).toHaveBeenCalledTimes(2);
+    expect(downloadImage).toHaveBeenCalledTimes(2);
+    expect(fetchAsset).toHaveBeenCalledTimes(2);
+    await result.dispose();
+  });
+});

@@ -6,6 +6,11 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
 
 ## 未反映
 
+- [ ] `REL-20261127-01` InstagramとTikTokの動画転送でWorkerのピークメモリを削減する
+  - 内容: 展開済みyt-dlpを同じバージョンで同梱する。動画全体の一時保存を廃止し、ストリーミング転送へ切り替える。必要なDASH断片だけを試行専用領域に制限付きで保存する
+  - 必要な反映先:
+    - [ ] Cloud Run（dev Worker）
+
 - [ ] `REL-20261024-03` Foodfolio 1.0.5 (18)をAppleへアップデート申請する
   - 内容: 公開中の1.0.4 (17)からパッチ番号を上げ、PR #149のShare Extension表示修正を含むmain `3eff7064051086e5d6d784d5ef327ae988daf480` を配布対象とする
   - PR: [#151](https://github.com/Kay-pht/foodfolio/pull/151)

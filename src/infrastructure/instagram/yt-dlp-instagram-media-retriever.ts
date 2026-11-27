@@ -20,6 +20,12 @@ import {
   YtDlpAccessRestrictionError,
 } from "../media/yt-dlp-access-restriction.js";
 import { YtDlpMediaRetriever } from "../media/yt-dlp-media-retriever.js";
+import {
+  transferVideo,
+  VideoSizeError,
+  VideoSourceError,
+  type VideoStreamPublisher,
+} from "../media/video-stream.js";
 
 const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -166,10 +172,15 @@ function instagramDownloadFailure(
 
 export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
   private readonly singleVideoRetriever: MediaRetriever;
+  private readonly publishSingleVideo?: (
+    url: URL,
+  ) => Promise<PublishedMediaCollection>;
 
   constructor(
     private readonly config: YtDlpInstagramMediaRetrieverConfig,
-    private readonly mediaStore: TemporaryMediaStore,
+    private readonly mediaStore: TemporaryMediaStore & {
+      publishStream?: VideoStreamPublisher;
+    },
     private readonly metadataProbe: InstagramMetadataProbe = runInstagramMetadataProbe,
     singleVideoRetriever?: MediaRetriever,
     private readonly assetDownloader: InstagramAssetDownloader = downloadInstagramAsset,
@@ -179,9 +190,8 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
     private readonly createWorkDirectory: WorkDirectoryFactory = () =>
       mkdtemp(join(tmpdir(), "foodfolio-instagram-media-")),
   ) {
-    this.singleVideoRetriever =
-      singleVideoRetriever ??
-      new YtDlpMediaRetriever({
+    const retriever = new YtDlpMediaRetriever(
+      {
         ...config,
         maxBytes: MAX_VIDEO_BYTES,
         maxFileSizeArgument: "100M",
@@ -213,7 +223,25 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
           retryable: true,
           message: "Instagram single-video local cleanup failed",
         },
-      });
+      },
+      undefined,
+      sleep,
+    );
+    this.singleVideoRetriever = singleVideoRetriever ?? retriever;
+    const publishStream = mediaStore.publishStream;
+    if (!singleVideoRetriever && publishStream) {
+      this.publishSingleVideo = async (url) => {
+        const { media, attempts } = await retriever.publishVideo(
+          url,
+          publishStream,
+        );
+        return {
+          items: [{ ...media, index: 1 }],
+          attempts,
+          dispose: media.dispose,
+        };
+      };
+    }
   }
 
   async retrieve(url: URL): Promise<PublishedMediaCollection> {
@@ -277,7 +305,10 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
       if (parsed.assets.length === 1 && parsed.assets[0]?.kind === "video") {
         if (workDirectory)
           await this.removeWorkDirectory(workDirectory, attempt, true);
-        return this.retrieveAndPublishSingleVideo(url);
+        return (
+          this.publishSingleVideo?.(url) ??
+          this.retrieveAndPublishSingleVideo(url)
+        );
       }
 
       let currentWorkDirectory: string;
@@ -321,6 +352,17 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
       const published: OrderedPublishedMedia[] = [];
       try {
         for (const asset of parsed.assets) {
+          if (asset.kind === "video" && this.mediaStore.publishStream) {
+            published.push({
+              ...(await publishInstagramVideo(
+                asset,
+                this.config.attemptTimeoutMs,
+                this.mediaStore.publishStream,
+              )),
+              index: asset.index,
+            });
+            continue;
+          }
           let downloaded: DownloadedInstagramAsset;
           try {
             downloaded = await this.assetDownloader(
@@ -405,7 +447,16 @@ export class YtDlpInstagramMediaRetriever implements PublishedMediaRetriever {
           await this.removeWorkDirectory(currentWorkDirectory, attempt, true);
           throw publishedCleanupFailure;
         }
-        if (attempt === this.config.maxAttempts) {
+        if (
+          attempt === this.config.maxAttempts ||
+          (failure.diagnostics?.mediaKind === "video" &&
+            this.mediaStore.publishStream &&
+            (failure.diagnostics.mediaFailureClass === "too_large" ||
+              ((failure.diagnostics.mediaFailureStage === "publish" ||
+                failure.diagnostics.mediaFailureStage ===
+                  "published_cleanup") &&
+                !failure.retryable)))
+        ) {
           await this.removeWorkDirectory(currentWorkDirectory, attempt, true);
           throw failure;
         }
@@ -721,12 +772,11 @@ export function parseInstagramMediaMetadata(
   return { assets, unavailableEntryCount };
 }
 
-export async function downloadInstagramAsset(
+async function openInstagramAsset(
   asset: InstagramMediaAsset,
-  workDirectory: string,
   timeoutMs: number,
-  fetchImpl: typeof fetch = fetch,
-): Promise<DownloadedInstagramAsset> {
+  fetchImpl: typeof fetch,
+) {
   let sourceUrl: URL;
   try {
     sourceUrl = new URL(asset.url);
@@ -766,7 +816,8 @@ export async function downloadInstagramAsset(
     );
   }
 
-  if (!response.ok)
+  if (!response.ok) {
+    await response.body?.cancel().catch(() => {});
     throw instagramDownloadFailure(
       asset,
       "asset_download",
@@ -774,7 +825,9 @@ export async function downloadInstagramAsset(
       "Instagram media request returned an unsuccessful status",
       response.status,
     );
-  if (!response.body)
+  }
+  const body = response.body;
+  if (!body)
     throw instagramDownloadFailure(
       asset,
       "asset_download",
@@ -802,7 +855,8 @@ export async function downloadInstagramAsset(
 
   const maxBytes = asset.kind === "image" ? MAX_IMAGE_BYTES : MAX_VIDEO_BYTES;
   const declaredSize = Number(response.headers.get("content-length") ?? "0");
-  if (Number.isFinite(declaredSize) && declaredSize > maxBytes)
+  if (Number.isFinite(declaredSize) && declaredSize > maxBytes) {
+    await body.cancel().catch(() => {});
     throw instagramDownloadFailure(
       asset,
       "asset_validate",
@@ -810,7 +864,61 @@ export async function downloadInstagramAsset(
       "Instagram media exceeds the allowed size",
       response.status,
     );
+  }
 
+  return { response, body, contentType, maxBytes };
+}
+
+async function publishInstagramVideo(
+  asset: InstagramMediaAsset,
+  timeoutMs: number,
+  publish: VideoStreamPublisher,
+) {
+  const { response, body, contentType, maxBytes } = await openInstagramAsset(
+    asset,
+    timeoutMs,
+    fetch,
+  );
+  try {
+    return await publish(
+      { index: asset.index, kind: "video", contentType },
+      (destination) => transferVideo(body, destination, maxBytes),
+    );
+  } catch (error) {
+    if (!body.locked) await body.cancel().catch(() => {});
+    if (error instanceof VideoSizeError) {
+      throw instagramDownloadFailure(
+        asset,
+        "asset_validate",
+        error.classification,
+        error.message,
+        response.status,
+      );
+    }
+    if (error instanceof VideoSourceError) {
+      throw instagramDownloadFailure(
+        asset,
+        "asset_download",
+        isTimeoutFailure(error) ? "timeout" : "body_read",
+        error.message,
+        response.status,
+      );
+    }
+    throw mediaFailureContext(error, "publish", asset);
+  }
+}
+
+export async function downloadInstagramAsset(
+  asset: InstagramMediaAsset,
+  workDirectory: string,
+  timeoutMs: number,
+  fetchImpl: typeof fetch = fetch,
+): Promise<DownloadedInstagramAsset> {
+  const { response, body, contentType, maxBytes } = await openInstagramAsset(
+    asset,
+    timeoutMs,
+    fetchImpl,
+  );
   const outputPath = join(
     workDirectory,
     `${String(asset.index).padStart(2, "0")}-${asset.kind}${extensionForContentType(contentType)}`,
@@ -830,7 +938,7 @@ export async function downloadInstagramAsset(
 
   let sizeBytes = 0;
   try {
-    const reader = response.body.getReader();
+    const reader = body.getReader();
     while (true) {
       let chunk: ReadableStreamReadResult<Uint8Array>;
       try {

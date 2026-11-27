@@ -60,3 +60,42 @@ describe("GcsTemporaryMediaStore", () => {
     dateNow.mockRestore();
   });
 });
+
+it("never signs a partial video when the source fails after writing bytes", async () => {
+  const { PassThrough } = await import("node:stream");
+  const upload = new PassThrough();
+  upload.resume();
+  const deleteObject = vi.fn(async () => {});
+  const getSignedUrl = vi.fn();
+  const storage = {
+    bucket: () => ({
+      file: () => ({
+        createWriteStream: () => upload,
+        delete: deleteObject,
+        getSignedUrl,
+      }),
+    }),
+  } as unknown as Storage;
+  const store = new GcsTemporaryMediaStore(
+    {
+      bucketName: "private",
+      publishFailure: {
+        code: "PUBLISH_FAILED",
+        retryable: true,
+        message: "failed",
+      },
+    },
+    storage,
+  );
+  await expect(
+    store.publishStream(
+      { index: 1, kind: "video", contentType: "video/mp4" },
+      async (destination) => {
+        destination.write("partial");
+        throw new Error("interrupted");
+      },
+    ),
+  ).rejects.toMatchObject({ code: "PUBLISH_FAILED" });
+  expect(getSignedUrl).not.toHaveBeenCalled();
+  expect(deleteObject).toHaveBeenCalledOnce();
+});

@@ -1,11 +1,5 @@
-import type {
-  DownloadedVideo,
-  TikTokVideoDownloader,
-} from "../../application/analysis/types.js";
-import {
-  runYtDlpAttempt,
-  YtDlpMediaRetriever,
-} from "../media/yt-dlp-media-retriever.js";
+import { YtDlpMediaRetriever } from "../media/yt-dlp-media-retriever.js";
+import type { VideoStreamPublisher } from "../media/video-stream.js";
 
 const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
 
@@ -17,33 +11,12 @@ export interface YtDlpDownloaderConfig {
   maxRetrySeconds: number;
 }
 
-type AttemptRunner = (
-  binaryPath: string,
-  sourceUrl: string,
-  outputPath: string,
-  timeoutMs: number,
-) => Promise<void>;
-
-type Sleeper = (milliseconds: number) => Promise<void>;
-
-const defaultAttemptRunner: AttemptRunner = (
-  binaryPath,
-  sourceUrl,
-  outputPath,
-  timeoutMs,
-) =>
-  runYtDlpAttempt(binaryPath, sourceUrl, outputPath, timeoutMs, {
-    formatSelector: "b[ext=mp4]",
-    maxFileSizeArgument: "100M",
-  });
-
-export class YtDlpTikTokVideoDownloader implements TikTokVideoDownloader {
+export class YtDlpTikTokVideoDownloader {
   private readonly retriever: YtDlpMediaRetriever;
 
   constructor(
     config: YtDlpDownloaderConfig,
-    runAttempt: AttemptRunner = defaultAttemptRunner,
-    sleep: Sleeper = (milliseconds) =>
+    sleep: (milliseconds: number) => Promise<void> = (milliseconds) =>
       new Promise((resolve) => setTimeout(resolve, milliseconds)),
   ) {
     this.retriever = new YtDlpMediaRetriever(
@@ -68,25 +41,14 @@ export class YtDlpTikTokVideoDownloader implements TikTokVideoDownloader {
           message: `TikTok video download failed after ${config.maxAttempts} attempts`,
         },
       },
-      (binaryPath, sourceUrl, outputPath, timeoutMs) =>
-        runAttempt(binaryPath, sourceUrl, outputPath, timeoutMs),
+      undefined,
       sleep,
     );
   }
 
-  async download(url: URL): Promise<DownloadedVideo> {
-    const collection = await this.retriever.retrieve(url);
-    const video = collection.items[0];
-    if (!video || video.kind !== "video") {
-      await collection.dispose();
-      throw new Error("TikTok video retriever returned no video");
-    }
-    return {
-      filePath: video.filePath,
-      sizeBytes: video.sizeBytes,
-      attempts: collection.attempts,
-      dispose: collection.dispose,
-    };
+  async publish(url: URL, publish: VideoStreamPublisher) {
+    const { media } = await this.retriever.publishVideo(url, publish);
+    return media;
   }
 }
 
