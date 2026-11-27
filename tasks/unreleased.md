@@ -8,6 +8,7 @@ PR作成前に、利用者の操作や実行環境の挙動が変わる項目を
 
 - [ ] `REL-20261127-01` InstagramとTikTokの動画転送でWorkerのピークメモリを削減する
   - 内容: 展開済みyt-dlpを同じバージョンで同梱する。動画全体の一時保存を廃止し、ストリーミング転送へ切り替える。必要なDASH断片だけを試行専用領域に制限付きで保存する
+  - PR: [#156](https://github.com/Kay-pht/foodfolio/pull/156)
   - 必要な反映先:
     - [ ] Cloud Run（dev Worker）
 
