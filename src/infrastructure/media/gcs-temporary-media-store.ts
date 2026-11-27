@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { extname } from "node:path";
+import { PassThrough } from "node:stream";
 import { Storage } from "@google-cloud/storage";
+import { request } from "undici";
 import {
   AnalysisError,
   type LocalMediaItem,
@@ -17,6 +19,12 @@ import {
 
 const DEFAULT_SIGNED_URL_LIFETIME_MS = 10 * 60 * 1000;
 const DEFAULT_STREAM_TIMEOUT_MS = 45_000;
+
+class StorageUploadHttpError extends Error {
+  constructor(readonly status: number) {
+    super("Cloud Storage upload failed");
+  }
+}
 
 export interface GcsTemporaryMediaStoreConfig {
   bucketName: string;
@@ -48,19 +56,82 @@ export class GcsTemporaryMediaStore implements TemporaryMediaStore {
     this.publishObject(
       media,
       extensionFor(media),
-      async (bucket, objectName) => {
-        const destination = bucket.file(objectName).createWriteStream({
-          ...uploadOptions(media.contentType),
-          timeout: this.config.streamTimeoutMs ?? DEFAULT_STREAM_TIMEOUT_MS,
-        });
-        try {
-          await write(destination);
-        } finally {
-          if (!destination.writableFinished) destination.destroy();
-        }
-      },
+      (_bucket, objectName) =>
+        this.uploadVideo(objectName, media.contentType, write),
       true,
     );
+
+  private async uploadVideo(
+    objectName: string,
+    contentType: string,
+    write: Parameters<VideoStreamPublisher>[1],
+  ): Promise<void> {
+    const endpoint = new URL(
+      `/upload/storage/v1/b/${encodeURIComponent(this.config.bucketName)}/o`,
+      this.storage.apiEndpoint,
+    );
+    endpoint.search = new URLSearchParams({
+      uploadType: "multipart",
+      name: objectName,
+    }).toString();
+    const boundary = randomUUID();
+    const checksum = this.storage.crc32cGenerator();
+    const destination = new PassThrough();
+    const controller = new AbortController();
+    const signal = AbortSignal.any([
+      controller.signal,
+      AbortSignal.timeout(
+        this.config.streamTimeoutMs ?? DEFAULT_STREAM_TIMEOUT_MS,
+      ),
+    ]);
+    async function* multipartBody() {
+      yield Buffer.from(
+        `--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(uploadOptions(contentType).metadata)}\r\n--${boundary}\r\nContent-Type: ${contentType}\r\n\r\n`,
+      );
+      for await (const chunk of destination as AsyncIterable<Buffer>) {
+        checksum.update(chunk);
+        yield chunk;
+      }
+      yield Buffer.from(`\r\n--${boundary}--\r\n`);
+    }
+    // The SDK's multipart wrapper does not abort a stalled HTTP response.
+    // Use the same authenticated JSON API request with an abortable body.
+    const authorization = await this.storage.authClient.getRequestHeaders(
+      endpoint.href,
+    );
+    const upload = request(endpoint, {
+      method: "POST",
+      headers: {
+        ...authorization,
+        "content-type": `multipart/related; boundary=${boundary}`,
+      },
+      body: multipartBody(),
+      signal,
+    }).then(async (response) => {
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        response.body.destroy();
+        throw Object.assign(new Error("Cloud Storage upload failed"), {
+          code: response.statusCode,
+        });
+      }
+      const metadata = (await response.body.json()) as { crc32c?: unknown };
+      if (
+        typeof metadata?.crc32c !== "string" ||
+        !checksum.validate(metadata.crc32c)
+      ) {
+        throw new Error("Cloud Storage checksum did not match");
+      }
+    });
+    const transfer = Promise.resolve().then(() => write(destination));
+    try {
+      await Promise.all([upload, transfer]);
+    } catch (error) {
+      controller.abort();
+      destination.destroy();
+      await Promise.allSettled([upload, transfer]);
+      throw error;
+    }
+  }
 
   private async publishObject(
     media: Pick<LocalMediaItem, "kind" | "contentType">,
@@ -147,12 +218,6 @@ function extensionFor(
 }
 
 function isTransientStorageFailure(error: unknown): boolean {
-  if (!error || typeof error !== "object" || !("code" in error)) return true;
-  const status = Number(error.code);
-  return (
-    !Number.isInteger(status) ||
-    status === 408 ||
-    status === 429 ||
-    status >= 500
-  );
+  if (!(error instanceof StorageUploadHttpError)) return true;
+  return error.status === 408 || error.status === 429 || error.status >= 500;
 }

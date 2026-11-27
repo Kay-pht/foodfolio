@@ -62,15 +62,15 @@ describe("GcsTemporaryMediaStore", () => {
 });
 
 it("never signs a partial video when the source fails after writing bytes", async () => {
-  const { PassThrough } = await import("node:stream");
-  const upload = new PassThrough();
-  upload.resume();
   const deleteObject = vi.fn(async () => {});
   const getSignedUrl = vi.fn();
+  const { Storage: StorageClient } = await import("@google-cloud/storage");
   const storage = {
+    apiEndpoint: "http://127.0.0.1:9",
+    authClient: { getRequestHeaders: async () => ({}) },
+    crc32cGenerator: new StorageClient().crc32cGenerator,
     bucket: () => ({
       file: () => ({
-        createWriteStream: () => upload,
         delete: deleteObject,
         getSignedUrl,
       }),
@@ -118,6 +118,12 @@ it("times out after a storage server reads the body without responding", async (
   const address = server.address();
   if (!address || typeof address === "string")
     throw new Error("No test address");
+  const storage = new StorageClient({
+    apiEndpoint: `http://127.0.0.1:${address.port}`,
+    useAuthWithCustomEndpoint: false,
+    retryOptions: { autoRetry: false },
+  });
+  vi.spyOn(storage.authClient, "getRequestHeaders").mockResolvedValue({});
   const store = new GcsTemporaryMediaStore(
     {
       bucketName: "fixture",
@@ -128,11 +134,7 @@ it("times out after a storage server reads the body without responding", async (
         message: "failed",
       },
     },
-    new StorageClient({
-      apiEndpoint: `http://127.0.0.1:${address.port}`,
-      useAuthWithCustomEndpoint: false,
-      retryOptions: { autoRetry: false },
-    }),
+    storage,
   );
   const timer = AbortSignal.timeout(900);
   try {
