@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { extname } from "node:path";
-import { PassThrough } from "node:stream";
+import { PassThrough, Readable } from "node:stream";
 import { Storage } from "@google-cloud/storage";
 import { request } from "undici";
 import {
@@ -105,7 +105,7 @@ export class GcsTemporaryMediaStore implements TemporaryMediaStore {
         ...authorization,
         "content-type": `multipart/related; boundary=${boundary}`,
       },
-      body: multipartBody(),
+      body: Readable.from(multipartBody(), { objectMode: false }),
       signal,
     }).then(async (response) => {
       if (response.statusCode < 200 || response.statusCode >= 300) {
