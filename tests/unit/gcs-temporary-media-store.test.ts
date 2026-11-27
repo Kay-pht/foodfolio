@@ -107,10 +107,10 @@ it("times out after a storage server reads the body without responding", async (
   const { pipeline } = await import("node:stream/promises");
   const { Storage: StorageClient } = await import("@google-cloud/storage");
   const requests: string[] = [];
+  let uploadedBytes = 0;
   const server = createServer(async (request, response) => {
-    for await (const _chunk of request) {
-      // Drain the request so only the response is stalled.
-    }
+    for await (const chunk of request)
+      uploadedBytes += (chunk as Buffer).length;
     requests.push(request.method ?? "");
     if (request.method === "DELETE") response.writeHead(204).end();
   }).listen(0, "127.0.0.1");
@@ -127,7 +127,7 @@ it("times out after a storage server reads the body without responding", async (
   const store = new GcsTemporaryMediaStore(
     {
       bucketName: "fixture",
-      streamTimeoutMs: 60,
+      streamTimeoutMs: 150,
       publishFailure: {
         code: "PUBLISH_FAILED",
         retryable: true,
@@ -136,7 +136,7 @@ it("times out after a storage server reads the body without responding", async (
     },
     storage,
   );
-  const timer = AbortSignal.timeout(900);
+  const timer = AbortSignal.timeout(1_500);
   try {
     await expect(
       Promise.race([
@@ -151,6 +151,7 @@ it("times out after a storage server reads the body without responding", async (
       ]),
     ).rejects.toMatchObject({ code: "PUBLISH_FAILED", retryable: true });
     expect(requests).toEqual(["POST", "DELETE"]);
+    expect(uploadedBytes).toBeGreaterThan(5);
   } finally {
     server.closeAllConnections();
     server.close();
